@@ -1805,8 +1805,13 @@ void Main::advanceBigStep(int iStep) {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 	}
     if(param.bDoExternalGravity) {
+        CkReductionMsg *msgFrameAcc;
         treeProxy.externalGravity(activeRung, param.externalGravity,
-                                  CkCallbackResumeThread());
+                                  CkCallbackResumeThread((void*&)msgFrameAcc));
+        double *frameAcc = (double *)msgFrameAcc->getData();
+        Vector3D<double> frameAccVec(frameAcc[0], frameAcc[1], frameAcc[2]);
+        treeProxy.applyFrameAcc(activeRung, frameAccVec, CkCallbackResumeThread());
+        delete msgFrameAcc;
         }
     
     if(verbosity > 1)
@@ -2483,8 +2488,13 @@ Main::initialForces()
       treeProxy.initAccel(0, CkCallbackResumeThread());
       }
   if(param.bDoExternalGravity) {
+      CkReductionMsg *msgFrameAcc;
       treeProxy.externalGravity(0, param.externalGravity,
-                                CkCallbackResumeThread());
+                                CkCallbackResumeThread((void*&)msgFrameAcc));
+        double *frameAcc = (double *)msgFrameAcc->getData();
+        Vector3D<double> frameAccVec(frameAcc[0], frameAcc[1], frameAcc[2]);
+        treeProxy.applyFrameAcc(0, frameAccVec, CkCallbackResumeThread());
+        delete msgFrameAcc;
       }
   if(param.bDoGas) {
       // Get star center of mass

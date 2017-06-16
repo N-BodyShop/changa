@@ -1,6 +1,10 @@
 #include "ParallelGravity.h"
 #include "externalGravity.h"
 
+///
+// @brief initalize parameters for external potential field
+//
+
 void ExternalGravity::AddParams(PRM prm)
 {
     bBodyForce = 0;
@@ -48,22 +52,54 @@ void ExternalGravity::CheckParams(PRM prm, struct parameters &param)
     }
 
 /*
- * Apply an external gravitational force
+ * @brief This function applies the external potential force to every applicable
+ * particle on this TreePiece.
+ *
+ * Applies an acceleration on every particle on the current tree piece that is on
+ * or above the current rung. This function also keeps track of the acceleration on 
+ * the potential imparted by the particles.
+ *
+ * @param iKickRung The current rung that we are on
+ * @param exGrav A reference to the ExternalGravity class
+ *
+ * @return The accumulated acceleration on the potential by the particles on this
+ * TreePiece
  */
 void TreePiece::externalGravity(int iKickRung, const ExternalGravity exGrav,
                                 const CkCallback& cb)
 {
     CkAssert(bBucketsInited);
+
+    // Keep track of the forces of the particles on the external potential
+    double frameAcc[3];
+    frameAcc[0] = 0.0;
+    frameAcc[1] = 0.0;
+    frameAcc[2] = 0.0;
+    Vector3D<double> pFrameAcc;
+
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
         GravityParticle *p = &myParticles[i];
-        if(p->rung >= iKickRung)
-            exGrav.applyPotential(p);
+        if(p->rung >= iKickRung) {
+            pFrameAcc = exGrav.applyPotential(p);
+            frameAcc[0] += pFrameAcc[0];
+            frameAcc[1] += pFrameAcc[1];
+            frameAcc[2] += pFrameAcc[2];
+            }
         }
-    contribute(cb);
+    contribute(sizeof(frameAcc), frameAcc, CkReduction::sum_double, cb);
     }
 
-void ExternalGravity::applyPotential(GravityParticle *p) const
+/*
+ * @brief This function applies the external potential force to a specific particle
+ * by updating its 'treeAcceleration'.
+ *
+ * @param p The particle to apply the potential to
+ *
+ * @return The acceleration on the potential by particle p
+ */
+Vector3D<double> ExternalGravity::applyPotential(GravityParticle *p) const
 {
+    Vector3D<double> pFrameAcc(0., 0., 0.);
     if (bBodyForce) {
         if(p->position.z > 0.0) {
             p->treeAcceleration.z -= dBodyForceConst;
@@ -128,11 +164,32 @@ void ExternalGravity::applyPotential(GravityParticle *p) const
         Vector3D<double> rVec = p->position/r;
         double c = (r*sqrt(px*px+py*py));
         Vector3D<double> thetaVec(px*pz/c, py*pz/c, -(px*px + py*py)/c);
+        Vector3D<double> a = ar*rVec + atheta*thetaVec;
 
-        p->treeAcceleration += ar*rVec + atheta*thetaVec;
+        p->treeAcceleration += a;
+        pFrameAcc = -a*p->mass/dCentMass;
 
         double idt2 = ar/r;
         if(idt2 > p->dtGrav)
             p->dtGrav = idt2;
         }
+    return pFrameAcc;
+    }
+
+/*
+ * @brief For use when transforming into an accelerating frame of reference. Given
+ * the acceleration of the frame, this function applies the opposite of this
+ * acceleration to all particles on this TreePiece.
+ *
+ * @param frameAcc The acceleration on the frame at the current time
+ */
+void TreePiece::applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb)
+{
+    for (unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *q = &myParticles[i];
+        if(q->rung >= iKickRung)
+            q->treeAcceleration -= frameAcc; 
+        }
+
+    contribute(cb);
     }

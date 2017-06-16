@@ -351,6 +351,7 @@ mainmodule ParallelGravity {
 	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
 	    const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
+    entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
     entry void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
     entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
