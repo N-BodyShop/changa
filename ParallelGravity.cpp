@@ -2025,6 +2025,8 @@ void Main::setupICs() {
           }
       }
   getStartTime();
+  /* The following is used to help restart DumpFrame. */
+  dTime0 = dTime - param.dDelta*param.iStartStep;
   if(param.nSteps > 0) getOutTimes();
   for(iOut = 0; iOut < vdOutTime.size(); iOut++) {
       if(dTime < vdOutTime[iOut]) break;
@@ -2352,7 +2354,7 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	    initStarLog();
         if(param.bStarForm || param.bFeedback)
             treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
-        DumpFrameInit(dTime, 0.0, bIsRestarting);
+        DumpFrameInit(dTime0, 0.0, bIsRestarting);
 
 	/***** Initial sorting of particles and Domain Decomposition *****/
 	CkPrintf("Initial domain decomposition ... ");
@@ -2539,7 +2541,7 @@ Main::initialForces()
   /* 
    ** Dump Frame Initialization
    */
-  DumpFrameInit(dTime, 0.0, param.iStartStep > 0);
+  DumpFrameInit(dTime0, 0.0, param.iStartStep > 0);
 
   if (param.bLiveViz > 0) {
     ckout << "Initializing liveViz module..." << endl;
@@ -3572,7 +3574,24 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 
 		if(!bRestart)
 		    DumpFrame(dTime, dStep );
-                if(df[0]->dDumpFrameStep > 0) {
+                if(df[0]->dDumpFrameTime > 0) {
+                    /* Bring frame count up to correct place for restart. */
+                    while(df[0]->dTime + df[0]->dDumpFrameTime
+                          < dTime0 + param.dDelta*param.iStartStep) {
+                        df[0]->dTime += df[0]->dDumpFrameTime;
+                        df[0]->nFrame++;
+                        }
+                    // initialize the rest of the dumpframes
+                    if (param.iDirector > 1) {
+                        int j;
+                        for(j=0; j < param.iDirector; j++) {
+                            df[j]->dStep = df[0]->dStep;
+                            df[j]->dDumpFrameTime = df[0]->dDumpFrameTime;
+                            df[j]->nFrame = df[0]->nFrame;
+                            }
+                        }
+                    }
+                else if(df[0]->dDumpFrameStep > 0) {
                     /* Bring frame count up to correct place for restart. */
                     while(df[0]->dStep + df[0]->dDumpFrameStep < param.iStartStep) {
                         df[0]->dStep += df[0]->dDumpFrameStep;
@@ -3773,6 +3792,7 @@ void Main::pup(PUP::er& p)
     p | nMaxOrder;
     p | theta;
     p | dTime;
+    p | dTime0;
     p | dEcosmo;
     p | dUOld;
     p | dTimeOld;

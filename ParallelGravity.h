@@ -451,6 +451,7 @@ class Main : public CBase_Main {
 	int64_t nMaxOrder;
 	
 	double dTime;		/* Simulation time */
+	double dTime0;		///< Simulation time at dStep = 0
 	double dEcosmo;		/* variables for integrating
 				   Lazer-Irvine eq. */
 	double dUOld;
