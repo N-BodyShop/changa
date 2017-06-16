@@ -111,6 +111,7 @@ class extraSPHData
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
     inline double& fBallMax() {return _fBallMax;}
 #ifdef CULLENALPHA
+    inline const double CullenAlpha() const {return _CullenAlpha;}
     inline double& CullenAlpha() {return _CullenAlpha;}
     inline double& TimeDivV() {return _TimeDivV;}
     inline double& dvds() {return _dvds;}
@@ -330,6 +331,7 @@ public:
 	inline double& BalsaraSwitch() { IMAGAS; return (((extraSPHData*)extraData)->BalsaraSwitch());}
 	inline double& fBallMax() { IMAGAS; return (((extraSPHData*)extraData)->fBallMax());}
 #ifdef CULLENALPHA
+        inline const double CullenAlpha() const {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
         inline double& CullenAlpha() {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
         inline double& TimeDivV() {IMAGAS; return (((extraSPHData*)extraData)->TimeDivV());}
         inline double& dvds() {IMAGAS; return (((extraSPHData*)extraData)->dvds());}
