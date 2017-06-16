@@ -2100,6 +2100,9 @@ void Main::setupICs() {
 #ifdef CMK_USE_AVX
   ofsLog << " CMK_USE_AVX";
 #endif
+#ifdef COSMO_FLOAT
+  ofsLog << " COSMO_FLOAT";
+#endif
 #ifdef CHANGESOFT
   ofsLog << " CHANGESOFT";
 #endif
