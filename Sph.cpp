@@ -920,7 +920,8 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef SUPERBUBBLE
         // Assume the cold phase is a shell surrounding the hot phase,
         // which is a sphere
-		columnL = pow(0.75*(p->mass-p->massHot())/(M_PI*fDensity) + pow(columnLHot,3), 0.333) - columnLHot;
+        CkAssert(columnL > columnLHot);
+        columnL = columnL - columnLHot;
 #endif
 #ifdef COOLDEBUG
 		dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
