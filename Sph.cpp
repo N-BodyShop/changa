@@ -854,6 +854,7 @@ void TreePiece::updateuDot(int activeRung,
 #endif
         double frac = p->massHot()/p->mass;
         double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
+	double fDensityHot;
         double uMean = frac*p->uHotPred()+(1-frac)*p->uPred();
         CkAssert(uMean > 0.0);
         CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
@@ -865,12 +866,12 @@ void TreePiece::updateuDot(int activeRung,
             ExternalHeating = p->PdV()*p->uHotPred()/uMean + p->fESNrate();
             if (p->uHot() > 0) {
                 E = p->uHot();
-                fDensity = p->fDensity*PoverRho/(gammam1*p->uHot());
+                fDensityHot = p->fDensity*(p->uHot()*frac+p->u()*(1-frac))/p->uHot();
                 cp = p->CoolParticleHot();
 #ifdef COOLING_MOLECULARH
                 // Assume the cold phase is a shell surrounding the hot phase,
                 // which is a sphere
-                columnLHot = pow(0.75*p->massHot()/(M_PI*fDensity), 0.333);
+                columnLHot =  pow((p->massHot()/fDensityHot)*(p->fDensity/p->mass), 1./3.)*(0.5*p->fBall);
 #ifdef COOLDEBUG
                 dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
@@ -920,7 +921,7 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef SUPERBUBBLE
         // Assume the cold phase is a shell surrounding the hot phase,
         // which is a sphere
-        CkAssert(columnL > columnLHot);
+        assert(columnL > columnLHot);
         columnL = columnL - columnLHot;
 #endif
 #ifdef COOLDEBUG
