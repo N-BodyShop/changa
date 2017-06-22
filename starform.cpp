@@ -304,7 +304,6 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 
 #ifdef COOLING_MOLECULARH
     double yH;
-    double columnL = sqrt(0.25)*p->fBall;/*correlation length used for H2 shielding, CC*/
     double dMprob;
     if (dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
     else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
