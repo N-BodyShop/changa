@@ -93,7 +93,9 @@ void Main::doCollisions(double dTime, double dDelta)
            param.collision.bAllowMergers, param.collision.dMaxBinaryEcc,
            param.collision.iMinBinaryRung, param.collision);
         double startTime = CkWallTimer();
-        treeProxy.startReSmooth(&pCS, CkCallbackResumeThread());
+        double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+        treeProxy.startSmooth(&pCS, 0, param.collision.nSmoothCollision,
+              dfBall2OverSoft2, CkCallbackResumeThread());
         double endTime = CkWallTimer();
         tSmooth += endTime-startTime;
 
