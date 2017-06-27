@@ -285,6 +285,7 @@ class PotOutputParams : public OutputParams
     };
 
 
+#ifdef COLLISION
 /// @brief Output particle spin
 class SpinOutputParams : public OutputParams
 {
@@ -308,6 +309,7 @@ public:
         OutputParams::pup(p);//Call base class
     }
     };
+#endif
 
 /// @brief Output particle gas density
 class GasDenOutputParams : public OutputParams

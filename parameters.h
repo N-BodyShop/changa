@@ -266,8 +266,10 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dEvapCoeffCode;
     p|param.bDoExternalGravity;
     p|param.externalGravity;
+#ifdef COLLISION
     p|param.bCollision;
     p|param.collision;
+#endif
     p|param.iRandomSeed;
     p|param.sinks;
     p|param.dSIDMSigma;

@@ -1969,6 +1969,7 @@ void Main::advanceBigStep(int iStep) {
 	      if(verbosity)
 		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
 
+#ifdef COLLISION
           // Collision detection and response handling
           if (param.bCollision) {
               CkPrintf("Starting collision detection and response\n");
@@ -1988,6 +1989,7 @@ void Main::advanceBigStep(int iStep) {
               timings[activeRung].tColl += tColl;
               treeProxy.finishNodeCache(CkCallbackResumeThread());
               }
+#endif
 
           startTime = CkWallTimer();
 	      // Only effective if growmass parameters have been set.
@@ -2315,6 +2317,7 @@ void Main::setupICs() {
   else
       param.feedback->NullFeedback();
 
+<<<<<<< HEAD
   param.sinks.CheckParams(prm, param);
   SetSink();
  
@@ -2332,8 +2335,12 @@ void Main::setupICs() {
   }
   
   param.externalGravity.CheckParams(prm, param);
+=======
+#ifdef COLLISION
+>>>>>>> Encapsulate collision code
   if(param.bCollision)
       param.collision.CheckParams(prm, param);
+#endif
 
   string achLogFileName = string(param.achOutName) + ".log";
   ofstream ofsLog;

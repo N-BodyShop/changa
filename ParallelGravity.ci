@@ -151,7 +151,9 @@ mainmodule ParallelGravity {
   PUPable PosOutputParams;
   PUPable VelOutputParams;
   PUPable PotOutputParams;
+#ifdef COLLISION
   PUPable SpinOutputParams;
+#endif
   PUPable GasDenOutputParams;
   PUPable TempOutputParams;
   PUPable AccOutputParams;
@@ -443,11 +445,13 @@ mainmodule ParallelGravity {
     entry void Feedback(Fdbk fb, double dTime, double dDelta,
     	       		const CkCallback& cb);
     entry void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
+#ifdef COLLISION
     entry void getCollInfo(const CkCallback& cb);
     entry void getCollInfo(int iOrder, const CkCallback& cb);
     entry void resolveCollision(Collision coll, ColliderInfo &c1, ColliderInfo &c2,
         int bMerge, double baseStep, double timeNow, const CkCallback& cb);
     entry void resolveWallCollision(Collision coll, ColliderInfo &c1, const CkCallback& cb);
+#endif
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);

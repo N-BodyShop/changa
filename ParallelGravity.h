@@ -599,6 +599,9 @@ public:
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
         void doCollisions(double dTime, double dDelta);
+#ifdef COLLISION
+    void doCollisions(double dTime, double dDelta);
+#endif
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
 	void outputBlackHoles(double dTime);
@@ -1822,12 +1825,14 @@ public:
         void Feedback(const Fdbk &fb, double dTime, double dDelta,
                       const CkCallback& cb);
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
+#ifdef COLLISION
     void getCollInfo(const CkCallback& cb);
     void getCollInfo(int iOrder, const CkCallback& cb);
     void resolveCollision(Collision coll, ColliderInfo &c1, ColliderInfo &c2,
                           int bMerge, double baseStep, double timeNow,
                           const CkCallback& cb);
     void resolveWallCollision(Collision coll, ColliderInfo &c1, const CkCallback& cb);
+#endif
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);
