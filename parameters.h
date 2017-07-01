@@ -5,26 +5,7 @@
 #include "cooling.h"
 #include "starform.h"
 #include "feedback.h"
-
-/// @brief Class for external gravity parameters
-class externalGravityParams
-{
- public:
-    bool bDoExternalGravity; ///< Set if any exteran potential is used
-    int bBodyForce;          ///< Constant acceleration
-    double dBodyForceConst;
-    int bPatch;              ///< Patch in a disk
-    double dCentMass;        ///< Central mass in the disk
-    double dOrbDist;         ///< Distance of the patch from the center
-    void pup(PUP::er& p) {
-        p| bDoExternalGravity;
-        p| bBodyForce;
-        p| dBodyForceConst;
-        p| bPatch;
-        p| dCentMass;
-        p| dOrbDist;
-        }
-};
+#include "externalGravity.h"
 
 /** @brief Hold parameters of the run.
  */
@@ -69,10 +50,7 @@ typedef struct parameters {
 #endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
-    /*
-     * External Potentials
-     */
-    externalGravityParams exGravParams;
+    double dGlassDamper;
     /*
      * GrowMass parameters
      */
@@ -101,12 +79,16 @@ typedef struct parameters {
     double dGasConst;
     double dConstAlpha;
     double dConstBeta;
+    double dConstAlphaMax;
     double dConstGamma;
     double dMeanMolWeight;
     double dErgPerGmUnit;
     double dGmPerCcUnit;
     double dSecUnit;
     double dComovingGmPerCcUnit;
+    double dThermalDiffusionCoeff;
+    double dMetalDiffusionCoeff;
+    int bConstantDiffusion;
     int bSphStep;
     int bFastGas;
     double dFracFastGas;
@@ -114,11 +96,14 @@ typedef struct parameters {
     int iViscosityLimiter;
     int bViscosityLimitdt;
     double dEtaCourant;
+    double dEtaDiffusion;
     double dEtauDot;
     int bStarForm;
     Stfm *stfm;
     int bFeedback;
     Fdbk *feedback;
+    int bDoExternalGravity;
+    ExternalGravity externalGravity;
     int iRandomSeed;
     int bStandard;
     int bDoublePos;
@@ -189,8 +174,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     if(p.isUnpacking())
  	csmInitialize(&param.csm);
     p|*param.csm;
+    p|param.dGlassDamper;
     p|param.dRedTo;
-    p|param.exGravParams;
     p|param.bDynGrowMass;
     p|param.nGrowMass;
     p|param.dGrowDeltaM;
@@ -216,15 +201,20 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dGasConst;
     p|param.dConstAlpha;
     p|param.dConstBeta;
+    p|param.dConstAlphaMax;
     p|param.dConstGamma;
     p|param.dMeanMolWeight;
     p|param.dErgPerGmUnit;
     p|param.dGmPerCcUnit;
     p|param.dSecUnit;
     p|param.dComovingGmPerCcUnit;
+    p|param.dThermalDiffusionCoeff;
+    p|param.dMetalDiffusionCoeff;
+    p|param.bConstantDiffusion;
     p|param.bSphStep;
     p|param.bViscosityLimitdt;
     p|param.dEtaCourant;
+    p|param.dEtaDiffusion;
     p|param.dEtauDot;
     p|param.bStarForm;
     if(p.isUnpacking())
@@ -232,6 +222,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|*param.stfm;
     p|param.bFeedback;
     p|param.feedback;
+    p|param.bDoExternalGravity;
+    p|param.externalGravity;
     p|param.iRandomSeed;
     p|param.bStandard;
     p|param.bDoublePos;

@@ -4,8 +4,9 @@
 #ifndef GRAVITYPARTICLE_H
 #define GRAVITYPARTICLE_H
 
+#include <charm.h>              /* for CkAssert */
 #include "cooling.h"
-
+#include "cosmoType.h"
 #include "SFC.h"
 #include <vector>
 
@@ -32,15 +33,17 @@ public:
 class ExternalGravityParticle {
  public:
 
-  double mass;
-  double soft;
-  Vector3D<double> position;
+  cosmoType mass;
+  cosmoType soft;
+  Vector3D<cosmoType> position;
 
+#ifdef __CHARMC__
   void pup(PUP::er &p) {
     p | position;
     p | mass;
     p | soft;
   }
+#endif
 };
 
 /// @brief Extra data needed for SPH
@@ -64,6 +67,13 @@ class extraSPHData
     double _PoverRho2;		/* Pressure/rho^2 */
     double _BalsaraSwitch;	/* Pressure/rho^2 */
     double _fBallMax;		/* Radius for inverse neighbor finding */
+#ifdef CULLENALPHA
+    double _CullenAlpha;        /* Alpha from Cullen & Dehnen 2010 */
+    double _TimeDivV;           /* Time at which dvds was last updated */
+    double _dvds;
+    double _dvdsOnSFull;        ///< dvds for use in the Cullen R calculation
+    double _dvds_old;           ///< Save dvds(OnSFull) for R calculation
+#endif
 #ifdef DTADJUST
     double _dtNew;		/* New timestep from gas pressure */
 #endif
@@ -72,6 +82,15 @@ class extraSPHData
 				   predicting u */
     COOLPARTICLE _CoolParticle;	/* Abundances and any other cooling
 				   internal variables */
+#endif
+#ifdef DIFFUSION
+    double _diff;		/* Diffusion coefficient, based on Smagorinski  */
+    double _fMetalsDot;
+    double _fMetalsPred;
+    double _fMFracOxygenDot;
+    double _fMFracIronDot;
+    double _fMFracOxygenPred;
+    double _fMFracIronPred;
 #endif
     
  public:
@@ -91,6 +110,14 @@ class extraSPHData
     inline double& PoverRho2() {return _PoverRho2;}
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
     inline double& fBallMax() {return _fBallMax;}
+#ifdef CULLENALPHA
+    inline const double CullenAlpha() const {return _CullenAlpha;}
+    inline double& CullenAlpha() {return _CullenAlpha;}
+    inline double& TimeDivV() {return _TimeDivV;}
+    inline double& dvds() {return _dvds;}
+    inline double& dvdsOnSFull() {return _dvdsOnSFull;}
+    inline double& dvds_old() {return _dvds_old;}
+#endif
 #ifdef DTADJUST
     inline double& dtNew() {return _dtNew;}
 #endif
@@ -98,6 +125,16 @@ class extraSPHData
     inline double& uDot() {return _uDot;}
     inline COOLPARTICLE& CoolParticle() {return _CoolParticle;}
 #endif
+#ifdef DIFFUSION
+    inline double& diff() {return _diff;}
+    inline double& fMetalsDot() {return _fMetalsDot;}
+    inline double& fMetalsPred() {return _fMetalsPred;}
+    inline double& fMFracOxygenDot() {return _fMFracOxygenDot;}
+    inline double& fMFracOxygenPred() {return _fMFracOxygenPred;}
+    inline double& fMFracIronDot() {return _fMFracIronDot;}
+    inline double& fMFracIronPred() {return _fMFracIronPred;}
+#endif
+#ifdef __CHARMC__
     void pup(PUP::er &p) {
 	p | _u;
 	p | _fMetals;
@@ -115,6 +152,13 @@ class extraSPHData
 	p | _PoverRho2;
 	p | _BalsaraSwitch;
 	p | _fBallMax;
+#ifdef CULLENALPHA
+        p | _CullenAlpha;
+        p | _TimeDivV;
+        p | _dvds;
+        p | _dvdsOnSFull;
+        p | _dvds_old;
+#endif 
 #ifdef DTADJUST
         p | _dtNew;
 #endif
@@ -122,7 +166,17 @@ class extraSPHData
 	p | _uDot;
 	p((char *) &_CoolParticle, sizeof(_CoolParticle)); /* PUPs as bytes */
 #endif
+#ifdef DIFFUSION
+	p| _diff;
+	p| _fMetalsDot;
+	p| _fMetalsPred;
+	p| _fMFracOxygenDot;
+	p| _fMFracOxygenPred;
+	p| _fMFracIronDot;
+	p| _fMFracIronPred;
+#endif
 	}
+#endif
     };
 
 /// @brief Extra data needed for Stars
@@ -184,16 +238,16 @@ class GravityParticle : public ExternalGravityParticle {
 public:
 	SFC::Key key;
 	Vector3D<double> velocity;
-	Vector3D<double> treeAcceleration;
-	double potential;
-	double dtGrav;
+	Vector3D<cosmoType> treeAcceleration;
+	cosmoType potential;
+	cosmoType dtGrav;
 	double fBall;
 	double fDensity;
 	int64_t iOrder;		/* input order of particles */
         int rung;  ///< the current rung (greater means faster)
 	unsigned int iType;	// Bitmask to hold particle type information
 #ifdef CHANGESOFT
-	double fSoft0;
+	cosmoType fSoft0;
 #endif
 #ifdef NEED_DT
 	double dt;
@@ -207,7 +261,7 @@ public:
 	double extpartmass;
 #endif
 
-        double interMass;
+        cosmoType interMass;
 	
         GravityParticle(SFC::Key k) : ExternalGravityParticle() {
             key = k;
@@ -220,6 +274,7 @@ public:
 		return key < p.key;
 	}
 
+#ifdef __CHARMC__
 	void pup(PUP::er &p) {
           ExternalGravityParticle::pup(p);
           p | key;
@@ -237,6 +292,7 @@ public:
 	  p | dt;
 #endif
         }
+#endif
 
 // Debugging macros for the extra data fields.
 // To enable, define GP_DEBUG_EXTRAS
@@ -244,7 +300,11 @@ public:
 #define GP_DEBUG_EXTRAS
 
 #ifdef GP_DEBUG_EXTRAS
+/// Debugging macro to be sure you are accessing gas properties from a
+/// gas particle.
 #define IMAGAS CkAssert(isGas())
+/// Debugging macro to be sure you are accessing star properties from a
+/// star particle.
 #define IMASTAR CkAssert(isStar())
 #else
 #define IMAGAS
@@ -270,12 +330,29 @@ public:
 	inline double& PoverRho2() { IMAGAS; return (((extraSPHData*)extraData)->PoverRho2());}
 	inline double& BalsaraSwitch() { IMAGAS; return (((extraSPHData*)extraData)->BalsaraSwitch());}
 	inline double& fBallMax() { IMAGAS; return (((extraSPHData*)extraData)->fBallMax());}
+#ifdef CULLENALPHA
+        inline const double CullenAlpha() const {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
+        inline double& CullenAlpha() {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
+        inline double& TimeDivV() {IMAGAS; return (((extraSPHData*)extraData)->TimeDivV());}
+        inline double& dvds() {IMAGAS; return (((extraSPHData*)extraData)->dvds());}
+        inline double& dvdsOnSFull() {IMAGAS; return (((extraSPHData*)extraData)->dvdsOnSFull());}
+        inline double& dvds_old() {IMAGAS; return (((extraSPHData*)extraData)->dvds_old());}
+#endif
 #ifdef DTADJUST
         inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
 #endif
 #ifndef COOLING_NONE
 	inline double& uDot() { IMAGAS; return (((extraSPHData*)extraData)->uDot());}
 	inline COOLPARTICLE& CoolParticle() { IMAGAS; return (((extraSPHData*)extraData)->CoolParticle());}
+#endif
+#ifdef DIFFUSION
+	inline double& diff() { IMAGAS; return (((extraSPHData*)extraData)->diff());}
+	inline double& fMetalsDot() { IMAGAS; return (((extraSPHData*)extraData)->fMetalsDot());}
+	inline double& fMetalsPred() { IMAGAS; return (((extraSPHData*)extraData)->fMetalsPred());}
+	inline double& fMFracOxygenDot() { IMAGAS; return (((extraSPHData*)extraData)->fMFracOxygenDot());}
+	inline double& fMFracIronDot() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronDot());}
+	inline double& fMFracOxygenPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracOxygenPred());}
+	inline double& fMFracIronPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronPred());}
 #endif
 	// Access Star Quantities
 	// XXX Beware overlaps with SPH; we could fix this by aligning
@@ -307,6 +384,7 @@ public:
 
 #define TYPE_PHOTOGENIC        (1<<4)
 #define TYPE_NbrOfACTIVE       (1<<5)
+#define TYPE_MAXTYPE           (1<<6)
 
 	inline bool isDark() const { return TYPETest(this, TYPE_DARK);}
 	inline bool isGas() const { return TYPETest(this, TYPE_GAS);}
@@ -320,12 +398,15 @@ public:
         }
 };
 
+/// @brief Test for a type flag.
 inline int TYPETest(const GravityParticle *a, unsigned int b) {
     return a->iType & b;
     }
+/// @brief Set a type flag.
 inline int TYPESet(GravityParticle *a, unsigned int b) {
     return a->iType |= b;
     }
+/// @brief Unset a type flag.
 inline int TYPEReset(GravityParticle *a, unsigned int b) {
     return a->iType &= (~b);
     }
@@ -361,10 +442,10 @@ inline GravityParticle StarFromGasParticle(GravityParticle *p)
 class ExternalSmoothParticle {
  public:
 
-  double mass;
+  cosmoType mass;
   double fBall;
   double fDensity;
-  Vector3D<double> position;
+  Vector3D<cosmoType> position;
   Vector3D<double> velocity;
   unsigned int iType;	// Bitmask to hold particle type information
   int rung;
@@ -373,13 +454,19 @@ class ExternalSmoothParticle {
   double dtNew;
 #endif
   Vector3D<double> vPred;
-  Vector3D<double> treeAcceleration;
+  Vector3D<cosmoType> treeAcceleration;
   double mumax;
   double PdV;
   double c;
   double PoverRho2;
   double BalsaraSwitch;
   double fBallMax;
+#ifdef CULLENALPHA
+  double CullenAlpha;
+  double TimeDivV;
+  double dvds;
+  double dvds_old;
+#endif
   double u;
   double uPred;
   double uDot;
@@ -389,6 +476,12 @@ class ExternalSmoothParticle {
   double fMFracIron;
   double fTimeCoolIsOffUntil;
   Vector3D<double> curlv;	/* Curl of the velocity */
+#ifdef DIFFUSION
+  double diff;
+  double fMetalsDot;
+  double fMFracOxygenDot;
+  double fMFracIronDot;
+#endif
   int iBucketOff;               /* Used by the Cache */
 
   ExternalSmoothParticle() {}
@@ -411,17 +504,29 @@ class ExternalSmoothParticle {
 	      PoverRho2 = p->PoverRho2();
 	      BalsaraSwitch = p->BalsaraSwitch();
 	      fBallMax = p->fBallMax();
+#ifdef CULLENALPHA
+	      CullenAlpha = p->CullenAlpha();
+              TimeDivV = p->TimeDivV();
+              dvds = p->dvds();
+              dvds_old = p->dvds_old();
+#endif
 	      curlv = p->curlv();
 	      u = p->u();
 #ifndef COOLING_NONE
 	      uDot = p->uDot();
-	      uPred = p->uPred();
 #endif
+	      uPred = p->uPred();
 	      fMetals = p->fMetals();
 	      fESNrate = p->fESNrate();
 	      fMFracOxygen = p->fMFracOxygen();
 	      fMFracIron = p->fMFracIron();
 	      fTimeCoolIsOffUntil = p->fTimeCoolIsOffUntil();
+#ifdef DIFFUSION
+	      diff = p->diff();
+	      fMetalsDot = p->fMetalsDot();
+	      fMFracOxygenDot = p->fMFracOxygenDot();
+	      fMFracIronDot = p->fMFracIronDot();
+#endif	      
 #ifdef DTADJUST
               dt = p->dt;
               dtNew = p->dtNew();
@@ -447,17 +552,29 @@ class ExternalSmoothParticle {
 	  tmp->PoverRho2() = PoverRho2;
 	  tmp->BalsaraSwitch() = BalsaraSwitch;
 	  tmp->fBallMax() = fBallMax;
+#ifdef CULLENALPHA
+	  tmp->CullenAlpha() = CullenAlpha;
+          tmp->TimeDivV() = TimeDivV;
+          tmp->dvds() = dvds;
+          tmp->dvds_old() = dvds_old;
+#endif
 	  tmp->curlv() = curlv;
 	  tmp->u() = u;
 #ifndef COOLING_NONE
 	  tmp->uDot() = uDot;
-	  tmp->uPred() = uPred;
 #endif
+	  tmp->uPred() = uPred;
 	  tmp->fMetals() = fMetals;
 	  tmp->fESNrate() = fESNrate;
 	  tmp->fMFracOxygen() = fMFracOxygen;
 	  tmp->fMFracIron() = fMFracIron;
 	  tmp->fTimeCoolIsOffUntil() = fTimeCoolIsOffUntil;
+#ifdef DIFFUSION
+	  tmp->diff() = diff;
+	  tmp->fMetalsDot() = fMetalsDot;
+	  tmp->fMFracOxygenDot() = fMFracOxygenDot;
+	  tmp->fMFracIronDot() = fMFracIronDot;
+#endif
 #ifdef DTADJUST
           tmp->dt = dt;
           tmp->dtNew() = dtNew;
@@ -465,6 +582,7 @@ class ExternalSmoothParticle {
 	  }
       }
 	  
+#ifdef __CHARMC__
   void pup(PUP::er &p) {
     p | position;
     p | velocity;
@@ -485,6 +603,12 @@ class ExternalSmoothParticle {
     p | PoverRho2;
     p | BalsaraSwitch;
     p | fBallMax;
+#ifdef CULLENALPHA
+    p | CullenAlpha;
+    p | TimeDivV;
+    p | dvds;
+    p | dvds_old;
+#endif
     p | u;
     p | uPred;
     p | uDot;
@@ -494,8 +618,15 @@ class ExternalSmoothParticle {
     p | fMFracOxygen;
     p | fMFracIron;
     p | fTimeCoolIsOffUntil;
+#ifdef DIFFUSION
+    p | diff;
+    p | fMetalsDot;
+    p | fMFracOxygenDot;
+    p | fMFracIronDot;
+#endif
     p | iBucketOff;
   }
+#endif
 };
 
 inline ExternalSmoothParticle GravityParticle::getExternalSmoothParticle()

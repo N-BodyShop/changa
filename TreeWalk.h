@@ -17,8 +17,6 @@ class TreeWalk{
   double walkTime, keepTime, finishNodeTime, doWorkTime;
 #endif
 
-  Tree::NodeKey getChildKey(int i);
-
   TreeWalk(Compute *_comp, TreePiece *tp, WalkType _type): ownerTP(tp), comp(_comp), type(_type){
 #ifdef BENCHMARK_TIME_WALK
     walkTime = keepTime = finishNodeTime = doWorkTime = 0.0;

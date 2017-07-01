@@ -16,21 +16,26 @@ int64_t ncGetCount(std::string typedir);
 class OutputParams : public PUP::able 
 {
  public:
+    /// Output data as a double
     virtual double dValue(GravityParticle *p) = 0;
+    /// Output data as a Vector3D of doubles
     virtual Vector3D<double> vValue(GravityParticle *p) = 0;
+    /// Input data as a double.
     virtual void setDValue(GravityParticle *p, double) = 0;
+    /// Output data as an int.
     virtual int64_t iValue(GravityParticle *p) = 0;
+    /// Input data as an int.
     virtual void setIValue(GravityParticle *p, int64_t iValue) = 0;
-    int bFloat;         // Is a floating point number
-    int bVector;	// Is a vector, as opposed to a scalar
-    int iBinaryOut;     // Type of binary output
-    double dTime;
-    std::string fileName;	// output file
-    std::string sTipsyExt;      // Extension for tipsy output
-    std::string sNChilExt;      // file name for NChilada output
-    unsigned int iType;         // mask of families containing this attribute
-    unsigned int iTypeWriting;  // family being written in NC format
-    DataManager *dm;	// For extra state information (e.g. cooling)
+    int bFloat;         ///< Is a floating point number
+    int bVector;        ///< Is a vector, as opposed to a scalar
+    int iBinaryOut;     ///< Type of binary output
+    double dTime;       ///< Time of output
+    std::string fileName;       ///< output file
+    std::string sTipsyExt;      ///< Extension for tipsy output
+    std::string sNChilExt;      ///< file name for NChilada output
+    unsigned int iType;         ///< mask of families containing this attribute
+    unsigned int iTypeWriting;  ///< family being written in NC format
+    DataManager *dm;    ///< For extra state information (e.g. cooling)
 
     OutputParams() {dm = NULL;}
     PUPable_abstract(OutputParams);
@@ -357,6 +362,78 @@ class PresOutputParams : public OutputParams
         OutputParams::pup(p);//Call base class
 	}
     };
+
+/// @brief Output variable alpha
+class AlphaOutputParams : public OutputParams
+{
+  virtual double dValue(GravityParticle *p)
+  {
+#ifdef CULLENALPHA
+    if (p->isGas())
+      return p->CullenAlpha();
+    else
+#endif /* CULLENALPHA */
+      return 0.0;
+  }
+  virtual Vector3D<double> vValue(GravityParticle *p)
+  {CkAssert(0); return 0.0;}
+  virtual void setDValue(GravityParticle *p, double val) {
+#ifdef CULLENALPHA
+      if(p->isGas())
+          p->CullenAlpha() = val;
+#endif
+      }
+  virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+  virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+  AlphaOutputParams() {}
+  AlphaOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
+  AlphaOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+    bFloat = 1;
+    bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+    sTipsyExt = "alpha"; sNChilExt = "alpha";
+    dTime = _dTime;
+    iType = TYPE_GAS; }
+  PUPable_decl(AlphaOutputParams);
+  AlphaOutputParams(CkMigrateMessage *m) {}
+  virtual void pup(PUP::er &p) {
+    OutputParams::pup(p);//Call base class
+  }
+};
+
+/// @brief Output dvds shock detector.
+class DvDsOutputParams : public OutputParams
+{
+  virtual double dValue(GravityParticle *p)
+  {
+#ifdef CULLENALPHA
+    if (TYPETest(p, TYPE_GAS))
+      return p->dvds();
+    else
+#endif /* CULLENALPHA */
+      return 0.0;
+  }
+  virtual Vector3D<double> vValue(GravityParticle *p)
+  {CkAssert(0); return 0.0;}
+  virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+  virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+  virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+  DvDsOutputParams() {}
+  DvDsOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
+  DvDsOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+    bFloat = 1;
+    bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+    sTipsyExt = "dvds"; sNChilExt = "dvds";
+    dTime = _dTime;
+    iType = TYPE_GAS; }
+  PUPable_decl(DvDsOutputParams);
+  DvDsOutputParams(CkMigrateMessage *m) {}
+  virtual void pup(PUP::er &p) {
+    OutputParams::pup(p); //Call base class
+  }
+};
+
 
 /// @brief Output divergence of velocity.
 class DivVOutputParams : public OutputParams
@@ -826,6 +903,105 @@ class MFormOutputParams : public OutputParams
 	}
     };
 
+class MetalsDotOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+#ifdef DIFFUSION
+	if (p->isGas()) return p->fMetalsDot();
+	else
+	    return 0.0;
+#endif
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {
+#ifdef DIFFUSION
+	if (p->isGas()) p->fMetalsDot() = val;
+#endif
+	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    MetalsDotOutputParams() {}
+    MetalsDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "Metalsdot"; sNChilExt = "Metalsdot";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(MetalsDotOutputParams);
+    MetalsDotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class OxygenMassFracDotOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+#ifdef DIFFUSION
+	if (p->isGas()) return p->fMFracOxygenDot();
+	else
+	    return 0.0;
+#endif
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {
+#ifdef DIFFUSION
+	if (p->isGas()) p->fMFracOxygenDot() = val;
+#endif
+	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    OxygenMassFracDotOutputParams() {}
+    OxygenMassFracDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "OxMassFracdot"; sNChilExt = "OxMassFracdot";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(OxygenMassFracDotOutputParams);
+    OxygenMassFracDotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class IronMassFracDotOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+#ifdef DIFFUSION
+	if (p->isGas()) return p->fMFracIronDot();
+	else
+	    return 0.0;
+#endif
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {
+#ifdef DIFFUSION
+	if (p->isGas()) p->fMFracIronDot() = val;
+#endif
+	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    IronMassFracDotOutputParams() {}
+    IronMassFracDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "FeMassFracdot"; sNChilExt = "FeMassFracdot";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(IronMassFracDotOutputParams);
+    IronMassFracDotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 /// @brief Output formation time.
 class TimeFormOutputParams : public OutputParams
 {
@@ -855,6 +1031,7 @@ class TimeFormOutputParams : public OutputParams
 	}
     };
 
+/// @brief Output stellar age (time since formation).
 class AgeOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {

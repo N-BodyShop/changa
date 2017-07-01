@@ -68,6 +68,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     else if(strcmp(achIMF, "Chabrier") == 0) imf = new Chabrier();
     else if(strcmp(achIMF, "Kroupa93") == 0) imf = new Kroupa93();
     else if(strcmp(achIMF, "Kroupa01") == 0) imf = new Kroupa01();
+    else CkAbort("Unknown achIMF parameter");
     sn.imf = imf;
 
 #include "physconst.h"
@@ -232,12 +233,19 @@ void Main::StellarFeedback(double dTime, double dDelta)
     delete msgFeedback;
     CkReductionMsg *msgChk;
     treeProxy.massMetalsEnergyCheck(1, CkCallbackResumeThread((void*&)msgChk));
+    double tFB = CkWallTimer() - startTime;
+    // Overload tAdjust with FB stellar evolution
+    timings[PHASE_FEEDBACK].tAdjust += tFB;
     
+    startTime = CkWallTimer();
     if(verbosity)
       CkPrintf("Distribute Stellar Feedback ... ");
     // Need to build tree since we just did addDelParticle.
     //
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    double tTB = CkWallTimer() - startTime;
+    timings[PHASE_FEEDBACK].tTBuild += tTB;
+    startTime = CkWallTimer();
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
@@ -245,8 +253,9 @@ void Main::StellarFeedback(double dTime, double dDelta)
 			  dfBall2OverSoft2, CkCallbackResumeThread());
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 
-    CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n",
-	     CkWallTimer() - startTime);
+    double tDFB = CkWallTimer() - startTime;
+    timings[PHASE_FEEDBACK].tuDot += tDFB; // Overload tuDot for feedback.
+    CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n", tFB);
 
     CkReductionMsg *msgChk2;
     treeProxy.massMetalsEnergyCheck(0, CkCallbackResumeThread((void*&)msgChk2));

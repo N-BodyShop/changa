@@ -15,6 +15,7 @@ namespace TreeStuff {
 
 using namespace SFC;
 
+/// @brief Convert a Key into a printable string.
 inline std::string keyBits(const Key k, const int numBits) {
   std::ostringstream oss;
   //oss << "N";
@@ -27,9 +28,9 @@ inline std::string keyBits(const Key k, const int numBits) {
   return oss.str();
 }
 
-// This converts a "radius to the furthest particle" to the standard
-// Barnes-Hut cell size.  We use it to keep the definition of theta
-// consistent.
+/// This converts a "radius to the furthest particle" to the standard
+/// Barnes-Hut cell size.  We use it to keep the definition of theta
+/// consistent.
 
 const double opening_geometry_factor = 2 / sqrt(3.0);
 
