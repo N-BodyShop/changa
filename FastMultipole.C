@@ -150,8 +150,8 @@ FMMOpenType openCriterionFMM(Tree::GenericTreeNode *node, // "source" node
       }
   else if(radius > myRadius) {	// Check Cell is larger
       if(node->isBucket()) {
-          // return OPEN_BUCKET;  // XXX Not implemented yet across processors.
-          return ACCEPT_PARTICLES;
+          return OPEN_BUCKET;  // XXX Not implemented yet across processors.
+          // return ACCEPT_PARTICLES;
           }
       else { // not a bucket
 	  return OPEN_CHECK;
@@ -385,6 +385,7 @@ void FMMCompute::addParticlesToChkList(ParticleT *part,
         // Create a bucket with one particle.
         GenericTreeNode *node = tp->pTreeNodes->alloc_one(0, Bucket, 0, 0, NULL);
         node->makeEmpty();
+        node->moments.radius = part->soft;
         // XXX This should be moved into a special creation interface
         // The following cast is dangerous, but we are only using the
         // External parts of Gravity particle.
