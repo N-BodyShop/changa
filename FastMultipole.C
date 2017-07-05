@@ -392,7 +392,6 @@ void FMMCompute::addParticlesToChkList(ParticleT *part,
         node->particlePointer = (GravityParticle *) part;
         node->moments += *part;
         node->boundingBox.grow(part->position);
-        node->moments.radius = 0.0;
         
         OffsetNode on;
         on.node = node;
