@@ -17,7 +17,7 @@
 
 #include "OrientedBox.h"
 #include "MultipoleMoments.h"
-
+#include "keytype.h"
 #include "GravityParticle.h"
 
 namespace Tree {
@@ -30,11 +30,7 @@ namespace Tree {
       node into the tree, all the bits at its right describe the path of this
       node into the tree, and the bits at its left are clearly 0 and unused.
    */
-#ifdef BIGKEYS
-  typedef __uint128_t NodeKey;
-#else
-  typedef CmiUInt8 NodeKey;
-#endif
+  using NodeKey = KeyType;
   static const int NodeKeyBits = 8*sizeof(NodeKey);
 
   /// This enumeration determines the different types of node a GenericTreeNode can be

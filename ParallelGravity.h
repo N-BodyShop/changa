@@ -451,6 +451,7 @@ class Main : public CBase_Main {
 	int64_t nMaxOrder;
 	
 	double dTime;		/* Simulation time */
+	double dTime0;		///< Simulation time at dStep = 0
 	double dEcosmo;		/* variables for integrating
 				   Lazer-Irvine eq. */
 	double dUOld;
@@ -1697,6 +1698,7 @@ public:
 	     double duDelta, int nGrowMass, bool buildTree,
 	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
+  void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
 /**
  * @brief Apply an external gravitational force
  * @param activeRung The rung to apply the force.
