@@ -932,7 +932,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		    TYPESet(q,TYPE_NbrOfACTIVE); /* important for SPH */
 		if(q->rung >= activeRung)
 		    qiActive = 1;
-		rs = KERNEL(r2);
+		rs = KERNEL(r2, nSmooth);
 		fDensity += rs*q->mass;
 		rs1 = DKERNEL(r2);
 		rs1 *= q->mass;
@@ -1624,7 +1624,7 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	if(TYPETest(q, TYPE_DELETED)) continue;
 	CkAssert(TYPETest(q, TYPE_GAS));
 	r2 = fDist2*ih2;            
-        rs = KERNEL(r2);
+        rs = KERNEL(r2, nSmooth);
 	rstot += rs;
         }
     if(rstot <= 0.0) {
@@ -1644,7 +1644,7 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 	double fDist2 = nnList[i].fKey;
 	r2 = fDist2*ih2;            
-	rs = KERNEL(r2);
+	rs = KERNEL(r2, nSmooth);
 	/*
 	 * All these quantities are per unit mass.
 	 * Exact if only one gas particle being distributed or in serial

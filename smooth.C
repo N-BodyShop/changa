@@ -1223,7 +1223,7 @@ void Density(GravityParticle *p,int nSmooth, pqSmoothNode *nnList)
 	for (i=0;i<nSmooth;++i) {
 		double fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
-		rs = KERNEL(r2);
+		rs = KERNEL(r2, nSmooth);
 		fDensity += rs*nnList[i].p->mass;
 		}
 	p->fDensity = M_1_PI*sqrt(ih2)*ih2*fDensity; 
@@ -1262,7 +1262,7 @@ void DensitySmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	for (i=0;i<nSmooth;++i) {
 		double fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
-		rs = KERNEL(r2);
+		rs = KERNEL(r2, nSmooth);
 		rs *= fNorm;
 		q = nnList[i].p;
 		p->fDensity += rs*q->mass;
