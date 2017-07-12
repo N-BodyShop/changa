@@ -30,7 +30,9 @@ namespace Tree {
       node into the tree, all the bits at its right describe the path of this
       node into the tree, and the bits at its left are clearly 0 and unused.
    */
-  using NodeKey = KeyType;
+  // C++11 syntax
+  // using NodeKey = KeyType;
+  typedef KeyType NodeKey;
   static const int NodeKeyBits = 8*sizeof(NodeKey);
 
   /// This enumeration determines the different types of node a GenericTreeNode can be
