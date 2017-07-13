@@ -33,6 +33,7 @@ FLAG_FEEDBACKDIFFLIMIT = @FLAG_FEEDBACKDIFFLIMIT@
 FLAG_CULLENALPHA = @FLAG_CULLENALPHA@
 FLAG_VSIGVISC = @FLAG_VSIGVISC@
 FLAG_DAMPING = @FLAG_DAMPING@
+OPTS = @OPTS@ # compiler options
 
 # optional CUDA flags: 
 # memory:
@@ -131,8 +132,6 @@ NVCC_LIBS = -lcuda -lcudart -lGL
 endif
 
 # add -module Orb3dLB here for load balancing during singlestepped runs
-#OPTS = -g -memory charmdebug
-OPTS = -O3 -lpthread
 INCLUDE_FLAGS += -I$(STRUCTURES_PATH) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR)
 CPPFLAGS += $(INCLUDE_FLAGS) $(DEFINE_FLAGS) @CPPFLAGS@
 CXXFLAGS += $(OPTS) $(CPPFLAGS)
