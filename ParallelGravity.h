@@ -600,7 +600,7 @@ public:
 	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
         void doCollisions(double dTime, double dDelta);
 #ifdef COLLISION
-    void doCollisions(double dTime, double dDelta);
+    void doCollisions(double dTime, double dDelta, int activeRung);
 #endif
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);

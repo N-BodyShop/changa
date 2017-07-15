@@ -74,8 +74,9 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
  *
  * @param dTime The current time in the simulation (in simulation units)
  * @param dDelta The size of the next timestep (in simulation units)
+ * @param activeRung The currently active rung
  */
-void Main::doCollisions(double dTime, double dDelta)
+void Main::doCollisions(double dTime, double dDelta, int activeRung)
 {
     int bHasCollision;
     int nColl = 0;
@@ -88,7 +89,7 @@ void Main::doCollisions(double dTime, double dDelta)
     do {
         bHasCollision = 0;
 
-        CollisionSmoothParams pCS(TYPE_DARK, 0, dTime, dDelta, 
+        CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta, 
            param.collision.bWall, param.collision.dWallPos,
            param.collision.bAllowMergers, param.collision.dMaxBinaryEcc,
            param.collision.iMinBinaryRung, param.collision);
