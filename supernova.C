@@ -20,6 +20,49 @@ double mod(double a, int b) {return (a-b*floor(a/b));}
  * Supernova module for GASOLINE
  */
 
+/** @brief Feedback algorithm to match the requirements of the AGORA project
+ *   see paper 4, dataset 2 for details
+ *
+ *  @param sfEvent Reference to information about the formation event for the star particle
+ *  doing the feedback
+ *  @param dTime The current simulation time (in years)
+ *  @param dDelta The size of the next timestep (in years)
+ *  @param fbEffects Passes information about the feedback event (mass loss, energy and metal 
+ *  injection) back to the rest of the simulation
+ */
+void SN::CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta, FBEffects *fbEffects)
+{
+    double dNSNTypeII;
+    /* stellar lifetimes corresponding to beginning and end of 
+       current timestep with respect to starbirth time in yrs */
+    double dStarLtimeMin = dTime - sfEvent->dTimeForm;
+    double dStarLtimeMax = dStarLtimeMin + dDelta;
+
+    double dMtot = imf->CumMass(0.0)*sfEvent->dMass; /* total mass in stars integrated over IMF */
+    /* Trigger one large supernova event at the specified time */
+    if (dStarLtimeMin < AGORAsnTime && dStarLtimeMax > AGORAsnTime) {
+        /* Number of supernova events depends on the mass of the star particle */
+        dNSNTypeII = dMtot/AGORAsnPerMass;
+
+        fbEffects->dMassLoss = dNSNTypeII*AGORAgasLossPerSN;
+        fbEffects->dEnergy = AGORAsnE*dNSNTypeII/(MSOLG*fbEffects->dMassLoss);
+        double dMetals = AGORAmetalLossPerSN/AGORAgasLossPerSN;
+        fbEffects->dMetals = dMetals;
+        fbEffects->dMIron = AGORAmetalFracFe*dMetals;
+        fbEffects->dMOxygen = AGORAmetalFracO*dMetals;
+        return;
+    }
+    else {
+        /* do nothing */
+        fbEffects->dMassLoss = 0.0;
+        fbEffects->dEnergy = 0.0;
+        fbEffects->dMetals = 0.0;
+        fbEffects->dMIron = 0.0;
+        fbEffects->dMOxygen = 0.0;
+        return;
+    }
+}
+
 void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 			    double dTime, /* current time in years */
 			    double dDelta, /* length of timestep (years) */
