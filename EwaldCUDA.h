@@ -81,8 +81,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largep
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase); 
 #endif
 
-__global__ void EwaldTopKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
-__global__ void EwaldBottomKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
+__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
 
 #endif
 
