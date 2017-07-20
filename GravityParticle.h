@@ -240,12 +240,12 @@ public:
 	Vector3D<double> velocity;
 	Vector3D<cosmoType> treeAcceleration;
 	cosmoType potential;
-	cosmoType dtGrav;
-	double fBall;
+        cosmoType dtGrav;       ///< timestep from gravity
+        double fBall;           ///< Neighbor search radius for smoothing
 	double fDensity;
-	int64_t iOrder;		/* input order of particles */
+        int64_t iOrder;	///< Input order of particles; unique particle ID
         int rung;  ///< the current rung (greater means faster)
-	unsigned int iType;	// Bitmask to hold particle type information
+        unsigned int iType;	///< Bitmask to hold particle type information
 #ifdef CHANGESOFT
 	cosmoType fSoft0;
 #endif
