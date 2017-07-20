@@ -642,7 +642,7 @@ HEXADECAPOLE
 OBJECTS_COOLING
 FLAG_COOLING
 FLAG_DAMPING
-FLAG_KERNEL
+KERNEL_FLAGS
 FLAG_DTADJUST
 FLAG_BIGKEYS
 FLAG_CHANGESOFT
@@ -714,6 +714,7 @@ enable_changesoft
 enable_bigkeys
 enable_dtadjust
 enable_wendland
+enable_m6kernel
 enable_damping
 enable_cooling
 enable_hexadecapole
@@ -1369,6 +1370,7 @@ Optional Features:
   --enable-bigkeys        enable 128 bit hash keys
   --enable-dtadjust       enable emergency timestep adjust
   --enable-wendland       enable Wendland C4 Kernel
+  --enable-m6kernel       enable M6 cubic spline kernel
   --enable-damping        enable velocity damping for glasses
   --enable-cooling        enable gas cooling (planet,cosmo)
   --disable-hexadecapole  disable use of hexadecapole expansions
@@ -4034,6 +4036,12 @@ fi
 
 
 
+# Select kernel
+# Set defaults
+KERNEL="m4kernel"
+FLAG_M4KERNEL="-DM4KERNEL=0"
+FLAG_WENDLAND="-DWENDLAND=0"
+FLAG_M6KERNEL="-DM6KERNEL=0"
 # Wendland C4 Kernel:
 # Check whether --enable-wendland was given.
 if test "${enable_wendland+set}" = set; then :
@@ -4043,11 +4051,32 @@ else
 fi
 
 if test "$wendland" = "yes" ; then
-    echo "WENDLAND selected"
-    FLAG_KERNEL="-DWENDLAND"
-else
-    FLAG_KERNEL=""
+    KERNEL="wendland"
 fi
+# M6 quintic spline kernel
+# Check whether --enable-m6kernel was given.
+if test "${enable_m6kernel+set}" = set; then :
+  enableval=$enable_m6kernel; m6kernel=$enableval
+else
+  m6kernel=no
+fi
+
+if test "$m6kernel" = "yes" ; then
+    KERNEL="m6kernel"
+fi
+# Now set up kernel flags
+if test "$KERNEL" = "m4kernel" ; then
+    echo "M4KERNEL selected"
+    FLAG_M4KERNEL="-DM4KERNEL=1"
+elif test "$KERNEL" = "wendland" ; then
+    echo "WENDLAND selected"
+    FLAG_WENDLAND="-DWENDLAND=1"
+elif test "$KERNEL" = "m6kernel" ; then
+    echo "M6KERNEL selected"
+    FLAG_M6KERNEL="-DM6KERNEL=1"
+fi
+KERNEL_FLAGS="$FLAG_M4KERNEL $FLAG_WENDLAND $FLAG_M6KERNEL"
+echo "$KERNEL_FLAGS"
 
 
 # Velocity damping

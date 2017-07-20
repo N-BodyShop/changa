@@ -134,17 +134,40 @@ fi
 
 AC_SUBST([FLAG_DTADJUST])
 
+# Select kernel
+# Set defaults
+KERNEL="m4kernel"
+FLAG_M4KERNEL="-DM4KERNEL=0"
+FLAG_WENDLAND="-DWENDLAND=0"
+FLAG_M6KERNEL="-DM6KERNEL=0"
 # Wendland C4 Kernel:
 AC_ARG_ENABLE([wendland],
 	[AS_HELP_STRING([--enable-wendland], [enable Wendland C4 Kernel])],
 	[wendland=$enableval], [wendland=no])
 if test "$wendland" = "yes" ; then
-    echo "WENDLAND selected"
-    FLAG_KERNEL="-DWENDLAND"
-else
-    FLAG_KERNEL=""
+    KERNEL="wendland"
 fi
-AC_SUBST([FLAG_KERNEL])
+# M6 quintic spline kernel
+AC_ARG_ENABLE([m6kernel],
+	[AS_HELP_STRING([--enable-m6kernel], [enable M6 cubic spline kernel])],
+	[m6kernel=$enableval], [m6kernel=no])
+if test "$m6kernel" = "yes" ; then
+    KERNEL="m6kernel"
+fi
+# Now set up kernel flags
+if test "$KERNEL" = "m4kernel" ; then
+    echo "M4KERNEL selected"
+    FLAG_M4KERNEL="-DM4KERNEL=1"
+elif test "$KERNEL" = "wendland" ; then
+    echo "WENDLAND selected"
+    FLAG_WENDLAND="-DWENDLAND=1"
+elif test "$KERNEL" = "m6kernel" ; then
+    echo "M6KERNEL selected"
+    FLAG_M6KERNEL="-DM6KERNEL=1"
+fi
+KERNEL_FLAGS="$FLAG_M4KERNEL $FLAG_WENDLAND $FLAG_M6KERNEL"
+echo "$KERNEL_FLAGS"
+AC_SUBST([KERNEL_FLAGS])
 
 # Velocity damping
 AC_ARG_ENABLE([damping],
