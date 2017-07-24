@@ -232,6 +232,10 @@ elif test "$cooling" = "H2" ; then
    echo "H2 cooling selected"
    FLAG_COOLING="-DCOOLING_MOLECULARH"
    OBJECTS_COOLING="cooling_metal_H2.o stiff.o"
+elif test "$cooling" = "H2_NR" ; then
+   echo "H2 cooling (NR) selected"
+   FLAG_COOLING="-DCOOLING_MOLECULARH -DCOOLING_NR"
+   OBJECTS_COOLING="cooling_metal_H2_NR.o stiff_NR.o"   
 elif test "$cooling" = "grackle" ; then
    echo "Grackle cooling selected"
    FLAG_COOLING="-DCOOLING_GRACKLE"
