@@ -208,6 +208,9 @@ void _Trailer(void) {
 int killAt;
 int cacheSize;
 
+/// @brief function to enable stopping on SIGTERM
+void fnCatchSigTerm(int);
+
 ///
 /// @brief Main routine to start simulation.
 ///
@@ -226,7 +229,9 @@ Main::Main(CkArgMsg* m) {
 	bChkFirst = 1;
 	dSimStartTime = CkWallTimer();
 
-  int threadNum = CkMyNodeSize();
+        signal(SIGTERM, fnCatchSigTerm);
+
+        int threadNum = CkMyNodeSize();
 
 	// Floating point exceptions.
 	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
@@ -2241,8 +2246,24 @@ void Main::setupICs() {
   initialForces();
 }
 
+/// @brief indicate that SIGTERM was caught
+volatile sig_atomic_t iGotSigTerm = 0;
+
+void fnCatchSigTerm(int iSignal) 
+{
+    iGotSigTerm = 1;
+}
+
 int CheckForStop()
 {
+    /*
+     * First check for signal
+     */
+    if(iGotSigTerm == 1) {
+        CkPrintf("TERM signal received\n");
+        return 1;
+        }
+    
 	/*
 	 ** Checks for existence of STOPFILE in run directory. If
 	 ** found, the file is removed and the return status is set
