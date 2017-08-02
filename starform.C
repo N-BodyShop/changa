@@ -178,6 +178,11 @@ void Main::FormStars(double dTime, double dDelta)
 	}
 
     treeProxy.finishNodeCache(CkCallbackResumeThread());
+#ifdef CUDA
+    // We didn't do gravity where the registered TreePieces on the
+    // DataManager normally get cleared.  Clear them here instead.
+    dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+#endif
 
     addDelParticles();
     double tSF = CkWallTimer() - startTime;

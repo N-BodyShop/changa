@@ -154,6 +154,13 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
   CmiUnlock(__nodelock);
 }
 
+/// \brief Clear registeredTreePieces on this node.
+void DataManager::clearRegisteredPieces(const CkCallback& cb) {
+    registeredTreePieces.removeAll();
+    contribute(cb);
+}
+
+
 /// \brief Build a local tree inside the node.
 ///
 /// This will be an exact superset of all the trees in this
