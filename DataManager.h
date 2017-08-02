@@ -236,6 +236,7 @@ public:
 /// The roots are stored in registeredChares to be used by TreePiece
 /// combineLocalTrees.
     void notifyPresence(Tree::GenericTreeNode *root, TreePiece *treePiece);
+    void clearRegisteredPieces(const CkCallback& cb);
     void combineLocalTrees(CkReductionMsg *msg);
     void getChunks(int &num, Tree::NodeKey *&roots);
     inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {

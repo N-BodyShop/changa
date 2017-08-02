@@ -216,7 +216,7 @@ mainmodule ParallelGravity {
         const int responsible[n - 1],
         uint64_t bins[n - 1], const int n,
         const CkCallback& cb);
-    //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
+    entry void clearRegisteredPieces(const CkCallback& cb);
     entry void combineLocalTrees(CkReductionMsg *m);
 #ifdef CUDA
     entry void clearInstrument(CkCallback &cb);
