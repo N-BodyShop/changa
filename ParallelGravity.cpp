@@ -1803,6 +1803,11 @@ void Main::advanceBigStep(int iStep) {
         }
     else {
 	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
+#ifdef CUDA
+        // We didn't do gravity where the registered TreePieces on the
+        // DataManager normally get cleared.  Clear them here instead.
+        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+#endif
 	}
     if(param.bDoExternalGravity) {
         CkReductionMsg *msgFrameAcc;
@@ -2512,6 +2517,11 @@ Main::initialForces()
       }
   else {
       treeProxy.initAccel(0, CkCallbackResumeThread());
+#ifdef CUDA
+        // We didn't do gravity where the registered TreePieces on the
+        // DataManager normally get cleared.  Clear them here instead.
+        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+#endif
       }
   if(param.bDoExternalGravity) {
       CkReductionMsg *msgFrameAcc;
@@ -3349,6 +3359,11 @@ void Main::writeOutput(int iStep)
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
 	treeProxy.finishNodeCache(CkCallbackResumeThread());
+#ifdef CUDA
+        // We didn't do gravity where the registered TreePieces on the
+        // DataManager normally get cleared.  Clear them here instead.
+        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+#endif
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		  << endl;
@@ -3389,6 +3404,11 @@ void Main::writeOutput(int iStep)
 	    treeProxy.startSmooth(&pDenGas, 1, param.nSmooth, dfBall2OverSoft2,
 				  CkCallbackResumeThread());
 	    treeProxy.finishNodeCache(CkCallbackResumeThread());
+#ifdef CUDA
+            // We didn't do gravity where the registered TreePieces on the
+            // DataManager normally get cleared.  Clear them here instead.
+            dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+#endif
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		      << endl;

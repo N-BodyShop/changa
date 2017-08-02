@@ -252,6 +252,11 @@ void Main::StellarFeedback(double dTime, double dDelta)
     treeProxy.startSmooth(&pDSFB, 0, param.feedback->nSmoothFeedback,
 			  dfBall2OverSoft2, CkCallbackResumeThread());
     treeProxy.finishNodeCache(CkCallbackResumeThread());
+#ifdef CUDA
+        // We didn't do gravity where the registered TreePieces on the
+        // DataManager normally get cleared.  Clear them here instead.
+        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+#endif
 
     double tDFB = CkWallTimer() - startTime;
     timings[PHASE_FEEDBACK].tuDot += tDFB; // Overload tuDot for feedback.
