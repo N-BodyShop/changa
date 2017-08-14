@@ -1,3 +1,41 @@
+What's new in ChaNGa 3.3 (Since 3.2)
+
+===============================================================================
+
+General changes:
+
+- Move to Charm version 6.8.0
+
+Physics Changes: (Many from Wadsley, Keller and Quinn, 2017)
+
+- Adaptive artificial visoscity
+
+- Smagorinsky diffusion
+
+- Thermal diffusion
+
+- Saitoh timestepping
+
+- New SPH Kernels: Wendland, M6
+
+- Geometric density averaged SPH forces.
+
+- External gravitational potentials: constant g, patch of a disk, central body
+
+- AGORA (2016) feedback model
+
+- Damping force for glass creation
+
+Parallel performance changes:
+
+- Working GPU implementation
+
+- Single precision floating point gravity
+
+- SPH neighbor search improvements
+
+===============================================================================
+
 What's new in ChaNGa 3.2 (Since 3.1)
 
 ===============================================================================
