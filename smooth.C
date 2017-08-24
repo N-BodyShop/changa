@@ -345,7 +345,8 @@ void TreePiece::startSmooth(// type of smoothing and parameters
 
   LBTurnInstrumentOn();         // Be sure the Load Balancer is running.
   CkAssert(nSmooth > 0);
-  CkAssert(root->nSPH == nTotalSPH);
+  if (myNumParticles > 0)
+      CkAssert(root->nSPH == nTotalSPH);
   cbSmooth = cb;
   activeRung = params->activeRung;
 
