@@ -3271,6 +3271,21 @@ void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
       return;
   }
 
+  // If this piece has no particles send the request elsewhere
+  if(myNumParticles == 0) {
+      int first, last;
+      bool bIsShared = nodeOwnership(key, first, last);
+      if(verbosity > 0)
+          CkPrintf("requestRemote empty piece %d: %d %d %d\n", thisIndex,
+                   first, last, bIsShared);
+      CkAssert(first < thisIndex || last > thisIndex);
+      if(thisIndex - first > last - thisIndex)
+          streamingProxy[thisIndex-1].requestRemoteMoments(key, sender);
+      else
+          streamingProxy[thisIndex+1].requestRemoteMoments(key, sender);
+      return;
+      }
+
   // If this node is NULL and outside this TP range (last Particle < key firstKey)
   // and if so send it to my right neighbor.
   // If the TP first particle > key last key, then send it to my left neighbor.
@@ -4844,6 +4859,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     nodeLBMgrProxy.ckLocalBranch()->finishedTPWork();
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
+    bBucketsInited = true;
     return;
   }
   
