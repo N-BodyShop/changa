@@ -1,10 +1,10 @@
 # Compiler-specific options for ChaNGa
 
-# @synopsis COMPILER_FLAG_REQUIRE [flag]
-# @summary Require compiler to support 'flag'                   
+# @synopsis COMPILER_FLAG_REQUIRE [compiler flag]
+# @summary Require compiler to support given flag                   
 AC_DEFUN([COMPILER_FLAG_REQUIRE],
 [dnl
-	AC_MSG_CHECKING([whether $CXX supports $1])
+	AC_MSG_CHECKING([if $CXX supports $1])
 	AC_LANG_PUSH([C++])
 	ac_saved_cxxflags="$CXXFLAGS"
 	CXXFLAGS="-Werror $1"
@@ -16,25 +16,8 @@ AC_DEFUN([COMPILER_FLAG_REQUIRE],
 	AC_LANG_POP([C++])
 ])
 
-# @synopsis COMPILER_FLAG_CHECK [flag]
-# @summary Check if compiler supports 'flag'                   
-AC_DEFUN([COMPILER_FLAG_CHECK],
-[dnl
-	AC_MSG_CHECKING([whether $CXX supports $1])
-	AC_LANG_PUSH([C++])
-	ac_saved_cxxflags="$CXXFLAGS"
-	CXXFLAGS="-Werror $1"
-	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
-		[$2=$3; AC_MSG_RESULT([yes])],
-		[$2=$4; AC_MSG_RESULT([no])]
-	)
-	CXXFLAGS="$ac_saved_cxxflags"
-	AC_LANG_POP([C++])
-	AC_SUBST([$2])
-])
-
-# @synopsis COMPILER_MACRO_CHECK [compiler macro]
-# @summary Check if compiler supports 'macro'
+dnl @synopsis COMPILER_MACRO_CHECK [compiler macro]
+dnl @summary check whether compiler supports given macro or not                   
 AC_DEFUN([COMPILER_MACRO_CHECK],
 [dnl
 	AC_LANG_PUSH([C++])
@@ -48,3 +31,10 @@ AC_DEFUN([COMPILER_MACRO_CHECK],
 	)
 	AC_LANG_POP([C++])
 ])
+#------------------------------------------------------------------------------
+
+# Require C++11
+COMPILER_FLAG_REQUIRE([-std=c++11],[ChaNGa requires full C++11 support])
+
+COMPILER_MACRO_CHECK([__GNUC__],[IS_GNU])
+COMPILER_MACRO_CHECK([__ICC__],[IS_ICC])
