@@ -183,7 +183,7 @@ AC_SUBST([FLAG_DAMPING])
 
 # Cooling:
 AC_ARG_ENABLE([cooling],
-	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet,cosmo)])],
+	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet, cosmo, grackle)])],
 	[cooling=$enableval], [cooling=no])
 OBJECTS_COOLING=""
 if test "$cooling" = "no" ; then
@@ -227,7 +227,7 @@ elif test "$cooling" = "grackle" ; then
        exit
    fi
 else
-	echo "Unknown cooling selected, using Adiabatic"
+        AC_MSG_WARN([Unknown cooling selected, using Adiabatic])
 	FLAG_COOLING="-DCOOLING_NONE"
 	cooling="no"
 fi
