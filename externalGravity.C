@@ -169,7 +169,7 @@ Vector3D<double> ExternalGravity::applyPotential(GravityParticle *p) const
         p->treeAcceleration += a;
         pFrameAcc = -a*p->mass/dCentMass;
 
-        double idt2 = ar/r;
+        double idt2 = fabs(ar/r);
         if(idt2 > p->dtGrav)
             p->dtGrav = idt2;
         }
