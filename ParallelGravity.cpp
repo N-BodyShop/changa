@@ -1920,6 +1920,7 @@ void Main::advanceBigStep(int iStep) {
   int currentStep = 0; // the current timestep within the big step
   int activeRung = 0;  // the minimum rung that is active
   int nextMaxRung = 0; // the rung that determines the smallest time for advancing
+  int bCollStepDrifted = 0;
 
   while (currentStep < MAXSUBSTEPS) {
 
@@ -1972,23 +1973,54 @@ void Main::advanceBigStep(int iStep) {
 #ifdef COLLISION
           // Collision detection and response handling
           if (param.bCollision) {
-              CkPrintf("Starting collision detection and response\n");
-              if (bParticlesShuffled) {
-                  CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
-                  // The following call is to get the particles in key order
-                  // before the sort.
-                  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-                  startSorting(dataManagerID, ddTolerance,
-                                          CkCallbackResumeThread(), true);
-                  }
+              int bNeedSubsteps = 1;
+              if (!bCollStepDrifted) {
+                  CkPrintf("Starting collision detection and response\n");
+                  if (bParticlesShuffled) {
+                      CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
+                      // The following call is to get the particles in key order
+                      // before the sort.
+                      treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
+                      startSorting(dataManagerID, ddTolerance,
+                                              CkCallbackResumeThread(), true);
+                      }
 
-              treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-              double startTime = CkWallTimer();
-              doCollisions(dTime, dTimeSub, activeRung);
-              double tColl = CkWallTimer() - startTime;
-              timings[activeRung].tColl += tColl;
-              treeProxy.finishNodeCache(CkCallbackResumeThread());
+                  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+                  double startTime = CkWallTimer();
+                  doCollisions(dTime, dTimeSub, activeRung);
+                  double tColl = CkWallTimer() - startTime;
+                  timings[activeRung].tColl += tColl;
+ 
+                  CkPrintf("Checking if collision stepping is necessary this big step...\n");
+                  CkReductionMsg *msgChk;
+                  treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
+                  bNeedSubsteps = *(int *)msgChk->getData();
+                  CkPrintf("Need substeps is %d\n", bNeedSubsteps);
+
+                  treeProxy.finishNodeCache(CkCallbackResumeThread());
               }
+
+          if (param.collision.bCollStep && !bCollStepDrifted && bNeedSubsteps) {
+                  CkPrintf("Particles on near collision course, need subsetepping\n");
+                  activeRung = param.collision.iCollStepRung;
+                  driftSteps = pow(2, activeRung);
+                  dTimeSub = RungToDt(param.dDelta, activeRung);
+                  treeProxy.unKickCollStep(activeRung, param.dDelta, CkCallbackResumeThread());
+                  double startTime = CkWallTimer();
+                  CkPrintf("Kick on rung %d\n", activeRung);
+                  treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas || param.collision.bCollStep,
+                                 param.bGasIsothermal, duKick, CkCallbackResumeThread());
+                  double tKick = CkWallTimer() - startTime;
+                  timings[activeRung].tKick += tKick;
+              } else if (param.collision.bCollStep && bCollStepDrifted) {
+                  double startTime = CkWallTimer();
+                  CkPrintf("Kick on rung %d\n", activeRung);
+                  treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas || param.collision.bCollStep,
+                                 param.bGasIsothermal, duKick, CkCallbackResumeThread());
+                  double tKick = CkWallTimer() - startTime;
+                  timings[activeRung].tKick += tKick;
+                  }
+          }
 #endif
 
           startTime = CkWallTimer();
@@ -2029,6 +2061,8 @@ void Main::advanceBigStep(int iStep) {
                   duKick[nextMaxRung] = 0.5*RungToDt(param.dDelta, nextMaxRung);
                   dStartTime[nextMaxRung] = dTime; // only updating this rung
                   updateuDot(nextMaxRung, duKick, dStartTime, 0, 0);
+                  if (param.collision.bCollStep && !bCollStepDrifted)
+                      bCollStepDrifted = 1;
               }
           }
     }
@@ -2317,7 +2351,6 @@ void Main::setupICs() {
   else
       param.feedback->NullFeedback();
 
-<<<<<<< HEAD
   param.sinks.CheckParams(prm, param);
   SetSink();
  
@@ -2335,9 +2368,8 @@ void Main::setupICs() {
   }
   
   param.externalGravity.CheckParams(prm, param);
-=======
+
 #ifdef COLLISION
->>>>>>> Encapsulate collision code
   if(param.bCollision)
       param.collision.CheckParams(prm, param);
 #endif

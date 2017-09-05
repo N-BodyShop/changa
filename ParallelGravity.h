@@ -1832,6 +1832,8 @@ public:
                           int bMerge, double baseStep, double timeNow,
                           const CkCallback& cb);
     void resolveWallCollision(Collision coll, ColliderInfo &c1, const CkCallback& cb);
+    void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
+    void getNeedCollStep(int collStepRung, const CkCallback& cb);
 #endif
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);

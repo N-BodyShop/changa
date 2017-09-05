@@ -14,10 +14,24 @@
 
 void Collision::AddParams(PRM prm)
 {
+    bCollStep = 0;
+    prmAddParam(prm, "bCollStep", paramBool, &bCollStep,
+        sizeof(int), "bCollStep", "<Place particles on a near-collision trajectory\
+                                    on a high rung> = 0");
+
     nSmoothCollision = 64;
     prmAddParam(prm, "nSmoothCollision", paramInt, &nSmoothCollision,
         sizeof(int), "nSmoothCollision", "<number of particles to do collision\
                                            search over> = 64");
+
+    iCollStepRung = 7;
+    prmAddParam(prm, "iCollStepRung", paramInt, &iCollStepRung,
+        sizeof(int), "iCollStepRung", "<Rung to place nearly-colliding particles on> = 7");
+
+    dCollStepFac = 2.5;
+    prmAddParam(prm, "dCollStepFac", paramDouble, &dCollStepFac,
+        sizeof(int), "dCollStepFac", "<Factor by which particle radius is inflated\
+                                       when searching to near-collisions> = 2.5");
    
     bWall = 0;
     prmAddParam(prm, "bWall", paramBool, &bWall,
@@ -350,6 +364,54 @@ void TreePiece::resolveCollision(Collision coll, ColliderInfo &c1,
     
     contribute(cb);
     }
+
+/**
+ * @brief Undo the kick imparted to all particles on a given rung
+ *
+ * This method is meant to be called directly after a 'kick'. Note that when
+ * using collision stepping, all particles will receive a kick on rung 0, but
+ * particles eligible for collision stepping will now be on a higher rung
+ *
+ * @param iKickRung The rung on which particle's kicks need to be modified. When
+ *                  using collision stepping, this should be set to the collision
+ *                  stepping rung.
+ * @param dDeltaBase The timestep size that was used to calculate the previous kick
+ */
+void TreePiece::unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb)
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+      GravityParticle *p = &myParticles[i];
+      if(p->rung >= iKickRung) {
+          p->velocity -= dDeltaBase*p->treeAcceleration;
+          CkPrintf("UnKick %d by timestep size %g, new velocity: (%g %g %g)\n", p->iOrder, dDeltaBase, p->velocity[0], p->velocity[1], p->velocity[2]);
+          }
+      }
+    contribute(cb);
+    }
+
+/**
+ * @brief Determine whether there are any particles in the simulation that
+ * are undergoing a near miss
+ *
+ * The way to tell if a particle is undergoing a near miss is to see if it sits
+ * on the collision stepping rung.
+ *
+ * @param collStepRung The rung that particles are moved to after finding a near miss
+  */
+void TreePiece::getNeedCollStep(int collStepRung, const CkCallback& cb)
+{
+    int foundNearMiss = 0;
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+      GravityParticle *p = &myParticles[i];
+      if (p->rung == collStepRung) {
+          foundNearMiss = 1;
+          break;
+          }
+      }
+
+    contribute(sizeof(int), &foundNearMiss, CkReduction::logical_or_int, cb);
+    }
+
 
 /**
  * @brief Check for a merger between two colliders
@@ -696,18 +758,38 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         Vector3D<double> dx = p->position - q->position;
         Vector3D<double> vRel = p->velocity - q->velocity;
 
+        // Collider search
         sr = (p->soft*2.) + (q->soft*2.);
         rdotv = dot(dx, vRel);
         vRel2 = vRel.lengthSquared();
         dr2 = dx.lengthSquared() - sr*sr;
         D = rdotv*rdotv - dr2*vRel2;
-        if (D <= 0.) continue;
-        D = sqrt(D);
-        dt = (-rdotv - D)/vRel2;
+        if (D > 0.) {
+            D = sqrt(D);
+            dt = (-rdotv - D)/vRel2;
 
-        if (dt > 0. && dt < dDelta && dt < p->dtCol) {
-            p->dtCol = dt;
-            p->iOrderCol = q->iOrder;
+            if (dt > 0. && dt < dDelta && dt < p->dtCol) {
+                p->dtCol = dt;
+                p->iOrderCol = q->iOrder;
+                }
+            }
+
+       // Near-collision search
+       if (coll.bCollStep && p->iOrderCol == -1) {
+            sr = coll.dCollStepFac*2.*(p->soft + q->soft);
+            rdotv = dot(dx, vRel);
+            vRel2 = vRel.lengthSquared();
+            dr2 = dx.lengthSquared() - sr*sr;
+            D = rdotv*rdotv - dr2*vRel2;
+
+            if (D > 0.) {
+                D = sqrt(D);
+                dt = (-rdotv - D)/vRel2;
+
+                if (dt > 0. && dt < dDelta) {
+                    p->rung = coll.iCollStepRung;
+                    }
+                }
             }
 
        // Because there is no gravitational softening, particles can get stuck in
