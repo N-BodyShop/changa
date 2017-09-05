@@ -84,6 +84,8 @@ inline void Collision::pup(PUP::er &p) {
     p | bWall;
     p | bAllowMergers;
     p | bPerfectAcc;
+    p | iMinBinaryRung;
+    p | dMaxBinaryEcc;
     p | dBallFac;
     p | dWallPos;
     p | dEpsN;

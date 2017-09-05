@@ -37,9 +37,9 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "bPerfectAcc", paramBool, &bPerfectAcc,
         sizeof(int), "bPerfectAcc", "<All collisions result in a merger> = 0");
 
-    iMinBinaryRung = 6;
+    iMinBinaryRung = 18;
     prmAddParam(prm, "iMinBinaryRung", paramInt, &iMinBinaryRung,
-        sizeof(int), "iMinBinaryRung", "<Dont merge particles in binaries below this rung> = 0");
+        sizeof(int), "iMinBinaryRung", "<Dont merge particles in binaries below this rung> = 18");
 
     dMaxBinaryEcc = 0.9;
     prmAddParam(prm, "dMaxBinaryEcc", paramDouble, &dMaxBinaryEcc,
