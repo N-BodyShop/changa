@@ -1478,13 +1478,13 @@ inline void Main::waitForGravity(const CkCallback &cb, double startTime,
 #ifdef PUSH_GRAVITY
       }
 #endif
+    }
         double tGrav = CkWallTimer()-startTime;
         timings[activeRung].tGrav += tGrav;
         CkPrintf("Calculating gravity and SPH took %g seconds.\n", tGrav);
 #ifdef SELECTIVE_TRACING
         turnProjectionsOff();
 #endif
-	}
     }
 
 ///
