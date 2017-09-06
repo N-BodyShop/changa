@@ -43,6 +43,7 @@
 PUPbytes(InDumpFrame);
 PUPbytes(COOL);
 PUPbytes(COOLPARAM);
+PUPbytes(LWDATA);
 
 #ifdef HPM_COUNTER
 #include <libhpm.h>

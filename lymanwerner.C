@@ -3,6 +3,8 @@
  * Added by Elaad Applebaum.
  */
 
+#ifndef LYMANWERNER_INC
+
 #ifdef STOCH24
 #define ARRLENGTH 24
 #else
@@ -85,3 +87,5 @@ double calcLogStochLymanWerner(double dAgelog, SFEvent *sfEvent, LWDATA *lwd)
     }
     return log10(fluxtot);
 }
+
+#endif
