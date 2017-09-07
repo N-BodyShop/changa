@@ -368,19 +368,16 @@ void Main::StellarFeedback(double dTime, double dDelta)
     delete msgChk2;
     }
 void Main::initLWData(){
-    CkPrintf("Main::initLWData()\n");
     dMProxy.initLWData(CkCallbackResumeThread());
     treeProxy.initLWData(CkCallbackResumeThread());
 }
 void DataManager::initLWData(const CkCallback& cb)
 {
-    CkPrintf("DataManager::initLWData()\n");
     lwInitData(LWData);
     contribute(cb);
 }
 void TreePiece::initLWData(const CkCallback& cb)
 {
-    CkPrintf("TreePiece::initLWData()\n");
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     contribute(cb);
 }
