@@ -12,6 +12,7 @@
 
 #include "parameters.h"
 #include "imf.h"
+#include "lymanwerner.h"
 
 /// Parameters and methods to implement star formation.
 class Stfm : public PUP::able  {
@@ -54,7 +55,7 @@ class Stfm : public PUP::able  {
     void CheckParams(PRM prm, struct parameters &param);
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-			      double dDelta, double dCosmoFac, double *T, double *H2Fraction);
+			      double dDelta, double dCosmoFac, double *T, double *H2Fraction, LWDATA *LWData);
     IMF *imf;
 
     Stfm() {}

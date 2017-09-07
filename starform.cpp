@@ -11,7 +11,6 @@
 #include "starform.h"
 #include "smooth.h"
 #include "Sph.h"
-#include "lymanwerner.h"
 
 
 ///
@@ -232,7 +231,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 	if(p->isGas()) {
 	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
 						   dDelta, dCosmoFac, 
-						   &TempForm,&H2FractionForm);
+						   &TempForm,&H2FractionForm, dm->LWData);
 	    
 	    if(starp != NULL) {
 		nFormed++;
@@ -279,7 +278,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 */
 GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 				double dDelta,  // drift timestep
-				double dCosmoFac, double *T, double *H2FractionForm) 
+				double dCosmoFac, double *T, double *H2FractionForm, LWDATA *LWData) 
 {
     /*
      * Determine dynamical time.
@@ -455,7 +454,16 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 	deleteParticle(p);
 	}
 #ifdef COOLING_MOLECULARH /*Initialize LW radiation for a star particle of that mass and 10^7 (the minimum) years old*/
-    starp->dStarLymanWerner() = calcLogSSPLymanWerner(7,log10(dDeltaM));
+    if(!bUseStoch) starp->dStarLymanWerner() = calcLogSSPLymanWerner(7,log10(dDeltaM));
+    else{
+        double dLogContPart, dLogStochPart;
+        double rgdHMStarsTemp[ARRLENGTH];
+        for(int i=0; i<ARRLENGTH; i++) rgdHMStarsTemp[i] = starp->rgfHMStars(i); // need to pass entire array at once (as pointer) to dLogStochPart
+        dLogContPart = calcLogMax8LymanWerner(7, log10(starp->fLowNorm()*MSOLG/dGmUnit));
+        dLogStochPart = calcLogStochLymanWerner(7, rgdHMStarsTemp, LWData);
+        dLogStochPart += log10(MSOLG/dGmUnit); // converting stoch portion to system units
+        starp->dStarLymanWerner() = log10(pow(10, dLogContPart) + pow(10, dLogStochPart));
+    }
 #endif /*COOLING_MOLECULARH*/
 
     /* NB: It is important that the star inherit special

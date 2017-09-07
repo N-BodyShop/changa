@@ -78,7 +78,7 @@ double calcLogStochLymanWerner(double dAgelog, double *rgdHMStars, LWDATA *lwd)
     CkPrintf("%f, %d\n", dAge, tindex);
 
     for (i=0; i<ARRLENGTH; i++){
-        if (rgdHMStars[i]>0){
+        if (rgdHMStars[i]>=8){
             int mindex;
             
             double dMass = rgdHMStars[i];
