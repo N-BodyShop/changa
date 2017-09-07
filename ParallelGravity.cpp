@@ -2070,6 +2070,9 @@ void Main::advanceBigStep(int iStep) {
     // determine largest timestep that needs a kick
     activeRung = 0;
     int tmpRung = currentStep;
+    if (param.collision.bCollStep) {
+        currentStep = MAXSUBSTEPS;
+        }
     while (tmpRung &= ~MAXSUBSTEPS) {
       activeRung++;
       tmpRung <<= 1;
