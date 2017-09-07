@@ -69,13 +69,10 @@ double calcLogStochLymanWerner(double dAgelog, double *rgdHMStars, LWDATA *lwd)
     int i;
     double fluxtot = 0.0;
     
-    CkPrintf("Started calcLogStochLymanWerner\n");
-
     int tindex;
     if (dAge < 1.0E6) tindex = 0;
     else if (dAge >= 9.701E7) tindex = 49; // beyond ~10^7.5, all hmstars have constant LW flux
     else tindex = (int)round((dAge-1.0E4)/2.0E6);
-    CkPrintf("%f, %d\n", dAge, tindex);
 
     for (i=0; i<ARRLENGTH; i++){
         if (rgdHMStars[i]>=8){
@@ -85,7 +82,6 @@ double calcLogStochLymanWerner(double dAgelog, double *rgdHMStars, LWDATA *lwd)
             if (dMass >= 98.5) mindex = 61;
             else if (dMass < 39.5) mindex = (int)round(dMass-8);
             else mindex = (int)round((dMass+23.0)/2.0);
-            CkPrintf("%f, %d\n", dMass, mindex);
             
             fluxtot += pow(10, lwd->lwLuminosity[mindex][tindex]);
         }
