@@ -66,8 +66,8 @@ public:
                               double baseStep, double timeNow);
     void doWallCollision(GravityParticle *p);
     void mergeCalc(double r, double m, Vector3D<double> pos,
-                   Vector3D<double> vel, Vector3D<double> w,
-                   Vector3D<double> acc, Vector3D<double> *posNew,
+                   Vector3D<double> vel, Vector3D<double> acc,
+                   Vector3D<double> w, Vector3D<double> *posNew,
                    Vector3D<double> *velNew, Vector3D<double> *wNew,
                    Vector3D<double> *aNew, double *radNew, ColliderInfo &c);
     void bounceCalc(double r, double m, Vector3D<double> pos,
