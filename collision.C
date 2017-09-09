@@ -610,11 +610,17 @@ void Collision::mergeCalc(double r, double m, Vector3D<double> pos,
 {
     double r1 = r;
     double r2 = c.radius;
-    *radNew = pow(r1*r1*r1 + r2*r2*r2,1.0/3); // Conserves volume
-
     double m1 = m;
     double m2 = c.mass;
     double M = m1 + m2;
+
+    double dDenFac = 4./3.*M_PI;
+    double rho1 = m1/(dDenFac*pow(r1, 3.));
+    double rho2 = m2/(dDenFac*pow(r2, 3.));
+    CkAssert(rho1 == rho2);
+
+    *radNew = pow(M/(dDenFac*rho1), 1./3.); // Conserves density
+
     double i1 = 0.4*m1*r1*r1;
     double i2 = 0.4*m2*r2*r2;
     double i = 0.4*M*r*r;
