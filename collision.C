@@ -527,14 +527,10 @@ void Collision::doWallCollision(GravityParticle *p) {
  */
 void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
 {
-    // If dtCol is negative, this particle is overlapping another one. Move
-    // the particles apart along their axis of separation
-    if (c.dtCol < 0) {
-        Vector3D<double> dx = p->position - c.position;
-        double overlap = dx.length()-(p->soft*2.)-c.radius;
-        p->position -=  c.mass/(p->mass+c.mass)*overlap*dx.normalize();
-        return;
-        }
+    // If the particles are different sizes, p might not have its dtCol
+    // field set. Fix this before going any further.
+    if (p->dtCol != c.dtCol) p->dtCol = c.dtCol;
+
 
     // Advance particle positions to moment of collision
     Vector3D<double> pAdjust = p->velocity*p->dtCol;
