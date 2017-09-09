@@ -547,15 +547,15 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
     Vector3D<double> vNew, wNew;
     double radNew;
     if (bMerge) {
-        CkPrintf("Prefect accretion merger:\n");
-        CkPrintf("m1 m2 r1 r2 x1 x2 v1 v2 w1 w2 wNew radNew\n");
-        CkPrintf("%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
+        CkPrintf("Merger info:\n");
+        CkPrintf("m1 m2 r1 r2 x1 x2 v1 v2 w1 w2 wNew\n");
+        CkPrintf("%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
                 c.mass, p->mass, c.radius, p->soft*2.,
                 c.position[0], c.position[1], c.position[2],
                 p->position[0], p->position[1], p->position[2],
                 c.velocity[0], c.velocity[1], c.velocity[2],
                 p->velocity[0], p->velocity[1], p->velocity[2],
-                c.w[0], c.w[1], c.w[2], p->w[0], p->w[1], p->w[2], wNew[0], wNew[1], wNew[2], radNew);
+                c.w[0], c.w[1], c.w[2], p->w[0], p->w[1], p->w[2], wNew[0], wNew[1], wNew[2]);
 
         Vector3D<double> posNew, aNew;
         mergeCalc(p->soft*2., p->mass, pAdv, p->velocity, p->treeAcceleration,
