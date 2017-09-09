@@ -404,12 +404,11 @@ void TreePiece::getNeedCollStep(int collStepRung, const CkCallback& cb)
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
       if (p->rung == collStepRung) {
-          foundNearMiss = 1;
-          break;
+          foundNearMiss++;
           }
       }
 
-    contribute(sizeof(int), &foundNearMiss, CkReduction::logical_or_int, cb);
+    contribute(sizeof(int), &foundNearMiss, CkReduction::sum_int, cb);
     }
 
 

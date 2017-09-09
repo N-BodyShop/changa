@@ -1973,7 +1973,7 @@ void Main::advanceBigStep(int iStep) {
 #ifdef COLLISION
           // Collision detection and response handling
           if (param.bCollision) {
-              int bNeedSubsteps = 1;
+              int iNeedSubsteps = 0;
               if (!bCollStepDrifted) {
                   CkPrintf("Starting collision detection and response\n");
                   if (bParticlesShuffled) {
@@ -1994,14 +1994,13 @@ void Main::advanceBigStep(int iStep) {
                   CkPrintf("Checking if collision stepping is necessary this big step...\n");
                   CkReductionMsg *msgChk;
                   treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
-                  bNeedSubsteps = *(int *)msgChk->getData();
-                  CkPrintf("Need substeps is %d\n", bNeedSubsteps);
+                  iNeedSubsteps = *(int *)msgChk->getData();
 
                   treeProxy.finishNodeCache(CkCallbackResumeThread());
               }
 
-          if (param.collision.bCollStep && !bCollStepDrifted && bNeedSubsteps) {
-                  CkPrintf("Particles on near collision course, need subsetepping\n");
+          if (param.collision.bCollStep && !bCollStepDrifted && (iNeedSubsteps > 0)) {
+                  CkPrintf("%d particles are on a near collision course\n", iNeedSubsteps);
                   activeRung = param.collision.iCollStepRung;
                   driftSteps = pow(2, activeRung);
                   dTimeSub = RungToDt(param.dDelta, activeRung);
