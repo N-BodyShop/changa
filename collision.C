@@ -623,7 +623,7 @@ void Collision::mergeCalc(double r, double m, Vector3D<double> pos,
 
     double i1 = 0.4*m1*r1*r1;
     double i2 = 0.4*m2*r2*r2;
-    double i = 0.4*M*r*r;
+    double i = 0.4*M*(* radNew)*(* radNew);
 
     Vector3D<double> comPos = (m1*pos + m2*c.position)/M;
     Vector3D<double> comVel = (m1*vel + m2*c.velocity)/M;
