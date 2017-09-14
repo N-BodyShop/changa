@@ -47,7 +47,7 @@ public:
     int nSmoothCollision; /* number of particles to search for collisions over */
     int bCollStep;        /* timestepping set by near-collisions */
     int iCollStepRung;    /* Rung to place nearly-colliding particles on*/
-    int dCollStepFac;     /* Inflate particle radius when searching for near-collisions*/
+    double dCollStepFac;     /* Inflate particle radius when searching for near-collisions*/
     int bWall;            /* particles will bounce off a wall in the z plane */
     int bAllowMergers;    /* allow particles to merge if they collide at a slow speed */
     int bPerfectAcc;      /* all collisions result in a merger */

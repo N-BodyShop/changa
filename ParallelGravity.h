@@ -570,6 +570,7 @@ public:
             const double dStartTime[], int bUpdateState, int bAll);
         void kick(bool bClosing, int iActiveRung, int nextMaxRung,
             const CkCallback &cbGravity, double gravStartTime);
+        void advanceBigCollStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
@@ -1833,6 +1834,7 @@ public:
                           const CkCallback& cb);
     void resolveWallCollision(Collision coll, ColliderInfo &c1, const CkCallback& cb);
     void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
+    void resetRungs(const CkCallback& cb);
     void getNeedCollStep(int collStepRung, const CkCallback& cb);
 #endif
 	void SetTypeFromFileSweep(int iSetMask, char *file,

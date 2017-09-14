@@ -1920,7 +1920,6 @@ void Main::advanceBigStep(int iStep) {
   int currentStep = 0; // the current timestep within the big step
   int activeRung = 0;  // the minimum rung that is active
   int nextMaxRung = 0; // the rung that determines the smallest time for advancing
-  int bCollStepDrifted = 0;
 
   while (currentStep < MAXSUBSTEPS) {
 
@@ -1973,53 +1972,23 @@ void Main::advanceBigStep(int iStep) {
 #ifdef COLLISION
           // Collision detection and response handling
           if (param.bCollision) {
-              int iNeedSubsteps = 0;
-              if (!bCollStepDrifted) {
-                  CkPrintf("Starting collision detection and response\n");
-                  if (bParticlesShuffled) {
-                      CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
-                      // The following call is to get the particles in key order
-                      // before the sort.
-                      treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-                      startSorting(dataManagerID, ddTolerance,
-                                              CkCallbackResumeThread(), true);
-                      }
-
-                  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-                  double startTime = CkWallTimer();
-                  doCollisions(dTime, dTimeSub, activeRung);
-                  double tColl = CkWallTimer() - startTime;
-                  timings[activeRung].tColl += tColl;
- 
-                  CkPrintf("Checking if collision stepping is necessary this big step...\n");
-                  CkReductionMsg *msgChk;
-                  treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
-                  iNeedSubsteps = *(int *)msgChk->getData();
-
-                  treeProxy.finishNodeCache(CkCallbackResumeThread());
-              }
-
-          if (param.collision.bCollStep && !bCollStepDrifted && (iNeedSubsteps > 0)) {
-                  CkPrintf("%d particles are on a near collision course\n", iNeedSubsteps);
-                  activeRung = param.collision.iCollStepRung;
-                  driftSteps = pow(2, activeRung);
-                  dTimeSub = RungToDt(param.dDelta, activeRung);
-                  treeProxy.unKickCollStep(activeRung, param.dDelta, CkCallbackResumeThread());
-                  double startTime = CkWallTimer();
-                  CkPrintf("Kick on rung %d\n", activeRung);
-                  treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas || param.collision.bCollStep,
-                                 param.bGasIsothermal, duKick, CkCallbackResumeThread());
-                  double tKick = CkWallTimer() - startTime;
-                  timings[activeRung].tKick += tKick;
-              } else if (param.collision.bCollStep && bCollStepDrifted) {
-                  double startTime = CkWallTimer();
-                  CkPrintf("Kick on rung %d\n", activeRung);
-                  treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas || param.collision.bCollStep,
-                                 param.bGasIsothermal, duKick, CkCallbackResumeThread());
-                  double tKick = CkWallTimer() - startTime;
-                  timings[activeRung].tKick += tKick;
+              CkPrintf("Starting collision detection and response\n");
+              if (bParticlesShuffled) {
+                  CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
+                  // The following call is to get the particles in key order
+                  // before the sort.
+                  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
+                  startSorting(dataManagerID, ddTolerance,
+                                          CkCallbackResumeThread(), true);
                   }
-          }
+
+              treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+              double startTime = CkWallTimer();
+              doCollisions(dTime, dTimeSub, activeRung);
+              double tColl = CkWallTimer() - startTime;
+              timings[activeRung].tColl += tColl;
+              treeProxy.finishNodeCache(CkCallbackResumeThread());
+              }
 #endif
 
           startTime = CkWallTimer();
@@ -2060,8 +2029,6 @@ void Main::advanceBigStep(int iStep) {
                   duKick[nextMaxRung] = 0.5*RungToDt(param.dDelta, nextMaxRung);
                   dStartTime[nextMaxRung] = dTime; // only updating this rung
                   updateuDot(nextMaxRung, duKick, dStartTime, 0, 0);
-                  if (param.collision.bCollStep && !bCollStepDrifted)
-                      bCollStepDrifted = 1;
               }
           }
     }
@@ -2069,9 +2036,6 @@ void Main::advanceBigStep(int iStep) {
     // determine largest timestep that needs a kick
     activeRung = 0;
     int tmpRung = currentStep;
-    if (param.collision.bCollStep) {
-        currentStep = MAXSUBSTEPS;
-        }
     while (tmpRung &= ~MAXSUBSTEPS) {
       activeRung++;
       tmpRung <<= 1;
@@ -2879,7 +2843,8 @@ Main::doSimulation()
     for(int iRung = 0; iRung < timings.size(); iRung++) {
         timings[iRung].clear();
         }
-    advanceBigStep(iStep-1);
+    if (param.collision.bCollStep) advanceBigCollStep(iStep-1);
+    else advanceBigStep(iStep-1);
     double stepTime = CkWallTimer() - startTime;
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
 	  << endl;
