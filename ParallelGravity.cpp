@@ -1952,7 +1952,6 @@ void Main::advanceBigCollStep(int iStep) {
                 CkReductionMsg *msgChk;
                 treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
                 iNeedSubsteps = *(int *)msgChk->getData();
-                treeProxy.finishNodeCache(CkCallbackResumeThread());
                 }
     
             if (iNeedSubsteps) {
@@ -1967,6 +1966,10 @@ void Main::advanceBigCollStep(int iStep) {
                 tKick = CkWallTimer() - startTime;
                 timings[0].tKick += tKick;
                 }
+            startTime = CkWallTimer();
+            treeProxy.finishNodeCache(CkCallbackResumeThread());
+            double tCache = CkWallTimer() - startTime;
+            timings[0].tCache += tCache;
             }
 
         startTime = CkWallTimer();
@@ -1974,6 +1977,8 @@ void Main::advanceBigCollStep(int iStep) {
                         0, 0, CkCallbackResumeThread());
         double tDrift = CkWallTimer() - startTime;
         timings[0].tDrift += tDrift;
+
+        dTime += RungToDt(param.dDelta, activeRung);
 
         ckout << "\nStep: " << (iStep + ((double) iSub)/nSubsteps) << " Time: " << dTime << ".";
         countActive(0);
@@ -2029,6 +2034,18 @@ void Main::advanceBigCollStep(int iStep) {
         treeProxy.kick(activeRung, dKickFac, 1, 0, 0, duKick, CkCallbackResumeThread());
         tKick = CkWallTimer() - startTime;
         timings[0].tKick += tKick;
+
+        startTime = CkWallTimer();
+        treeProxy.finishNodeCache(CkCallbackResumeThread());
+        double tCache = CkWallTimer() - startTime;
+        timings[0].tCache += tCache;
+#ifdef CHECK_TIME_WITHIN_BIGSTEP
+        if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
+            CkPrintf("wall time %g exceeded limit %g within advancestep\n", CkWallTimer()-wallTimeStart, param.iWallRunTime*60.);
+            CkExit();
+        }
+#endif
+
     }
 
     treeProxy.resetRungs(CkCallbackResumeThread());
