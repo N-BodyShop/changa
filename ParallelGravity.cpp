@@ -1909,6 +1909,7 @@ void Main::advanceBigCollStep(int iStep) {
     double duKick[MAXRUNG+1];
     double dKickFac[MAXRUNG+1];
     double dDriftFac[MAXRUNG+1];
+    timings[0].count = 1;
     for (int i=0; i<=MAXRUNG; i++) {
         duKick[i] = 0.;
         dKickFac[i] = 0.;
