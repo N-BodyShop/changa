@@ -447,6 +447,16 @@ void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
     c2.position += cAdjust;
     mergeCalc(c1.radius, c1.mass, c1.position, c1.velocity, c1.acceleration,
               c1.w, &posNew, &vNew, &wNew, &aNew, &radNew, c2);
+    CkPrintf("Merger info:\n");
+    CkPrintf("m1 m2 r1 r2 x1 x2 v1 v2 w1 w2 wNew\n");
+    CkPrintf("%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
+            c1.mass, c2.mass, c1.radius, c2.radius,
+            c1.position[0], c1.position[1], c1.position[2],
+            c2.position[0], c2.position[1], c2.position[2],
+            c1.velocity[0], c1.velocity[1], c1.velocity[2],
+            c2.velocity[0], c2.velocity[1], c2.velocity[2],
+            c1.w[0], c1.w[1], c1.w[2], c2.w[0], c2.w[1], c2.w[2], wNew[0], wNew[1], wNew[2]);
+
     // Revert particle positions back to beginning of step
     c1.position -= pAdjust;
     c2.position -= cAdjust;
@@ -457,7 +467,10 @@ void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
 
     double vRel = (c1.velocity - c2.velocity).length();
     if (vRel > vEsc || wNew.length() > wMax) {
-        if (!bPerfectAcc) return;
+        if (!bPerfectAcc) {
+            CkPrintf("Merger rejected\n");
+            return;
+            }
         }
 
     // Mark the less massive particle to be consumed and deleted
@@ -553,16 +566,6 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
     Vector3D<double> vNew, wNew;
     double radNew;
     if (bMerge) {
-        CkPrintf("Merger info:\n");
-        CkPrintf("m1 m2 r1 r2 x1 x2 v1 v2 w1 w2 wNew\n");
-        CkPrintf("%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
-                c.mass, p->mass, c.radius, p->soft*2.,
-                c.position[0], c.position[1], c.position[2],
-                p->position[0], p->position[1], p->position[2],
-                c.velocity[0], c.velocity[1], c.velocity[2],
-                p->velocity[0], p->velocity[1], p->velocity[2],
-                c.w[0], c.w[1], c.w[2], p->w[0], p->w[1], p->w[2], wNew[0], wNew[1], wNew[2]);
-
         Vector3D<double> posNew, aNew;
         mergeCalc(p->soft*2., p->mass, pAdv, p->velocity, p->treeAcceleration,
                   p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
