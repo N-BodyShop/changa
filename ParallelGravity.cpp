@@ -1943,7 +1943,7 @@ void Main::advanceBigCollStep(int iStep) {
             timings[0].tTBuild += tTB;
 
             startTime = CkWallTimer();
-            doCollisions(dTime, param.dDelta, 0);
+            doCollisions(dTime, param.dDelta, activeRung);
             double tColl = CkWallTimer() - startTime;
             timings[0].tColl += tColl;
     
@@ -2005,7 +2005,7 @@ void Main::advanceBigCollStep(int iStep) {
 
         // Load balancer
         startTime = CkWallTimer();
-        treeProxy.startlb(CkCallbackResumeThread(), 0);
+        treeProxy.startlb(CkCallbackResumeThread(), activeRung);
         double tLB = CkWallTimer() - startTime;
         timings[0].tLoadB += tLB;
 
