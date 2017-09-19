@@ -1625,26 +1625,25 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                     diffTh = (2*dThermalDiffusionCoeff*diffBase/(p->fDensity+q->fDensity));
                     double dt_diff;
                     double dThermalCond;
-//                    /* THERMALCOND not implemented */
-//                    #ifdef THERMALCOND /* compile-time flag */
-//                        #if (0)
-//                            /* Harmonic average coeff */
-//                            double dThermalCondSum = p->fThermalCond + q->fThermalCond;
-//                            dThermalCond = ( dThermalCondSum <= 0 ? 0 \
-//                                : 4*p->fThermalCond*q->fThermalCond \
-//                                /(dThermalCondSum*p->fDensity*q->fDensity) );
-//                        #else
-//                            /* Arithmetic average coeff */
-//                            dThermalCond = (p->fThermalCond + q->fThermalCond) \
-//                                    /(p->fDensity*q->fDensity);
-//                            if (dThermalCond > 0 && (dt_diff = dtFacDiffusion*ph \
-//                                    *p->fThermalLength/(dThermalCond*p->fDensity)) < dt){
-//                                dt = dt_diff;
-//                            }
-//                        #endif
-//                    #else
+                    #ifdef SUPERBUBBLE /* compile-time flag */
+                        #if (1)
+                            /* Harmonic average coeff */
+                            double dThermalCondSum = p->fThermalCond() + q->fThermalCond();
+                            dThermalCond = ( dThermalCondSum <= 0 ? 0
+                                : 4*p->fThermalCond()*q->fThermalCond()
+                                /(dThermalCondSum*p->fDensity*q->fDensity) );
+                        #else
+                            /* Arithmetic average coeff */
+                            dThermalCond = (p->fThermalCond() + q->fThermalCond())
+                                /(p->fDensity*q->fDensity);
+                        #endif
+                            if (dThermalCond > 0 && (dt_diff = dtFacDiffusion*ph
+                                    *ph/(dThermalCond*p->fDensity)) < dt) {
+                                dt = dt_diff;
+                                }
+                    #else
                         dThermalCond = 0.0;
-//                    #endif //THERMALCOND
+                    #endif
                     if (diffTh > 0 && (dt_diff= dtFacDiffusion*ph*ph/(diffTh*p->fDensity)) < dt) dt = dt_diff;
                     params.diffu = (diffTh+dThermalCond)*(p->uPred()-q->uPred());
                     }
