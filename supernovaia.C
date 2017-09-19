@@ -7,7 +7,7 @@
 /* Calculation of number and mass of stars that go SN Type Ia in a
    given stellar mass range.  */
 
-#define EPSSNIA 1e-7
+#define EPSSNIA 1e-6
 
 /// class to hold information about the secondary
 class MSBinary 

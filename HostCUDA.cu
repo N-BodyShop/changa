@@ -163,9 +163,13 @@ void run_DM_TRANSFER_FREE_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void
 /// @param nCompactParts
 /// @param mype Only used for debugging
 #ifdef CUDA_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase) {
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
+                        CompactPartData *compactParts, int nCompactParts,
+                        int mype, char phase, void *wrCallback) {
 #else
-  void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype) {
+void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
+                        CompactPartData *compactParts, int nCompactParts,
+                        int mype, void *wrCallback) {
 #endif
 
 	workRequest transferKernel;
@@ -279,7 +283,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments, C
           buf->hostBuffer = NULL;
         }
 
-	transferKernel.callbackFn = 0;
+	transferKernel.callbackFn = wrCallback;
 	transferKernel.traceName = "xferLocal";
 	transferKernel.runKernel = run_DM_TRANSFER_LOCAL;
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
@@ -1301,17 +1305,23 @@ void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool fr
 }
 
 
-
 void run_DM_TRANSFER_BACK(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("DM_TRANSFER_BACK: 0x%x KERNELSELECT\n", devBuffers[LOCAL_PARTICLE_VARS]);
 #endif
 }
 
+/* Schedule the transfer of the accelerations back from the GPU to the host.
+ * This also schedules the freeing of the device buffers used for the
+ * force calculation.
+ */
 #ifdef CUDA_INSTRUMENT_WRS
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool freemom, bool freepart, int index, char phase){
+void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
+     bool freemom, bool freepart, bool freeRemoteMom, bool, freeRemotePart,
+     int index, char phase){
 #else
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool freemom, bool freepart){
+void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
+     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
 #endif
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -1323,10 +1333,15 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, 
   gravityKernel.dimBlock = dim3(0);
   gravityKernel.smemSize = 0;
 
-  gravityKernel.nBuffers = 3;
+  /* The buffers are: 1) forces on local particles, 2) Local multipole moments
+   * 3) Local particle data, 4) Remote multipole moments and 5) remote
+   * particle data.  Buffers 2-5 are here to get their device buffer
+   * deallocated.
+   */
+  gravityKernel.nBuffers = 5;
 
   /* schedule buffers for transfer to the GPU */
-  gravityKernel.bufferInfo = (dataInfo *) malloc(3 * sizeof(dataInfo));
+  gravityKernel.bufferInfo = (dataInfo *) malloc(gravityKernel.nBuffers * sizeof(dataInfo));
 
   buffer = &(gravityKernel.bufferInfo[LOCAL_PARTICLE_VARS_IDX]);
   buffer->bufferID = LOCAL_PARTICLE_VARS;
@@ -1352,6 +1367,21 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, 
   buffer->hostBuffer = NULL;
   buffer->size = 0;
 
+  buffer = &(gravityKernel.bufferInfo[3]);
+  buffer->bufferID = REMOTE_MOMENTS;
+  buffer->transferToDevice = false ;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freeRemoteMom;
+  buffer->hostBuffer = NULL;
+  buffer->size = 0;
+
+  buffer = &(gravityKernel.bufferInfo[4]);
+  buffer->bufferID = REMOTE_PARTICLE_CORES;
+  buffer->transferToDevice = false ;
+  buffer->transferFromDevice = false;
+  buffer->freeBuffer = freeRemotePart;
+  buffer->hostBuffer = NULL;
+  buffer->size = 0;
 
   gravityKernel.callbackFn = cb;
   gravityKernel.traceName = "transferBack";
@@ -1603,13 +1633,12 @@ __global__ void nodeGravityComputation(
             tr = 0.5*(m[tidx].xx + m[tidx].yy + m[tidx].zz),
             qir3 = b*m[tidx].totalMass + d*qir - c*tr;
 
-          pot[TRANSLATE(tidx, tidy)] -= m[tidx].totalMass * a + c*qir - b*tr;
+          pot -= m[tidx].totalMass * a + c*qir - b*tr;
+          acc.x -= qir3*r.x - c*qirx;
+          acc.y -= qir3*r.y - c*qiry;
+          acc.z -= qir3*r.z - c*qirz;
+          idt2 = fmax(idt2, (shared_particle_cores[tidy].mass + m[tidx].totalMass)*b);
 
-          acc[TRANSLATE(tidx, tidy)].x -= qir3*r.x - c*qirx;
-          acc[TRANSLATE(tidx, tidy)].y -= qir3*r.y - c*qiry;
-          acc[TRANSLATE(tidx, tidy)].z -= qir3*r.z - c*qirz;
-          idt2[TRANSLATE(tidx, tidy)] = fmax(idt2[TRANSLATE(tidx, tidy)],
-                                        (shared_particle_cores[tidy].mass + m[tidx].totalMass)*b);
 #endif
         }// end if rsq != 0
       }// end INTERACT
@@ -2420,53 +2449,65 @@ __global__ void particleGravityComputation(
 }
 #endif
 
-__global__ void EwaldTopKernel(GravityParticleData *particleTable, int nPart);
-__global__ void EwaldBottomKernel(GravityParticleData *particleTable, int nPart);
+__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
 
-
-void run_TOP_EWALD_KERNEL(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
+void run_EWALD_KERNEL_Large(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
+  int *Ewaldptr = (int*)wr->userData;
   cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA_IDX].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice);
-  EwaldTopKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-    ((GravityParticleData*)devBuffers[wr->bufferInfo[PARTICLE_TABLE_IDX].bufferID],
-     wr->bufferInfo[PARTICLE_TABLE_IDX].size/sizeof(GravityParticleData));
-#ifdef CUDA_PRINT_ERRORS
-  printf("TOP_EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-}
-
-void run_BOTTOM_EWALD_KERNEL(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
   cudaMemcpyToSymbol(ewt, wr->bufferInfo[EWALD_TABLE_IDX].hostBuffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice);
-  EwaldBottomKernel<<<wr->dimGrid, wr->dimBlock, 
-    wr->smemSize, kernel_stream>>>
-      ((GravityParticleData *)devBuffers[wr->bufferInfo[PARTICLE_TABLE_IDX].bufferID],
-        wr->bufferInfo[PARTICLE_TABLE_IDX].size/sizeof(GravityParticleData));
+  EwaldKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
+    ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+     (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+     (int *)devBuffers[wr->bufferInfo[PARTICLE_TABLE_IDX].bufferID], 1, 
+     Ewaldptr[0], Ewaldptr[1]);
 #ifdef CUDA_PRINT_ERRORS
-  printf("BOTTOM_EWALD_KERNEL : %s\n", cudaGetErrorString( cudaGetLastError() ) );
+  printf("EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
 }
 
+void run_EWALD_KERNEL_Small(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
+  int *Ewaldptr = (int*)wr->userData;
+  cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA_IDX].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice);
+  cudaMemcpyToSymbol(ewt, wr->bufferInfo[EWALD_TABLE_IDX].hostBuffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice);  
+  EwaldKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
+    ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+     (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+     (int *)NULL, 0,
+     Ewaldptr[0], Ewaldptr[1]);
+#ifdef CUDA_PRINT_ERRORS
+  printf("EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+#endif
+}
 
 extern unsigned int timerHandle; 
 
-void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop) {
+void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop, int largephase) {
 #ifdef CUDA_MEMPOOL
-  h_idata->p = (GravityParticleData *) hapi_poolMalloc((nParticles+1)*sizeof(GravityParticleData));
+  if(largephase)
+    h_idata->EwaldMarkers = (int *) hapi_poolMalloc((nParticles)*sizeof(int));
+  else
+    h_idata->EwaldMarkers = NULL;
   h_idata->ewt = (EwtData *) hapi_poolMalloc((nEwhLoop)*sizeof(EwtData));
   h_idata->cachedData = (EwaldReadOnlyData *) hapi_poolMalloc(sizeof(EwaldReadOnlyData));
 #else
-  cudaMallocHost((void**)&(h_idata->p), (nParticles+1) * sizeof(GravityParticleData));
+  if(largephase)
+    cudaMallocHost((void**)&(h_idata->EwaldMarkers), (nParticles)*sizeof(int));
+  else
+    h_idata->EwaldMarkers = NULL;
   cudaMallocHost((void**)&(h_idata->ewt), nEwhLoop * sizeof(EwtData));
   cudaMallocHost((void**)&(h_idata->cachedData), sizeof(EwaldReadOnlyData));
 #endif
 }
 
-void EwaldHostMemoryFree(EwaldData *h_idata) {
+void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
 #ifdef CUDA_MEMPOOL
-  hapi_poolFree(h_idata->p); 
+  if(largephase)
+    hapi_poolFree(h_idata->EwaldMarkers); 
   hapi_poolFree(h_idata->ewt); 
   hapi_poolFree(h_idata->cachedData); 
 #else
-  cudaFreeHost(h_idata->p); 
+  if(largephase)
+    cudaFreeHost(h_idata->EwaldMarkers); 
   cudaFreeHost(h_idata->ewt); 
   cudaFreeHost(h_idata->cachedData); 
 #endif
@@ -2476,14 +2517,16 @@ void EwaldHostMemoryFree(EwaldData *h_idata) {
  *  @param h_idata Host data buffers
  *  @param cb Callback
  *  @param myIndex Chare index on this node that called this request.
- *
- *  Two separate kernels are submitted: "top" for the real space loop,
- *  and "bottom" for the k-space loop.
+ *  
+ *  The "top" and "bottom" Ewlad kernels have been combined:
+ *    "top" for the real space loop,
+ *    "bottom" for the k-space loop.
+ *  
  */
 #ifdef CUDA_INSTRUMENT_WRS
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase)
+void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase)
 #else
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex)
+void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
 #endif
 {
 
@@ -2492,28 +2535,32 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex)
   int nEwhLoop = h_idata->cachedData->nEwhLoop;
   assert(nEwhLoop <= NEWH);
 
-  workRequest topKernel;
-  dataInfo *particleTableInfo, *cachedDataInfo, *ewtInfo;  
+  workRequest EwaldKernel;
+  dataInfo *markers, *cachedDataInfo, *ewtInfo;  
 
-  topKernel.dimGrid = dim3(numBlocks); 
-  topKernel.dimBlock = dim3(BLOCK_SIZE); 
-  topKernel.smemSize = 0; 
+  EwaldKernel.dimGrid = dim3(numBlocks); 
+  EwaldKernel.dimBlock = dim3(BLOCK_SIZE); 
+  EwaldKernel.smemSize = 0; 
 
-  topKernel.nBuffers = 2; 
+  EwaldKernel.nBuffers = 3; 
+  EwaldKernel.userData = h_idata->EwaldRange; //Range of particles on GPU 
 
-  /* schedule two buffers for transfer to the GPU */ 
-  topKernel.bufferInfo = 
-    (dataInfo *) malloc(topKernel.nBuffers * sizeof(dataInfo));
+  /* schedule buffers for transfer to the GPU */ 
+  EwaldKernel.bufferInfo = 
+    (dataInfo *) malloc(EwaldKernel.nBuffers * sizeof(dataInfo));
 
-  particleTableInfo = &(topKernel.bufferInfo[PARTICLE_TABLE_IDX]);
-  particleTableInfo->bufferID = NUM_GRAVITY_BUFS + PARTICLE_TABLE + myIndex; 
-  particleTableInfo->transferToDevice = true; 
-  particleTableInfo->transferFromDevice = false; 
-  particleTableInfo->freeBuffer = false; 
-  particleTableInfo->hostBuffer = h_idata->p; 
-  particleTableInfo->size = n * sizeof(GravityParticleData); 
+  markers = &(EwaldKernel.bufferInfo[PARTICLE_TABLE_IDX]);
+  markers->bufferID = -1;
+  if(largephase) markers->transferToDevice = true;
+  else markers->transferToDevice = false; 
+  markers->transferFromDevice = false; 
+  if(largephase) markers->freeBuffer = true;
+  else markers->freeBuffer = false;
+  markers->hostBuffer = h_idata->EwaldMarkers; 
+  if(largephase) markers->size = n * sizeof(int);
+  else markers->size = 0;  
 
-  cachedDataInfo = &(topKernel.bufferInfo[EWALD_READ_ONLY_DATA_IDX]); 
+  cachedDataInfo = &(EwaldKernel.bufferInfo[EWALD_READ_ONLY_DATA_IDX]); 
   cachedDataInfo->bufferID = NUM_GRAVITY_BUFS + EWALD_READ_ONLY_DATA;
   cachedDataInfo->transferToDevice = false; 
   cachedDataInfo->transferFromDevice = false; 
@@ -2521,47 +2568,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex)
   cachedDataInfo->hostBuffer = h_idata->cachedData; 
   cachedDataInfo->size = sizeof(EwaldReadOnlyData); 
 
-  topKernel.callbackFn = NULL;
-  topKernel.traceName = "topEwald";
-  topKernel.runKernel = run_TOP_EWALD_KERNEL; 
-#ifdef CUDA_INSTRUMENT_WRS
-  topKernel.chareIndex = myIndex;
-  topKernel.compType = TOP_EWALD_KERNEL;
-  topKernel.compPhase = phase; 
-#endif
-  enqueue(&topKernel); 
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("[%d] in EwaldHost, enqueued TopKernel\n", myIndex);
-#endif
-
-  workRequest bottomKernel; 
-
-  bottomKernel.dimGrid = dim3(numBlocks); 
-  bottomKernel.dimBlock = dim3(BLOCK_SIZE); 
-  bottomKernel.smemSize = 0; 
-
-  bottomKernel.nBuffers = 3; 
-
-  bottomKernel.bufferInfo = 
-    (dataInfo *) malloc(bottomKernel.nBuffers * sizeof(dataInfo));
-
-  particleTableInfo = &(bottomKernel.bufferInfo[PARTICLE_TABLE_IDX]);
-  particleTableInfo->bufferID = NUM_GRAVITY_BUFS + PARTICLE_TABLE + myIndex; 
-  particleTableInfo->transferToDevice = false; 
-  particleTableInfo->transferFromDevice = true; 
-  particleTableInfo->freeBuffer = true; 
-  particleTableInfo->hostBuffer = h_idata->p; 
-  particleTableInfo->size = n * sizeof(GravityParticleData); 
-
-  cachedDataInfo = &(bottomKernel.bufferInfo[EWALD_READ_ONLY_DATA_IDX]); 
-  cachedDataInfo->bufferID = NUM_GRAVITY_BUFS + EWALD_READ_ONLY_DATA; 
-  cachedDataInfo->transferToDevice = false; 
-  cachedDataInfo->transferFromDevice = false; 
-  cachedDataInfo->freeBuffer = false; 
-  cachedDataInfo->hostBuffer = h_idata->cachedData; 
-  cachedDataInfo->size = sizeof(EwaldReadOnlyData); 
-
-  ewtInfo = &(bottomKernel.bufferInfo[EWALD_TABLE_IDX]); 
+  ewtInfo = &(EwaldKernel.bufferInfo[EWALD_TABLE_IDX]); 
   ewtInfo->bufferID = NUM_GRAVITY_BUFS + EWALD_TABLE; 
   ewtInfo->transferToDevice = false; 
   ewtInfo->transferFromDevice = false; 
@@ -2569,24 +2576,43 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex)
   ewtInfo->hostBuffer = h_idata->ewt; 
   ewtInfo->size = nEwhLoop * sizeof(EwtData); 
 
-  bottomKernel.callbackFn = cb;
-  bottomKernel.traceName = "bottomEwald";
-  bottomKernel.runKernel = run_BOTTOM_EWALD_KERNEL; 
+  EwaldKernel.callbackFn = cb;
+  if(largephase){
+    EwaldKernel.runKernel = run_EWALD_KERNEL_Large;
+    EwaldKernel.traceName = "EwaldLarge"; 
+  }else{ 
+    EwaldKernel.runKernel = run_EWALD_KERNEL_Small;
+    EwaldKernel.traceName = "EwaldSmall";
+  }
 #ifdef CUDA_INSTRUMENT_WRS
-  bottomKernel.chareIndex = myIndex;
-  bottomKernel.compType = BOTTOM_EWALD_KERNEL;
-  bottomKernel.compPhase = phase; 
+  EwaldKernel.chareIndex = myIndex;
+  EwaldKernel.compType = EWALD_KERNEL;
+  EwaldKernel.compPhase = phase; 
 #endif
-  enqueue(&bottomKernel); 
+  enqueue(&EwaldKernel); 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("[%d] in EwaldHost, enqueued BotKernel\n", myIndex);
+  printf("[%d] in EwaldHost, enqueued EwaldKernel\n", myIndex);
 #endif
 }
 
-__global__ void EwaldTopKernel(GravityParticleData *particleTable,
-           int nPart) {
+__global__ void EwaldKernel(CompactPartData *particleCores, 
+                               VariablePartData *particleVars, 
+                               int *markers, int largephase,
+                               int First, int Last) {
+  /////////////////////////////////////
+  ////////////// Ewald TOP ////////////
+  /////////////////////////////////////
+  int id;
+  if(largephase){
+    id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    if(id > Last) return;
+    id = markers[id];
+  }else{
+    id = First + blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    if(id > Last) return;
+  }
 
-  GravityParticleData *p;
+  CompactPartData *p;
 
   cudatype alphan;
   cudatype fPot, ax, ay, az;
@@ -2594,7 +2620,7 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable,
   cudatype xdif, ydif, zdif; 
   cudatype g0, g1, g2, g3, g4, g5;
   cudatype Q2, Q2mirx, Q2miry, Q2mirz, Q2mir, Qta; 
-  int id, ix, iy, iz, bInHole, bInHolex, bInHolexy;
+  int ix, iy, iz, bInHole, bInHolex, bInHolexy;
 
 #ifdef HEXADECAPOLE
   MomcData *mom = &(cachedData->momcRoot);
@@ -2624,11 +2650,7 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable,
 
   Q2 = 0.5 * (mom->xx + mom->yy + mom->zz);
 
-  id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-  if (id >= nPart) {
-    return;
-  }
-  p = &(particleTable[id]);
+  p = &(particleCores[id]);
 
 #ifdef DEBUG
   if (blockIdx.x == 0 && threadIdx.x == 0) {
@@ -2643,14 +2665,14 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable,
   az = 0.0f;
 
 #ifdef HEXADECAPOLE
-  xdif = p->position_x - momQuad->cmx; 
-  ydif = p->position_y - momQuad->cmy; 
-  zdif = p->position_z - momQuad->cmz;
+  xdif = p->position.x - momQuad->cmx; 
+  ydif = p->position.y - momQuad->cmy; 
+  zdif = p->position.z - momQuad->cmz;
   fPot = momQuad->totalMass*cachedData->k1;
 #else
-  xdif = p->position_x - mom->cmx; 
-  ydif = p->position_y - mom->cmy; 
-  zdif = p->position_z - mom->cmz;
+  xdif = p->position.x - mom->cmx; 
+  ydif = p->position.y - mom->cmy; 
+  zdif = p->position.z - mom->cmz;
   fPot = mom->totalMass*cachedData->k1;
 #endif
   for (ix=-(cachedData->nEwReps);ix<=(cachedData->nEwReps);++ix) {  
@@ -2764,30 +2786,14 @@ __global__ void EwaldTopKernel(GravityParticleData *particleTable,
     }
   }
 
-  p->potential += fPot;
-  p->acceleration_x += ax;
-  p->acceleration_y += ay;
-  p->acceleration_z += az;
-
-}
-
-__global__ void EwaldBottomKernel(GravityParticleData *particleTable, int nPart) {
-
-  int i, id;
-  cudatype hdotx, c, s, fPot; 
-  cudatype ax, ay, az; 
+  /////////////////////////////////////
+  //////////// Ewald Bottom ///////////
+  /////////////////////////////////////
+  cudatype hdotx, c, s;
   cudatype tempEwt; 
-  cudatype xdif, ydif, zdif; 
-  GravityParticleData *p; 
-  MultipoleMomentsData *mom; 
+  xdif = ydif = zdif = 0.0; 
 
-  mom = &(cachedData->mm); 
-
-  id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-  if (id >= nPart) {
-    return;
-  }
-  p = &(particleTable[id]);
+  MultipoleMomentsData *momBottom = &(cachedData->mm);
 
   /*
    ** Scoring for the h-loop (+,*)
@@ -2797,16 +2803,11 @@ __global__ void EwaldBottomKernel(GravityParticleData *particleTable, int nPart)
    **                                   = 58
    */
 
-  fPot=0.0f;
-  ax=0.0f;
-  ay=0.0f;
-  az=0.0f;
+  xdif = p->position.x - momBottom->cmx; 
+  ydif = p->position.y - momBottom->cmy; 
+  zdif = p->position.z - momBottom->cmz; 
 
-  xdif = p->position_x - mom->cmx; 
-  ydif = p->position_y - mom->cmy; 
-  zdif = p->position_z - mom->cmz; 
-
-  for (i=0;i<cachedData->nEwhLoop;++i) {
+  for (int i=0;i<cachedData->nEwhLoop;++i) {
     hdotx = ewt[i].hx * xdif + ewt[i].hy * ydif + ewt[i].hz * zdif;
     c = cosf(hdotx);
     s = sinf(hdotx);    
@@ -2817,9 +2818,10 @@ __global__ void EwaldBottomKernel(GravityParticleData *particleTable, int nPart)
     az += ewt[i].hz * tempEwt;
   }
 
-  p->potential += fPot;
-  p->acceleration_x += ax;
-  p->acceleration_y += ay;
-  p->acceleration_z += az;
-
+  particleVars[id].a.x += ax;
+  particleVars[id].a.y += ay;
+  particleVars[id].a.z += az;
+  particleVars[id].potential += fPot;
+  
+  return;
 }

@@ -44,6 +44,7 @@ void DataManager::init() {
   treePiecesDoneLocalComputation = 0;
   treePiecesDoneRemoteChunkComputation = 0;
   treePiecesWantParticlesBack = 0;
+  gputransfer = false;
 #ifdef CUDA_INSTRUMENT_WRS
   treePiecesDoneInitInstrumentation = 0;
 #endif
@@ -153,6 +154,13 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
   CmiUnlock(__nodelock);
 }
 
+/// \brief Clear registeredTreePieces on this node.
+void DataManager::clearRegisteredPieces(const CkCallback& cb) {
+    registeredTreePieces.removeAll();
+    contribute(cb);
+}
+
+
 /// \brief Build a local tree inside the node.
 ///
 /// This will be an exact superset of all the trees in this
@@ -230,7 +238,6 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
 
     //Ramdomize the prefetchRoots
     if(_randChunks){
-      srand((CkMyNode()+1)*1000);
       for (int i=_numChunks; i>1; --i) {
         int r = rand();
         int k = (int) ((((float)r) * i) / (((float)RAND_MAX) + 1));
@@ -510,6 +517,23 @@ void DataManager::serializeLocalTree(){
 
 }
 
+/// @brief Callback from local data transfer to GPU
+/// Indicate the transfer is done, and start the local gravity walks
+/// on the treepieces on this node.
+void DataManager::startLocalWalk() {
+#ifdef CUDA
+    for(int i = 0; i < registeredTreePieces.length(); i++){
+      if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
+      int in = registeredTreePieces[i].treePiece->getIndex();
+      treePieces[in].commenceCalculateGravityLocal();
+    }
+    gputransfer = true;
+#endif
+}
+
+/// @brief Callback from remote data transfer to GPU.
+/// The data for remote interactions is on the GPU, so continue the
+/// remote walk.
 void DataManager::resumeRemoteChunk() {
   if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk registered: %d\n", CkMyPe(), registeredTreePieces.length());
 #ifdef CUDA
@@ -531,7 +555,6 @@ void DataManager::resumeRemoteChunk() {
       CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
 #endif
       treePieces[in].continueStartRemoteChunk(chunk);
-      treePieces[in].commenceCalculateGravityLocal();
     }
 #endif
 }
@@ -588,7 +611,6 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 #define addNodeToList(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
-        nd->wasNeg = false; \
         list.push_back(CudaMultipoleMoments(nd->moments));\
         CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
         index++;\
@@ -596,7 +618,6 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 #define addNodeToListPtr(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
-        nd->wasNeg = false; \
         list->push_back(CudaMultipoleMoments(nd->moments));\
         CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
         index++;\
@@ -606,14 +627,12 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 #define addNodeToList(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
-        nd->wasNeg = false; \
         list.push_back(CudaMultipoleMoments(nd->moments));\
         index++;\
       }
 #define addNodeToListPtr(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
-        nd->wasNeg = false; \
         list->push_back(CudaMultipoleMoments(nd->moments));\
         index++;\
       }
@@ -700,6 +719,8 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
       ExternalGravityParticle *parts;
       int nParticles = node->lastParticle-node->firstParticle+1;
       NodeKey key = node->getKey();
+      // N.B. Key for particles is shifted to distinguish it from the Key
+      // for the node.
       key <<= 1;
 
       cacheType::iterator p = ctPart->find(key);
@@ -833,11 +854,10 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
   // Transfer moments and particle cores to gpu
 #ifdef CUDA_INSTRUMENT_WRS
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung);
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung, localTransferCallback);
 #else
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe());
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe(), localTransferCallback);
 #endif
-
 }// end serializeLocal
 
 void DataManager::freeLocalTreeMemory(){
@@ -932,10 +952,19 @@ void DataManager::transferParticleVarsBack(){
 
     if(verbosity > 1) CkPrintf("[%d] transferParticleVarsBack\n", CkMyPe());
 #ifdef CUDA_INSTRUMENT_WRS
-    TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb, savedNumTotalNodes > 0, savedNumTotalParticles > 0, 0, activeRung);
+    TransferParticleVarsBack(buf,
+                             savedNumTotalParticles*sizeof(VariablePartData),
+                             data->cb, savedNumTotalNodes > 0,
+                             savedNumTotalParticles > 0, lastChunkMoments > 0,
+                             lastChunkParticles > 0, 0, activeRung);
 #else
-    TransferParticleVarsBack(buf, savedNumTotalParticles*sizeof(VariablePartData), data->cb, savedNumTotalNodes > 0, savedNumTotalParticles > 0);
+    TransferParticleVarsBack(buf,
+                             savedNumTotalParticles*sizeof(VariablePartData),
+                             data->cb, savedNumTotalNodes > 0,
+                             savedNumTotalParticles > 0, lastChunkMoments > 0,
+                             lastChunkParticles > 0);
 #endif
+    gputransfer = false;
   }
   CmiUnlock(__nodelock);
 }
@@ -1013,43 +1042,19 @@ void DataManager::clearInstrument(CkCallback &cb){
 #endif
 }
 
+/// @brief Group wrapper for GPU local data transfer callback.
+/// Simply calls the DataManager method.
 void DataManagerHelper::transferLocalTreeCallback() {
   if(verbosity > 1) CkPrintf("[%d] transferLocalTreeCallback\n", CkMyPe());
-  void **devBuffers = getdevBuffers();
-  void *localMoments = devBuffers[LOCAL_MOMENTS];
-  void *localParticleCores = devBuffers[LOCAL_PARTICLE_CORES];
-  void *localParticleVars = devBuffers[LOCAL_PARTICLE_VARS];
-  if(verbosity > 1) CkPrintf("localMoments: %p, localParticleCores: %p, localParticleVars: %p\n", localMoments, localParticleCores, localParticleVars);
-  int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
-
-  for (int i = basePE; i < basePE + CkMyNodeSize(); i++) {
-    if (i != CkMyPe()) {
-      dmHelperProxy[i].populateDeviceBufferTable((intptr_t) localMoments, (intptr_t) localParticleCores, (intptr_t) localParticleVars);
-    }
-  }
-
-  dmHelperProxy[basePE].finishDevBufferSync();
+  DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
+  dm->startLocalWalk();
 }
 
+/// @brief Group wrapper for GPU remote data transfer callback.
+/// Simply calls the DataManager method.
 void DataManagerHelper::transferRemoteChunkCallback() {
   DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
   dm->resumeRemoteChunk();
 }
 
-void DataManagerHelper::finishDevBufferSync() {
-  if(verbosity > 1) CkPrintf("[%d] finishDevBufferSync\n", CkMyPe());
-  if (++countLocalPes == CkMyNodeSize() ) {
-    countLocalPes = 0;
-    DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
-    dm->resumeRemoteChunk();
-  }
-}
-
-void DataManagerHelper::finishDevBufferSyncRemoteChunk() {
-  if (++countSyncRemoteChunk == CkMyNodeSize() ) {
-    countSyncRemoteChunk = 0;
-    DataManager *dm = (DataManager *) CkLocalNodeBranch(dataManagerID);
-    dm->resumeRemoteChunk();
-  }
-}
 #endif // CUDA

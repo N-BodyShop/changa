@@ -5,6 +5,7 @@
 #include <algorithm>
 #include <fstream>
 #include <assert.h>
+#include <float.h>
 // jetley
 #include "limits.h"
 
@@ -73,6 +74,21 @@ CkpvExtern(int, _lb_obj_index);
 string getColor(GenericTreeNode*);
 
 const char *typeString(NodeType type);
+
+/**
+ * @brief glassDamping applies a damping force to a particle's velocity.
+ * 
+ * This can be useful for generating glasses.  It is mean to model a damping
+ * term vdot = -damping * v
+ * @param v Particle velocity (v or vPred), a Vector3D
+ * @param dDelta Time step to apply damping over
+ * @param damping Inverse timescale of the damping
+ */
+inline void glassDamping(Vector3D<double> &v, double dDelta, double damping) {
+#ifdef DAMPING
+    v *= exp(-dDelta * damping);
+#endif
+}
 
 /*
  * set periodic information in all the TreePieces
@@ -1464,6 +1480,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	      if(bClosing) { // update predicted quantities to end of step
 		  p->vPred() = p->velocity
 		      + dDelta[p->rung]*p->treeAcceleration;
+		  glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
 		  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 		      p->u() = p->u() + p->uDot()*duDelta[p->rung];
@@ -1480,6 +1497,14 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 #endif /* COOLING_NONE */
 		      p->uPred() = p->u();
 		      }
+#ifdef DIFFUSION
+		  p->fMetals() += p->fMetalsDot()*duDelta[p->rung];
+		  p->fMetalsPred() = p->fMetals();
+		  p->fMFracOxygen() += p->fMFracOxygenDot()*duDelta[p->rung];
+		  p->fMFracOxygenPred() = p->fMFracOxygen();
+		  p->fMFracIron() += p->fMFracIronDot()*duDelta[p->rung];
+		  p->fMFracIronPred() = p->fMFracIron();
+#endif
 		  }
 	      else {	// predicted quantities are at the beginning
 			// of step
@@ -1500,11 +1525,20 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  }
 #endif /* COOLING_NONE */
 		      }
+#ifdef DIFFUSION
+		  p->fMetalsPred() = p->fMetals();
+		  p->fMetals() += p->fMetalsDot()*duDelta[p->rung];
+		  p->fMFracOxygenPred() = p->fMFracOxygen();
+		  p->fMFracOxygen() += p->fMFracOxygenDot()*duDelta[p->rung];
+		  p->fMFracIronPred() = p->fMFracIron();
+		  p->fMFracIron() += p->fMFracIronDot()*duDelta[p->rung];
+#endif
 		  }
 	      CkAssert(p->u() >= 0.0);
 	      CkAssert(p->uPred() >= 0.0);
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
+	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
 	  }
       }
   contribute(cb);
@@ -1520,6 +1554,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 	    }
 	}
 
+    bBucketsInited = true;
     contribute(cb);
     }
 
@@ -1533,6 +1568,8 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
  * @param dEta Factor to use in determing timestep
  * @param dEtaCourant Courant factor to use in determing timestep
  * @param dEtauDot Factor to use in uDot based timestep
+ * @param dDiffCoeff Diffusion coefficent
+ * @param dEtaDiffusion Factor to use in diffusion based timestep
  * @param dDelta Base timestep
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
@@ -1544,6 +1581,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       int bSphStep, int bViscosityLimitdt,
 		       double dEta, double dEtaCourant, double dEtauDot,
+                       double dDiffCoeff, double dEtaDiffusion,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, double dhMinOverSoft,
                        double dResolveJeans,
@@ -1555,10 +1593,10 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     GravityParticle *p = &myParticles[i];
     if(p->rung >= iKickRung) {
-      CkAssert(p->soft > 0.0);
       double dTIdeal = dDelta;
       double dTGrav, dTCourant, dTEdot;
       if(bEpsAccStep) {
+         if (p->soft <= 0.0) CkAbort("Cannot use bEpsAccStep with zero softening length particle\n");
 	  double acc = dAccFac*p->treeAcceleration.length();
 	  double dt;
 #ifdef EPSACCH
@@ -1589,7 +1627,11 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	  }
       if(bSphStep && TYPETest(p, TYPE_GAS)) {
 	  double dt;
-	  double ph = sqrt(0.25*p->fBall*p->fBall);
+	  double ph = 0.5*p->fBall;
+#ifdef DTADJUST
+	  dt = p->dtNew();
+	  p->dtNew() = FLT_MAX;
+#else	  
 	  if (p->mumax() > 0.0) {
 	      if (bViscosityLimitdt) 
 		  dt = dEtaCourant*dCosmoFac*(ph /(p->c() + 0.6*(p->c() + 2*p->BalsaraSwitch()*p->mumax())));
@@ -1598,9 +1640,29 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      }
 	  else
 	      dt = dEtaCourant*dCosmoFac*(ph/(1.6*p->c()));
+#endif
           dTCourant = dt;
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
+
+#ifdef DTADJUST
+          {
+              double uTotDot, dtExtrap;
+    
+#ifndef COOLING_NONE
+              uTotDot = p->uDot();
+#else
+              uTotDot = p->PdV();
+#endif
+              if (uTotDot > 0) { // Extrapolate Courant time to end of
+                                 // timestep.
+                  dtExtrap = (dEtaCourant*dCosmoFac*2/1.6)
+                      *sqrt(p->fBall*p->fBall*0.25
+                            /(4*(p->c()*p->c() + GAMMA_NONCOOL*uTotDot*dTIdeal)));
+                  if (dtExtrap < dTIdeal) dTIdeal = dtExtrap;
+              }
+          }
+#endif
 
 	  if (dEtauDot > 0.0 && p->PdV() < 0.0) { /* Prevent rapid adiabatic cooling */
 	      assert(p->PoverRho2() > 0.0);
@@ -1613,6 +1675,13 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
+#ifdef DIFFUSION
+	  /* h^2/(2.77Q) Linear stability from Brookshaw */
+	  if (p->diff() > 0 && dDiffCoeff > 0) {
+	      dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff());  
+	      if (dt < dTIdeal) dTIdeal = dt;
+	      }
+#endif
           dTEdot = dt;
 	  }
 
@@ -1697,6 +1766,53 @@ void TreePiece::gatherInteracts(const CkCallback& cb) {
   contribute(6*sizeof(int64_t), nInteracts, CkReduction::sum_long, cb);
 }
 
+///
+/// @brief Look for gas particles reporting small new timesteps and
+/// move their timesteps down, appropriately adjusting
+/// predicted quantities.
+///
+/// @param iRung        Current rung
+/// @param dDelta       Base timestep for rungs.
+/// @param dDeltaThresh Threshold timestep to adjust timestep.
+///
+void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
+				const CkCallback &cb)
+{
+#ifdef DTADJUST
+    CkAssert(dDeltaThresh < dDelta);
+    int nUn = 0;        	// count of adjusted particles
+
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+        if(p->isGas() && p->rung < iRung && p->dtNew() < dDeltaThresh) {
+            nUn++;
+            p->dt = p->dtNew();
+            int iTempRung = DtToRung(dDelta, p->dt);
+            CkAssert(iTempRung > iRung);
+            if(iTempRung > MAXRUNG) {
+                CkAbort("Timestep too small");
+                }
+            p->rung = iTempRung;
+            /* UnKick -- revert to predicted values -- low order, non
+               symplectic :( */  
+
+            p->velocity = p->vPred();
+#ifndef COOLING_NONE
+            p->u() = p->uPred();
+#endif
+#ifdef DIFFUSION
+            p->fMetals() = p->fMetalsPred();
+            p->fMFracOxygen() = p->fMFracOxygenPred();
+            p->fMFracIron() = p->fMFracIronPred();
+#endif
+            }
+        }
+    contribute(sizeof(nUn), &nUn, CkReduction::sum_int, cb);
+#else
+    CkAbort("emergency adjust called without DTADJUST defined");
+#endif
+    }
+
 /// @brief assign domain number to each particle for diagnostic
 void TreePiece::assignDomain(const CkCallback &cb)
 {
@@ -1757,6 +1873,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
       boundingBox.grow(p->position);
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
 	  p->vPred() += dvDelta*p->treeAcceleration;
+	  glassDamping(p->vPred(), dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 	      p->uPred() += p->uDot()*duDelta;
@@ -1780,6 +1897,11 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 #endif
               CkAssert(p->uPred() >= 0.0);
 	      }
+#ifdef DIFFUSION
+	  p->fMetalsPred() += p->fMetalsDot()*duDelta;
+	  p->fMFracOxygenPred() += p->fMFracOxygenDot()*duDelta;
+	  p->fMFracIronPred() += p->fMFracIronDot()*duDelta;
+#endif /* DIFFUSION */
 	  }
       }
   CkAssert(bInBox);
@@ -2116,6 +2238,7 @@ struct SortStruct {
   int iStore;
 };
 
+/// @brief Comparison function to sort iOrders.
 int CompSortStruct(const void * a, const void * b) {
   return ( ( ((struct SortStruct *) a)->iOrder < ((struct SortStruct *) b)->iOrder ? -1 : 1 ) );
 }
@@ -2286,6 +2409,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
     delete[] bucketReqs;
     bucketReqs = NULL;
   }
+  bBucketsInited = false;
 #ifdef PUSH_GRAVITY
   // used to indicate whether trees on SMP node should be
   // merged or not: we do not merge trees when pushing, to
@@ -2492,7 +2616,8 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
           opts.setPriority((unsigned int) -100000000);
 	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(),
       node->firstParticle, node->particleCount, thisIndex, node->moments,
-      node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+              node->boundingBox, node->bndBoxBall, node->iParticleTypes,
+              node->nSPH, &opts);
     }
       delete l;
       momentRequests.erase(node->getKey());
@@ -2611,6 +2736,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 	  node->moments += child->moments;
 	  node->bndBoxBall.grow(child->bndBoxBall);
 	  node->iParticleTypes |= child->iParticleTypes;
+          node->nSPH += child->nSPH;
 	  }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     } else if (child->getType() == Empty) {
@@ -2627,6 +2753,7 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 	  node->moments += child->moments;
 	  node->bndBoxBall.grow(child->bndBoxBall);
 	  node->iParticleTypes |= child->iParticleTypes;
+          node->nSPH += child->nSPH;
 	  }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     }
@@ -2822,7 +2949,8 @@ void TreePiece::processRemoteRequestsForMoments(){
           opts.setPriority((unsigned int) -100000000);
 	  streamingProxy[(*l)[i]].receiveRemoteMoments(nodeKey, node->getType(),
       node->firstParticle, node->particleCount, thisIndex, node->moments,
-      node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+      node->boundingBox, node->bndBoxBall, node->iParticleTypes,
+              node->nSPH, &opts);
       }
       delete l;
       momentRequests.erase(node->getKey());
@@ -3033,6 +3161,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
         node->boundingBox.grow(child->boundingBox);
         node->bndBoxBall.grow(child->bndBoxBall);
 	node->iParticleTypes |= child->iParticleTypes;
+        node->nSPH += child->nSPH;
       }
       if (child->rungs > node->rungs) node->rungs = child->rungs;
     } else if (child->getType() == Empty) {
@@ -3055,6 +3184,7 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
         node->boundingBox.grow(child->boundingBox);
         node->bndBoxBall.grow(child->bndBoxBall);
 	node->iParticleTypes |= child->iParticleTypes;
+        node->nSPH += child->nSPH;
       }
       // for the rung information we can always do now since it is a local property
       if (child->rungs > node->rungs) node->rungs = child->rungs;
@@ -3098,6 +3228,7 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
       node->boundingBox.grow(child->boundingBox);
       node->bndBoxBall.grow(child->bndBoxBall);
       node->iParticleTypes |= child->iParticleTypes;
+      node->nSPH += child->nSPH;
     }
     if (child->rungs > node->rungs) node->rungs = child->rungs;
   }
@@ -3149,7 +3280,8 @@ void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
       opts.setPriority((unsigned int) -100000000);
       streamingProxy[sender].receiveRemoteMoments(key, node->getType(),
         node->firstParticle, node->particleCount, thisIndex, node->moments,
-        node->boundingBox, node->bndBoxBall, node->iParticleTypes, &opts);
+        node->boundingBox, node->bndBoxBall, node->iParticleTypes,
+          node->nSPH, &opts);
       return;
   }
 
@@ -3193,7 +3325,8 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 				     const MultipoleMoments& moments,
 				     const OrientedBox<double>& box,
 				     const OrientedBox<double>& boxBall,
-				     const unsigned int iParticleTypes) {
+                                     const unsigned int iParticleTypes,
+                                     const int64_t nSPH) {
   GenericTreeNode *node = keyToNode(key);
   CkAssert(node != NULL);
   MERGE_REMOTE_REQUESTS_VERBOSE("[%d] receiveRemoteMoments %llu\n",thisIndex,key);
@@ -3210,6 +3343,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
     node->boundingBox = box;
     node->bndBoxBall = boxBall;
     node->iParticleTypes = iParticleTypes;
+    node->nSPH = nSPH;
     node->remoteIndex = remIdx;
   }
 
@@ -3276,7 +3410,7 @@ GenericTreeNode *TreePiece::boundaryParentReady(GenericTreeNode *parent){
       streamingProxy[(*l)[i]].receiveRemoteMoments(parent->getKey(),
         parent->getType(), parent->firstParticle, parent->particleCount,
         thisIndex, parent->moments, parent->boundingBox, parent->bndBoxBall,
-        parent->iParticleTypes, &opts);
+          parent->iParticleTypes, parent->nSPH, &opts);
     }
     delete l;
     momentRequests.erase(parent->getKey());
@@ -3300,6 +3434,7 @@ void TreePiece::accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeN
   parent->boundingBox.grow(child->boundingBox);
   parent->bndBoxBall.grow(child->bndBoxBall);
   parent->iParticleTypes |= child->iParticleTypes;
+  parent->nSPH += child->nSPH;
 }
 
 /// @brief determine if moments of node have been requested.
@@ -3330,7 +3465,8 @@ void TreePiece::deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsCl
     MERGE_REMOTE_REQUESTS_VERBOSE("[%d] send %llu (%s) moments to %d\n", thisIndex, node->getKey(), typeString(node->getType()),clients[i].clientTreePiece->getIndex());
     clients[i].clientTreePiece->receiveRemoteMoments(node->getKey(),node->getType(),
       node->firstParticle,node->particleCount,node->remoteIndex,node->moments,
-      node->boundingBox,node->bndBoxBall,node->iParticleTypes);
+        node->boundingBox,node->bndBoxBall,node->iParticleTypes,
+        node->nSPH);
   }
   clients.clear();
   nonLocalMomentsClients.erase(it);
@@ -3399,7 +3535,7 @@ int encodeOffset(int reqID, int x, int y, int z)
     return reqID | (offsetcode << 22);
     }
 
-// Add reqID to encoded offset
+/// Add reqID to encoded offset
 int reEncodeOffset(int reqID, int offsetID)
 {
     const int offsetmask = 0x1ff << 22;
@@ -3450,6 +3586,7 @@ void TreePiece::initBuckets() {
     }
 #endif*/
   }
+  bBucketsInited = true;
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   bucketcheckList.resize(numBuckets);
 #endif
@@ -3842,11 +3979,12 @@ void TreePiece::calculateGravityLocal() {
 
 void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
-  h_idata = (EwaldData*) malloc(sizeof(EwaldData)); 
-
-  CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
-  EwaldHostMemorySetup(h_idata, myNumParticles, nEwhLoop); 
-  EwaldGPU();
+  if(dm->gputransfer){
+    thisProxy[thisIndex].EwaldGPU();
+    delete msg;
+  }else{
+    thisProxy[thisIndex].calculateEwald(msg);
+  }
 #else
 
   bool useckloop = false;
@@ -4942,10 +5080,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
           state->nodes->length() = 0;
 	  state->particles = new CkVec<CompactPartData>(200000);
           state->particles->length() = 0;
-          //state->nodeMap.clear();
-          state->nodeMap.resize(remoteResumeNodesPerReq);
-          state->nodeMap.length() = 0;
-          
+          state->nodeMap.clear();
           state->partMap.clear();
   }
 #endif // CUDA
@@ -5432,6 +5567,18 @@ void TreePiece::outputStatistics(const CkCallback& cb) {
   if(thisIndex == (int) numTreePieces - 1) cb.send();
 }
 
+/// @brief Sanity check on particle data
+inline void checkParticle(GravityParticle *p) 
+{
+    CkAssert(p->mass >= 0.0);
+    CkAssert(p->soft >= 0.0);
+    CkAssert(p->fBall >= 0.0);
+    CkAssert(p->fDensity >= 0.0);
+    CkAssert(p->iOrder >= 0);
+    CkAssert(p->rung >= 0 && p->rung <= MAXRUNG);
+    CkAssert(p->iType > 0 && p->iType < TYPE_MAXTYPE);
+    }
+
 /// @TODO Fix pup routine to handle correctly the tree
 void TreePiece::pup(PUP::er& p) {
   CBase_TreePiece::pup(p);
@@ -5468,6 +5615,7 @@ void TreePiece::pup(PUP::er& p) {
   }
   for(unsigned int i=1;i<=myNumParticles;i++){
     p | myParticles[i];
+    checkParticle(&myParticles[i]);
     if(myParticles[i].isGas()) {
 	int iSPH;
 	if(!p.isUnpacking()) {
@@ -5477,6 +5625,8 @@ void TreePiece::pup(PUP::er& p) {
 	    }
 	else {
 	    p | iSPH;
+	    if(iSPH >= myNumSPH)
+		CkError("Too many SPH: %d vs %d\n", iSPH, myNumSPH);
 	    myParticles[i].extraData = mySPHParticles + iSPH;
 	    CkAssert(iSPH < myNumSPH);
 	    }
@@ -5535,6 +5685,8 @@ void TreePiece::pup(PUP::er& p) {
   p | numOpenCriterionCalls;
   p | piecemass;
 #endif
+  p | packed;
+
   if (p.isUnpacking()) {
     particleInterRemote = NULL;
     nodeInterRemote = NULL;
@@ -6260,7 +6412,7 @@ void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *s
        CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, i, sRemoteGravityState->counterArrays[0][i], sLocalGravityState->counterArrays[0][i]);
 #endif
 #if !defined CUDA
-       // updatebucketstart is only called after we have finished
+       // updatebucketstate is only called after we have finished
        // with received nodes/particles (i.e. after stateReady in
        // either case.) therefore, some work requests must already
        // have been issued before it was invoked, so there will

@@ -56,6 +56,7 @@ using namespace std;
 
 using namespace Tree;
 
+/// Load balancers that need the spatial information.
 enum LBStrategy{
   Null=0,
   Multistep,
@@ -75,6 +76,7 @@ enum TraceState {
 };
 #endif
 
+/// Possible domain decomposition methods
 enum DomainsDec {
     SFC_dec=0,	// Space Filling Curve with Morton ordering
     Oct_dec=1, 	// Oct tree
@@ -85,6 +87,7 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+/// Directions for sending boundaries
 enum NborDir {
   LEFT = 0,
   RIGHT
@@ -137,6 +140,7 @@ extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;
 extern double dFracLoadBalance;
+extern double dGlassDamper;
 extern int bUseCkLoopPar;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
@@ -179,7 +183,6 @@ extern int _prefetch;
 extern int _randChunks;
 extern int _numChunks;
 extern unsigned int bucketSize;
-extern int lbcomm_cutoff_msgs;
 
 //jetley
 extern int localNodesPerReq;
@@ -415,7 +418,9 @@ inline double PoverRhoFloorJeans(double dResolveJeans, GravityParticle *p)
     return l2*dResolveJeans*p->fDensity;
 }
 
+/// @brief Adiabatic index to use with the Jeans pressure floor.
 const double GAMMA_JEANS = 2.0;
+const double GAMMA_NONCOOL = 5.0/3.0;
 
 
 /// @brief Overall flow control of the simulation.
@@ -446,11 +451,11 @@ class Main : public CBase_Main {
 	int64_t nMaxOrder;
 	
 	double dTime;		/* Simulation time */
+	double dTime0;		///< Simulation time at dStep = 0
 	double dEcosmo;		/* variables for integrating
 				   Lazer-Irvine eq. */
 	double dUOld;
 	double dTimeOld;
-	unsigned int printBinaryAcc;
 	PRM prm;		/* parameter parsing info */
 	Parameters param; /* actual parameters */
 	CkVec<double> vdOutTime; // Desired output times
@@ -461,6 +466,8 @@ class Main : public CBase_Main {
 	int bDumpFrame;
 	struct DumpFrameContext **df;
 	int bIsRestarting;
+        /// SPH Alpha has been read in.
+        int bHaveAlpha;
 	int bChkFirst;		/* alternate between 0 and 1 for checkpoint */
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the
@@ -480,6 +487,33 @@ class Main : public CBase_Main {
 #ifdef CHECK_TIME_WITHIN_BIGSTEP
        double wallTimeStart;
 #endif
+
+       /// @brief Hold wall clock timings of calculation phases for a
+       /// given rung.
+       class timing_fields {
+       public:
+           int count;           ///< number of times on this rung
+           double tGrav;        ///< Gravity time
+           double tuDot;        ///< Energy integration
+           double tDD;          ///< Domain Decomposition
+           double tLoadB;       ///< Load Balancing
+           double tTBuild;      ///< Tree Building
+           double tAdjust;      ///< Timestep adjustment
+           double tEmergAdjust; ///< Emergency Timestep adjustment
+           double tKick;        ///< Kick time
+           double tDrift;       ///< Drift time
+           double tCache;       ///< Cache teardown
+       public:
+           ///@brief Zero out fields
+           void clear() {
+               count = 0;
+               tGrav = tuDot = tDD = tLoadB = tTBuild = tAdjust
+                   = tEmergAdjust = tKick = tDrift = tCache = 0.0;
+               }
+           };
+       
+       CkVec<timing_fields> timings;  ///< One element for each rung.
+       void writeTimings(int iStep);
 
 #ifdef SELECTIVE_TRACING
        int monitorRung;
@@ -506,12 +540,14 @@ public:
 	void initialForces();
 	void doSimulation();
 	void restart(CkCheckpointStatusMsg *msg);
-	void waitForGravity(const CkCallback &cb, double startTime);
+	void waitForGravity(const CkCallback &cb, double startTime,
+            int activeRung);
         void advanceBigStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
-    void starCenterOfMass();
+        void emergencyAdjust(int iRung);
+	void starCenterOfMass();
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
@@ -532,6 +568,7 @@ public:
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
+	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
@@ -564,8 +601,11 @@ typedef struct OffsetNodeStruct
 }OffsetNode;
 
 #if INTERLIST_VER > 0
+/// @brief Queue of nodes to check for interactions.
 typedef CkQ<OffsetNode> CheckList;
+/// @brief Vector of nodes that are undecided at this level.
 typedef CkVec<OffsetNode> UndecidedList;
+/// @brief Vector of undecided lists, one for each level.
 typedef CkVec<UndecidedList> UndecidedLists;
 #endif
 
@@ -755,17 +795,17 @@ class TreePiece : public CBase_TreePiece {
   void memCacheStats(const CkCallback &cb);
   void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
+  /// @brief Called when walk on the current TreePiece is done.
   void markWalkDone();
+  /// @brief Called when walk on all TreePieces is done.
   void finishWalk();
+  /// @brief Called when smooth walk on the current TreePiece is done.
   void markSmoothWalkDone();
+  /// @brief Called when smooth walk on all TreePieces is done.
   void finishSmoothWalk();
 
   int getIndex() {
     return thisIndex;
-  }
-
-  int getLocalIndex(){
-    return localIndex;
   }
 
   /// @brief accumulate node interaction count for statistics
@@ -803,10 +843,12 @@ class TreePiece : public CBase_TreePiece {
   /// Start a new remote computation upon prefetch finished
   void startRemoteChunk();
 
+  /// Return the number of particles on this TreePiece.
   int getNumParticles(){
     return myNumParticles;
   }
 
+  /// Return the pointer to the particles on this TreePiece.
   GravityParticle *getParticles(){return myParticles;}
 
 
@@ -822,6 +864,10 @@ class TreePiece : public CBase_TreePiece {
         // the list
         int numActiveBuckets; 
         int myNumActiveParticles;
+        // First and Last indices of GPU particle
+        int FirstGPUParticleIndex;
+        int LastGPUParticleIndex;
+        int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
 
         int getNumBuckets(){
@@ -864,6 +910,8 @@ class TreePiece : public CBase_TreePiece {
         }
 
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
+          NumberOfGPUParticles = 0;
+          FirstGPUParticleIndex = fillIndex;//This is for the GPU Ewald
           if(largePhase()){
             for(int b = 0; b < numBuckets; b++){
               GenericTreeNode *bucket = bucketList[b];
@@ -906,6 +954,17 @@ class TreePiece : public CBase_TreePiece {
               }
               binfo->size = fillIndex-binfo->start;
             }
+          }
+          //This is for the GPU Ewald
+          if(FirstGPUParticleIndex == fillIndex){
+            //This means no particle is on GPU
+            FirstGPUParticleIndex = -1;
+            LastGPUParticleIndex = -1;
+            NumberOfGPUParticles = 0;
+          }
+          else{
+            LastGPUParticleIndex = fillIndex - 1;
+            NumberOfGPUParticles = LastGPUParticleIndex - FirstGPUParticleIndex + 1;
           }
         }
 
@@ -1012,6 +1071,8 @@ private:
   int nbor_msgs_count_;
 	/// Actual storage in the above array
 	int nStore;
+        /// Accelerations are initialized
+        bool bBucketsInited;
 
   // Temporary location to hold the particles that have come from outside this
   // TreePiece. This is used in the case where we migrate the particles and
@@ -1426,6 +1487,7 @@ public:
           myStarParticles = NULL;
 	  myNumParticles = myNumSPH = myNumStar = 0;
 	  nStore = nStoreSPH = nStoreStar = 0;
+          bBucketsInited = false;
 	  myTreeParticles = -1;
 	  orbBoundaries.clear();
 	  boxes = NULL;
@@ -1481,6 +1543,7 @@ public:
 	  orbBoundaries.clear();
 	  boxes = NULL;
 	  splitDims = NULL;
+          bBucketsInited = false;
 	  myTreeParticles = -1;
 
 
@@ -1650,6 +1713,15 @@ public:
 	     double duDelta, int nGrowMass, bool buildTree,
 	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
+  void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
+/**
+ * @brief Apply an external gravitational force
+ * @param activeRung The rung to apply the force.
+ * @param exGravParams Parameters of the external force
+ * @param cb Callback function
+ */
+  void externalGravity(int activeRung, const ExternalGravity exGrav,
+                       const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.
@@ -1660,6 +1732,8 @@ public:
  * @param dEta Factor to use in determing timestep
  * @param dEtaCourant Courant factor to use in determing timestep
  * @param dEtauDot Factor to use in uDot based timestep
+ * @param dDiffCoeff Diffusion coefficent
+ * @param dEtaDiffusion Factor to use in diffusion based timestep
  * @param dDelta Base timestep
  * @param dAccFac Acceleration scaling for cosmology
  * @param dCosmoFac Cosmo scaling for Courant
@@ -1671,6 +1745,7 @@ public:
   void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      int bSphStep, int bViscosityLimitdt,
 	      double dEta, double dEtaCourant, double dEtauDot,
+              double dDiffCoeff, double dEtaDiffusion,
 	      double dDelta, double dAccFac,
 	      double dCosmoFac, double dhMinOverSoft,
               double dResolveJeans,
@@ -1686,6 +1761,8 @@ public:
   void countActive(int activeRung, const CkCallback& cb);
   /// Get interaction statistics
   void gatherInteracts(const CkCallback& cb);
+  void emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
+		       const CkCallback &cb);
   void assignDomain(const CkCallback& cb);
   void starCenterOfMass(const CkCallback& cb);
   void calcEnergy(const CkCallback& cb);
@@ -1713,8 +1790,10 @@ public:
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
 	void getAdiabaticGasPressure(double gamma, double gammam1,
+                                     double dDtCourantFac,
 				     const CkCallback &cb);
 	void getCoolingGasPressure(double gamma, double gammam1,
+                                   double dDtCourantFac,
                                    double dResolveJeans,
 				   const CkCallback &cb);
         /// @brief initialize random seed for star formation
@@ -1760,7 +1839,8 @@ public:
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type,
     int firstParticle, int numParticles, int remIdx,
     const MultipoleMoments& moments, const OrientedBox<double>& box,
-    const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
+            const OrientedBox<double>& boxBall,
+            const unsigned int iParticleTypes, const int64_t nSPH);
 
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
@@ -1880,7 +1960,6 @@ public:
     int shufflelen);
 	void ResumeFromSync();
 
-	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputASCII(OutputParams& params, int bParaWrite,
 			 const CkCallback& cb);
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,

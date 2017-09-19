@@ -17,7 +17,7 @@
 
 #include "OrientedBox.h"
 #include "MultipoleMoments.h"
-
+#include "keytype.h"
 #include "GravityParticle.h"
 
 namespace Tree {
@@ -30,11 +30,9 @@ namespace Tree {
       node into the tree, all the bits at its right describe the path of this
       node into the tree, and the bits at its left are clearly 0 and unused.
    */
-#ifdef BIGKEYS
-  typedef __uint128_t NodeKey;
-#else
-  typedef CmiUInt8 NodeKey;
-#endif
+  // C++11 syntax
+  // using NodeKey = KeyType;
+  typedef KeyType NodeKey;
   static const int NodeKeyBits = 8*sizeof(NodeKey);
 
   /// This enumeration determines the different types of node a GenericTreeNode can be
@@ -69,7 +67,7 @@ class NodePool;
     NodeKey key;
 
     GenericTreeNode() : myType(Invalid), key(0), parent(0), firstParticle(0),
-	lastParticle(0), remoteIndex(0), iParticleTypes(0) {
+	lastParticle(0), remoteIndex(0), iParticleTypes(0), nSPH(0) {
 #if COSMO_STATS > 0
       used = false;
 #endif
@@ -79,7 +77,6 @@ class NodePool;
 #ifdef CUDA
       nodeArrayIndex = -1;
       bucketArrayIndex = -1;
-      wasNeg = true;
 #endif
 #endif
 #ifdef CHANGA_REFACTOR_WALKCHECK
@@ -103,7 +100,8 @@ class NodePool;
     OrientedBox<double> bndBoxBall;
     /// Mask of particle types contatained in this node
     unsigned int iParticleTypes;
-    /// An index for the first particle contained by this node, 0 means outside the node
+    /// The number of SPH particles this node contains
+    int64_t nSPH;
     /// An index for the first particle contained by this node, 0 means outside the node
     int firstParticle;
     /// An index to the last particle contained by this node, myNumParticles+1 means outside the node
@@ -132,7 +130,6 @@ class NodePool;
     /// index in moments array sent to GPU
     int nodeArrayIndex;
     int bucketArrayIndex;
-    bool wasNeg;
 #endif
 #endif
     /// center of smoothActive particles during smooth operation
@@ -157,7 +154,6 @@ class NodePool;
 #ifdef CUDA
       nodeArrayIndex = -1;
       bucketArrayIndex = -1;
-      wasNeg = true;
 #endif
 #endif
     }
@@ -230,6 +226,7 @@ class NodePool;
       boundingBox.reset();
       bndBoxBall.reset();
       iParticleTypes = 0;
+      nSPH = 0;
       rungs = 0;
       for (int i = firstParticle; i <= lastParticle; ++i) {
         moments += part[i];
@@ -240,6 +237,7 @@ class NodePool;
 			    + Vector3D<double>(fBallMax, fBallMax, fBallMax));
 	    bndBoxBall.grow(part[i].position
 			    - Vector3D<double>(fBallMax, fBallMax, fBallMax));
+            nSPH++;
 	    }
 	iParticleTypes |= part[i].iType;
         if (part[i].rung > rungs) rungs = part[i].rung;
@@ -260,6 +258,7 @@ class NodePool;
       boundingBox.reset();
       bndBoxBall.reset();
       iParticleTypes = 0;
+      nSPH = 0;
     }
 
     /// @brief print out a visualization of the tree for diagnostics
@@ -290,7 +289,6 @@ class NodePool;
   	    // to be present on the GPU
   	    nodeArrayIndex = -1;
       bucketArrayIndex = -1;
-      wasNeg = true;
 #endif
       } else {
         iType = (int) myType;
@@ -301,6 +299,7 @@ class NodePool;
       p | boundingBox;
       p | bndBoxBall;
       p | iParticleTypes;
+      p | nSPH;
       p | firstParticle;
       p | lastParticle;
       p | remoteIndex;
@@ -500,6 +499,8 @@ public:
       children[0]->firstParticle = firstParticle;
       children[1]->lastParticle = lastParticle;
 
+      // mask holds the bit that determines a particle's membership in
+      // either the left (0) or right (1) child.
       SFC::Key mask = SFC::Key(1) << ((SFC::KeyBits-1) - level);
       SFC::Key leftBit = part[firstParticle].key & mask;
       SFC::Key rightBit = part[lastParticle].key & mask;
@@ -509,8 +510,10 @@ public:
 	if (leftBit) {
 	  // left child missing
 	  if (firstParticle == 0) {
-	    children[0]->myType = NonLocal;
-	    children[1]->myType = Boundary;
+              // We are at the left domain boundary: the left child is
+              // completely on another TreePiece
+              children[0]->myType = NonLocal;
+              children[1]->myType = Boundary;
 	  } else {
 	    children[0]->makeEmpty();
 	    children[1]->myType = lastParticle==totalPart+1 ? Boundary : Internal;
@@ -522,8 +525,10 @@ public:
 	} else {
 	  // right child missing
 	  if (lastParticle == totalPart+1) {
-	    children[1]->myType = NonLocal;
-	    children[0]->myType = Boundary;
+              // We are at the right domain boundary: the right child is
+              // completely on another TreePiece
+              children[1]->myType = NonLocal;
+              children[0]->myType = Boundary;
 	  } else {
 	    children[1]->makeEmpty();
 	    children[0]->myType = firstParticle==0 ? Boundary : Internal;
@@ -536,21 +541,27 @@ public:
       } else if (leftBit < rightBit) {
 	// both children are present
 	if (firstParticle == 0 && leftBit != (part[1].key & mask)) {
-	  // the left child is NonLocal
+          // the left child is NonLocal: the boundary particle (from
+          // another TP) is in the left child, but the rest of the
+          // particles are in the right child.
 	  children[0]->myType = NonLocal;
 	  children[0]->lastParticle = firstParticle;
 	  children[1]->myType = lastParticle==totalPart+1 ? Boundary : Internal;
 	  children[1]->firstParticle = firstParticle+1;
 	  children[1]->particleCount = particleCount;
 	} else if (lastParticle == totalPart+1 && rightBit != (part[totalPart].key & mask)) {
-	  // the right child is NonLocal
+          // the right child is NonLocal: the boundary particle (from
+          // another TP) is in the right child, but the rest of the
+          // particles are in the left child.
 	  children[1]->myType = NonLocal;
 	  children[1]->firstParticle = lastParticle;
 	  children[0]->myType = firstParticle==0 ? Boundary : Internal;
 	  children[0]->lastParticle = lastParticle-1;
 	  children[0]->particleCount = particleCount;
 	} else {
-	  // the splitting point is somewhere in the middle
+          // the splitting point is somewhere in the middle
+          // The following statement finds the first particle with
+          // splitting bit (see the variable 'mask' above) set.
 	  GravityParticle *splitParticle = std::lower_bound(&part[firstParticle],
 			&part[lastParticle+1],
 			(GravityParticle)(part[lastParticle].key
@@ -733,20 +744,11 @@ public:
     // implemented in the .C
     GenericTreeNode *clone() const;
 
-    /*
-    int getNumChunks(int req) {
-      int i = 0;
-      int num = req;
-      while (num > 1) {
-	num >>= 1;
-	i++;
-      }
-      int ret = 1 << i;
-      if (ret != req) ret <<= 1;
-      return ret;
-    }
-    */
-
+/// @brief Get a number of top level NodeKeys which together make a
+/// complete tree.
+/// @param num Number of NodeKeys to generate
+/// @param ret Array in which to store generated NodeKeys.
+///
     void getChunks(int num, NodeKey *&ret) {
       int i = 0;
       int base = num;
@@ -784,7 +786,6 @@ public:
 #if INTERLIST_VER > 0 && defined CUDA
       buffer->nodeArrayIndex = -1;
       buffer->bucketArrayIndex = -1;
-      buffer->wasNeg = true;
 #endif
       int used = 1;
       if (depth != 0) {

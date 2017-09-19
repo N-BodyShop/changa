@@ -77,6 +77,9 @@ target x y z
   target point for view
   default: 0 0 0
 
+physical
+  Frame is rendered in physical (as opposed to comoving) co-ordinates.
+
 eye rel|abs
   rel means the eye is positioned relative to the target point (default)
   abs means the eye is positioned in absolute coordinates
@@ -204,3 +207,34 @@ logscalecoloursafe logmin logmax
   logmax is the column density that maps to the saturated pixel value.
   default: OFF
 
+ADJUSTING DUMPFRAME PARAMETERS
+
+The dumpframe framework prints out some diagnostics that will be helpful
+in adjusting your frames.  Following is an example:
+
+DF Projection: 1280 x 720 FOV 30.000000  width 0.696668 height 0.391876
+
+"width" and "height" give you the size of your image in simulation units.
+If "physical" is specified in the director file and this is a comoving
+simulation, then these will be multiplied by (1 + z).
+
+DF eye -0.010000 0.000000 0.000000, target 0.076597 0.056969 -0.123637, (separat
+ion 1.300000)
+
+"eye" and "target" should be as specified in the director file.
+"separation" is the distance between eye and target, again, multiplied by
+(1 + z) for physical in a comoving simulation.
+
+DF up 0.000000 0.000000 1.000000  Z-Clipping: Near 1.040000 Far 1.560000
+DF Vectors: x 0.000000 1194.256258 0.000000, y 0.000000 0.000000 1194.256258 z 1
+.000000 0.000000 0.000000
+DF Colours: 
+DF dark density 0.000000 1.000000
+DF dark 0.000000 10.000000 10.000000 20.000000 
+DF image range: 0 to 1.04136e-05
+
+The "image range" numbers give the minimum and maximum pixel values.
+If the "logscale" option is used, these numbers are before the scaling
+is applied.  Hence in the above example "logscale 1e-10 1e-5" would
+produce an image that just hits saturation and has 5 orders of magnitude
+in column density.

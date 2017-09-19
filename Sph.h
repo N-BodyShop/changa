@@ -2,6 +2,14 @@
 #ifndef __SPH_H
 #define __SPH_H
 
+#ifdef DIFFUSION
+
+#if defined(FEEDBACKDIFFLIMIT) && !defined(DIFFUSIONHARMONIC)
+#define DIFFUSIONHARMONIC
+#endif
+
+#endif
+
 /// @brief Parameters and functions for the first SPH smooth: density
 /// and velocity derivatives.
 class DenDvDxSmoothParams : public SmoothParams
@@ -9,12 +17,18 @@ class DenDvDxSmoothParams : public SmoothParams
  protected:
     double a, H; // Cosmological parameters
     int bActiveOnly;
-    
+    int bConstantDiffusion;
+    double dTime; 
+    double dAlphaMax;           ///< Maximum SPH alpha
+    int bStarting;              ///< We are starting (or restarting)
+                                ///  the simulation
+    int bHaveAlpha;             ///< Alpha has been read in.
+
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
     virtual void initTreeParticle(GravityParticle *p);
-    virtual void postTreeParticle(GravityParticle *p) {} 
+    virtual void postTreeParticle(GravityParticle *p); 
     virtual void initSmoothParticle(GravityParticle *p);
     virtual void initSmoothCache(GravityParticle *p);
     virtual void combSmoothCache(GravityParticle *p1,
@@ -24,13 +38,23 @@ class DenDvDxSmoothParams : public SmoothParams
     /// @param _iType Type of particle to operate on
     /// @param am Active rung
     /// @param csm Cosmology information
-    /// @param dTime Current time
+    /// @param _dTime Current time
     /// @param _bActiveOnly Only operate on active particles.
-    DenDvDxSmoothParams(int _iType, int am, CSM csm, double dTime,
-			int _bActiveOnly) {
+    /// @param _bConstantDiffusion Fixed diffusion constant
+    /// @param _bStarting Simulation is starting
+    /// @param _bHaveAlpha No need to calculate alpha
+    /// @param _dAlphaMax Maximum SPH alpha
+    DenDvDxSmoothParams(int _iType, int am, CSM csm, double _dTime,
+			int _bActiveOnly, int _bConstantDiffusion,
+                        int _bStarting, int _bHaveAlpha, double _dAlphaMax) {
 	iType = _iType;
 	activeRung = am;
 	bActiveOnly = _bActiveOnly;
+	bConstantDiffusion = _bConstantDiffusion;
+        bStarting = _bStarting;
+        bHaveAlpha = _bHaveAlpha;
+	dAlphaMax = _dAlphaMax;
+        dTime = _dTime;
 	if(csm->bComove) {
 	    H = csmTime2Hub(csm,dTime);
 	    a = csmTime2Exp(csm,dTime);
@@ -44,9 +68,14 @@ class DenDvDxSmoothParams : public SmoothParams
     DenDvDxSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
     virtual void pup(PUP::er &p) {
         SmoothParams::pup(p);//Call base class
+        p|dTime;
 	p|a;
 	p|H;
 	p|bActiveOnly;
+	p|bConstantDiffusion;
+	p|bStarting;
+	p|bHaveAlpha;
+	p|dAlphaMax;
 	}
     };
 
@@ -55,16 +84,14 @@ class DenDvDxSmoothParams : public SmoothParams
 ///
 /// Like the above class, but only does non active particles marked
 /// "Neighbor of Active" for the "fast gas" option.
-/// Also, it doesn't mark any particles.  This is used in the
-/// "FastGas" step.
+/// Also, marking of neighbors is not complete.  This is used in the
+/// "FastGas" step.  It uses the same fcnSmooth() as DenDvDxSmoothParams.
 
 class DenDvDxNeighborSmParams : public DenDvDxSmoothParams
 {
-    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
-			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
     virtual void initTreeParticle(GravityParticle *p) {}
-    virtual void postTreeParticle(GravityParticle *p) {} 
+    virtual void postTreeParticle(GravityParticle *p);
     virtual void initSmoothParticle(GravityParticle *p) {}
     virtual void initSmoothCache(GravityParticle *p) {}
     virtual void combSmoothCache(GravityParticle *p1,
@@ -75,8 +102,14 @@ class DenDvDxNeighborSmParams : public DenDvDxSmoothParams
     /// @param am Active rung
     /// @param csm Cosmology information
     /// @param dTime Current time
-    DenDvDxNeighborSmParams(int _iType, int am, CSM csm, double dTime)
-	: DenDvDxSmoothParams(_iType, am, csm, dTime, 0) {}
+    /// @param bConstantDiffusion Fixed diffusion constant
+    /// @param dAlphaMax Maximum SPH alpha
+    /// This calls the DenDvDx constructor, and we assume bActiveOnly,
+    /// bStarting, and bHaveAlpha are not set.
+    DenDvDxNeighborSmParams(int _iType, int am, CSM csm, double dTime,
+			    int bConstDiffusion, double dAlphaMax)
+      : DenDvDxSmoothParams(_iType, am, csm, dTime, 0, bConstDiffusion,
+                            0, 0, dAlphaMax) {}
     PUPable_decl(DenDvDxNeighborSmParams);
     DenDvDxNeighborSmParams(CkMigrateMessage *m) : DenDvDxSmoothParams(m) {}
     virtual void pup(PUP::er &p) {
@@ -93,11 +126,11 @@ class MarkSmoothParams : public SmoothParams
 			   pqSmoothNode *nList) {}
     virtual int isSmoothActive(GravityParticle *p);
     virtual void initTreeParticle(GravityParticle *p) {}
-    virtual void postTreeParticle(GravityParticle *p) {} 
+    virtual void postTreeParticle(GravityParticle *p) {}
     virtual void initSmoothParticle(GravityParticle *p) {}
     virtual void initSmoothCache(GravityParticle *p) {}
     virtual void combSmoothCache(GravityParticle *p1,
-				 ExternalSmoothParticle *p2) {}
+				 ExternalSmoothParticle *p2);
  public:
     MarkSmoothParams() {}
     /// @param _iType Type of particle to operate on
@@ -116,14 +149,19 @@ class MarkSmoothParams : public SmoothParams
 /// @brief Second pass in SPH: calculate pressure forces.
 class PressureSmoothParams : public SmoothParams
 {
+    double dTime;
     double a, H; // Cosmological parameters
     double alpha, beta; // SPH viscosity parameters
+    double dThermalDiffusionCoeff;
+    double dMetalDiffusionCoeff;
+    double dtFacCourant; // Courant timestep factor
+    double dtFacDiffusion; // Diffusion timestep factor
     
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
     virtual int isSmoothActive(GravityParticle *p);
     virtual void initTreeParticle(GravityParticle *p) {}
-    virtual void postTreeParticle(GravityParticle *p) {} 
+    virtual void postTreeParticle(GravityParticle *p) {}
     virtual void initSmoothParticle(GravityParticle *p);
     virtual void initSmoothCache(GravityParticle *p);
     virtual void combSmoothCache(GravityParticle *p1,
@@ -136,10 +174,13 @@ class PressureSmoothParams : public SmoothParams
     /// @param dTime Current time
     /// @param _alpha Artificial viscosity parameter
     /// @param _beta Artificial viscosity parameter
-    PressureSmoothParams(int _iType, int am, CSM csm, double dTime,
-			 double _alpha, double _beta) {
+    PressureSmoothParams(int _iType, int am, CSM csm, double _dTime,
+			 double _alpha, double _beta,
+                         double _dThermalDiff, double _dMetalDiff,
+                         double dEtaCourant, double dEtaDiffusion) {
 	iType = _iType;
 	activeRung = am;
+        dTime = _dTime;
 	if(csm->bComove) {
 	    H = csmTime2Hub(csm,dTime);
 	    a = csmTime2Exp(csm,dTime);
@@ -150,15 +191,24 @@ class PressureSmoothParams : public SmoothParams
 	    }
 	alpha = _alpha;
 	beta = _beta;
+	dThermalDiffusionCoeff = _dThermalDiff;
+	dMetalDiffusionCoeff = _dMetalDiff;
+	dtFacCourant = dEtaCourant*a*2.0/1.6;
+	dtFacDiffusion = 2.0*dEtaDiffusion;
     }
     PUPable_decl(PressureSmoothParams);
     PressureSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
     virtual void pup(PUP::er &p) {
         SmoothParams::pup(p);//Call base class
+        p|dTime;
 	p|a;
 	p|H;
 	p|alpha;
 	p|beta;
+	p|dThermalDiffusionCoeff;
+	p|dMetalDiffusionCoeff;
+	p|dtFacCourant;
+	p|dtFacDiffusion;
 	}
     };
 

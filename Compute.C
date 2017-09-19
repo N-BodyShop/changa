@@ -260,7 +260,7 @@ void ListCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece 
 int GravityCompute::openCriterion(TreePiece *ownerTP,
                           GenericTreeNode *node, int reqID, State *state){
   return
-    openCriterionBucket(node,(GenericTreeNode *)computeEntity,ownerTP->decodeOffset(reqID), ownerTP->getLocalIndex());
+    openCriterionBucket(node,(GenericTreeNode *)computeEntity,ownerTP->decodeOffset(reqID));
 
 }
 
@@ -413,14 +413,6 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
   }// end if finished with chunk
 }
 #endif
-
-
-/*
-void PrefetchCompute::walkDone(){
-  deleteComputeEntity();
-}
-*/
-
 
 #include "TreeNode.h"
 using namespace TreeStuff;
@@ -646,7 +638,7 @@ int PrefetchCompute::openCriterion(TreePiece *ownerTP,
     testNode.boundingBox = prs.prefetchReq[i];
     //testNode.moments.softBound = 0.0;
 
-    if(openCriterionBucket(node, &testNode, offset, ownerTP->getIndex()))
+    if(openCriterionBucket(node, &testNode, offset))
       return 1;
   }
   return 0;
@@ -1030,7 +1022,7 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
 int ListCompute::openCriterion(TreePiece *ownerTP,
                           GenericTreeNode *node, int reqID, State *state){
   return
-    openCriterionNode(node,(GenericTreeNode *)computeEntity, ownerTP->decodeOffset(reqID), ownerTP->getIndex());
+    openCriterionNode(node,(GenericTreeNode *)computeEntity, ownerTP->decodeOffset(reqID));
 }
 
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
@@ -1616,25 +1608,18 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           }
 #endif
           DoubleWalkState *rrState;
-          if(index < 0){
-            //if(state->resume) CkAssert(index < 0);
-            //CkAssert(getOptType() == Remote);
+          if(state->resume || (!state->resume && index < 0)){
+            CkAssert(getOptType() == Remote);
             rrState = (DoubleWalkState*) tp->sInterListStateRemoteResume;
             //CkAssert(rrState->nodes);
-            //std::map<NodeKey,int>::iterator it = rrState->nodeMap.find(node->getKey());
-            //if(it == rrState->nodeMap.end()){
-            index = rrState->nodes->push_back_v(CudaMultipoleMoments(node->moments));
-            node->nodeArrayIndex = index;
-            node->wasNeg = true;
-            rrState->nodeMap.push_back(node);
-            //rrState->nodeMap[node->getKey()] = index;
-            //}
-            //else{
-            //  index = it->second;
-            //}
-          }
-          else if(node->wasNeg){
-            rrState = (DoubleWalkState *)tp->sInterListStateRemoteResume;
+            std::unordered_map<NodeKey,int>::iterator it = rrState->nodeMap.find(node->getKey());
+            if(it == rrState->nodeMap.end()){
+                index = rrState->nodes->push_back_v(CudaMultipoleMoments(node->moments));
+                rrState->nodeMap[node->getKey()] = index;
+                }
+            else{
+                index = it->second;
+                }
           }
           else{
             rrState = state;
@@ -1644,11 +1629,6 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
             CkPrintf("[%d]: pushing node 0x%x (%f,%f,%f,%f,%f,%f)\n", thisIndex, node, node->moments.soft, node->moments.totalMass, node->moments.radius, node->moments.cm.x, node->moments.cm.y, node->moments.cm.z);
           }
 #endif
-            //rrState->nodeMap[node->getKey()] = index;
-            //}
-            //else{
-            //  index = it->second;
-            //}
               
           // now to add the node index to the list of interactions
           CkAssert(index >= 0);
@@ -1904,19 +1884,13 @@ void ListCompute::initCudaState(DoubleWalkState *state, int numBuckets, int node
 
 }
 
+/// @brief Reset node array after interactions have been sent to the GPU.
 void ListCompute::resetCudaNodeState(DoubleWalkState *state){
   GenericTreeNode *tmp;
   state->nodeLists.reset();
   if(state->nodes){
     state->nodes->length() = 0;
-    //state->nodeMap.clear();
-    int len = state->nodeMap.length();
-    for(int i = 0; i < len; i++){
-      tmp = state->nodeMap[i];
-      tmp->nodeArrayIndex = -1;
-      //tmp->wasNeg = true;
-    }
-    state->nodeMap.length() = 0;
+    state->nodeMap.clear();
   }
   
 }
@@ -1964,11 +1938,14 @@ void cudaCallback(void *param, void *msg){
   CkPrintf("memcheck in cudaCallback before callFreeRemoteChunkMemory\n");
   CmiMemoryCheck();
 #endif
-  if(data->callDummy){
-    // doesn't matter what argument is passed in
-    tp->callFreeRemoteChunkMemory(-1);
-  }
-  
+// Freeing the remote memory on the device is now done in
+// TransferVarsBack.  This probably doesn't work if there are multiple
+// "Chunks" in use for the remote walk.
+//  if(data->callDummy){
+//    // doesn't matter what argument is passed in
+//    tp->callFreeRemoteChunkMemory(-1);
+//  }
+
   /*
   bucket = affectedBuckets[numBucketsDone-1];
   state->counterArrays[0][bucket]--;

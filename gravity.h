@@ -598,15 +598,13 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 /// @param node Source node to be tested
 /// @param bucketNode Target bucket
 /// @param offset Offset of periodic replica
-/// @param localIndex Index of requesting TreePiece
 /// @return True if the node's opening radius intersects the
 /// boundingBox of the bucket, i.e. the node needs to be opened.
 
 inline bool
 openCriterionBucket(Tree::GenericTreeNode *node,
                    Tree::GenericTreeNode *bucketNode,
-                   Vector3D<cosmoType> offset, // Offset of node
-                   int localIndex // requesting TreePiece
+                   Vector3D<cosmoType> offset // Offset of node
                    ) {
 
 #if COSMO_STATS > 0
@@ -647,7 +645,6 @@ openCriterionBucket(Tree::GenericTreeNode *node,
 /// @param node Source node to be tested
 /// @param myNode Target node
 /// @param offset Offset for periodic replica
-/// @param localIndex Index of requesting TreePiece
 /// @return -1 if there is an intersection
 ///    0 if no intersection
 ///    +1 if completely contained
@@ -661,8 +658,7 @@ openCriterionBucket(Tree::GenericTreeNode *node,
 
 inline int openCriterionNode(Tree::GenericTreeNode *node,
                     Tree::GenericTreeNode *myNode,
-                    Vector3D<cosmoType> offset,
-                    int localIndex // requesting TreePiece
+                    Vector3D<cosmoType> offset
                     ) {
 
 #if COSMO_STATS > 0

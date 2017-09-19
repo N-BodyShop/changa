@@ -345,6 +345,7 @@ void TreePiece::startSmooth(// type of smoothing and parameters
 
   LBTurnInstrumentOn();         // Be sure the Load Balancer is running.
   CkAssert(nSmooth > 0);
+  CkAssert(root->nSPH == nTotalSPH);
   cbSmooth = cb;
   activeRung = params->activeRung;
 
@@ -499,6 +500,54 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   OrientedBox<double> bndSmoothAct; // bounding box for smoothActive particles
   double dKeyMaxBucket = 0.0;
   
+  double dSearchMax = DBL_MAX;
+  
+  if(!bEnough) {
+#if 0
+/// This optimization is specific to the "Distribute Stellar
+/// Feedback".  It might not be necessary because the next
+/// optimization (largest node containing enough particles) is good
+/// enough and more general.
+      int bStarSrc = 0;
+      OrientedBox<double> bndSmoothTmp; // bounding box for smoothActive particles
+      for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
+          GravityParticle *p = &tp->myParticles[j];
+          if(params->isSmoothActive(p) && p->isStar()) {
+              bStarSrc = 1;
+              bndSmoothTmp.grow(p->position);
+              }
+          }
+      // doing stars -> gas
+      // Set maximum search to largest gas search plus safety margin
+      if(bStarSrc && (params->iType == TYPE_GAS) && (tp->myNumSPH > 0)) {
+          double dGasBallMax = 0.0;
+          for(int k = firstQueue; k < lastQueue; k++) {
+	      if(!TYPETest(&tp->myParticles[k], params->iType))
+		  continue;
+              double dGasBall = tp->myParticles[k].fBall;
+              if(dGasBall > dGasBallMax)
+                  dGasBallMax = dGasBall;
+	      }
+          if(dGasBallMax > 0.0)
+              dSearchMax = pow(dGasBallMax*4.0 + (bndSmoothTmp.size()).length(), 2);
+          }
+#endif
+      // Search for largest node containing enough particles.
+      if(params->iType == TYPE_GAS) {
+          GenericTreeNode *parent = tp->root;
+          int which = parent->whichChild(myNode->getKey());
+          GenericTreeNode *node = parent->getChildren(which);
+          while(node->nSPH > nSmooth) {
+              parent = node;
+              which = parent->whichChild(myNode->getKey());
+              node = parent->getChildren(which);
+              }
+          double dNodeSize = (parent->boundingBox.size()).lengthSquared();
+          if(dNodeSize < dSearchMax)
+              dSearchMax = dNodeSize;
+          }
+      }
+  
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
       if(!params->isSmoothActive(&tp->myParticles[j]))
 	  continue;
@@ -525,7 +574,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
       if(bEnough)
 	  pqNew.fKey = drMax2;
       else
-	  pqNew.fKey = DBL_MAX;
+	  pqNew.fKey = dSearchMax;
       //
       // For FastGas, we have a limit on the size of the search ball.
       //
@@ -998,16 +1047,16 @@ int MarkSmoothCompute::openCriterion(TreePiece *ownerTP,
     return 0;
 }
 
-/*
+/**
  * Test a given particle against all the priority queues in the
- * bucket.
+ * bucket.  Note that this is where the work is actually done for a
+ * MarkSmooth.
  */
-
 void MarkSmoothCompute::bucketCompare(TreePiece *ownerTP,
 				  GravityParticle *p,  // Particle to test
-				  GenericTreeNode *node, // bucket
-				  GravityParticle *particles, // local
-							      // particle data
+				  GenericTreeNode *node, ///< (local) bucket
+				  GravityParticle *particles, ///< local
+							      /// particle data
 				  Vector3D<double> offset,
                                   State *state
 				  ) 
@@ -1174,7 +1223,7 @@ void Density(GravityParticle *p,int nSmooth, pqSmoothNode *nnList)
 	for (i=0;i<nSmooth;++i) {
 		double fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
-		rs = KERNEL(r2);
+		rs = KERNEL(r2, nSmooth);
 		fDensity += rs*nnList[i].p->mass;
 		}
 	p->fDensity = M_1_PI*sqrt(ih2)*ih2*fDensity; 
@@ -1213,7 +1262,7 @@ void DensitySmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	for (i=0;i<nSmooth;++i) {
 		double fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
-		rs = KERNEL(r2);
+		rs = KERNEL(r2, nSmooth);
 		rs *= fNorm;
 		q = nnList[i].p;
 		p->fDensity += rs*q->mass;

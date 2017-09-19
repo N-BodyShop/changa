@@ -114,6 +114,9 @@ protected:
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
 
+        // This var will indicate if particle data has been loaded to the GPU
+        bool gputransfer;
+        
         PendingBuffers *currentChunkBuffers;
         // queue that stores all pending chunk transfers
         CkQ<PendingBuffers *> pendingChunkTransferQ;
@@ -157,6 +160,7 @@ public:
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
+        void startLocalWalk();
         void resumeRemoteChunk();
 #ifdef CUDA
         //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
@@ -232,6 +236,7 @@ public:
 /// The roots are stored in registeredChares to be used by TreePiece
 /// combineLocalTrees.
     void notifyPresence(Tree::GenericTreeNode *root, TreePiece *treePiece);
+    void clearRegisteredPieces(const CkCallback& cb);
     void combineLocalTrees(CkReductionMsg *msg);
     void getChunks(int &num, Tree::NodeKey *&roots);
     inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
@@ -325,39 +330,6 @@ class DataManagerHelper : public CBase_DataManagerHelper {
 
   void transferLocalTreeCallback();
   void transferRemoteChunkCallback();
-
-  void populateDeviceBufferTable(intptr_t localMoments, intptr_t localParticleCores, intptr_t localParticleVars) {
-    void **devBuffers = getdevBuffers();
-    devBuffers[LOCAL_MOMENTS] = (void *) localMoments;
-    devBuffers[LOCAL_PARTICLE_CORES] = (void *) localParticleCores;
-    devBuffers[LOCAL_PARTICLE_VARS] = (void *) localParticleVars;
-    int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
-    thisProxy[basePE].finishDevBufferSync();
-  }
-
-  void populateDeviceBufferTable(intptr_t remoteMoments, intptr_t remoteParticleCores) {
-    void **devBuffers = getdevBuffers();
-    devBuffers[REMOTE_MOMENTS] = (void *) remoteMoments;
-    devBuffers[REMOTE_PARTICLE_CORES] = (void *) remoteParticleCores;
-    int basePE = CkMyPe() - CkMyPe() % CkMyNodeSize();
-    thisProxy[basePE].finishDevBufferSyncRemoteChunk();
-  }
-
-  void finishDevBufferSync();
-  void finishDevBufferSyncRemoteChunk();
-
-  void purgeBufferTables(const CkCallback& cb) {
-    void **devBuffers = getdevBuffers();
-    devBuffers[LOCAL_MOMENTS] = NULL;
-    devBuffers[LOCAL_PARTICLE_CORES] = NULL;
-    devBuffers[LOCAL_PARTICLE_VARS] = NULL;
-
-    void **hostBuffers = gethostBuffers();
-    hostBuffers[LOCAL_MOMENTS] = NULL;
-    hostBuffers[LOCAL_PARTICLE_CORES] = NULL;
-    hostBuffers[LOCAL_PARTICLE_VARS] = NULL;
-    contribute(cb);
-  }
 
   void pup(PUP::er &p){
     CBase_DataManagerHelper::pup(p);

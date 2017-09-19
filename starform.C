@@ -80,7 +80,7 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
     bGasCooling = param.bGasCooling;
     CkAssert((dStarEff > 0.0 && dStarEff < 1.0)
 	      || dInitStarMass > 0.0);
-    if (dInitStarMass > 0) {
+    if (dInitStarMass > 0 && dMinGasMass <= 0) {
 	/* Only allow 10% underweight star particles */
 	dMinGasMass = 0.9*dInitStarMass;
 	}
@@ -151,6 +151,8 @@ void Main::FormStars(double dTime, double dDelta)
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
+    double tTB = CkWallTimer() - startTime;
+    timings[PHASE_FEEDBACK].tTBuild += tTB;
     DensitySmoothParams pDen(TYPE_GAS, 0);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
@@ -176,10 +178,17 @@ void Main::FormStars(double dTime, double dDelta)
 	}
 
     treeProxy.finishNodeCache(CkCallbackResumeThread());
+#ifdef CUDA
+    // We didn't do gravity where the registered TreePieces on the
+    // DataManager normally get cleared.  Clear them here instead.
+    dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+#endif
 
     addDelParticles();
-    CkPrintf("Star Formation Calculated, Wallclock %f secs\n",
-	     CkWallTimer() - startTime);
+    double tSF = CkWallTimer() - startTime;
+    timings[PHASE_FEEDBACK].tGrav += tSF; // Overload meaning of tGrav
+                                          // for SF/Feedback
+    CkPrintf("Star Formation Calculated, Wallclock %f secs\n", tSF);
     }
 
 ///
@@ -374,6 +383,8 @@ void TreePiece::flushStarLog(const CkCallback& cb) {
 
     if(verbosity > 3)
 	ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
+    if (dm == NULL)
+        dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     CmiLock(dm->lockStarLog);
     dm->starLog->flush();
     CmiUnlock(dm->lockStarLog);

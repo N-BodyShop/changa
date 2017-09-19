@@ -5,6 +5,7 @@
 #include "cooling.h"
 #include "starform.h"
 #include "feedback.h"
+#include "externalGravity.h"
 
 /** @brief Hold parameters of the run.
  */
@@ -30,6 +31,7 @@ typedef struct parameters {
     int iMaxRung;
     int bCannonical;
     int bKDK;
+    int bDtAdjust;
     int bPeriodic;
     int nReplicas;
     double fPeriod;
@@ -48,6 +50,7 @@ typedef struct parameters {
 #endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
+    double dGlassDamper;
     /*
      * GrowMass parameters
      */
@@ -76,12 +79,16 @@ typedef struct parameters {
     double dGasConst;
     double dConstAlpha;
     double dConstBeta;
+    double dConstAlphaMax;
     double dConstGamma;
     double dMeanMolWeight;
     double dErgPerGmUnit;
     double dGmPerCcUnit;
     double dSecUnit;
     double dComovingGmPerCcUnit;
+    double dThermalDiffusionCoeff;
+    double dMetalDiffusionCoeff;
+    int bConstantDiffusion;
     int bSphStep;
     int bFastGas;
     double dFracFastGas;
@@ -89,11 +96,14 @@ typedef struct parameters {
     int iViscosityLimiter;
     int bViscosityLimitdt;
     double dEtaCourant;
+    double dEtaDiffusion;
     double dEtauDot;
     int bStarForm;
     Stfm *stfm;
     int bFeedback;
     Fdbk *feedback;
+    int bDoExternalGravity;
+    ExternalGravity externalGravity;
     int iRandomSeed;
     int bStandard;
     int bDoublePos;
@@ -144,6 +154,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iMaxRung;
     p|param.bCannonical;
     p|param.bKDK;
+    p|param.bDtAdjust;
     p|param.bPeriodic;
     p|param.nReplicas;
     p|param.fPeriod;
@@ -163,6 +174,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     if(p.isUnpacking())
  	csmInitialize(&param.csm);
     p|*param.csm;
+    p|param.dGlassDamper;
     p|param.dRedTo;
     p|param.bDynGrowMass;
     p|param.nGrowMass;
@@ -189,15 +201,20 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dGasConst;
     p|param.dConstAlpha;
     p|param.dConstBeta;
+    p|param.dConstAlphaMax;
     p|param.dConstGamma;
     p|param.dMeanMolWeight;
     p|param.dErgPerGmUnit;
     p|param.dGmPerCcUnit;
     p|param.dSecUnit;
     p|param.dComovingGmPerCcUnit;
+    p|param.dThermalDiffusionCoeff;
+    p|param.dMetalDiffusionCoeff;
+    p|param.bConstantDiffusion;
     p|param.bSphStep;
     p|param.bViscosityLimitdt;
     p|param.dEtaCourant;
+    p|param.dEtaDiffusion;
     p|param.dEtauDot;
     p|param.bStarForm;
     if(p.isUnpacking())
@@ -205,6 +222,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|*param.stfm;
     p|param.bFeedback;
     p|param.feedback;
+    p|param.bDoExternalGravity;
+    p|param.externalGravity;
     p|param.iRandomSeed;
     p|param.bStandard;
     p|param.bDoublePos;
