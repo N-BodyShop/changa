@@ -1507,14 +1507,15 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define WARP_INDEX (threadIdx.x >> 5)
 #define ROOT 0
 #define OBSERVE_FLAG 0
-#define OBSERVING 15000
+#define OBSERVING 36
 #define TEXTURE_LOAD 1
 
 // Used in lockstepping, sync for threads in a warp
-#define STACK_INIT() sp = 1; stack[sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
+#define STACK_INIT() sp = 1; Tstack[sp] = ROOT; Mstack[sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
 #define STACK_POP() sp -= 1
 #define STACK_PUSH() sp += 1
-#define STACK_TOP_NODE_INDEX stack[sp]
+#define STACK_TOP_TARGET_INDEX Tstack[sp]
+#define STACK_TOP_MY_INDEX Mstack[sp]
 
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
@@ -1566,7 +1567,8 @@ CompactPartData       targetparticle;
 CompactPartData       myparticle;
 
 unsigned int sp;
-int stack[64];
+int Tstack[64];     // Target index stack
+int Mstack[64];     // My index stack
 
   // variable for current particle
   CompactPartData p;
@@ -1574,8 +1576,9 @@ int stack[64];
   cudatype pot;
   cudatype idt2;
 
-  int cur_node_index;
-  float dsq;
+  int cur_target_index;
+  int cur_my_index;
+  cudatype dsq;
 
   // variables for CUDA_momEvalFmomrcm
   CudaVector3D r;
@@ -1588,12 +1591,9 @@ int stack[64];
   for(pidx = blockIdx.x*blockDim.x + threadIdx.x; pidx < totalNumOfParticles; pidx += gridDim.x*blockDim.x) {
 //    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
     // initialize the variables belonging to current thread
-    int nodePointer = ROOT;
 #ifdef TEXTURE_LOAD
     cuda_ldg_cPartData(myparticle, &particleCores[pidx]);
-    cuda_ldg_moments(mynode, &moments[nodePointer]);
 #else
-    mynode = moments[nodePointer];
     myparticle = particleCores[pidx];
 #endif
     acc.x = 0;
@@ -1606,20 +1606,34 @@ int stack[64];
       printf("pidx %d entered the GPU Kernel!\n", pidx);
     }
 
+    // CAMBRDIGE for temporal test
+    if (pidx == 0) {
+      printf("pidx %d entered the GPU Kernel! particleCores[0].soft = %f\n", pidx, particleCores[0].soft);
+      printf("pidx %d entered the GPU Kernel! particleCores[1000].soft = %f\n", pidx, particleCores[1000].soft);
+      printf("pidx %d entered the GPU Kernel! moments[100].soft = %f\n", pidx, moments[100].soft);
+      printf("pidx %d entered the GPU Kernel! moments[1000].soft = %f\n", pidx, moments[1000].soft);
+      printf("pidx %d entered the GPU Kernel! moments[5000].soft = %f\n", pidx, moments[5000].soft);
+      printf("pidx %d entered the GPU Kernel! moments[10000].soft = %f\n", pidx, moments[10000].soft);
+    }
+
     STACK_INIT();
+
     while(sp >= 1) {
-      cur_node_index = STACK_TOP_NODE_INDEX;
+      cur_target_index = STACK_TOP_TARGET_INDEX;
+      cur_my_index = STACK_TOP_MY_INDEX;
 #ifdef TEXTURE_LOAD
-      cuda_ldg_moments(targetnode, &moments[cur_node_index]);
+      cuda_ldg_moments(targetnode, &moments[cur_target_index]);
+      cuda_ldg_moments(mynode, &moments[cur_my_index]);
 #else
-      targetnode = moments[cur_node_index];
+      targetnode = moments[cur_target_index];
+      mynode = moments[cur_my_index];
 #endif
       STACK_POP();
 
 
-    if (OBSERVE_FLAG && OBSERVING == pidx) {
+/*    if (OBSERVE_FLAG && OBSERVING == pidx) {
       printf("    cur_node_index = %d, targetnode.bucketStart = %d, targetnode.bucketSize = %d!\n", cur_node_index, targetnode.bucketStart, targetnode.bucketSize);
-    }
+    }*/
 
       // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
       int offsetID = cuda_encodeOffset(0, 0, 0, 0);
@@ -1630,26 +1644,35 @@ int stack[64];
 
       int action = cuda_OptAction(open, targetnode.type);
 
+      //CAMBRIDGE
+      if (OBSERVE_FLAG && OBSERVING == pidx)  {
+        printf ("   -----> mynode.nodeArrayIndex = %d, targetnode.nodeArrayIndex = %d, open = %d, action = %d\n", mynode.nodeArrayIndex, targetnode.nodeArrayIndex, open, action);
+      }
+
       if (action == KEEP) {
         if (open == CONTAIN) {
           // if open == CONTAIN, push chilren in stack
           if (targetnode.children[1] != -1) {
             STACK_PUSH();
-            STACK_TOP_NODE_INDEX = targetnode.children[1];
+            STACK_TOP_TARGET_INDEX = targetnode.children[1];
+            STACK_TOP_MY_INDEX = cur_my_index;
           }
           if (targetnode.children[0] != -1) {
             STACK_PUSH();
-            STACK_TOP_NODE_INDEX = targetnode.children[0];
+            STACK_TOP_TARGET_INDEX = targetnode.children[0];
+            STACK_TOP_MY_INDEX = cur_my_index;
           }
         } else if (open == INTERSECT) {
           if (mynode.type == cuda_Bucket) {
             if (targetnode.children[1] != -1) {
               STACK_PUSH();
-              STACK_TOP_NODE_INDEX = targetnode.children[1];
+              STACK_TOP_TARGET_INDEX = targetnode.children[1];
+              STACK_TOP_MY_INDEX = cur_my_index;
             }
             if (targetnode.children[0] != -1) {
               STACK_PUSH();
-              STACK_TOP_NODE_INDEX = targetnode.children[0];
+              STACK_TOP_TARGET_INDEX = targetnode.children[0];
+              STACK_TOP_MY_INDEX = cur_my_index;
             }
           } else {
             int child_id = mynode.children[0];
@@ -1661,22 +1684,23 @@ int stack[64];
             }
 
             if (left) {
-              cuda_ldg_moments(mynode, &moments[mynode.children[0]]);
+              STACK_PUSH();
+              STACK_TOP_TARGET_INDEX = cur_target_index;
+              STACK_TOP_MY_INDEX = mynode.children[0];
             } else if (mynode.children[1] != -1){
-              cuda_ldg_moments(mynode, &moments[mynode.children[1]]);
+              STACK_PUSH();
+              STACK_TOP_TARGET_INDEX = cur_target_index;
+              STACK_TOP_MY_INDEX = mynode.children[1];
             } else {
               continue;
-            }
-
-            STACK_PUSH();
-            STACK_TOP_NODE_INDEX = cur_node_index;
-
-            if (OBSERVE_FLAG && OBSERVING == pidx) {
-              printf("pidx %d descended to %d, child_id = %d!\n", pidx, mynode.nodeArrayIndex);
             }
           }
         }
       } else if (action == COMPUTE) {
+
+    if (OBSERVE_FLAG && OBSERVING == pidx) {
+      printf("          pidx %d compute with node %d, mynode.nodeArrayIndex = %d!\n", pidx, cur_target_index, mynode.nodeArrayIndex);
+    }
         
       traversedNodes ++;
         // compute with the node targetnode
@@ -1710,6 +1734,11 @@ int stack[64];
 #endif  
         }
       } else if (action == KEEP_LOCAL_BUCKET) {
+
+    if (OBSERVE_FLAG && OBSERVING == pidx) {
+      printf("          -->   pidx %d look into the bucket %d, mynode.nodeArrayIndex = %d!\n", pidx, cur_target_index, mynode.nodeArrayIndex);
+    }
+
         // compute with each particle contained by node targetnode
         int target_firstparticle = targetnode.bucketStart;
         int target_lastparticle = targetnode.bucketStart + targetnode.bucketSize;
