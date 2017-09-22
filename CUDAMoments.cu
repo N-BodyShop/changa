@@ -287,13 +287,6 @@ cuda_openCriterionNode(CudaMultipoleMoments &node,
   addCudaVector3D(node.cm, offset, s.origin);
   s.radius = radius;
 
-/*#ifdef CAMBRIDGE
-  if (node.nodeArrayIndex == 3 && myNode.nodeArrayIndex == 0) {
-    printf("Checking: node.cm.x = %f, node.cm.y = %f, node.cm.z = %f, radius = %f\n", node.cm.x, node.cm.y, node.cm.z, radius);
-    printf("Checking: offset.x = %f, offset.y = %f, offset.z = %f, radius = %f\n", offset.x, offset.y, offset.z, radius);
-  }
-#endif*/
-
   if(myNode.type==cuda_Bucket || myNode.type==cuda_CachedBucket || myNode.type==cuda_NonLocalBucket){
     if(cuda_intersect(myNode, s))
         return 1;

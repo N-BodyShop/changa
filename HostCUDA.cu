@@ -404,16 +404,11 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
   if( wr->bufferInfo[ILCELL_IDX].transferToDevice ){
 #ifdef CAMBRIDGE
     compute_force_gpu_lockstepping<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
-//    compute_force_gpu_testing<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
       (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
-//      (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
-//      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
-//      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],      
       ptr->fperiod, 
-//      ptr->nodePointer,
       ptr->totalNumOfParticles,
       ptr->theta,
       ptr->thetaMono
@@ -765,9 +760,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 #endif
 
 #ifdef CAMBRIDGE
-//  gravityKernel.dimGrid = max(data->totalNumOfParticles / THREADS_PER_BLOCK, 1);
-//  printf("data->totalNumOfParticles = %d\n", data->totalNumOfParticles);
-//  fflush(stdout);
+  // Small trick here. +1 to avoid the zero value.
   gravityKernel.dimGrid = data->totalNumOfParticles / THREADS_PER_BLOCK+1;
   gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 #endif
@@ -1551,12 +1544,8 @@ __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
     VariablePartData *particleVars,
     CudaMultipoleMoments* moments,
-//    ILCell* ils,
     int *ilmarks,
-//    int *bucketStarts,
-//    int *bucketSizes,
     cudatype fperiod,
-//    int nodePointer, 
     int totalNumOfParticles,
     cudatype theta,
     cudatype thetaMono) {
@@ -1566,39 +1555,14 @@ __global__ void compute_force_gpu_lockstepping(
   int k = 0;
   int pidx = 0; // thread id
 
-/*  int nodePointer = ilmarks[blockIdx.x];
-  int bucketStart = moments[nodePointer].bucketStart;
-  int bucketEnd   = bucketStart + moments[nodePointer].bucketSize;*/
+  CudaMultipoleMoments  targetnode;
+  CudaMultipoleMoments  mynode;
+  CompactPartData       targetparticle;
+  CompactPartData       myparticle;
 
-  // variable for traversed nodes
-/*  __shared__ CudaMultipoleMoments TargetNode[NWARPS_PER_BLOCK];
-#define targetnode TargetNode[WARP_INDEX]
-
-  // variable for current bucket/leaf node
-  __shared__ CudaMultipoleMoments MyNode[NWARPS_PER_BLOCK];
-#define mynode MyNode[WARP_INDEX]
-
-  __shared__ CompactPartData TargetParticle[NWARPS_PER_BLOCK];
-#define targetparticle TargetParticle[WARP_INDEX]
-
-  __shared__ CompactPartData MyParticle[THREADS_PER_BLOCK];
-#define myparticle MyParticle[threadIdx.x]
-
-// Variables for lockstepping
-  __shared__ unsigned int SP[NWARPS_PER_BLOCK];
-#define sp SP[WARP_INDEX]
-  __shared__ int Stacks[NWARPS_PER_BLOCK][64];
-#define stack Stacks[WARP_INDEX]
-*/
-
-CudaMultipoleMoments  targetnode;
-CudaMultipoleMoments  mynode;
-CompactPartData       targetparticle;
-CompactPartData       myparticle;
-
-unsigned int sp;
-int Tstack[64];     // Target index stack
-int Mstack[64];     // My index stack
+  unsigned int sp;
+  int Tstack[64];     // Target index stack
+  int Mstack[64];     // My index stack
 
   // variable for current particle
   CompactPartData p;
@@ -1636,16 +1600,6 @@ int Mstack[64];     // My index stack
       printf("pidx %d entered the GPU Kernel!\n", pidx);
     }
 
-    // CAMBRDIGE for temporal test
-    if (pidx == 0) {
-      printf("pidx %d entered the GPU Kernel! particleCores[0].soft = %f\n", pidx, particleCores[0].soft);
-      printf("pidx %d entered the GPU Kernel! particleCores[1000].soft = %f\n", pidx, particleCores[1000].soft);
-      printf("pidx %d entered the GPU Kernel! moments[100].soft = %f\n", pidx, moments[100].soft);
-      printf("pidx %d entered the GPU Kernel! moments[1000].soft = %f\n", pidx, moments[1000].soft);
-      printf("pidx %d entered the GPU Kernel! moments[5000].soft = %f\n", pidx, moments[5000].soft);
-      printf("pidx %d entered the GPU Kernel! moments[10000].soft = %f\n", pidx, moments[10000].soft);
-    }
-
     STACK_INIT();
 
     while(sp >= 1) {
@@ -1659,11 +1613,6 @@ int Mstack[64];     // My index stack
       mynode = moments[cur_my_index];
 #endif
       STACK_POP();
-
-
-/*    if (OBSERVE_FLAG && OBSERVING == pidx) {
-      printf("    cur_node_index = %d, targetnode.bucketStart = %d, targetnode.bucketSize = %d!\n", cur_node_index, targetnode.bucketStart, targetnode.bucketSize);
-    }*/
 
       // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
       int offsetID = cuda_encodeOffset(0, 0, 0, 0);
@@ -1820,9 +1769,6 @@ int Mstack[64];     // My index stack
     }
   }
 }
-
-
-
 
 #endif
 
