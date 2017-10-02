@@ -1530,7 +1530,7 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define WARP_INDEX (threadIdx.x >> 5)
 #define ROOT 0
 #define OBSERVE_FLAG 0
-#define OBSERVING 36
+#define OBSERVING 1
 #define TEXTURE_LOAD 1
 
 // Used in lockstepping, sync for threads in a warp
@@ -1623,11 +1623,6 @@ __global__ void compute_force_gpu_lockstepping(
 
       int action = cuda_OptAction(open, targetnode.type);
 
-      //CAMBRIDGE
-      if (OBSERVE_FLAG && OBSERVING == pidx)  {
-        printf ("   -----> mynode.nodeArrayIndex = %d, targetnode.nodeArrayIndex = %d, open = %d, action = %d\n", mynode.nodeArrayIndex, targetnode.nodeArrayIndex, open, action);
-      }
-
       if (action == KEEP) {
         if (open == CONTAIN) {
           // if open == CONTAIN, push chilren in stack
@@ -1675,13 +1670,28 @@ __global__ void compute_force_gpu_lockstepping(
             }
           }
         }
-      } else if (action == COMPUTE) {
+      } else if (action == COMPUTE) {        
+        traversedNodes ++;        
+        if (cuda_openSoftening(targetnode, mynode, offset)) {
+          r.x = ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x) - myparticle.position.x;
+          r.y = ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y) - myparticle.position.y;
+          r.z = ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z) - myparticle.position.z;
 
-    if (OBSERVE_FLAG && OBSERVING == pidx) {
-      printf("          pidx %d compute with node %d, mynode.nodeArrayIndex = %d!\n", pidx, cur_target_index, mynode.nodeArrayIndex);
-    }
-        
-      traversedNodes ++;
+          rsq = r.x*r.x + r.y*r.y + r.z*r.z; 
+          twoh = targetnode.soft + myparticle.soft;
+          cudatype a, b;
+          if (rsq != 0) {
+            cuda_SPLINE(rsq, twoh, a, b);
+            idt2 = fmax(idt2, (myparticle.mass + targetnode.totalMass) * b);
+
+            pot -= targetnode.totalMass * a;
+
+            acc.x += r.x*b*targetnode.totalMass;
+            acc.y += r.y*b*targetnode.totalMass;
+            acc.z += r.z*b*targetnode.totalMass;
+          }
+          continue;
+        }
         // compute with the node targetnode
         r.x = myparticle.position.x - ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x);
         r.y = myparticle.position.y - ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y);
@@ -1713,11 +1723,6 @@ __global__ void compute_force_gpu_lockstepping(
 #endif  
         }
       } else if (action == KEEP_LOCAL_BUCKET) {
-
-    if (OBSERVE_FLAG && OBSERVING == pidx) {
-      printf("          -->   pidx %d look into the bucket %d, mynode.nodeArrayIndex = %d!\n", pidx, cur_target_index, mynode.nodeArrayIndex);
-    }
-
         // compute with each particle contained by node targetnode
         int target_firstparticle = targetnode.bucketStart;
         int target_lastparticle = targetnode.bucketStart + targetnode.bucketSize;
@@ -1728,7 +1733,6 @@ __global__ void compute_force_gpu_lockstepping(
 #else
           targetparticle = particleCores[i];
 #endif
-
           traversedParticles ++;
 
           r.x = (((reqID >> 22) & 0x7)-3)*fperiod + targetparticle.position.x - myparticle.position.x;
