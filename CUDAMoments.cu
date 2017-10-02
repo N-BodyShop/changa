@@ -223,8 +223,8 @@ cuda_openSoftening(CudaMultipoleMoments &node, CudaMultipoleMoments &myNode,
   s.radius = 2.0*node.soft;
 
   CudaSphere myS;
-  assignCudaVector3D(node.cm, myS.origin);
-  myS.radius = 2.0*node.soft;
+  assignCudaVector3D(myNode.cm, myS.origin);
+  myS.radius = 2.0*myNode.soft;
 
   if(cuda_intersect(myS, s))
     return true;
@@ -301,10 +301,12 @@ cuda_openCriterionNode(CudaMultipoleMoments &node,
         CudaSphere sM;
         addCudaVector3D(node.cm, offset, sM.origin);
         s.radius = radius;
-        if(cuda_intersect(myNode, sM))
+        if(cuda_intersect(myNode, sM)) {
           return 1;
-        else
-           return 0;
+        }
+        else {
+          return 0;
+        }
       }
     }
 #else
@@ -316,23 +318,24 @@ cuda_openCriterionNode(CudaMultipoleMoments &node,
           return 1;
         else
           return -1;
-      }
-      else
+      } else
 #ifdef HEXADECAPOLE
       {
-      // Well separated, now check softening
-      if(!cuda_openSoftening(node, myNode, offset)) {
-        return 0;   // passed both tests: will be a Hex interaction
-      }
-      else {      // Open as monopole?
-        radius = OPENING_GEOMETRY_FACTOR*node.radius/thetaMono;
-        CudaSphere sM;
-        addCudaVector3D(node.cm, offset, sM.origin);
-        s.radius = radius;
-        if(cuda_intersect(myNode, sM))
-          return 1;
-        else
-          return 0;
+        // Well separated, now check softening
+        if(!cuda_openSoftening(node, myNode, offset)) {
+          return 0;   // passed both tests: will be a Hex interaction
+        }
+        else {      // Open as monopole?
+          radius = OPENING_GEOMETRY_FACTOR*node.radius/thetaMono;
+          CudaSphere sM;
+          addCudaVector3D(node.cm, offset, sM.origin);
+          s.radius = radius;
+          if(cuda_intersect(myNode, sM)) {
+            return 1;
+          }
+          else {
+            return 0;
+          }
         }
       }
 #else
