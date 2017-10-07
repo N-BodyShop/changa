@@ -156,7 +156,7 @@ class AGORApreCheckSmoothParams : public SmoothParams
     Fdbk fb;
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
                pqSmoothNode *nList);
-    virtual int isSmoothActive(GravityParticle *p) {}
+    virtual int isSmoothActive(GravityParticle *p) { return p->isStar(); }
     virtual void initSmoothParticle(GravityParticle *p) {}
     virtual void initTreeParticle(GravityParticle *p) {}
     virtual void postTreeParticle(GravityParticle *p) {}
