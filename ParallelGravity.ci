@@ -497,6 +497,9 @@ mainmodule ParallelGravity {
 
     // jetley - cuda
     entry void continueStartRemoteChunk(int chunk);
+#ifdef CUDA
+    entry void updateParticles(intptr_t data, int partIndex);
+#endif
     entry void continueWrapUp();
 
     // jetley - balancing before initial forces

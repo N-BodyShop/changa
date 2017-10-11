@@ -44,6 +44,7 @@ void DataManager::init() {
   treePiecesDoneLocalComputation = 0;
   treePiecesDoneRemoteChunkComputation = 0;
   treePiecesWantParticlesBack = 0;
+  treePiecesParticlesUpdated = 0;
   gputransfer = false;
 #ifdef CUDA_INSTRUMENT_WRS
   treePiecesDoneInitInstrumentation = 0;
@@ -972,8 +973,6 @@ void DataManager::transferParticleVarsBack(){
 void DataManager::updateParticles(UpdateParticlesStruct *data){
   int partIndex = 0;
 
-  CmiLock(__nodelock);
-
   VariablePartData *deviceParticles = data->buf;
 
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
@@ -991,48 +990,41 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
     CmiMemoryCheck();
 #endif
 
-      for(int j = 1; j <= numParticles; j++){
-        if(tp->isActive(j)){
-#ifndef CUDA_NO_ACC_UPDATES
-          tp->myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x; 
-          tp->myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y; 
-          tp->myParticles[j].treeAcceleration.z += deviceParticles[partIndex].a.z; 
-          tp->myParticles[j].potential += deviceParticles[partIndex].potential;
-          tp->myParticles[j].dtGrav = fmax(tp->myParticles[j].dtGrav,
-                                           deviceParticles[partIndex].dtGrav);
-#endif
-          if(!tp->largePhase()) partIndex++;
-        }
-        if(tp->largePhase()) partIndex++;
-      }
+    // N.B. passing a pointer to an entry method is not normally done.
+    // It is OK here because we know that the treePiece is on our own
+    // SMP node, but we need a kludgey cast to get it to work.
+    treePieces[registeredTreePieces[i].treePiece->getIndex()].updateParticles((intptr_t) data, partIndex);
+    partIndex += numParticles;
 
-#ifdef CHANGA_REFACTOR_MEMCHECK 
-    CkPrintf("(%d) memcheck after updating tp %d particles\n", CkMyPe(), tp->getIndex());
-    CmiMemoryCheck();
-#endif
-
-    // tell treepiece to go ahead with 
-    // iteration wrap-up
-    treePieces[registeredTreePieces[i].treePiece->getIndex()].continueWrapUp();
   }
 
-  if(verbosity > 1) CkPrintf("[%d] Clearing registered tree pieces\n", CkMyPe());
-  registeredTreePieces.length() = 0;
-  CmiUnlock(__nodelock); 
 }
 
 void updateParticlesCallback(void *param, void *msg){  
   UpdateParticlesStruct *data = (UpdateParticlesStruct *)param;
   data->dm->updateParticles(data);
-  if(data->size > 0){
+}
+
+/// @brief clean up buffer for GPU transfer back.
+void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data) 
+{
+  CmiLock(__nodelock);
+  treePiecesParticlesUpdated++;
+  if(treePiecesParticlesUpdated == registeredTreePieces.length()){
+      treePiecesParticlesUpdated = 0; 
+  
+      if(data->size > 0){
 #ifdef CUDA_USE_CUDAMALLOCHOST
-    freePinnedHostMemory(data->buf);
+          freePinnedHostMemory(data->buf);
 #else
-    free(data->buf);
+          free(data->buf);
 #endif
+      }
+      delete (data->cb);
+      delete data;
+      registeredTreePieces.length() = 0;
   }
-  delete (data->cb);
-  delete data;
+  CmiUnlock(__nodelock);
 }
 
 void DataManager::clearInstrument(CkCallback &cb){
