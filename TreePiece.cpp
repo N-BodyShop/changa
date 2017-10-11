@@ -3718,6 +3718,29 @@ void TreePiece::finishBucket(int iBucket) {
   }
 }
 
+/// @brief update particle accelerations with GPU results
+void TreePiece::updateParticles(intptr_t data, int partIndex) {
+    VariablePartData *deviceParticles = ((UpdateParticlesStruct *)data)->buf;
+
+    for(int j = 1; j <= myNumParticles; j++){
+        if(isActive(j)){
+#ifndef CUDA_NO_ACC_UPDATES
+            myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x;
+            myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y;
+            myParticles[j].treeAcceleration.z += deviceParticles[partIndex].a.z;
+            myParticles[j].potential += deviceParticles[partIndex].potential;
+            myParticles[j].dtGrav = fmax(myParticles[j].dtGrav,
+                                         deviceParticles[partIndex].dtGrav);
+#endif
+            if(!largePhase()) partIndex++;
+            }
+        if(largePhase()) partIndex++;
+        }
+
+    dm->updateParticlesFreeMemory((UpdateParticlesStruct *)data);
+    continueWrapUp();
+    }
+
 void TreePiece::continueWrapUp(){
 #ifdef CHECK_WALK_COMPLETIONS
   CkPrintf("[%d] markWalkDone TreePiece::continueWrapUp\n", thisIndex);

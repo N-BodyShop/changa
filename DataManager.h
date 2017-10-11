@@ -93,6 +93,9 @@ protected:
         // at a given time
         int treePiecesDoneRemoteChunkComputation;
         int treePiecesWantParticlesBack;
+        /// Reference count for Pieces that have finished updating
+        /// their acclerations.
+        int treePiecesParticlesUpdated;
         int savedNumTotalParticles;
         int savedNumTotalNodes;
         // keeps track of buckets of particles that were
@@ -175,6 +178,7 @@ public:
         void freeRemoteChunkMemory(int chunk);
         void transferParticleVarsBack();
         void updateParticles(UpdateParticlesStruct *data);
+        void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
 #ifdef CUDA_INSTRUMENT_WRS
         int initInstrumentation();

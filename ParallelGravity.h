@@ -996,6 +996,9 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
         void continueStartRemoteChunk(int chunk);
+#ifdef CUDA
+        void updateParticles(intptr_t data, int partIndex);
+#endif
         void continueWrapUp();
 
 #if INTERLIST_VER > 0
