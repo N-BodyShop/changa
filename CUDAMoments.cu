@@ -300,7 +300,7 @@ cuda_openCriterionNode(CudaMultipoleMoments &node,
         radius = OPENING_GEOMETRY_FACTOR*node.radius/thetaMono;
         CudaSphere sM;
         addCudaVector3D(node.cm, offset, sM.origin);
-        s.radius = radius;
+        sM.radius = radius;
         if(cuda_intersect(myNode, sM)) {
           return 1;
         }
@@ -329,7 +329,7 @@ cuda_openCriterionNode(CudaMultipoleMoments &node,
           radius = OPENING_GEOMETRY_FACTOR*node.radius/thetaMono;
           CudaSphere sM;
           addCudaVector3D(node.cm, offset, sM.origin);
-          s.radius = radius;
+          sM.radius = radius;
           if(cuda_intersect(myNode, sM)) {
             return 1;
           }
