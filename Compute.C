@@ -1520,7 +1520,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
   ILCell temp_ilc;
   memcpy(&flatlists[0], &temp_ilc, fake_totalNumInteractions * sizeof(ILCell));
   for (int i = start_id; i < end_id; i ++) {
-
+    ((DoubleWalkState *)state)->counterArrays[0][i] ++; 
 /* useless code
     // Do something to make the callback function happy.
     int root_index = 0;     // the root index
@@ -1588,6 +1588,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
 /*  printf("CAMBRIDGE:        nodePointer = %d, bucketStart = %d, bucketEnd = %d\n", request->nodePointer, 
                                                                                   request->bucketStarts[0],
                                                                                   request->bucketStarts[0] + request->bucketSizes[0]);*/
+  printf("\n CAMBRIDGE:	theta = %f, thetaMono = %f\n", theta, thetaMono);
 
   TreePieceCellListDataTransferLocal(request);
 }

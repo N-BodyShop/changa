@@ -3540,8 +3540,10 @@ void TreePiece::finishBucket(int iBucket) {
               + sLocalGravityState->counterArrays[0][iBucket];
 
   CkAssert(remaining >= 0);
+//CAMBRIDGE 
 #ifdef COSMO_PRINT
   CkPrintf("[%d] Is finished %d? finished=%d, %d still missing!\n",thisIndex,iBucket,req->finished, remaining);
+//CAMBRIDGE 
 #endif
 
   // XXX finished means Ewald is done.
@@ -3642,7 +3644,7 @@ void TreePiece::doAllBuckets(){
 #endif
 
 // Completely bypass the local tree walk from CPU.
-//  thisProxy[thisIndex].nextBucket(msg);
+  thisProxy[thisIndex].nextBucket(msg);
 
 
 #ifdef CUDA_INSTRUMENT_WRS
@@ -4343,11 +4345,11 @@ int TreePiece::doBookKeepingForTargetActive(int curbucket, int end,
 #endif
 
 #ifdef CUDA
-      if(bucketList[j]->rungs < activeRung){
+//CAMBRIDGE      if(bucketList[j]->rungs < activeRung){
 #endif
         finishBucket(j);
 #ifdef CUDA
-      }
+//CAMBRIDGE      }
 #endif
     }
 

@@ -1,0 +1,72 @@
+dDelta		= 0.025    # 1/40, run simulation for 4e9 yrs. i.e 160 steps
+#system time unit = 1Gyr
+bPeriodic       = 0
+bParaRead       = 0
+bParaWrite      = 0
+dTheta          = 0.7
+#daSwitchTheta   = 0.1
+nReplicas       = 0
+achInFile       = onestar.tbin
+achOutName      = onestar
+#dHubble0        = 2.894405
+#dOmega0         = 0.3
+#dLambda         = 0.7
+dMsolUnit       = 1.665e9
+dKpcUnit        = 20.
+#dRedTo          = 2.0
+iCheckInterval  = 80
+dExtraStore     = 1.5
+bKDK            = 1 
+iMaxRung        = 20
+dEta            = 0.185 #you change it you die
+dEtaCourant     = 0.4   #leave this alone
+bStandard       = 1
+bDoGravity      = 1
+bComove         = 0
+bCannonical     = 1
+bGeometric      = 0
+iGasModel       = 0
+#dxPeriod        = 1.0
+#dyPeriod        = 1.0
+#dzPeriod        = 1.0
+dConstGamma     = 1.666667
+dMeanMolWeight  = 0.59259
+nSteps          = 320
+iOutInterval    = 20
+iLogInterval    = 1
+bOverwrite      = 0
+bVDetails       = 1
+bDoDensity      = 1
+nSmooth         = 32
+bViscosityLimiter = 1
+bFastGas        = 1
+dFracNoDomainDecomp = 0.1
+nTruncateRung = 32
+dhMinOverSoft = 0.1
+bViscosityLimitdt = 1
+#options for physical softening
+#bPhysicalSoft   = 1
+#bSoftMaxMul     = 1
+#dSoftMax        = 9
+#star formation parameters 
+bStarForm = 0
+bUV       = 0
+bFeedBack = 1
+dOverDenMin = 0.0
+dPhysDenMin = 0.1
+dInitStarMass   =   2.757e-4   #0.3 Original Gass Mass
+dMinGasMass     =  1.838e-4     #0.2  Original Gas Mass
+bDoIOrderOutput = 1 # writes .iord, .igasorder, .rhoform, .Tform
+iBinaryOutput   = 0
+#next two are coupled
+dCStar = 0.05
+#more parameters
+dTempMax = 3e4
+dESN = 0
+# Greg's new additions
+dDeltaStarForm = 1e6
+#director requirement
+#dDumpFrameStep  = 0.125
+
+
+

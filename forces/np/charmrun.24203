@@ -1,0 +1,77 @@
+#!/bin/sh
+Echo() {
+  echo 'Charmrun remote shell(127.0.0.1.0)>' $*
+}
+Exit() {
+  if [ $1 -ne 0 ]
+  then
+    Echo Exiting with error code $1
+  fi
+  exit $1
+}
+Find() {
+  loc=''
+  for dir in `echo $PATH | sed -e 's/:/ /g'`
+  do
+    test -f "$dir/$1" && loc="$dir/$1"
+  done
+  if [ "x$loc" = x ]
+  then
+    Echo $1 not found in your PATH "($PATH)"--
+    Echo set your path in your ~/.charmrunrc
+    Exit 1
+  fi
+}
+test -f "$HOME/.charmrunrc" && . "$HOME/.charmrunrc"
+NETMAGIC="24203";export NETMAGIC
+CmiMyNode=$OMPI_COMM_WORLD_RANK
+test -z "$CmiMyNode" && CmiMyNode=$MPIRUN_RANK
+test -z "$CmiMyNode" && CmiMyNode=$PMI_RANK
+test -z "$CmiMyNode" && CmiMyNode=$PMI_ID
+test -z "$CmiMyNode" && CmiMyNode=$MP_CHILD
+test -z "$CmiMyNode" && CmiMyNode=$SLURM_PROCID
+test -z "$CmiMyNode" && (Echo Could not detect rank from environment ; Exit 1)
+export CmiMyNode
+NETSTART="$CmiMyNode 129.114.56.32 52190 24203 0";export NETSTART
+CmiMyNodeSize='1'; export CmiMyNodeSize
+CmiMyForks='0'; export CmiMyForks
+CmiNumNodes=$OMPI_COMM_WORLD_SIZE
+test -z "$CmiNumNodes" && CmiNumNodes=$MPIRUN_NPROCS
+test -z "$CmiNumNodes" && CmiNumNodes=$PMI_SIZE
+test -z "$CmiNumNodes" && CmiNumNodes=$MP_PROCS
+test -z "$CmiNumNodes" && CmiNumNodes=$SLURM_NTASKS
+test -z "$CmiNumNodes" && CmiNumNodes=$SLURM_NPROCS
+test -z "$CmiNumNodes" && (Echo Could not detect node count from environment ; Exit 1)
+export CmiNumNodes
+PATH="$PATH:/bin:/usr/bin:/usr/X/bin:/usr/X11/bin:/usr/local/bin:/usr/X11R6/bin:/usr/openwin/bin"
+if test ! -x "/home/04926/liu1274/ChaNGa/changa/forces/np/../../ChaNGa"
+then
+  Echo 'Cannot locate this node-program: /home/04926/liu1274/ChaNGa/changa/forces/np/../../ChaNGa'
+  Exit 1
+fi
+cd "/home/04926/liu1274/ChaNGa/changa/forces/np"
+if test $? = 1
+then
+  Echo 'Cannot propagate this current directory:'
+  Echo '/home/04926/liu1274/ChaNGa/changa/forces/np'
+  Exit 1
+fi
+rm -f /tmp/charmrun_err.$$
+("/home/04926/liu1274/ChaNGa/changa/forces/np/../../ChaNGa"  -v 1 lambs_30K.param
+res=$?
+if [ $res -eq 127 ]
+then
+  ( 
+    "/home/04926/liu1274/ChaNGa/changa/forces/np/../../ChaNGa" 
+    ldd "/home/04926/liu1274/ChaNGa/changa/forces/np/../../ChaNGa"
+  ) > /tmp/charmrun_err.$$ 2>&1 
+fi
+) < /dev/null 1> /dev/null 2> /dev/null
+sleep 1
+if [ -r /tmp/charmrun_err.$$ ]
+then
+  cat /tmp/charmrun_err.$$ 
+  rm -f /tmp/charmrun_err.$$ 
+  Exit 1
+fi
+Exit 0

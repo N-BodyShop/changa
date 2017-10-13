@@ -1,0 +1,15 @@
+#
+# parameter file for low res run.
+#
+bPeriodic       = 1
+nSteps		= 0
+# dTheta		= 0.7
+nReplicas	= 1
+achInFile	= ../periodic/test4.tbin
+achOutName	= test4
+dDelta		= 0.0
+dSoft	= 0.0
+bPrintBinary	= 0
+# bKDK		= 1
+#iCheckInterval	= 10
+# dFracPush	= 1.1

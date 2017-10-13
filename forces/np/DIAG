@@ -1,0 +1,70 @@
+TACC: Starting up job 702783
+TACC: Setting up parallel environment for MVAPICH2+mpispawn.
+TACC: Starting parallel tasks...
+Charmrun> scalable start enabled. 
+Charmrun> IBVERBS version of charmrun
+Charmrun> started all node programs in 3.913 seconds.
+Charm++> Running in SMP mode: numNodes 2,  1 worker threads per process
+Charm++> The comm. thread only receives messages, while work threads send messages
+Converse/Charm++ Commit ID: v6.8.0-beta1-200-g374ff1a
+Warning> Randomization of virtual memory (ASLR) is turned on in the kernel, thread migration may not work! Run 'echo 0 > /proc/sys/kernel/randomize_va_space' as root to disable it, or try running with '+isomalloc_sync'.
+Charm++> scheduler running in netpoll mode.
+CharmLB> Load balancer assumes all CPUs are same.
+Charm++> Running on 1 unique compute nodes (20-way SMP).
+Charm++> cpu topology info is gathered in 0.001 seconds.
+WARNING: iMaxRung parameter ignored. MaxRung is 30
+WARNING: bStandard parameter ignored; Output is always standard.
+Not Using CkLoop 0
+INFO: localNodes: 1.000000
+INFO: remoteNodes: 1.000000
+INFO: remoteResumeNodes: 1.000000
+INFO: localParts: 0.100000
+INFO: remoteParts: 0.100000
+INFO: remoteResumeParts: 0.100000
+INFO: largePhaseThreshold: 0.000000
+ChaNGa version 3.2, commit v3.2-146-gd8e31c9
+Running on 2 processors/ 2 nodes with 2 TreePieces
+yieldPeriod set to 5
+Prefetching...ON
+Number of chunks for remote tree walk set to 1
+Chunk Randomization...ON
+cache 1
+cacheLineDepth 4
+Verbosity level 1
+Domain decomposition...SFC Peano-Hilbert
+CkLoopLib is used in SMP with a simple dynamic scheduling (converse-level notification) but not using node-level queue
+Created 2 pieces of tree
+Loading particles ... trying Tipsy ... took 0.031806 seconds.
+N: 30000
+Input file, Time:1.000000
+Simulation to Time:1.000000
+Initial domain decomposition ... Set Softening...
+Sorter: Histograms balanced after 2 iterations.
+total 0.00744009 seconds.
+Initial load balancing ... took 1.97887e-05 seconds.
+Building trees ... took 0.00499201 seconds.
+Maximum memory: 53 MB
+Init. Accel. ... took 0.005182 seconds.
+Calculating gravity (theta = 0.700000) ... CAMBRIDGE         The numBuckets = 2373
+CAMBRIDGE         The numBuckets = 2497
+
+ CAMBRIDGE:	theta = 0.700000, thetaMono = 0.240100
+
+ CAMBRIDGE:	theta = 0.700000, thetaMono = 0.240100
+The total number of nodeInterLocal is 1354522
+The total number of particleInterLocal is 3332140
+The total number of particles is 15400
+The total number of nodeInterLocal is 1326089
+The total number of particleInterLocal is 3033069
+The total number of particles is 14600
+Calculating gravity and SPH took 0.054151 seconds.
+ReOrder particles ... took 0.003501 seconds.
+Writing binary file ... took 0.095345 seconds.
+Writing arrays ... took 0.000010 seconds.
+Outputting accelerations  ...Done.
+
+******************
+
+EXIT HYBRID API
+EXIT HYBRID API
+[Partition 0][Node 0] End of program

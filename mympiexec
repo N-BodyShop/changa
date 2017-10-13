@@ -1,0 +1,2 @@
+#!/bin/csh
+shift; shift; exec ibrun $*

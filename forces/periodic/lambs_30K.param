@@ -1,0 +1,15 @@
+#
+# parameter file for low res run.
+#
+bPeriodic	= 1
+nSteps		= 0
+dTheta		= 0.7
+achInFile	= ../lambs.00200_subsamp_30K
+achOutName	= lambs_30K
+iMaxRung	= 1
+bDoDensity	= 0
+bStandard	= 1
+dDelta		= 0.0
+dSoft	= 0.0
+# bKDK		= 1
+#iCheckInterval	= 10

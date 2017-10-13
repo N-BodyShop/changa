@@ -1,0 +1,18 @@
+Non-periodic force error tests.
+
+forces_e0.direct.sh is a shell script to create the true forces.  These
+are included already, so this script SHOULD NOT be run.
+
+tstforce_XXX.sh actually runs pkdgrav, ChaNGa or gasoline and compares the
+forces with those calculated by direct.
+
+RMS should be in the range of .1 to .2 percent.
+
+Max could be from 4% to 20%.
+
+NOTE:
+A change in vector output was made in the June 06 version of
+PKDGRAV/GASOLINE: "unpacked" ASCII vectors are no longer supported. This was
+to enable reasonably efficient parallel output.  Use
+"tstforce_pkdgrav06_30K.sh" for testing later versions of
+pkdgrav/gasoline.

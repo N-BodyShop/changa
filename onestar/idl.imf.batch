@@ -1,0 +1,4 @@
+!quiet = 1
+.r imf.pro
+imf
+exit

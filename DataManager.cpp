@@ -1148,7 +1148,8 @@ long long totalTraversedParticles = 0;
 
       printf("The total number of nodeInterLocal is %lld\n", totalTraversedNodes);
       printf("The total number of particleInterLocal is %lld\n", totalTraversedParticles);
-      printf("The total time we spent on list construction is %f\n", tp->localListConstructionTime);
+//      printf("The total time we spent on list construction is %f\n", tp->localListConstructionTime);
+      printf("The total number of particles is %lld\n", numParticles);
       fflush(stdout);
 #endif
 

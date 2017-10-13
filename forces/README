@@ -1,0 +1,8 @@
+Routines to test forces.
+
+np: non-periodic
+
+periodic: obvious
+
+theta: scripts to measure cost and error vs. theta.  See figure 3.4 of
+the "Charm Apps" book.
