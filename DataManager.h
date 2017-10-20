@@ -319,29 +319,4 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   }
 }; 
 
-#ifdef CUDA
-class DataManagerHelper : public CBase_DataManagerHelper {
-  private:
-    int countLocalPes;
-    int countSyncRemoteChunk;
-  public:
-
-  DataManagerHelper() { countLocalPes = 0; countSyncRemoteChunk = 0;}
-  DataManagerHelper(CkMigrateMessage *m) : CBase_DataManagerHelper(m) {
-    countLocalPes = 0;
-    countSyncRemoteChunk = 0;
-  }
-
-  void transferLocalTreeCallback();
-  void transferRemoteChunkCallback();
-
-  void pup(PUP::er &p){
-    CBase_DataManagerHelper::pup(p);
-    countLocalPes = 0;
-    countSyncRemoteChunk = 0;
-  }
-
-};
-#endif
-
 #endif //DATAMANAGER_H
