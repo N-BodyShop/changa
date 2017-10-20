@@ -65,9 +65,6 @@ CProxy_TreePiece treeProxy; ///< Proxy for the TreePiece chare array
 #ifdef REDUCTION_HELPER
 CProxy_ReductionHelper reductionHelperProxy;
 #endif
-#ifdef CUDA
-CProxy_DataManagerHelper dmHelperProxy;
-#endif
 CProxy_LvArray lvProxy;	    ///< Proxy for the liveViz array
 CProxy_LvArray smoothProxy; ///< Proxy for smooth reductions
 CProxy_LvArray gravityProxy; ///< Proxy for gravity reductions
@@ -1208,9 +1205,6 @@ Main::Main(CkArgMsg* m) {
 	treeProxy = pieces;
 #ifdef REDUCTION_HELPER
         reductionHelperProxy = CProxy_ReductionHelper::ckNew();
-#endif
-#ifdef CUDA
-        dmHelperProxy = CProxy_DataManagerHelper::ckNew();
 #endif
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
