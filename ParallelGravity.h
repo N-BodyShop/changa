@@ -147,9 +147,6 @@ extern CProxy_TreePiece treeProxy;
 #ifdef REDUCTION_HELPER
 extern CProxy_ReductionHelper reductionHelperProxy;
 #endif
-#ifdef CUDA
-extern CProxy_DataManagerHelper dmHelperProxy;
-#endif
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
