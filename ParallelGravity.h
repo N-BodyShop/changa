@@ -1039,14 +1039,9 @@ private:
 	// liveViz 
 	liveVizRequestMsg * savedLiveVizMsg;
 
-        // jetley - proxy for load balancer
-        CkGroupID proxy;
         LBStrategy foundLB;
-        // jetley - whether proxy is valid or not
-        bool proxyValid;
         // jetley - saved first internal node
         Vector3D<float> savedCentroid;
-        bool proxySet;
         // jetley - multistep load balancing
         int prevLARung;
         int lbActiveRung;
@@ -1407,8 +1402,8 @@ private:
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
 public:
- TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
-	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
+ TreePiece() : pieces(thisArrayID), root(0),
+            prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
     treePieceActivePartsTmp(0) {
@@ -1495,9 +1490,6 @@ public:
 
 	TreePiece(CkMigrateMessage* m) {
 	  treePieceLoadTmp = 0.0;
-          // jetley
-          proxyValid = false;
-          proxySet = false;
 
 	  usesAtSync = true;
 	  //localCache = NULL;
@@ -2017,7 +2009,6 @@ public:
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
         void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
-        void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
         void doAtSync();
 
         void balanceBeforeInitialForces(CkCallback &cb);
