@@ -5374,10 +5374,12 @@ void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
 
   setTreePieceLoad(lbActiveRung);
 
-  if (CkpvAccess(_lb_obj_index) != -1) {
-    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
-    *(TaggedVector3D *) data = tv;
-  }
+  if (foundLB != Null) {
+      if (CkpvAccess(_lb_obj_index) != -1) {
+          void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+          *(TaggedVector3D *) data = tv;
+          }
+      }
   thisProxy[thisIndex].doAtSync();
   prevLARung = lbActiveRung;
 }
@@ -6608,10 +6610,13 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
     }
   }
 
-  if (CkpvAccess(_lb_obj_index) != -1) {
-    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
-    *(TaggedVector3D *)data = tv;
-  }
+  if (foundLB != Null) {        // We found an LB that can use the
+                                // Treepiece's spacial information
+      if (CkpvAccess(_lb_obj_index) != -1) {
+          void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+          *(TaggedVector3D *)data = tv;
+          }
+      }
   thisProxy[thisIndex].doAtSync();
 
   // this will be called in resumeFromSync()
