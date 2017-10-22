@@ -5574,10 +5574,7 @@ void TreePiece::pup(PUP::er& p) {
   p | savedPhaseParticle;
 
   // jetley
-  p | proxy;
   p | foundLB;
-  p | proxyValid;
-  p | proxySet;
   p | savedCentroid;
   p | prevLARung;
 
@@ -6511,38 +6508,29 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   if(foundLB == Null){
     for(i = 0; i < nlbs; i++){
       if(msname == string(lbs[i]->lbName())){ 
-      	proxy = lbs[i]->getGroupID();
         foundLB = Multistep;
-	proxy = lbs[i]->getGroupID();
         break;
       }
       else if(orb3dname == string(lbs[i]->lbName())){ 
-      	proxy = lbs[i]->getGroupID();
         foundLB = Orb3d;
-	proxy = lbs[i]->getGroupID();
         break;
       }
      else if(ms_notoponame == string(lbs[i]->lbName())){ 
-        proxy = lbs[i]->getGroupID();
         foundLB = Multistep_notopo;
         break;
       }
      else if(msnode_notoponame == string(lbs[i]->lbName())){ 
-        proxy = lbs[i]->getGroupID();
         foundLB = MultistepNode_notopo;
         break;
       }
      else if(msorb_name == string(lbs[i]->lbName())){ 
-        proxy = lbs[i]->getGroupID();
         foundLB = MultistepOrb;
         break;
       }
       else if(orb3d_notoponame == string(lbs[i]->lbName())){
-      	proxy = lbs[i]->getGroupID();
         foundLB = Orb3d_notopo;
         break;
       } else if(hierarch_name == string(lbs[i]->lbName())) {
-        proxy = lbs[i]->getGroupID();
         foundLB = HierarchOrb;
       }
     }
