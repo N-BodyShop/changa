@@ -3739,6 +3739,7 @@ void TreePiece::finishBucket(int iBucket) {
   }
 }
 
+#ifdef CUDA
 /// @brief update particle accelerations with GPU results
 void TreePiece::updateParticles(intptr_t data, int partIndex) {
     VariablePartData *deviceParticles = ((UpdateParticlesStruct *)data)->buf;
@@ -3761,6 +3762,7 @@ void TreePiece::updateParticles(intptr_t data, int partIndex) {
     dm->updateParticlesFreeMemory((UpdateParticlesStruct *)data);
     continueWrapUp();
     }
+#endif
 
 void TreePiece::continueWrapUp(){
 #ifdef CHECK_WALK_COMPLETIONS
