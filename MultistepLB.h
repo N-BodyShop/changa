@@ -20,8 +20,6 @@
 #include "CentralLB.h"
 
 #include "MapStructures.h"
-#include "ScaleTranMapBG.h"
-#include "ScaledORBMapBG.h"
 
 #include "MultistepLB.decl.h"
 

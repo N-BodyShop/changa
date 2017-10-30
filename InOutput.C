@@ -47,6 +47,10 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
 #endif
     p.u() = dTuFac*gp.temp;
     p.uPred() = dTuFac*gp.temp;
+    // Initial estimate of sound speed.
+    double gamma = GAMMA_NONCOOL;
+    double gammam1 = gamma - 1.0;
+    p.c() = sqrt(gamma*gammam1*p.uPred());
     p.vPred() = gp.vel;
     p.fBallMax() = HUGE;
     p.fESNrate() = 0.0;
@@ -56,6 +60,8 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     p.dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
     p.uDot() = 0.0;  // Used in initial timestep
+#else
+    p.PdV() = 0.0;  // Used in initial timestep
 #endif
 #endif
 }
@@ -567,6 +573,8 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         myParts[i].dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
         myParts[i].uDot() = 0.0;  // Used in initial timestep
+#else
+        myParts[i].PdV() = 0.0;  // Used in initial timestep
 #endif
 #endif
         }
@@ -651,6 +659,10 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
 	    throw XDRException("I don't recognize the type of this field!");
 	    }
         myParts[i].uPred() = myParts[i].u();
+        // Initial estimate of sound speed.
+        double gamma = GAMMA_NONCOOL;
+        double gammam1 = gamma - 1.0;
+        myParts[i].c() = sqrt(gamma*gammam1*myParts[i].uPred());
         }
     deleteField(fh, data);
 }
@@ -1669,57 +1681,6 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     deleteTree();
     contribute(callback);
   }
-}
-
-void TreePiece::outputAccelerations(OrientedBox<double> accelerationBox, const string& suffix, const CkCallback& cb) {
-  FieldHeader fh;
-  if(thisIndex == 0) {
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Writing header for accelerations file" << endl;
-    FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "wb");
-    XDR xdrs;
-    xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-    fh.code = float64;
-    fh.dimensions = 3;
-    if(!xdr_template(&xdrs, &fh) || !xdr_template(&xdrs, &accelerationBox.lesser_corner) || !xdr_template(&xdrs, &accelerationBox.greater_corner)) {
-      ckerr << "TreePiece " << thisIndex << ": Could not write header to accelerations file, aborting" << endl;
-      CkAbort("Badness");
-    }
-    xdr_destroy(&xdrs);
-    fclose(outfile);
-  }
-	
-  if(verbosity > 3)
-    ckerr << "TreePiece " << thisIndex << ": Writing my accelerations to disk" << endl;
-	
-  FILE* outfile = fopen((basefilename + "." + suffix).c_str(), "r+b");
-  fseek(outfile, 0, SEEK_END);
-  XDR xdrs;
-  xdrstdio_create(&xdrs, outfile, XDR_ENCODE);
-	
-  for(unsigned int i = 1; i <= myNumParticles; ++i) {
-    accelerationBox.grow(myParticles[i].treeAcceleration);
-    if(!xdr_template(&xdrs, &(myParticles[i].treeAcceleration))) {
-      ckerr << "TreePiece " << thisIndex << ": Error writing accelerations to disk, aborting" << endl;
-      CkAbort("Badness");
-    }
-  }
-	
-  if(thisIndex == (int) numTreePieces - 1) {
-    if(!xdr_setpos(&xdrs, FieldHeader::sizeBytes) || !xdr_template(&xdrs, &accelerationBox.lesser_corner) || !xdr_template(&xdrs, &accelerationBox.greater_corner)) {
-      ckerr << "TreePiece " << thisIndex << ": Error going back to write the acceleration bounds, aborting" << endl;
-      CkAbort("Badness");
-    }
-    if(verbosity > 2)
-      ckerr << "TreePiece " << thisIndex << ": Wrote the acceleration bounds" << endl;
-    cb.send();
-  }
-	
-  xdr_destroy(&xdrs);
-  fclose(outfile);
-	
-  if(thisIndex != (int) numTreePieces - 1)
-    pieces[thisIndex + 1].outputAccelerations(accelerationBox, suffix, cb);
 }
 
 // Output a Tipsy ASCII array file.

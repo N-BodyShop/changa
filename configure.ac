@@ -2,10 +2,10 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([ChaNGa], [3.2], [changa-users@u.washington.edu])
+AC_INIT([ChaNGa], [3.3], [changa-users@u.washington.edu])
 AC_DEFINE_UNQUOTED([NBODY_PACKAGE_VERSION], [$PACKAGE_VERSION])
 AC_CONFIG_SRCDIR([Reductions.h])
-AC_CONFIG_HEADER([config.h ../utility/structures/config.h])
+AC_CONFIG_HEADER([config.h $srcdir/../utility/structures/config.h])
 
 AC_ARG_VAR([CHARMC], "Charm compiler")
 # Checks for programs.
@@ -60,6 +60,18 @@ if test "${MISSING_XDR}" = "yes" ; then
    CPPFLAGS="$CPPFLAGS -I.."
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
+
+# Use single-precision for gravity calculations
+AC_ARG_ENABLE([float],
+	[AS_HELP_STRING([--enable-float], [use single-precision for gravity calculations])],
+	[float=$enableval], [float=no])
+if test "$float" = "yes" ; then
+    echo "float selected"
+    FLAG_FLOAT="-DCOSMO_FLOAT"
+else
+    FLAG_FLOAT=""
+fi
+AC_SUBST([FLAG_FLOAT])
 
 # SSE2 vector optimization for gravity
 AC_ARG_ENABLE([sse2],
@@ -122,21 +134,56 @@ fi
 
 AC_SUBST([FLAG_DTADJUST])
 
+# Select kernel
+# Set defaults
+KERNEL="m4kernel"
+FLAG_M4KERNEL="-DM4KERNEL=0"
+FLAG_WENDLAND="-DWENDLAND=0"
+FLAG_M6KERNEL="-DM6KERNEL=0"
 # Wendland C4 Kernel:
 AC_ARG_ENABLE([wendland],
 	[AS_HELP_STRING([--enable-wendland], [enable Wendland C4 Kernel])],
 	[wendland=$enableval], [wendland=no])
 if test "$wendland" = "yes" ; then
-    echo "WENDLAND selected"
-    FLAG_KERNEL="-DWENDLAND"
-else
-    FLAG_KERNEL=""
+    KERNEL="wendland"
 fi
-AC_SUBST([FLAG_KERNEL])
+# M6 quintic spline kernel
+AC_ARG_ENABLE([m6kernel],
+	[AS_HELP_STRING([--enable-m6kernel], [enable M6 cubic spline kernel])],
+	[m6kernel=$enableval], [m6kernel=no])
+if test "$m6kernel" = "yes" ; then
+    KERNEL="m6kernel"
+fi
+# Now set up kernel flags
+if test "$KERNEL" = "m4kernel" ; then
+    echo "M4KERNEL selected"
+    FLAG_M4KERNEL="-DM4KERNEL=1"
+elif test "$KERNEL" = "wendland" ; then
+    echo "WENDLAND selected"
+    FLAG_WENDLAND="-DWENDLAND=1"
+elif test "$KERNEL" = "m6kernel" ; then
+    echo "M6KERNEL selected"
+    FLAG_M6KERNEL="-DM6KERNEL=1"
+fi
+KERNEL_FLAGS="$FLAG_M4KERNEL $FLAG_WENDLAND $FLAG_M6KERNEL"
+echo "$KERNEL_FLAGS"
+AC_SUBST([KERNEL_FLAGS])
+
+# Velocity damping
+AC_ARG_ENABLE([damping],
+	[AS_HELP_STRING([--enable-damping], [enable velocity damping for glasses])],
+	[damping=$enableval], [damping=no])
+if test "$damping" = "yes" ; then
+    echo "DAMPING selected"
+    FLAG_DAMPING="-DDAMPING"
+else
+    FLAG_DAMPING=""
+fi
+AC_SUBST([FLAG_DAMPING])
 
 # Cooling:
 AC_ARG_ENABLE([cooling],
-	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet,cosmo)])],
+	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet, cosmo, grackle)])],
 	[cooling=$enableval], [cooling=no])
 OBJECTS_COOLING=""
 if test "$cooling" = "no" ; then
@@ -180,13 +227,31 @@ elif test "$cooling" = "grackle" ; then
        exit
    fi
 else
-	echo "Unknown cooling selected, using Adiabatic"
+        AC_MSG_WARN([Unknown cooling selected, using Adiabatic])
 	FLAG_COOLING="-DCOOLING_NONE"
 	cooling="no"
+fi
+AC_ARG_ENABLE([hexadecapole],
+        [AS_HELP_STRING([--disable-hexadecapole], [disable use of hexadecapole expansions])],
+        # Note that "$enableval" being "yes" means ENABLE hexadecapole -- the
+        # help string, as one would expect, only affects how we document
+        # the option.
+        [case "$enableval" in
+              yes | no ) hexadecapole="$enableval";;
+              *) AC_MSG_ERROR("$enableval: invalid argument to `--disable-hexadecapole'") ;;
+         esac],
+        [hexadecapole="yes"])
+
+HEXADECAPOLE=""
+if test "$hexadecapole" = "yes"; then
+    HEXADECAPOLE="-DHEXADECAPOLE"
+else
+    HEXADECAPOLE=""
 fi
 
 AC_SUBST([FLAG_COOLING])
 AC_SUBST([OBJECTS_COOLING])
+AC_SUBST([HEXADECAPOLE])
  
 # diffusion (thermal and metal)
 AC_ARG_ENABLE([diffusion],
@@ -201,6 +266,50 @@ fi
 
 AC_SUBST([FLAG_DIFFUSION])
 
+# Limit supernova feedback
+# By default this also enables DIFFHARMONIC
+AC_ARG_ENABLE([feedbacklimit],
+    [AS_HELP_STRING([--enable-feedbacklimit], [limit diffusion of feedback energy])],
+    [feedbacklimit=$enableval], [feedbacklimit=no])
+if test "$feedbacklimit" = "yes" ; then
+    echo "FEEDBACKDIFFLIMIT selected"
+    FLAG_FEEDBACKDIFFLIMIT="-DFEEDBACKDIFFLIMIT"
+    echo "DIFFUSIONHARMONIC selected"
+    FLAG_DIFFHARMONIC="-DDIFFUSIONHARMONIC"
+else
+    FLAG_FEEDBACKDIFFLIMIT=""
+    FLAG_DIFFHARMONIC=""
+fi
+
+AC_SUBST([FLAG_FEEDBACKDIFFLIMIT])
+AC_SUBST([FLAG_DIFFHARMONIC])
+
+# Calculate artificial viscosity from Cullen & Dehnen 2010
+AC_ARG_ENABLE([cullenalpha],
+        [AS_HELP_STRING([--enable-cullenalpha], [enable Cullen Dehnen artificial viscosity])],
+        [cullenalpha=$enableval], [cullenalpha=no])
+if test "$cullenalpha" = "yes" ; then
+    echo "CULLENALPHA selected"
+    FLAG_CULLENALPHA="-DCULLENALPHA"
+else
+    FLAG_CULLENALPHA=""
+fi
+
+AC_SUBST([FLAG_CULLENALPHA])
+
+# Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
+AC_ARG_ENABLE([vsigvisc],
+        [AS_HELP_STRING([--enable-vsigvisc], [enable alternative Monahan artificial viscosity])],
+        [vsigvisc=$enableval], [vsigvisc=yes])
+if test "$vsigvisc" = "yes" ; then
+    echo "VSIGVISC selected"
+    FLAG_VSIGVISC="-DVSIGVISC"
+else
+    FLAG_VSIGVISC=""
+fi
+
+AC_SUBST([FLAG_VSIGVISC])
+
 # Richie-Thomas forces (Pressure SPH)
 AC_ARG_ENABLE([rtforce],
 	[AS_HELP_STRING([--enable-rtforce], [enable Richie-Thomas forces])],
@@ -213,6 +322,24 @@ else
 fi
 
 AC_SUBST([FLAG_RTFORCE])
+
+# Compiler flags
+AC_ARG_ENABLE([opts],
+	[AS_HELP_STRING([--enable-opts="options"], [Set compiler flags (override defaults)])],
+	[opts=$enableval], [])
+if test "$opts" = "yes" ; then
+    # The user called without arguments.  Assume this is an empty string
+    opts=""
+fi
+# Test if 'opts' is defined
+if test "${opts+x}" != ""  ; then
+    OPTS="$opts"
+else
+    # Default options
+    OPTS="-O3 -lpthread"
+fi
+echo "compiler options: $OPTS"
+AC_SUBST([OPTS])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
@@ -228,7 +355,12 @@ AC_CHECK_FUNCS([floor memset pow sqrt strchr])
 AC_CHECK_LIB([xdr], [xdr_hyper])
 AC_CHECK_FUNCS([xdr_hyper])
 
+####################### CUDA #######################
+m4_include([cuda.ac])
+##################### END CUDA #####################
+
+
 AC_CONFIG_FILES([Makefile
-		 ../utility/structures/Makefile
+		 $srcdir/../utility/structures/Makefile
 		])
 AC_OUTPUT

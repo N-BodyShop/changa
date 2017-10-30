@@ -12,6 +12,9 @@ mainmodule ParallelGravity {
 #ifdef REDUCTION_HELPER
   readonly CProxy_ReductionHelper reductionHelperProxy;
 #endif
+#ifdef CUDA
+  readonly CProxy_DataManagerHelper dmHelperProxy;
+#endif
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -32,6 +35,7 @@ mainmodule ParallelGravity {
   readonly double dExtraStore;
   readonly double dMaxBalance;
   readonly double dFracLoadBalance;
+  readonly double dGlassDamper;
   readonly int bUseCkLoopPar;
   readonly int peanoKey;
   readonly GenericTrees useTree;
@@ -44,7 +48,6 @@ mainmodule ParallelGravity {
   readonly unsigned int particlesPerChare;
   readonly unsigned int bucketSize;
   readonly int nIOProcessor;
-  readonly int lbcomm_cutoff_msgs;
   // jetley
   readonly int localNodesPerReq;
   readonly int remoteNodesPerReq;
@@ -110,6 +113,7 @@ mainmodule ParallelGravity {
   PUPable MarkSmoothParams;
   PUPable PressureSmoothParams;
   PUPable DistDeletedGasSmoothParams;
+  PUPable AGORApreCheckSmoothParams;
   PUPable DistStellarFeedbackSmoothParams;
   PUPable SinkFormTestSmoothParams;
   PUPable SinkFormSmoothParams;
@@ -159,6 +163,8 @@ mainmodule ParallelGravity {
   PUPable AgeOutputParams;
   PUPable coolontimeOutputParams;
   PUPable ESNRateOutputParams;
+  PUPable AlphaOutputParams;
+  PUPable DvDsOutputParams;
   PUPable DtOutputParams;
   PUPable KeyOutputParams;
   PUPable DomainOutputParams;
@@ -219,9 +225,11 @@ mainmodule ParallelGravity {
         const int responsible[n - 1],
         uint64_t bins[n - 1], const int n,
         const CkCallback& cb);
-    //entry [local,exclusive] void notifyPresence(int index, Tree::GenericTreeNode *root);
+    entry void clearRegisteredPieces(const CkCallback& cb);
     entry void combineLocalTrees(CkReductionMsg *m);
+#ifdef CUDA
     entry void clearInstrument(CkCallback &cb);
+#endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 			 COOLPARAM inParam, const CkCallback& cb);
@@ -232,6 +240,15 @@ mainmodule ParallelGravity {
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
   };
+
+#ifdef CUDA
+  group [migratable] DataManagerHelper {
+    entry DataManagerHelper();
+
+    entry void transferLocalTreeCallback();
+    entry void transferRemoteChunkCallback();
+  }
+#endif
 
   array [1D] TreePiece {
     entry TreePiece();
@@ -248,10 +265,11 @@ mainmodule ParallelGravity {
     entry void nextBucketMarkSmooth(dummyMsg *msg);
     //entry void registerWithDataManager(const CkGroupID& dataManagerID,
     //		     		  const CkCallback& cb);
-    entry void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
+
+    entry void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod, int bEwald,
                            double fEwCut, double fEwhCut, int bPeriod,
                            int bComove, double dRhoFac);
-    entry void EwaldInit();
+    entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(dummyMsg *m);
     entry [notrace] void EwaldGPUComplete(); 
@@ -343,7 +361,8 @@ mainmodule ParallelGravity {
 	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
 	    const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
-    entry void externalGravity(int activeRung, const externalGravityParams exGravParams,
+    entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
+    entry void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
     entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      int bSphStep, int bViscosityLimitdt,
@@ -444,7 +463,7 @@ mainmodule ParallelGravity {
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type,
       int firstParticle, int numParticles, int remIdx, MultipoleMoments& moments,
       OrientedBox<double>& box, OrientedBox<double>& boxBall,
-      unsigned int iParticleTypes);
+      unsigned int iParticleTypes, int64_t nSPH);
 
     entry void commenceCalculateGravityLocal();
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
@@ -476,7 +495,6 @@ mainmodule ParallelGravity {
     // entry void receiveProxy(CkGroupID);
     entry void doAtSync();
 
-    entry void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
     entry void outputASCII(CkReference<OutputParams>, int bParaWrite,
 			   const CkCallback& cb);
     entry void oneNodeOutVec(CkReference<OutputParams>, Vector3D<double> avOut[nPart],
@@ -496,6 +514,9 @@ mainmodule ParallelGravity {
 
     // jetley - cuda
     entry void continueStartRemoteChunk(int chunk);
+#ifdef CUDA
+    entry void updateParticles(intptr_t data, int partIndex);
+#endif
     entry void continueWrapUp();
 
     // jetley - balancing before initial forces

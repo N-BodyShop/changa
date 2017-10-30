@@ -175,10 +175,10 @@ State *KNearestSmoothCompute::getNewState(int nBuckets){
  * radius^2 for efficiency.
  */
 static inline bool
-intersect(OrientedBox<double>& box, Vector3D<double> pos, double rsq)
+intersect(OrientedBox<cosmoType>& box, Vector3D<cosmoType> pos, cosmoType rsq)
 {
-    double dsq = 0.0;
-    double delta;
+    cosmoType dsq = 0.0;
+    cosmoType delta;
     
     if((delta = box.lesser_corner.x - pos.x) > 0)
 	dsq += delta * delta;
@@ -208,7 +208,7 @@ int KNearestSmoothCompute::openCriterion(TreePiece *ownerTP,
 				  int reqID, State *state) {
     GenericTreeNode *myNode = (GenericTreeNode *) computeEntity;
     GravityParticle *particles = ownerTP->getParticles();
-    Vector3D<double> offset = ownerTP->decodeOffset(reqID);
+    Vector3D<cosmoType> offset = ownerTP->decodeOffset(reqID);
     NearNeighborState *nstate = (NearNeighborState *)state;
     
     double rBucket = myNode->sizeSm + myNode->fKeyMax;
@@ -292,7 +292,7 @@ void KNearestSmoothCompute::recvdParticlesFull(GravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
 				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
-  Vector3D<double> offset = tp->decodeOffset(reqID);
+  Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
   CkAssert(num > 0);
   state->counterArrays[0][reqIDlist] -= num;
@@ -345,6 +345,8 @@ void TreePiece::startSmooth(// type of smoothing and parameters
 
   LBTurnInstrumentOn();         // Be sure the Load Balancer is running.
   CkAssert(nSmooth > 0);
+  if (myNumParticles > 0)
+      CkAssert(root->nSPH == nTotalSPH);
   cbSmooth = cb;
   activeRung = params->activeRung;
 
@@ -413,7 +415,7 @@ void TreePiece::calculateSmoothLocal() {
     // Give smooths higher priority than gravity
     *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-    msg->val=0;
+    // msg->val=0;
     thisProxy[thisIndex].nextBucketSmooth(msg);
     }
 
@@ -499,6 +501,54 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   OrientedBox<double> bndSmoothAct; // bounding box for smoothActive particles
   double dKeyMaxBucket = 0.0;
   
+  double dSearchMax = DBL_MAX;
+  
+  if(!bEnough) {
+#if 0
+/// This optimization is specific to the "Distribute Stellar
+/// Feedback".  It might not be necessary because the next
+/// optimization (largest node containing enough particles) is good
+/// enough and more general.
+      int bStarSrc = 0;
+      OrientedBox<double> bndSmoothTmp; // bounding box for smoothActive particles
+      for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
+          GravityParticle *p = &tp->myParticles[j];
+          if(params->isSmoothActive(p) && p->isStar()) {
+              bStarSrc = 1;
+              bndSmoothTmp.grow(p->position);
+              }
+          }
+      // doing stars -> gas
+      // Set maximum search to largest gas search plus safety margin
+      if(bStarSrc && (params->iType == TYPE_GAS) && (tp->myNumSPH > 0)) {
+          double dGasBallMax = 0.0;
+          for(int k = firstQueue; k < lastQueue; k++) {
+	      if(!TYPETest(&tp->myParticles[k], params->iType))
+		  continue;
+              double dGasBall = tp->myParticles[k].fBall;
+              if(dGasBall > dGasBallMax)
+                  dGasBallMax = dGasBall;
+	      }
+          if(dGasBallMax > 0.0)
+              dSearchMax = pow(dGasBallMax*4.0 + (bndSmoothTmp.size()).length(), 2);
+          }
+#endif
+      // Search for largest node containing enough particles.
+      if(params->iType == TYPE_GAS) {
+          GenericTreeNode *parent = tp->root;
+          int which = parent->whichChild(myNode->getKey());
+          GenericTreeNode *node = parent->getChildren(which);
+          while(node->nSPH > nSmooth) {
+              parent = node;
+              which = parent->whichChild(myNode->getKey());
+              node = parent->getChildren(which);
+              }
+          double dNodeSize = (parent->boundingBox.size()).lengthSquared();
+          if(dNodeSize < dSearchMax)
+              dSearchMax = dNodeSize;
+          }
+      }
+  
   for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
       if(!params->isSmoothActive(&tp->myParticles[j]))
 	  continue;
@@ -525,7 +575,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
       if(bEnough)
 	  pqNew.fKey = drMax2;
       else
-	  pqNew.fKey = DBL_MAX;
+	  pqNew.fKey = dSearchMax;
       //
       // For FastGas, we have a limit on the size of the search ball.
       //
@@ -705,7 +755,9 @@ void KNearestSmoothCompute::walkDone(State *state) {
 
 // From here down are "ReSmooth" methods.
 
-// called after constructor, so tp should be set
+/// @brief Allocate ReNearNeighborState
+///
+/// called after constructor, so tp should be set
 State *ReSmoothCompute::getNewState(int nBucket){
   ReNearNeighborState *state = new ReNearNeighborState(tp->myNumParticles+2);
   // array to keep track of outstanding requests
@@ -723,16 +775,16 @@ State *ReSmoothCompute::getNewState(int nBucket){
   return state;
 }
 
-/*
+/**
  * Opening criterion for the reSmoothBucket walk.
  * Return true if we must open the node.
  */
 int ReSmoothCompute::openCriterion(TreePiece *ownerTP, 
-				  GenericTreeNode *node, // Node to test
+				  GenericTreeNode *node, ///< Node to test
 				  int reqID, State *state) {
     GenericTreeNode *myNode = (GenericTreeNode *) computeEntity;
     GravityParticle *particles = ownerTP->getParticles();
-    Vector3D<double> offset = ownerTP->decodeOffset(reqID);
+    Vector3D<cosmoType> offset = ownerTP->decodeOffset(reqID);
     
     double rBucket = myNode->sizeSm + myNode->fKeyMax;
     if(!intersect(node->boundingBox, myNode->centerSm - offset,
@@ -750,17 +802,17 @@ int ReSmoothCompute::openCriterion(TreePiece *ownerTP,
     return 0;
 }
 
-/*
+/**
  * Test a given particle against all the priority queues in the
  * bucket.
  */
 
 void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
-				  GravityParticle *p,  // Particle to test
-				  GenericTreeNode *node, // bucket
-				  GravityParticle *particles, // local
-							      // particle data
-				  Vector3D<double> offset,
+                                  GravityParticle *p,  ///< Particle to test
+                                  GenericTreeNode *node, ///< bucket
+                                  GravityParticle *particles, ///< local
+                                                              /// particle data
+                                  Vector3D<double> offset,  ///< periodic offset
                                   State *state
 				  ) 
 {
@@ -797,7 +849,7 @@ void ReSmoothCompute::recvdParticlesFull(GravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
 				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
-  Vector3D<double> offset = tp->decodeOffset(reqID);
+  Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
   CkAssert(num > 0);
   state->counterArrays[0][reqIDlist] -= num;
@@ -861,7 +913,7 @@ void TreePiece::calculateReSmoothLocal() {
     // Give smooths higher priority than gravity
     *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-    msg->val=0;
+    // msg->val=0;
     thisProxy[thisIndex].nextBucketReSmooth(msg);
     }
 
@@ -939,6 +991,7 @@ void ReNearNeighborState::finishBucketSmooth(int iBucket, TreePiece *tp) {
   }
 }
 
+/// @brief execute SmoothParams::fcnSmooth() for all particles in the bucket.
 void ReSmoothCompute::walkDone(State *state) {
   GenericTreeNode *node = (GenericTreeNode *) computeEntity;
   GravityParticle *part = node->particlePointer;
@@ -982,7 +1035,7 @@ int MarkSmoothCompute::openCriterion(TreePiece *ownerTP,
 				  int reqID, State *state) {
     GenericTreeNode *myNode = (GenericTreeNode *) computeEntity; // my bucket
     GravityParticle *particles = ownerTP->getParticles();
-    Vector3D<double> offset = ownerTP->decodeOffset(reqID);
+    Vector3D<cosmoType> offset = ownerTP->decodeOffset(reqID);
     
     for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
 	if(!params->isSmoothActive(&particles[j]))
@@ -995,16 +1048,16 @@ int MarkSmoothCompute::openCriterion(TreePiece *ownerTP,
     return 0;
 }
 
-/*
+/**
  * Test a given particle against all the priority queues in the
- * bucket.
+ * bucket.  Note that this is where the work is actually done for a
+ * MarkSmooth.
  */
-
 void MarkSmoothCompute::bucketCompare(TreePiece *ownerTP,
 				  GravityParticle *p,  // Particle to test
-				  GenericTreeNode *node, // bucket
-				  GravityParticle *particles, // local
-							      // particle data
+				  GenericTreeNode *node, ///< (local) bucket
+				  GravityParticle *particles, ///< local
+							      /// particle data
 				  Vector3D<double> offset,
                                   State *state
 				  ) 
@@ -1029,7 +1082,7 @@ void MarkSmoothCompute::recvdParticlesFull(GravityParticle *part,
 				   int num, int chunk,int reqID, State *state,
 				   TreePiece *tp, Tree::NodeKey &remoteBucket){
 
-  Vector3D<double> offset = tp->decodeOffset(reqID);
+  Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
   int reqIDlist = decodeReqID(reqID);
   CkAssert(num > 0);
   state->counterArrays[0][reqIDlist] -= num;
@@ -1092,7 +1145,7 @@ void TreePiece::calculateMarkSmoothLocal() {
     // Give smooths higher priority than gravity
     *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-    msg->val=0;
+    // msg->val=0;
     thisProxy[thisIndex].nextBucketMarkSmooth(msg);
     }
 
@@ -1171,7 +1224,7 @@ void Density(GravityParticle *p,int nSmooth, pqSmoothNode *nnList)
 	for (i=0;i<nSmooth;++i) {
 		double fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
-		rs = KERNEL(r2);
+		rs = KERNEL(r2, nSmooth);
 		fDensity += rs*nnList[i].p->mass;
 		}
 	p->fDensity = M_1_PI*sqrt(ih2)*ih2*fDensity; 
@@ -1210,7 +1263,7 @@ void DensitySmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	for (i=0;i<nSmooth;++i) {
 		double fDist2 = nnList[i].fKey;
 		r2 = fDist2*ih2;
-		rs = KERNEL(r2);
+		rs = KERNEL(r2, nSmooth);
 		rs *= fNorm;
 		q = nnList[i].p;
 		p->fDensity += rs*q->mass;

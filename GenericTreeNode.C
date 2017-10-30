@@ -3,10 +3,6 @@
 
 namespace Tree {
 
-GenericTreeNode *BinaryTreeNode::createNew() const {
-  return new BinaryTreeNode();
-};
-
 GenericTreeNode *BinaryTreeNode::clone() const {
   //BinaryTreeNode *tmp = new BinaryTreeNode();
   //*tmp = *this;

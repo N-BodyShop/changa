@@ -351,7 +351,7 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
       if(targetBucketIndex == TEST_BUCKET && tpindex == TEST_TP){ 
         char arr[2] = {'K', 'D'};
         char arrr[2] = {'N', 'Y'};
-        Vector3D<double> vec = ownerTP->decodeOffset(glblNode.offsetID);
+        Vector3D<cosmoType> vec = ownerTP->decodeOffset(glblNode.offsetID);
         CkPrintf("[%d] undecided level %d: key %ld (%1.0f,%1.0f,%1.0f) - %s, target %d, ret: %c, comp: %c\n", tpindex, level, glblNode.node->getKey(), vec.x, vec.y, vec.z, typeString(glblNode.node->getType()), targetBucketIndex, arr[!descend], arrr[didcomp]);
       }
 #endif
@@ -373,7 +373,7 @@ void LocalTargetWalk::dft(GenericTreeNode *localNode, State *state, int chunk, i
     char arrr[2] = {'N', 'Y'};
     int tpindex = ownerTP->getIndex();
     if(targetBucketIndex == TEST_BUCKET && tpindex == TEST_TP){ 
-      Vector3D<double> vec = ownerTP->decodeOffset(glblNode.offsetID);
+      Vector3D<cosmoType> vec = ownerTP->decodeOffset(glblNode.offsetID);
       CkPrintf("[%d] chklist level %d: key %ld (%1.0f,%1.0f,%1.0f) - %s, target %d, ret: %c, comp: %c\n", tpindex, level, glblNode.node->getKey(), vec.x, vec.y, vec.z, typeString(glblNode.node->getType()), targetBucketIndex, arr[!descend], arrr[didcomp]);
     }
 #endif
@@ -533,6 +533,7 @@ const char *translations[] = {"",
                                  "CachedEmpty"
                                  };
 
+/// @brief Interprete NodeType as string.
 const char *typeString(NodeType type){
   CkAssert(type > 0 && type <= NUM_NODE_TYPES);
   return translations[type];

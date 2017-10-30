@@ -8,10 +8,10 @@ class TreePiece;
 class SmoothParams : public PUP::able
 {
  public:
-    int iType;	// Particle type to smooth over;  "TreeActive"
-    int activeRung;
+    int iType;          ///< Particle type to smooth over;  "TreeActive"
+    int activeRung;     ///< Currently active rung
     TreePiece *tp;
-    int bUseBallMax;	// limit fBall growth
+    int bUseBallMax;    ///< limit fBall growth for bFastGas
     /// Function to apply to smooth particle and neighbors
     virtual void fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *nList) = 0;
     /// Particle is doing a neighbor search

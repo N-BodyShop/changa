@@ -90,7 +90,7 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
     bGasCooling = param.bGasCooling;
     CkAssert((dStarEff > 0.0 && dStarEff < 1.0)
 	      || dInitStarMass > 0.0);
-    if (dInitStarMass > 0) {
+    if (dInitStarMass > 0 && dMinGasMass <= 0) {
 	/* Only allow 10% underweight star particles */
 	dMinGasMass = 0.9*dInitStarMass;
 	}
@@ -188,6 +188,11 @@ void Main::FormStars(double dTime, double dDelta)
 	}
 
     treeProxy.finishNodeCache(CkCallbackResumeThread());
+#ifdef CUDA
+    // We didn't do gravity where the registered TreePieces on the
+    // DataManager normally get cleared.  Clear them here instead.
+    dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+#endif
 
     addDelParticles();
     double tSF = CkWallTimer() - startTime;
@@ -405,6 +410,8 @@ void TreePiece::flushStarLog(const CkCallback& cb) {
 
     if(verbosity > 3)
 	ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
+    if (dm == NULL)
+        dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     CmiLock(dm->lockStarLog);
     dm->starLog->flush();
     CmiUnlock(dm->lockStarLog);

@@ -1059,7 +1059,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	for (i=0;i<nSmooth;++i) {
 	    double fDist2 = nnList[i].fKey;
 	    r2 = fDist2*ih2;
-	    rs = KERNEL(r2);
+	    rs = KERNEL(r2, nSmooth);
 	    q = nnList[i].p;
 	    q->curlv()[0] = q->mass;
 	    q->curlv()[1] = 0;
@@ -1139,7 +1139,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		r2 = fDist2;
 		if(TYPETest(nnList[i].p,TYPE_DELETED)) continue;
 		    /* don't accrete a deleted particle!  JMB 10/1/08 */
-		rs = KERNEL(r2);
+		rs = KERNEL(r2, nSmooth);
 		fW = rs*nnList[i].p->mass;
 		double fBall = nnList[i].p->fBall;
 		if(!s.bBHAccreteAll && r2 > 0.25*fBall*fBall) continue; 
@@ -1443,7 +1443,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		 && r2 > 0.25*(nnList[i].p->fBall)*(nnList[i].p->fBall))
 		  continue;
 	      /* has to be nearby! */
-	      rs = KERNEL(r2);
+	      rs = KERNEL(r2, nSmooth);
 
 	      if(s.bBHMindv == 1)
 		  weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()
@@ -1564,7 +1564,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	  for (i=0;i<nSmooth;++i) {
 	    r2 = nnList[i].fKey*ih2;
-	    rs = KERNEL(r2);
+	    rs = KERNEL(r2, nSmooth);
 	    fNorm_new += rs;
             rs *= fNorm;
 	  }
@@ -1578,7 +1578,7 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	  for (i=0;i<nSmooth;++i) {
 	      r2 = nnList[i].fKey*ih2;
-	      rs = KERNEL(r2);
+	      rs = KERNEL(r2, nSmooth);
 
 	      fbweight = rs*fNorm_new;
 	      nnList[i].p->u() += fbweight*dE;

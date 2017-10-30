@@ -167,13 +167,10 @@ class DoubleWalkState : public State {
   // the markings when requests are sent out.
   CkVec<GenericTreeNode *> markedBuckets;
 
-  // TODO : this switch from map to ckvec means that we cannot 
-  // use multiple treepieces per processor, since they will all
-  // be writing to the nodeArrayIndex field of the CacheManager's nodes.
-  // We need a different group that manages GPU memory for this purpose.
-  //std::map<NodeKey,int> nodeMap;
-  CkVec<GenericTreeNode *> nodeMap;
-  std::map<NodeKey,int> partMap;
+  /// Map of node to index in node vector being sent to the GPU. This is
+  /// used for remote nodes.
+  std::unordered_map<NodeKey,int> nodeMap;
+  std::unordered_map<NodeKey,int> partMap;
 
   bool nodeOffloadReady(){
     return nodeLists.totalNumInteractions >= nodeThreshold;
