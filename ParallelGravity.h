@@ -1603,7 +1603,7 @@ public:
         void resetMetals(const CkCallback& cb);
         void getMaxIOrds(const CkCallback& cb);
         void RestartEnergy(double dTuFac, const CkCallback& cb);
-        void findTotalMass(CkCallback &cb);
+        void findTotalMass(const CkCallback &cb);
         void recvTotalMass(CkReductionMsg *msg);
 
 	// Write a Tipsy file
@@ -1657,7 +1657,7 @@ public:
 			  const int bCool,
 			  const CkCallback &cb);
 	// Reorder for output
-	void reOrder(int64_t nMaxOrder, CkCallback& cb);
+        void reOrder(int64_t nMaxOrder, const CkCallback& cb);
 	// move particles around for output
 	void ioShuffle(CkReductionMsg *msg);
 	void ioAcceptSortedParticles(ParticleShuffleMsg *);
@@ -1942,9 +1942,8 @@ public:
 	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
 	void processReqSmoothParticles();
 
-	//void startlb(CkCallback &cb);
 	void getParticleInfoForLB(int64_t active_part, int64_t total_part);
-	void startlb(CkCallback &cb, int activeRung);
+        void startlb(const CkCallback &cb, int activeRung);
   void setTreePieceLoad(int activeRung);
   void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
   bool havePhaseData(int phase);
@@ -1957,12 +1956,12 @@ public:
 			 const CkCallback& cb);
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
 			   int nPart, int iIndex, int bDone,
-			   CkCallback& cb) ;
+			   const CkCallback& cb) ;
 	void oneNodeOutArr(OutputParams& params, double* adOut,
 			   int nPart, int iIndex, int bDone,
-			   CkCallback& cb) ;
+			   const CkCallback& cb) ;
 	void oneNodeOutIntArr(OutputParams& params, int *aiOut,
-			      int nPart, int iIndex, CkCallback& cb);
+                              int nPart, int iIndex, const CkCallback& cb);
         void outputBinaryStart(OutputParams& params, int64_t nStart,
                                const CkCallback& cb);
 	void outputBinary(Ck::IO::Session, OutputParams& params);
@@ -1970,7 +1969,7 @@ public:
 
 	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
-	void collectStatistics(CkCallback &cb);
+        void collectStatistics(const CkCallback &cb);
 
         /** @brief Entry method used to split the processing of all the buckets
          * in small pieces. It calls startNextBucket() _yieldPeriod number of
@@ -2011,8 +2010,8 @@ public:
         void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
         void doAtSync();
 
-        void balanceBeforeInitialForces(CkCallback &cb);
-        
+        void balanceBeforeInitialForces(const CkCallback &cb);
+
         // For merging of remote moment requests
         // before sending messages during tree building
         public:
