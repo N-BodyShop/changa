@@ -1432,7 +1432,7 @@ inline int64_t *iOrderBoundaries(int nPieces, int64_t nMaxOrder)
 ///
 /// @brief Reorder particles for output
 ///
-void TreePiece::reOrder(int64_t _nMaxOrder, CkCallback& cb)
+void TreePiece::reOrder(int64_t _nMaxOrder, const CkCallback& cb)
 {
     callback = cb; // Save callback for after shuffle
     int *counts = new int[numTreePieces];
@@ -1843,7 +1843,7 @@ void TreePiece::oneNodeOutVec(OutputParams& params,
 			      int nPart, // number of elements in avOut
 			      int iIndex, // treepiece which called me
 			      int bDone, // Last call
-			      CkCallback& cb) 
+			      const CkCallback& cb)
 {
     FILE* outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
     if(outfile == NULL)
@@ -1890,7 +1890,7 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
 			      int nPart, // length of adOut
 			      int iIndex, // treepiece which called me
 			      int bDone, // Last call
-			      CkCallback& cb) 
+			      const CkCallback& cb)
 {
     FILE* outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
     if(outfile == NULL)
@@ -1929,7 +1929,7 @@ void TreePiece::oneNodeOutIntArr(OutputParams& params,
 			      int *aiOut, // array to be output
 			      int nPart, // length of adOut
 			      int iIndex, // treepiece which called me
-			      CkCallback& cb) 
+			      const CkCallback& cb)
 {
     FILE* outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
     if(outfile == NULL)
