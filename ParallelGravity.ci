@@ -192,7 +192,7 @@ mainmodule ParallelGravity {
 #ifdef REDUCTION_HELPER
   group [migratable] ReductionHelper {
     entry ReductionHelper();
-    entry void countTreePieces(CkCallback &cb);
+    entry void countTreePieces(const CkCallback &cb);
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
 
     entry void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
@@ -225,7 +225,7 @@ mainmodule ParallelGravity {
     entry void clearRegisteredPieces(const CkCallback& cb);
     entry void combineLocalTrees(CkReductionMsg *m);
 #ifdef CUDA
-    entry void clearInstrument(CkCallback &cb);
+    entry void clearInstrument(const CkCallback &cb);
     entry void startLocalWalk();
     entry void resumeRemoteChunk();
 #endif
@@ -279,7 +279,7 @@ mainmodule ParallelGravity {
     entry void resetMetals(const CkCallback& cb);
     entry void getMaxIOrds(const CkCallback& cb);
     entry void RestartEnergy(double dTuFac, const CkCallback& cb);
-    entry void findTotalMass(CkCallback &cb);
+    entry void findTotalMass(const CkCallback &cb);
     entry void recvTotalMass(CkReductionMsg *msg);
     entry void setupWrite(int iStage, u_int64_t iPrevOffset,
         const std::string& filename,
@@ -321,7 +321,7 @@ mainmodule ParallelGravity {
                              const bool bDoublePos,
                              const bool bDoubleVel,
 			     const int bCool, const CkCallback& cb);
-    entry void reOrder(int64_t nMaxOrder, CkCallback& cb);
+    entry void reOrder(int64_t nMaxOrder, const CkCallback& cb);
     entry void ioShuffle(CkReductionMsg *msg);
     entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
     entry void assignKeys(CkReductionMsg* m);
@@ -432,7 +432,7 @@ mainmodule ParallelGravity {
 
     entry void startORBTreeBuild(CkReductionMsg* m);
 
-    entry void startGravity(int activeRung, double myTheta, CkCallback &cb);
+    entry void startGravity(int activeRung, double myTheta, const CkCallback &cb);
 #ifdef PUSH_GRAVITY
     entry void startPushGravity(int am, double myTheta);
     entry void recvPushBuckets(BucketMsg *);
@@ -440,10 +440,10 @@ mainmodule ParallelGravity {
 #endif
 
     entry void startSmooth(CkPointer<SmoothParams>, int iLowhFix, int nSmooth,
-				    double dfBall2OverSoft2, CkCallback &cb);
-    entry void startReSmooth(CkPointer<SmoothParams>, CkCallback &cb);
-    entry void startMarkSmooth(CkPointer<SmoothParams>, CkCallback &cb);
-    entry void finishNodeCache(CkCallback &cb);
+				    double dfBall2OverSoft2, const CkCallback &cb);
+    entry void startReSmooth(CkPointer<SmoothParams>, const CkCallback &cb);
+    entry void startMarkSmooth(CkPointer<SmoothParams>, const CkCallback &cb);
+    entry void finishNodeCache(const CkCallback &cb);
 
     entry
 #ifndef MERGE_REMOTE_REQUESTS 
@@ -477,7 +477,7 @@ mainmodule ParallelGravity {
     entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
 
     // jetley
-    entry void startlb(CkCallback &cb, int activeRung);
+    entry void startlb(const CkCallback &cb, int activeRung);
     entry void ResumeFromSync();
     entry [reductiontarget] void getParticleInfoForLB(int64_t active_part,
         int64_t total_part);
@@ -489,18 +489,18 @@ mainmodule ParallelGravity {
 			   const CkCallback& cb);
     entry void oneNodeOutVec(CkReference<OutputParams>, Vector3D<double> avOut[nPart],
 			   int nPart, int iIndex, int bDone,
-			   CkCallback& cb) ;
+			   const CkCallback& cb) ;
     entry void oneNodeOutArr(CkReference<OutputParams>, double adOut[nPart],
 			   int nPart, int iIndex, int bDone,
-			   CkCallback& cb) ;
+			   const CkCallback& cb) ;
     entry void outputBinary(Ck::IO::Session, CkReference<OutputParams>);
     entry void minmaxNCOut(CkReference<OutputParams> params, const CkCallback& cb);
     entry void outputBinaryStart(CkReference<OutputParams> params,
                                  int64_t nStart, const CkCallback& cb);
     entry void oneNodeOutIntArr(CkReference<OutputParams>, int aiOut[nPart],
-				int nPart, int iIndex, CkCallback& cb);
+				int nPart, int iIndex, const CkCallback& cb);
     entry void outputStatistics(const CkCallback& cb);
-    entry void collectStatistics(CkCallback &cb);
+    entry void collectStatistics(const CkCallback &cb);
 
     // jetley - cuda
     entry void continueStartRemoteChunk(int chunk);
@@ -510,7 +510,7 @@ mainmodule ParallelGravity {
     entry void continueWrapUp();
 
     // jetley - balancing before initial forces
-    entry void balanceBeforeInitialForces(CkCallback &cb); 
+    entry void balanceBeforeInitialForces(const CkCallback &cb);
 
   };
 
