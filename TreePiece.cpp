@@ -4835,7 +4835,7 @@ void TreePiece::recvPushAccelerations(CkReductionMsg *msg){
 }
 #endif
 
-void TreePiece::findTotalMass(CkCallback &cb){
+void TreePiece::findTotalMass(const CkCallback &cb){
   callback = cb;
   myTotalMass = 0;
   for(int i = 1; i <= myNumParticles; i++){
@@ -5306,7 +5306,7 @@ void TreePiece::setTreePieceLoad(int activeRung) {
 
   // jetley - contribute your centroid. AtSync is now called by the load balancer (broadcast) when it has
   // all centroids.
-void TreePiece::startlb(CkCallback &cb, int activeRung){
+void TreePiece::startlb(const CkCallback &cb, int activeRung){
 
   if(verbosity > 1)
      CkPrintf("[%d] load set to: %g, actual: %g\n", thisIndex, treePieceLoad, getObjTime());  
@@ -6036,7 +6036,7 @@ CkReduction::reducerType TreePieceStatistics::sum;
  * Collect treewalking statistics across all TreePieces
  */
 
-void TreePiece::collectStatistics(CkCallback& cb) {
+void TreePiece::collectStatistics(const CkCallback& cb) {
   LBTurnInstrumentOff();
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
 
@@ -6509,7 +6509,7 @@ void TreePiece::memCacheStats(const CkCallback &cb)
     contribute(4*sizeof(int), memOut, CkReduction::max_int, cb);
 }
 
-void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
+void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
   LDObjHandle handle = myRec->getLdHandle();
   LBDatabase *lbdb = LBDatabaseObj();
   int nlbs = lbdb->getNLoadBalancers(); 
