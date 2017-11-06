@@ -145,8 +145,11 @@ public:
 	/// Star formation events are stored on the data manager since there
 	/// is no need to migrate them with the TreePiece.
 	StarLog *starLog;
+    HMStarLog *hmStarLog;
 	/// @brief Lock for accessing starlog from TreePieces
 	CmiNodeLock lockStarLog;
+	/// @brief Lock for accessing hmstarlog from TreePieces
+    CmiNodeLock lockHMStarLog;
 
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
@@ -185,7 +188,9 @@ public:
 
 	    CoolFinalize(Cool);
 	    delete starLog;
+        delete hmStarLog;
 	    CmiDestroyLock(lockStarLog);
+        CmiDestroyLock(lockHMStarLog);
 	    }
 
 	/// Called by ORB Sorter, save the list of which TreePiece is
@@ -237,6 +242,7 @@ public:
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);
     void initStarLog(std::string _fileName, const CkCallback &cb);
+    void initHMStarLog(std::string _fileName, const CkCallback &cb);
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time

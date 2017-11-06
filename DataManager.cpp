@@ -52,7 +52,9 @@ void DataManager::init() {
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
+  hmStarLog = new HMStarLog();
   lockStarLog = CmiCreateLock();
+  lockHMStarLog = CmiCreateLock();
 }
 
 /**

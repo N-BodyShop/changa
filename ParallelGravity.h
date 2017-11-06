@@ -551,6 +551,7 @@ public:
 	void initSph();
 	void initCooling();
 	void initStarLog();
+	void initHMStarLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
@@ -1738,6 +1739,7 @@ public:
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void flushStarLog(const CkCallback& cb);
+	void flushHMStarLog(const CkCallback& cb);
 	void Feedback(Fdbk &fb, double dTime, double dDelta,
 		       const CkCallback& cb);
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);

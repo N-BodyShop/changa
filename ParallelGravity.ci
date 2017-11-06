@@ -114,6 +114,7 @@ mainmodule ParallelGravity {
   PUPable Fdbk;
   PUPable Stfm;
   PUPable StarLog;
+  PUPable HMStarLog;
   PUPable Chabrier;
   PUPable MillerScalo;
   PUPable Kroupa93;
@@ -147,45 +148,6 @@ mainmodule ParallelGravity {
   PUPable OxygenMassFracDotOutputParams;
   PUPable IronMassFracDotOutputParams;
   PUPable MFormOutputParams;
-#ifdef STOCH12
-  PUPable HMStar1OutputParams;
-  PUPable HMStar2OutputParams;
-  PUPable HMStar3OutputParams;
-  PUPable HMStar4OutputParams;
-  PUPable HMStar5OutputParams;
-  PUPable HMStar6OutputParams;
-  PUPable HMStar7OutputParams;
-  PUPable HMStar8OutputParams;
-  PUPable HMStar9OutputParams;
-  PUPable HMStar10OutputParams;
-  PUPable HMStar11OutputParams;
-  PUPable HMStar12OutputParams;
-#elif STOCH24
-  PUPable HMStar1OutputParams;
-  PUPable HMStar2OutputParams;
-  PUPable HMStar3OutputParams;
-  PUPable HMStar4OutputParams;
-  PUPable HMStar5OutputParams;
-  PUPable HMStar6OutputParams;
-  PUPable HMStar7OutputParams;
-  PUPable HMStar8OutputParams;
-  PUPable HMStar9OutputParams;
-  PUPable HMStar10OutputParams;
-  PUPable HMStar11OutputParams;
-  PUPable HMStar12OutputParams;
-  PUPable HMStar13OutputParams;
-  PUPable HMStar14OutputParams;
-  PUPable HMStar15OutputParams;
-  PUPable HMStar16OutputParams;
-  PUPable HMStar17OutputParams;
-  PUPable HMStar18OutputParams;
-  PUPable HMStar19OutputParams;
-  PUPable HMStar20OutputParams;
-  PUPable HMStar21OutputParams;
-  PUPable HMStar22OutputParams;
-  PUPable HMStar23OutputParams;
-  PUPable HMStar24OutputParams;
-#endif
   PUPable TimeFormOutputParams;
   PUPable AgeOutputParams;
   PUPable coolontimeOutputParams;
@@ -262,6 +224,7 @@ mainmodule ParallelGravity {
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
+    entry void initHMStarLog(std::string _fileName, const CkCallback &cb);
   };
 
   array [1D] TreePiece {
@@ -424,6 +387,7 @@ mainmodule ParallelGravity {
     entry void FormStars(Stfm param, double dTime, double dDelta, 
     	       		 double dCosmoFac, const CkCallback& cb);
     entry void flushStarLog(const CkCallback& cb);
+    entry void flushHMStarLog(const CkCallback& cb);
     entry void Feedback(Fdbk &fb, double dTime, double dDelta, 
     	       		const CkCallback& cb);
     entry void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);

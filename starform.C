@@ -12,11 +12,6 @@
 #include "smooth.h"
 #include "Sph.h"
 
-#ifdef STOCH24
-#define ARRLENGTH 24
-#else
-#define ARRLENGTH 12
-#endif
 
 ///
 /// @brief initialize parameters for star formation
@@ -229,10 +224,14 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		newParticle(starp);
                 p = &myParticles[i]; // newParticle can change pointers
 		CmiLock(dm->lockStarLog);
+        CmiLock(dm->lockHMStarLog);
                 // Record current spot in seTab
                 iSeTab.push_back(dm->starLog->seTab.size());
+                iSeTab.push_back(dm->hmStarLog->seTab.size());
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm));
+        if(stfm.bUseStoch) dm->hmStarLog->seTab.push_back(HMStarLogEvent(starp));
 		CmiUnlock(dm->lockStarLog);
+		CmiUnlock(dm->lockHMStarLog);
 		delete (extraStarData *)starp->extraData;
 		delete starp;
 		if(TYPETest(p, TYPE_DELETED))
@@ -446,8 +445,50 @@ void Main::initStarLog(){
 
     }
 
+void Main::initHMStarLog(){
+    struct stat statbuf;
+    int iSize;
+    std::string stLogFile = std::string(param.achOutName) + ".hmstarlog";
+    dMProxy.initHMStarLog(stLogFile,CkCallbackResumeThread());
+
+    if(bIsRestarting) {
+	if(!stat(stLogFile.c_str(), &statbuf)) {
+	    /* file exists, check number */
+	    FILE *fpLog = CmiFopen(stLogFile.c_str(),"r");
+	    XDR xdrs;
+            if(fpLog == NULL)
+                CkAbort("Bad open of hmstarlog file on restart");
+
+	    xdrstdio_create(&xdrs,fpLog,XDR_DECODE);
+	    xdr_int(&xdrs, &iSize);
+            if(iSize != sizeof(HMStarLogEvent))
+                CkAbort("hmstarlog file format mismatch");
+	    xdr_destroy(&xdrs);
+	    CmiFclose(fpLog);
+	    } else {
+	    CkAbort("Simulation restarting with star formation, but hmstarlog file not found");
+	    }
+	} else {
+	FILE *fpLog = CmiFopen(stLogFile.c_str(),"w");
+	XDR xdrs;
+
+        if(fpLog == NULL) 
+            CkAbort("Can't create hmstarlog file");
+	xdrstdio_create(&xdrs,fpLog,XDR_ENCODE);
+	iSize = sizeof(HMStarLogEvent);
+	xdr_int(&xdrs, &iSize);
+	xdr_destroy(&xdrs);
+	CmiFclose(fpLog);
+	}
+}
+
 void DataManager::initStarLog(std::string _fileName, const CkCallback &cb) {
     starLog->fileName = _fileName;
+    contribute(cb);
+    }
+
+void DataManager::initHMStarLog(std::string _fileName, const CkCallback &cb) {
+    hmStarLog->fileName = _fileName;
     contribute(cb);
     }
 
@@ -468,6 +509,23 @@ void TreePiece::flushStarLog(const CkCallback& cb) {
     cb.send(); // We are done.
     return;
     }
+
+/// \brief flush hmstarlog table to disk
+void TreePiece::flushHMStarLog(const CkCallback& cb) {
+    if(verbosity > 3)
+	ckout << "TreePiece " << thisIndex << ": Writing hm output to disk" << endl;
+    CmiLock(dm->lockHMStarLog);
+    dm->hmStarLog->flush();
+    CmiUnlock(dm->lockHMStarLog);
+
+    if(thisIndex!=(int)numTreePieces-1) {
+	pieces[thisIndex + 1].flushHMStarLog(cb);
+	return;
+	}
+
+    cb.send(); // We are done.
+    return;
+}
 
 void StarLog::flush(void) {
     if (seTab.size() > 0) {
@@ -503,3 +561,27 @@ void StarLog::flush(void) {
 	nOrdered = 0;
 	}
     }
+
+void HMStarLog::flush(void) {
+    if (seTab.size() > 0) {
+	FILE* outfile;
+	XDR xdrs;
+
+	outfile = CmiFopen(fileName.c_str(), "a");
+	CkAssert(outfile != NULL);
+	xdrstdio_create(&xdrs,outfile,XDR_ENCODE);
+
+	CkAssert(seTab.size() == nOrdered);
+    
+	for(int iLog = 0; iLog < seTab.size(); iLog++){
+	    HMStarLogEvent *pHMSfEv = &(seTab[iLog]);
+	    xdr_template(&xdrs, &(pHMSfEv->iOrdStar));
+        for(int i=0; i<ARRLENGTH; i++) xdr_double(&xdrs, &(pHMSfEv->HMStars[i]));
+	    }
+    xdr_destroy(&xdrs);
+    int result = CmiFclose(outfile);
+    if(result != 0) CkAbort("Bad close of hmstarlog");
+    seTab.clear();
+    nOrdered = 0;
+    }
+}

@@ -4,6 +4,12 @@
 #ifndef STARFORM_HINCLUDED
 #define STARFORM_HINCLUDED
 
+#ifdef STOCH24
+#define ARRLENGTH 24
+#else
+#define ARRLENGTH 12
+#endif
+
 #include "parameters.h"
 #include "imf.h"
 
@@ -143,6 +149,25 @@ class StarLogEvent
 	}
     };
 
+/** @brief Holds high mass stars in star formation events */
+class HMStarLogEvent
+{
+public:
+    int64_t iOrdStar;
+    double HMStars[ARRLENGTH];
+HMStarLogEvent() : iOrdStar(0) {
+    for(int i=0; i<ARRLENGTH; i++) HMStars[i]=0.0;
+    }
+HMStarLogEvent(GravityParticle *p) {
+    // star's iOrder assigned in TreePiece::NewOrder
+    for(int i=0; i<ARRLENGTH; i++) HMStars[i]=p->rgfHMStars(i);
+    }
+    void pup(PUP::er& p) {
+    p | iOrdStar;
+    PUParray(p,HMStars,ARRLENGTH);
+    }
+};
+
 /** @brief Log of star formation events to be written out to a file */
 class StarLog : public PUP::able
 {
@@ -163,5 +188,26 @@ class StarLog : public PUP::able
 	p | seTab;
 	}
     };
+
+/** @brief Log of high mass stars in star formation events to be written out to a file */
+class HMStarLog : public PUP::able
+{
+public:
+    int nOrdered;		/* The number of events that have been
+				   globally ordered, incremented by
+				   pkdNewOrder() */
+    std::string fileName;
+    std::vector<HMStarLogEvent> seTab;		/* The actual table */
+HMStarLog() : nOrdered(0),fileName("hmstarlog") {}
+    void flush();
+    PUPable_decl(HMStarLog);
+HMStarLog(CkMigrateMessage *m) : PUP::able(m) {}
+    void pup(PUP::er& p) {
+	PUP::able::pup(p);
+	p | nOrdered;
+	p | fileName;
+	p | seTab;
+    }
+};
 
 #endif
