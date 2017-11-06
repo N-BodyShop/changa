@@ -33,6 +33,8 @@ double csmExp2Om(CSM csm, double dExp);
 #if defined(__cplusplus)
 }
 
+#include "pup_stl.h"
+
 inline void operator|(PUP::er &p, struct csmContext &csm) {
     p|csm.bComove;	   
     p|csm.dHubble0;
