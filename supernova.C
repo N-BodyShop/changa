@@ -30,7 +30,7 @@ double mod(double a, int b) {return (a-b*floor(a/b));}
  *  @param fbEffects Passes information about the feedback event (mass loss, energy and metal 
  *  injection) back to the rest of the simulation
  */
-void SN::CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta, FBEffects *fbEffects)
+void SN::CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta, FBEffects *fbEffects) const
 {
     double dNSNTypeII;
     /* stellar lifetimes corresponding to beginning and end of 
@@ -66,7 +66,7 @@ void SN::CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta, FBEffe
 void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 			    double dTime, /* current time in years */
 			    double dDelta, /* length of timestep (years) */
-			    FBEffects *fbEffects)
+			    FBEffects *fbEffects) const
 {
     double dMSNTypeII, dNSNTypeII, dMeanMStar;
     /* stellar lifetimes corresponding to beginning and end of 
@@ -193,7 +193,7 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 void SN::CalcSNIaFeedback(SFEvent *sfEvent,
 			double dTime, /* current time in years */
 			double dDelta, /* length of timestep (years) */
-			FBEffects *fbEffects)
+			FBEffects *fbEffects) const
 {
     /* stellar lifetimes corresponding to beginning and end of 
      * current timestep with respect to starbirth time in yrs */

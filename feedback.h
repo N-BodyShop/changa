@@ -46,8 +46,8 @@ class Fdbk : public PUP::able {
  private:
     Fdbk& operator=(const Fdbk& fb);
     void CalcWindFeedback(SFEvent *sfEvent, double dTime, 
-			  double dDelta, FBEffects *fbEffects);
-    void CalcUVFeedback(double dTime, double dDelta, FBEffects *fbEffects);
+			  double dDelta, FBEffects *fbEffects) const;
+    void CalcUVFeedback(double dTime, double dDelta, FBEffects *fbEffects) const;
 
     char achIMF[32];	        /* initial mass function */
     double dErgPerGmUnit;	/* system specific energy in ergs/gm */
@@ -56,7 +56,7 @@ class Fdbk : public PUP::able {
     double dErgUnit;		/* system energy in ergs */
     Padova pdva;
  public:
-    SN sn;
+    mutable SN sn;
     double dDeltaStarForm;
     double dSecUnit;		/* system time in seconds */
     double dMaxGasMass;		/* Maximum mass of a gas particle */
@@ -75,7 +75,7 @@ class Fdbk : public PUP::able {
     void CheckParams(PRM prm, struct parameters &param);
     void NullFeedback() { imf = new Kroupa01(); } /* Place holder */
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
-		    FBEffects *fbTotals);
+		    FBEffects *fbTotals) const;
     double NSNIa (double dMassT1, double dMassT2);
     Fdbk() { }
 

@@ -288,7 +288,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
 ///
 /// processor specific method for stellar feedback
 /// 
-void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback& cb)
+void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCallback& cb)
 {
     FBEffects fbTotals[NFEEDBACKS];
     double dDeltaYr;
@@ -334,7 +334,7 @@ void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback
 /// @param fbTotals pointer to total effects for bookkeeping
 
 void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
-		      FBEffects *fbTotals)
+		      FBEffects *fbTotals) const
 {
     double dTotMassLoss, dTotMetals, dTotMOxygen, dTotMIron, dDelta;
     dTotMassLoss = dTotMetals = dTotMOxygen = dTotMIron = 0.0;
@@ -430,7 +430,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 
 void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
 			    double dDelta, /* length of timestep (years) */
-			    FBEffects *fbEffects)
+			    FBEffects *fbEffects) const
 {
     double dMDying;
 
@@ -483,7 +483,7 @@ void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 
 void Fdbk::CalcUVFeedback(double dTime, /* current time in years */
 			  double dDelta, /* length of timestep (years) */
-			  FBEffects *fbEffects)
+			  FBEffects *fbEffects) const
 {
     fbEffects->dMassLoss = 0.0;
     fbEffects->dEnergy = 0.0;
