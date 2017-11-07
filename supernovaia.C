@@ -59,7 +59,7 @@ double dMSIMFSec(const SN *sn, double dMass2)
   * timestep in which dMassT1 and dMassT2 are masses of stars that end
   * their lives at the end and beginning of timestep, respectively
   */
-double SN::NSNIa (double dMassT1, double dMassT2)
+double SN::NSNIa (double dMassT1, double dMassT2) const
 {
     CkAssert (dMassT1 < dMassT2);
     // Exclude primaries that go SNII
