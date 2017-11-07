@@ -45,7 +45,7 @@ void csmInitialize(CSM *pcsm)
  ** will derive all other quantities from these two functions.
  */
 
-double csmExp2Hub(CSM csm, double dExp)
+double csmExp2Hub(const CSM csm, double dExp)
 {
     double dOmegaCurve = 1.0 - csm->dOmega0 -
 	csm->dLambda - csm->dOmegaRad - csm->dQuintess;
@@ -78,7 +78,7 @@ double csmTime2Hub(CSM csm,double dTime)
 	return csmExp2Hub(csm, a);
 	}
 
-double csmCosmoTint(CSM csm, double dY)
+double csmCosmoTint(const CSM csm, double dY)
 {
     double dExp = pow(dY, 2.0/3.0);
     
@@ -145,7 +145,7 @@ double csmExp2Time(CSM csm,double dExp)
              /* Set accuracy to 0.01 EPSCOSMO to make Romberg integration
               * more accurate than Newton's method criterion in csmTime2Exp. --JPG
               */
-            return dRombergO(csm, (double (*)(void *, double)) csmCosmoTint,
+            return dRombergO(csm, (double (*)(const void *, double)) csmCosmoTint,
                              0.0, pow(dExp, 1.5), 0.01*EPSCOSMO);
  	    }
 	}
@@ -193,7 +193,7 @@ double csmTime2Exp(CSM csm,double dTime)
 	    }
 	}
 
-double csmComoveDriftInt(CSM csm, double dIExp)
+double csmComoveDriftInt(const CSM csm, double dIExp)
 {
     return -dIExp/(csmExp2Hub(csm, 1.0/dIExp));
     }
@@ -201,7 +201,7 @@ double csmComoveDriftInt(CSM csm, double dIExp)
 /*
  ** Make the substitution y = 1/a to integrate da/(a^2*H(a))
  */
-double csmComoveKickInt(CSM csm, double dIExp)
+double csmComoveKickInt(const CSM csm, double dIExp)
 {
     return -1.0/(csmExp2Hub(csm, 1.0/dIExp));
     }
@@ -264,7 +264,7 @@ double csmComoveDriftFac(CSM csm,double dTime,double dDelta)
 		}
 	else{
 	    return dRombergO(csm,
-			     (double (*)(void *, double)) csmComoveDriftInt,
+			     (double (*)(const void *, double)) csmComoveDriftInt,
 			     1.0/csmTime2Exp(csm, dTime),
 			     1.0/csmTime2Exp(csm, dTime + dDelta), EPSCOSMO);
 	    }
@@ -329,7 +329,7 @@ double csmComoveKickFac(CSM csm,double dTime,double dDelta)
 		}
 	else{
 	    return dRombergO(csm,
-			     (double (*)(void *, double)) csmComoveKickInt,
+			     (double (*)(const void *, double)) csmComoveKickInt,
 			     1.0/csmTime2Exp(csm, dTime),
 			     1.0/csmTime2Exp(csm, dTime + dDelta), EPSCOSMO);
 	    }
