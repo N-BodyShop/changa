@@ -28,9 +28,9 @@ class Padova {
     double a00, a01, a02;
     double a10, a11, a12;
     double a20, a21, a22;
-    double a0, a1, a2;    
+    mutable double a0, a1, a2;
     double zmin, zmax, zsol, xoxsol;    
-    void CoefInit (double dMetals);
+    void CoefInit (double dMetals) const;
  public:
  Padova() : a00(10.13),	a01(0.07547), a02(-0.008084), 
       a10(-4.424),a11(-0.7939), a12(-0.1187),
@@ -38,8 +38,8 @@ class Padova {
       a0(0.0), a1(0.0), a2(0.0),
       zmin(7e-5), zmax(3e-2), zsol(0.02), xoxsol(9e-3) {}
 
-    double Lifetime(double dStarMass, double dMetals);
-    double StarMass(double dStarLtime, double dMetals);
+    double Lifetime(double dStarMass, double dMetals) const;
+    double StarMass(double dStarLtime, double dMetals) const;
     void pup(PUP::er& p) {
 	p | a00;
 	p | a01;
