@@ -79,7 +79,7 @@ class SN
     void CalcSNIaFeedback(SFEvent *sfEvent,double dTime, 
 			  double dDelta, FBEffects *fbEffects);
     double NSNIa (double dMassT1, double dMassT2);
-    friend double dMSIMFSec(SN *sn, double dMass2);
+    friend double dMSIMFSec(const SN *sn, double dMass2);
     void pup(PUP::er& p) {
 	p|dESN;
 	p|dMSNrem;
