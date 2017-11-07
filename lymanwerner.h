@@ -57,10 +57,10 @@ inline double calcLogMax8LymanWerner(double dAgelog, double loglownorm)
     double a0 = -39793.789,
       a1 = 26397.519,
       a2 = -6970.825,
-      a3 = 916.934,
-      a4 = -60.068,
-      a5 = 1.567;
-    double lowLW = a0
+      a3 = 916.93434,
+      a4 =  -60.0680528,
+      a5 = 1.567325918;
+    return a0
       + a1*dAgelog
       + a2*dAgelog*dAgelog
       + a3*dAgelog*dAgelog*dAgelog
