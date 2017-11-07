@@ -403,7 +403,7 @@ mainmodule ParallelGravity {
     entry void FormStars(Stfm param, double dTime, double dDelta, 
     	       		 double dCosmoFac, const CkCallback& cb);
     entry void flushStarLog(const CkCallback& cb);
-    entry void Feedback(Fdbk &fb, double dTime, double dDelta, 
+    entry void Feedback(Fdbk fb, double dTime, double dDelta,
     	       		const CkCallback& cb);
     entry void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
     entry void setTypeFromFile(int iSetMask, char file[256],
