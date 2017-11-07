@@ -7,7 +7,7 @@
 #define min(A,B) ((A) < (B) ? (A) : (B))
 
 /* MAXIMUM MASS: 109 M_sol, lifetime= 3.26 Myr */
-void Padova::CoefInit (double dMetals)
+void Padova::CoefInit (double dMetals) const
 {
   double logZ;
   double Z = dMetals;
@@ -20,7 +20,7 @@ void Padova::CoefInit (double dMetals)
   a2 = a20 + a21*logZ + a22*logZ*logZ;
 }
 
-double Padova::Lifetime(double dStarMass, double dMetals) 
+double Padova::Lifetime(double dStarMass, double dMetals) const
 {
   /* finds stellar lifetime in yr corresponding to stellar 
      mass in solar masses */
@@ -34,7 +34,7 @@ double Padova::Lifetime(double dStarMass, double dMetals)
   return Ltime;
 }
 
-double Padova::StarMass(double dStarLtime, double dMetals) 
+double Padova::StarMass(double dStarLtime, double dMetals) const
 {
   /* finds stellar mass in solar masses corresponding to stellar 
      lifetime dStarTime in yr */
