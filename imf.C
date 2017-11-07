@@ -11,7 +11,7 @@
 #include "romberg.h"
 
 // Private function to return result of basic IMF
-double MillerScalo::returnimf(double mass)
+double MillerScalo::returnimf(double mass) const
 {
     double dIMF;
     
@@ -28,7 +28,7 @@ double MillerScalo::returnimf(double mass)
     return dIMF;
     }
 
-double Kroupa93::returnimf(double mass)
+double Kroupa93::returnimf(double mass) const
 {
     double dIMF;
     
@@ -45,7 +45,7 @@ double Kroupa93::returnimf(double mass)
     return dIMF;
     }
 
-double Kroupa01::returnimf(double mass)
+double Kroupa01::returnimf(double mass) const
 {
     double dIMF;
     
@@ -61,7 +61,7 @@ double Kroupa01::returnimf(double mass)
     }
 
 // Chabrier imf function
-double Chabrier::returnimf(double mass)
+double Chabrier::returnimf(double mass) const
 {
     double dIMF;
 
@@ -77,7 +77,7 @@ double Chabrier::returnimf(double mass)
    return dIMF;
 }
 
-double imfIntM(IMF *theimf, double logMass) 
+double imfIntM(const IMF *theimf, double logMass)
 {
     double mass = pow(10.0, logMass);
     return mass*theimf->returnimf(mass);
@@ -291,7 +291,7 @@ double Chabrier::CumMass(double mass)
 	    xmin = log10(mass);
 	else
 	    xmin = log10(m1);
-	dCumM += dRombergO(this, (double (*)(void *, double)) imfIntM, xmin, log10(m2), EPS_IMF);
+	dCumM += dRombergO(this, (double (*)(const void *, double)) imfIntM, xmin, log10(m2), EPS_IMF);
 	}
     return dCumM;
 }
