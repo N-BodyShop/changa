@@ -1027,30 +1027,30 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
     }
   };
 
+  /// @brief PUP a NodeType
+  inline void operator|(PUP::er &p, NodeType &nt) {
+    int nti;
+    if (p.isUnpacking()) {
+      p | nti;
+      nt = (NodeType)nti;
+    } else {
+      nti = (int)nt;
+      p | nti;
+    }
+  }
+
+  /// @brief PUP a tree type.
+  inline void operator|(PUP::er &p, GenericTrees &gt) {
+    int gti;
+    if (p.isUnpacking()) {
+      p | gti;
+      gt = (GenericTrees)gti;
+    } else {
+      gti = (int)gt;
+      p | gti;
+    }
+  }
+
 } //close namespace Tree
-
-/// @brief PUP a NodeType
-inline void operator|(PUP::er &p,Tree::NodeType &nt) {
-  int nti;
-  if (p.isUnpacking()) {
-    p | nti;
-    nt = (Tree::NodeType)nti;
-  } else {
-    nti = (int)nt;
-    p | nti;
-  }
-}
-
-/// @brief PUP a tree type.
-inline void operator|(PUP::er &p,Tree::GenericTrees &gt) {
-  int gti;
-  if (p.isUnpacking()) {
-    p | gti;
-    gt = (Tree::GenericTrees)gti;
-  } else {
-    gti = (int)gt;
-    p | gti;
-  }
-}
 
 #endif //GENERICTREENODE_H
