@@ -2600,6 +2600,7 @@ Main::doSimulation()
 	// so it won't be saved on disk.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, CkCallbackResumeThread());
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
+    treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
 	CkCallback cb(CkIndex_Main::restart(0), mainChare);
