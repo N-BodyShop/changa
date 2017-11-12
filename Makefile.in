@@ -166,6 +166,7 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
 	  MultistepLB_notopo.o MultistepNodeLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
+	  sinks.o \
 	  cha_commitid.o externalGravity.o \
 	  @OBJECTS_COOLING@
 
@@ -175,7 +176,8 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManage
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C HierarchOrbLB.C starform.C \
 	MultistepLB_notopo.C MultistepNodeLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C externalGravity.C \
-	imf.C feedback.C supernova.C supernovaia.C starlifetime.C
+	starform.C feedback.C imf.C supernova.C supernovaia.C starlifetime.C \
+	sinks.C
 
 ifneq (,$(ENABLE_CUDA))
   CXXFLAGS += $(NVCC_INC)

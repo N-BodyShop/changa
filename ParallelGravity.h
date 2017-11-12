@@ -446,6 +446,8 @@ class Main : public CBase_Main {
 	int64_t nTotalSPH;
 	int64_t nTotalDark;
 	int64_t nTotalStar;
+	/// Total Sink Particles
+	int64_t nSink;
 	int64_t nMaxOrderGas;  /* Maximum iOrders */
 	int64_t nMaxOrderDark;
 	int64_t nMaxOrder;
@@ -571,6 +573,10 @@ public:
 	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
+	void outputBlackHoles(double dTime);
+	void SetSink();
+	void FormSinks(double dTime, double dDelta, int iKickRung);
+	void doSinks(double dTime, double dDelta, int iKickRung);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -1748,6 +1754,17 @@ public:
   void truncateRung(int iCurrMaxRung, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
+  /// @brief count total number of particles of given type
+  void countType(int iType, const CkCallback& cb);
+  void outputBlackHoles(const std::string& pszFileName, double dvFac,
+                        long lFPos, const CkCallback &cb);
+  /// @brief set sink type based on formation time.
+  void SetSink(double dSinkMassMin, const CkCallback &cb);
+  /// @brief set sink timesteps.
+  void SinkStep(int iCurrSinkRung, int iKickRung, const CkCallback &cb);
+  void formSinks(int bJeans, double dJConst2, int bDensity,
+		 double dDensityCut, double dTime, int iKickRung, int bSimple,
+		 const CkCallback &cb);
   void emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
 		       const CkCallback &cb);
   void assignDomain(const CkCallback& cb);

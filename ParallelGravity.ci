@@ -115,6 +115,15 @@ mainmodule ParallelGravity {
   PUPable DistDeletedGasSmoothParams;
   PUPable AGORApreCheckSmoothParams;
   PUPable DistStellarFeedbackSmoothParams;
+  PUPable SinkFormTestSmoothParams;
+  PUPable SinkFormSmoothParams;
+  PUPable BHDensitySmoothParams;
+  PUPable BHAccreteSmoothParams;
+  PUPable BHIdentifySmoothParams;
+  PUPable BHSinkMergeSmoothParams;
+  PUPable SinkAccreteTestSmoothParams;
+  PUPable SinkingAverageSmoothParams;
+  PUPable SinkAccreteSmoothParams;
   PUPable Fdbk;
   PUPable StarLog;
   PUPable Chabrier;
@@ -367,6 +376,14 @@ mainmodule ParallelGravity {
     entry void truncateRung(int iCurrMaxRung, const CkCallback& cb);
     entry void rungStats(const CkCallback& cb);
     entry void countActive(int activeRung, const CkCallback& cb);
+    entry void countType(int iType, const CkCallback& cb);
+    entry void outputBlackHoles(const std::string& pszFileName, double dvFac,
+                                long lFPos, const CkCallback &cb);
+    entry void SetSink(double dSinkMassMin, const CkCallback &cb);
+    entry void SinkStep(int iCurrSinkRung, int iKickRung, const CkCallback &cb);
+    entry void formSinks(int bJeans, double dJConst2, int bDensity,
+		 double dDensityCut, double dTime, int iKickRung, int bSimple,
+		 const CkCallback &cb);
     entry void emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
 		               const CkCallback &cb);
     entry void assignDomain(const CkCallback &cb);

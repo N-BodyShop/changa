@@ -320,6 +320,10 @@ Main::Main(CkArgMsg* m) {
 	param.iCheckInterval = 10;
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
 		    sizeof(int),"oc", "Checkpoint Interval");
+	param.iOrbitOutInterval = 1;
+        prmAddParam(prm,"iOrbitOutInterval", paramInt,
+		    &param.iOrbitOutInterval,sizeof(int), "ooi",
+                    "<number of timsteps between orbit outputs> = 1");
 	param.iBinaryOut = 0;
 	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOut,
 		    sizeof(int), "binout",
@@ -600,7 +604,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
 		    sizeof(int), "iRand", "<Feedback random Seed> = 1");
 	
-
+	param.sinks.AddParams(prm, param);
 	
 	//
 	// Output parameters
@@ -1668,6 +1672,15 @@ void Main::advanceBigStep(int iStep) {
         if(param.bFeedback) 
             StellarFeedback(dTime, param.stfm->dDeltaStarForm);
         }
+    if(param.sinks.bDoSinks) {
+	CkReductionMsg *msgCnt;
+	treeProxy.countType(TYPE_SINK,
+			    CkCallbackResumeThread((void *&)msgCnt));
+	nSink = *(int *) msgCnt->getData();
+	delete msgCnt;
+	if(nSink != 0)
+	    CkPrintf("Sink number of Sinks: nSink = %d\n", nSink);
+	}
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
@@ -1886,7 +1899,8 @@ void Main::advanceBigStep(int iStep) {
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", tuDot);
 	  }
-    }
+      doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
+      }
     else
 	waitForGravity(cbGravity, startTime, activeRung);
 
@@ -1942,7 +1956,6 @@ void Main::advanceBigStep(int iStep) {
     }
 #endif
 
-		
   }
 }
     
@@ -2061,6 +2074,8 @@ void Main::setupICs() {
 
   if(param.bStarForm || param.bFeedback) {
       param.stfm->CheckParams(prm, param);
+      if(param.sinks.bBHSink)
+	  param.sinks.dDeltaStarForm = param.stfm->dDeltaStarForm;
       treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
       }
 
@@ -2072,6 +2087,9 @@ void Main::setupICs() {
   else
       param.feedback->NullFeedback();
 
+  param.sinks.CheckParams(prm, param);
+  SetSink();
+  
   param.externalGravity.CheckParams(prm, param);
 
   string achLogFileName = string(param.achOutName) + ".log";
@@ -2541,14 +2559,14 @@ Main::initialForces()
   
   if(param.bConcurrentSph && param.bDoGravity) {
       CkFreeMsg(cbGravity.thread_delay());
-	//ckout << "Calculating gravity and SPH took "
-	//      << (CkWallTimer() - startTime) << " seconds." << endl;
-        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+      CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
 #ifdef SELECTIVE_TRACING
         turnProjectionsOff();
 #endif
       }
   
+  if (param.sinks.bDoSinksAtStart) doSinks(dTime, 0.0, 0);
+
   treeProxy.finishNodeCache(CkCallbackResumeThread());
 
   // Initial Log entry
@@ -2633,6 +2651,9 @@ Main::doSimulation()
 	  << endl;
     writeTimings(iStep);
 
+    if(iStep%param.iOrbitOutInterval == 0) {
+	outputBlackHoles(dTime);
+	}
     if(iStep%param.iLogInterval == 0) {
 	calcEnergy(dTime, stepTime, achLogFileName.c_str());
     }
@@ -3446,13 +3467,20 @@ int Main::adjust(int iKickRung)
 
     int iCurrMaxRung = ((int64_t *)msg->getData())[0];
     int64_t nMaxRung = ((int64_t *)msg->getData())[1];
-    delete msg;
     if(nMaxRung <= param.nTruncateRung && iCurrMaxRung > iKickRung) {
 	if(verbosity)
 	    CkPrintf("n_CurrMaxRung = %ld, iCurrMaxRung = %d: promoting particles\n", nMaxRung, iCurrMaxRung);
 	iCurrMaxRung--;
 	treeProxy.truncateRung(iCurrMaxRung, CkCallbackResumeThread());
 	}
+    if(param.sinks.bDoSinks) {
+        int iCurrMaxRungGas = ((int64_t *)msg->getData())[2];
+        int iCurrSinkRung = param.sinks.iSinkRung;
+        if(iCurrMaxRungGas > iCurrSinkRung)
+            iCurrSinkRung = iCurrMaxRungGas;
+        treeProxy.SinkStep(iCurrSinkRung, iKickRung, CkCallbackResumeThread());
+        }
+    delete msg;
     double tAdjust = CkWallTimer() - startTime;
     timings[iKickRung].tAdjust += tAdjust;
     if(verbosity)
@@ -3831,6 +3859,7 @@ void Main::pup(PUP::er& p)
     p | nTotalSPH;
     p | nTotalDark;
     p | nTotalStar;
+    p | nSink;
     p | nMaxOrderGas;
     p | nMaxOrderDark;
     p | nMaxOrder;
