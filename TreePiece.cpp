@@ -5139,9 +5139,12 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #endif
 }
 
-// Starts the prefetching of the specified chunk; once the 
-// given chunk has been completely prefetched, the prefetch
-// compute invokes startRemoteChunk() 
+/// Starts the prefetching of the specified chunk; once the 
+/// given chunk has been completely prefetched, the prefetch
+/// compute invokes startRemoteChunk().  Chunks in this context is a
+/// division of the remote walk so that remote computation can start
+/// before all remote prefetches are finished.  By default there is
+/// only one chunk: the prefetch is done all at once.
 void TreePiece::initiatePrefetch(int chunk){
 #ifdef DISABLE_NODE_TREE
   GenericTreeNode *child = keyToNode(prefetchRoots[chunk]);

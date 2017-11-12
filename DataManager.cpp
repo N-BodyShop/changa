@@ -559,13 +559,10 @@ void DataManager::resumeRemoteChunk() {
 #endif
 }
 
+/// @brief record when all TreePieces have finished their prefetch.
 void DataManager::donePrefetch(int chunk){
   CmiLock(__nodelock);
 
-  //if(savedChunk < 0){
-  //  savedChunk = chunk;
-  //}
-  //CkAssert(savedChunk == chunk);
   savedChunk = chunk;
 
   treePiecesDonePrefetch++;
@@ -607,41 +604,27 @@ void DataManager::donePrefetch(int chunk){
 
 typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 
-#ifdef CUDA_DM_PRINT_TREES 
-#define addNodeToList(nd, list, index) \
-      { \
-        nd->nodeArrayIndex = index; \
-        list.push_back(CudaMultipoleMoments(nd->moments));\
-        CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
-        index++;\
-      }
-#define addNodeToListPtr(nd, list, index) \
-      { \
-        nd->nodeArrayIndex = index; \
-        list->push_back(CudaMultipoleMoments(nd->moments));\
-        CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
-        index++;\
-      }
+/// @brief add a node the moment list and record its index
+static inline void addNodeToList(GenericTreeNode *nd,
+                                 CkVec<CudaMultipoleMoments> &list,
+                                 int &index) {
+    nd->nodeArrayIndex = index;
+    list.push_back(CudaMultipoleMoments(nd->moments));
+    index++;
+}
 
-#else
-#define addNodeToList(nd, list, index) \
-      { \
-        nd->nodeArrayIndex = index; \
-        list.push_back(CudaMultipoleMoments(nd->moments));\
-        index++;\
-      }
-#define addNodeToListPtr(nd, list, index) \
-      { \
-        nd->nodeArrayIndex = index; \
-        list->push_back(CudaMultipoleMoments(nd->moments));\
-        index++;\
-      }
-
-#endif
-
+/// @brief add a node the moment list and record its index
+static inline void addNodeToListPtr(GenericTreeNode *nd,
+                                    CkVec<CudaMultipoleMoments> *list,
+                                    int &index) {
+    nd->nodeArrayIndex = index;
+    list->push_back(CudaMultipoleMoments(nd->moments));
+    index++;
+}
 
 const char *typeString(NodeType type);
 
+/// @brief Create a vector of remote nodes from a remote prefetch.
 PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   CkQ<GenericTreeNode *> queue;
   int chunk = savedChunk;
@@ -674,13 +657,7 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   postPrefetchParticles->reserve(numParticles);
 
   postPrefetchMoments->length() = 0;
-  postPrefetchParticles->length() = 0;
-
-  //postPrefetchMoments = new CudaMultipoleMoments[numNodes];
-  //postPrefetchParticles = new CompactPartData[numParticles];
-
-  // needed so we know how many particles there are in each bucket
-  //int *bmarks = new int[totalNumBuckets+1];
+  postPrefetchParticles->length(
 
   // fill up postPrefetchMoments with node moments
   int nodeIndex = 0;
