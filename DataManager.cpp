@@ -541,13 +541,10 @@ void DataManager::resumeRemoteChunk() {
     }
 }
 
+/// @brief record when all TreePieces have finished their prefetch.
 void DataManager::donePrefetch(int chunk){
   CmiLock(__nodelock);
 
-  //if(savedChunk < 0){
-  //  savedChunk = chunk;
-  //}
-  //CkAssert(savedChunk == chunk);
   savedChunk = chunk;
 
   treePiecesDonePrefetch++;
@@ -591,53 +588,42 @@ void DataManager::donePrefetch(int chunk){
 
 typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 
-#ifdef CUDA_DM_PRINT_TREES 
-#define addNodeToList(nd, list, index) \
-      { \
-        nd->nodeArrayIndex = index; \
-        list.push_back(CudaMultipoleMoments(nd->moments));\
-        CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
-        index++;\
-      }
-#define addNodeToListPtr(nd, list, index) \
-      { \
-        nd->nodeArrayIndex = index; \
-        list->push_back(CudaMultipoleMoments(nd->moments));\
-        CkPrintf("(%d) node %d: %ld (%s)\n", CkMyPe(), index, nd->getKey(), typeString(type));\
-        index++;\
-      }
+/// @brief add a node to the moment list and record its index
+static inline void addNodeToList(GenericTreeNode *nd,
+                                 CkVec<CudaMultipoleMoments> &list,
+                                 int &index) {
+    nd->nodeArrayIndex = index;
+    list.push_back(CudaMultipoleMoments(nd->moments));
+    index++;
+}
 
-#else
-#define addNodeToList(nd, list, index) \
-      { \
-        nd->nodeArrayIndex = index; \
-        list.push_back(CudaMultipoleMoments(nd->moments));\
-        index++;\
-      }
-#define addNodeToListPtr(nd, list, index) \
-      { \
-        nd->nodeArrayIndex = index; \
-        list->push_back(CudaMultipoleMoments(nd->moments));\
-        index++;\
-      }
+/// @brief add a node the moment list (using pointer) and record its index
+static inline void addNodeToListPtr(GenericTreeNode *nd,
+                                    CkVec<CudaMultipoleMoments> *list,
+                                    int &index) {
+    nd->nodeArrayIndex = index;
+    list->push_back(CudaMultipoleMoments(nd->moments));
+    index++;
+}
 
-#endif
-
+/// @brief add a node with walk information to the moment list and
+/// record its index
 #ifdef GPU_LOCAL_TREE_WALK
-#define addTreeNodeToList(nd, list, index) \
-      { \
-        nd->nodeArrayIndex = index; \
-        CudaMultipoleMoments cmm(nd->moments);\
-        cmm.lesser_corner = nd->boundingBox.lesser_corner;\
-        cmm.greater_corner = nd->boundingBox.greater_corner;\
-        list.push_back(cmm);\
-        index++;\
-      }
+static inline void addTreeNodeToList(GenericTreeNode *nd,
+                                     CkVec<CudaMultipoleMoments> &list,
+                                     int &index) {
+    nd->nodeArrayIndex = index;
+    CudaMultipoleMoments cmm(nd->moments);
+    cmm.lesser_corner = nd->boundingBox.lesser_corner;
+    cmm.greater_corner = nd->boundingBox.greater_corner;
+    list.push_back(cmm);
+    index++;
+    }
 #endif //GPU_LOCAL_TREE_WALK
-
 
 const char *typeString(NodeType type);
 
+/// @brief Create a vector of remote nodes from a remote prefetch.
 PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   CkQ<GenericTreeNode *> queue;
   int chunk = savedChunk;
@@ -672,12 +658,6 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   postPrefetchMoments->length() = 0;
   postPrefetchParticles->length() = 0;
 
-  //postPrefetchMoments = new CudaMultipoleMoments[numNodes];
-  //postPrefetchParticles = new CompactPartData[numParticles];
-
-  // needed so we know how many particles there are in each bucket
-  //int *bmarks = new int[totalNumBuckets+1];
-
   // fill up postPrefetchMoments with node moments
   int nodeIndex = 0;
   int partIndex = 0;
@@ -705,11 +685,11 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
     else if(type == NonLocal){
       // need node moments; also, must enqueue children so that complete list of 
       // used nodes can be obtained
-      addNodeToListPtr(node,postPrefetchMoments,nodeIndex)
+        addNodeToListPtr(node,postPrefetchMoments,nodeIndex);
     }
     else if(type == NonLocalBucket || type == CachedBucket){
       if(type == CachedBucket){
-        addNodeToListPtr(node,postPrefetchMoments,nodeIndex)
+          addNodeToListPtr(node,postPrefetchMoments,nodeIndex);
       }
       // if this is a NonLocalBucket, don't need node itself, just its particles
       ExternalGravityParticle *parts;
@@ -737,7 +717,7 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
       }
     }
     else if(type == Cached){
-      addNodeToListPtr(node,postPrefetchMoments,nodeIndex)
+      addNodeToListPtr(node,postPrefetchMoments,nodeIndex);
       // put children into queue, if available
       for(int i = 0 ; i < node->numChildren(); i++){
 	GenericTreeNode *child = node->getChildren(i);
@@ -820,16 +800,16 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     else if(type == Bucket || type == NonLocalBucket){ // NLB
       // don't need the particles, only the moments
 #ifdef GPU_LOCAL_TREE_WALK
-      addTreeNodeToList(node,localMoments,nodeIndex)
+        addTreeNodeToList(node,localMoments,nodeIndex);
 #else
-      addNodeToList(node,localMoments,nodeIndex)
+        addNodeToList(node,localMoments,nodeIndex);
 #endif //GPU_LOCAL_TREE_WALK
     }
     else if(type == Boundary || type == Internal){ // B,I 
 #ifdef GPU_LOCAL_TREE_WALK
-      addTreeNodeToList(node,localMoments,nodeIndex)
+        addTreeNodeToList(node,localMoments,nodeIndex);
 #else
-      addNodeToList(node,localMoments,nodeIndex)
+        addNodeToList(node,localMoments,nodeIndex);
 #endif //GPU_LOCAL_TREE_WALK
       for(int i = 0; i < node->numChildren(); i++){
         GenericTreeNode *child = node->getChildren(i);
