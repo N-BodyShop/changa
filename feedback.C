@@ -560,6 +560,7 @@ void DistStellarFeedbackSmoothParams::combSmoothCache(GravityParticle *p1,
     p1->fMFracIron() += p2->fMFracIron;
     p1->fTimeCoolIsOffUntil() = max( p1->fTimeCoolIsOffUntil(),
 				     p2->fTimeCoolIsOffUntil );
+    p1->dTimeFB() = max( p1->dTimeFB(), p2->dTimeFB );
     if (fb.bAGORAFeedback) {
      p1->u() += p2->u;
      p1->uPred() += p2->uPred;
@@ -659,7 +660,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     DistFBMME(p,nSmooth,nList);
     
     if (p->fNSN() == 0) {return;}
-    if ( p->fTimeForm() < 0.0 ) {return;}
+    if ( p->fTimeForm() < 0.0) {return;}
     
     /* The following ONLY deals with SNII Energy distribution */
     CkAssert(TYPETest(p, TYPE_STAR));
@@ -776,6 +777,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 		    (fBlastRadius*fBlastRadius >= fDist2)) {
 		    q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 						   dTime + fShutoffTime);
+		    q->dTimeFB() = dTime;
 		    }
 		
 		counter++;  
@@ -811,6 +813,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 		 (fBlastRadius*fBlastRadius >= fDist2)){
 		q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 					       dTime + fShutoffTime);       
+		q->dTimeFB() = dTime; /* store SN FB time here JMB 2/24/10 */
 		counter++;
 		}
 	    /*	update mass after everything else so that distribution
