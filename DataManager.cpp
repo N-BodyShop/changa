@@ -522,14 +522,12 @@ void DataManager::serializeLocalTree(){
 /// Indicate the transfer is done, and start the local gravity walks
 /// on the treepieces on this node.
 void DataManager::startLocalWalk() {
-#ifdef CUDA
     gputransfer = true;
     for(int i = 0; i < registeredTreePieces.length(); i++){
       if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
       int in = registeredTreePieces[i].treePiece->getIndex();
       treePieces[in].commenceCalculateGravityLocal();
     }
-#endif
 }
 
 /// @brief Callback from remote data transfer to GPU.
@@ -537,7 +535,6 @@ void DataManager::startLocalWalk() {
 /// remote walk.
 void DataManager::resumeRemoteChunk() {
   if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk registered: %d\n", CkMyPe(), registeredTreePieces.length());
-#ifdef CUDA
   int chunk = 0;
   chunk = currentChunkBuffers->chunk;
   delete currentChunkBuffers->moments;
@@ -557,7 +554,6 @@ void DataManager::resumeRemoteChunk() {
 #endif
       treePieces[in].continueStartRemoteChunk(chunk);
     }
-#endif
 }
 
 void DataManager::donePrefetch(int chunk){

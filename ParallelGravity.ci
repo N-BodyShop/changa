@@ -226,9 +226,9 @@ mainmodule ParallelGravity {
     entry void combineLocalTrees(CkReductionMsg *m);
 #ifdef CUDA
     entry void clearInstrument(CkCallback &cb);
-#endif
     entry void startLocalWalk();
     entry void resumeRemoteChunk();
+#endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 			 COOLPARAM inParam, const CkCallback& cb);
