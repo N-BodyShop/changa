@@ -1707,6 +1707,7 @@ void Main::advanceBigStep(int iStep) {
         sorter.startSorting(dataManagerID, ddTolerance,
             CkCallbackResumeThread(), bDoDD);
       }
+      delete isTPEmpty;
     }
     double tDD = CkWallTimer()-startTime;
     timings[activeRung].tDD += tDD;
