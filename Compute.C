@@ -377,30 +377,16 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
     // no more nodes/particles are going to be delivered by the cache
     // flush the interactions remaining in the state
     DoubleWalkState *ds = (DoubleWalkState *)state;
-    bool nodeDummy = false;
-    bool partDummy = true;
 
     if(ds->nodeLists.totalNumInteractions > 0){
-      nodeDummy = true;
+      sendNodeInteractionsToGpu(ds, owner);
+      resetCudaNodeState(ds);
     }
-    else if(ds->particleLists.totalNumInteractions > 0){
-      partDummy = true;
+    if(ds->particleLists.totalNumInteractions > 0){
+      sendPartInteractionsToGpu(ds, owner);
+      resetCudaPartState(ds);
     }
 
-    if(nodeDummy && partDummy){
-      sendNodeInteractionsToGpu(ds, owner);
-      sendPartInteractionsToGpu(ds, owner, true);
-      resetCudaNodeState(ds);
-      resetCudaPartState(ds);
-    }
-    else if(nodeDummy){
-      sendNodeInteractionsToGpu(ds, owner,true);
-      resetCudaNodeState(ds);
-    }
-    else if(partDummy){
-      sendPartInteractionsToGpu(ds, owner, true);
-      resetCudaPartState(ds);
-    }
 #endif
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] FINISHED CHUNK %d from nodeRecvdEvent\n", owner->getIndex(), chunk);
@@ -982,28 +968,12 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   CkAssert(remainingChunk >= 0);
   if (remainingChunk == 0) {
 #ifdef CUDA
-    bool nodeDummy = false;
-    bool partDummy = true;
-
     if(state->nodeLists.totalNumInteractions > 0){
-      nodeDummy = true;
-    }
-    else if(state->particleLists.totalNumInteractions > 0){
-      partDummy = true;
-    }
-
-    if(nodeDummy && partDummy){
       sendNodeInteractionsToGpu(state, tp);
-      sendPartInteractionsToGpu(state, tp, true);
-      resetCudaNodeState(state);
-      resetCudaPartState(state);
-    }
-    else if(nodeDummy){
-      sendNodeInteractionsToGpu(state, tp,true);
       resetCudaNodeState(state);
     }
-    else if(partDummy){
-      sendPartInteractionsToGpu(state, tp, true);
+    if(state->particleLists.totalNumInteractions > 0){
+      sendPartInteractionsToGpu(state, tp);
       resetCudaPartState(state);
     }
 #endif
@@ -1935,32 +1905,6 @@ void cudaCallback(void *param, void *msg){
   }
 
 #ifdef CHANGA_REFACTOR_MEMCHECK
-  CkPrintf("memcheck in cudaCallback before callFreeRemoteChunkMemory\n");
-  CmiMemoryCheck();
-#endif
-// Freeing the remote memory on the device is now done in
-// TransferVarsBack.  This probably doesn't work if there are multiple
-// "Chunks" in use for the remote walk.
-//  if(data->callDummy){
-//    // doesn't matter what argument is passed in
-//    tp->callFreeRemoteChunkMemory(-1);
-//  }
-
-  /*
-  bucket = affectedBuckets[numBucketsDone-1];
-  state->counterArrays[0][bucket]--;
-  // call finishBucket on the last bucket only if we are certain 
-  // it has finished. otherwise, it will be called when the computation
-  // associated with this bucket finishes in a later callback and some
-  // other bucket is the lastBucket
-  if(data->lastBucketComplete){
-    tp->finishBucket(bucket);
-  }
-  else{
-    CkPrintf("NOT calling finishBucket(%d)\n", bucket);
-  }
-*/
-#ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("memcheck before cudaCallback freeing\n");
   CmiMemoryCheck();
 #endif
@@ -1977,7 +1921,8 @@ void cudaCallback(void *param, void *msg){
 #endif
 }
 
-void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy){
+void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
+                                            TreePiece *tp){
 
   int thisIndex = tp->getIndex();
 
@@ -1991,7 +1936,6 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
   data->state = (void *)state;
   data->node = true;
   data->remote = (getOptType() == Remote);
-  data->callDummy = callDummy;
 
 #ifdef CUDA_INSTRUMENT_WRS
   data->tpIndex = tp->getInstrumentId();
@@ -2078,7 +2022,8 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 #endif
 }
 
-void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy){
+void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
+                                            TreePiece *tp){
 
   int thisIndex = tp->getIndex();
 
@@ -2092,7 +2037,6 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
   data->state = (void *)state;
   data->node = false;
   data->remote = (getOptType() == Remote);
-  data->callDummy = callDummy;
 
 #ifdef CUDA_INSTRUMENT_WRS
   data->tpIndex = tp->getInstrumentId();

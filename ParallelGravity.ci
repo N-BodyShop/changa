@@ -495,7 +495,7 @@ mainmodule ParallelGravity {
     entry void outputStatistics(const CkCallback& cb);
     entry void collectStatistics(CkCallback &cb);
 
-    // jetley - cuda
+    // jetley
     entry void continueStartRemoteChunk(int chunk);
     entry void continueWrapUp();
 
