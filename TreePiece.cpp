@@ -4444,28 +4444,12 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
 
       if(lc && ds){
-        bool nodeDummy = false;
-        bool partDummy = true;
-
         if(ds->nodeLists.totalNumInteractions > 0){
-          nodeDummy = true;
-        }
-        else if(ds->particleLists.totalNumInteractions > 0){
-          partDummy = true;
-        }
-
-        if(nodeDummy && partDummy){
           lc->sendNodeInteractionsToGpu(ds, this);
-          lc->sendPartInteractionsToGpu(ds, this, true);
-          lc->resetCudaNodeState(ds);
-          lc->resetCudaPartState(ds);
-        }
-        else if(nodeDummy){
-          lc->sendNodeInteractionsToGpu(ds, this,true);
           lc->resetCudaNodeState(ds);
         }
-        else if(partDummy){
-          lc->sendPartInteractionsToGpu(ds, this, true);
+        if(ds->particleLists.totalNumInteractions > 0){
+          lc->sendPartInteractionsToGpu(ds, this);
           lc->resetCudaPartState(ds);
         }
       }
