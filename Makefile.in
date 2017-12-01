@@ -246,8 +246,12 @@ libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 libmoduleHierarchOrbLB.a: HierarchOrbLB.o
 	$(CHARMC) -o libmoduleHierarchOrbLB.a HierarchOrbLB.o
 
-%.decl.h %.def.h : $(SOURCE_DIR)/%.ci
+%.ci.stamp: $(SOURCE_DIR)/%.ci
 	$(CHARMC) -E $(DEFINE_FLAGS) $<
+	touch $@
+
+%.decl.h %.def.h: %.ci.stamp
+	@true
 
 HostCUDA.o: $(SOURCE_DIR)/HostCUDA.cu $(SOURCE_DIR)/HostCUDA.h
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) $<
@@ -274,7 +278,7 @@ dist:
 	rm -Rf $(TARGET)-$(VERSION)
 
 clean:
-	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h charmrun conv-host 
+	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h *.ci.stamp charmrun conv-host
 	rm -f *.o *.a
 	cd $(STRUCTURES_PATH); $(MAKE) clean
 
