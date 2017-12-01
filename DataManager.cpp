@@ -786,7 +786,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     numParticles += tp->getDMNumParticles();
   }
   numNodes -= cumNumReplicatedNodes;
-
+  
   CkVec<CudaMultipoleMoments> localMoments;
   CkVec<CompactPartData> localParticles;
 
@@ -855,10 +855,10 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     // set the bucket index for each bucket node
     // I suspect whether this is useful
     // but for now, let's just keep it
-    for (int j = 0; i < tp->numBuckets; ++i) {
+    for (int j = 0; j < tp->numBuckets; ++j) {
         GenericTreeNode *bucketNode = tp->bucketList[j];
         int id = bucketNode->nodeArrayIndex;
-        localMoments[id].bucketIndex = i;
+        localMoments[id].bucketIndex = j;
     }
     // set the bucketStart and bucketSize for each bucket Node
     if (tp->largePhase()) {
@@ -895,6 +895,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
   }
   transformLocalTreeRecursive(node, localMoments);
+//  printTreeRecursive(root, 0);
 //  CkPrintf("The time cost in transforming tree is %f sec. \n", CmiWallTimer() - startTimer);
 #endif
 
@@ -991,7 +992,8 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
 
       // Here, it's very strange that child_index could be -1 when I run on a single machine
       // I'm not sure why, probably that child could be the boundary?
-      if (child_index != -1) {
+      // Another note: check whether the child is a local node by its size (nonLocalBucket node has zero content)
+      if (child_index != -1 && localMoments[child_index].bucketSize > 0) {
         localMoments[node_index].bucketStart = std::min(localMoments[node_index].bucketStart, localMoments[child_index].bucketStart);
         localMoments[node_index].bucketSize += localMoments[child_index].bucketSize;
       }
@@ -999,6 +1001,18 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
   }
 }
 
+void DataManager::printTreeRecursive(GenericTreeNode *node, int indent) {
+    if (node == NULL) {
+        return;
+    }
+    for (int i = 0; i < indent; i ++) {
+        printf("  ");
+    }
+    printf("nodeArrayIndex = %d, startBucket = %d, bucketArrayIndex = %d, firstParticle = %d, lastParticle = %d, type = %d\n", 
+            node->nodeArrayIndex, node->startBucket, node->bucketArrayIndex, node->firstParticle, node->lastParticle, node->getType());
+    printTreeRecursive((GenericTreeNode*) node->getChildren(0), indent + 1);
+    printTreeRecursive((GenericTreeNode*) node->getChildren(1), indent + 1);
+}
 #endif
 
 void DataManager::freeLocalTreeMemory(){
