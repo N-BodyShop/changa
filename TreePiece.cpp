@@ -3632,7 +3632,7 @@ void TreePiece::doAllBuckets(){
   listcompute->resetCudaPartState(state);
 #endif
 // Completely bypass CPU local tree walk
-//  thisProxy[thisIndex].nextBucket(msg);
+  thisProxy[thisIndex].nextBucket(msg);
 
 
 #ifdef CUDA_INSTRUMENT_WRS
@@ -3840,7 +3840,11 @@ void TreePiece::nextBucket(dummyMsg *msg){
       }
     }
 #endif
-
+//CAMBRIDGE
+/*      printf("CPU:::  The total number of nodeInterLocal is %lld, nodeInterRemote is %lld\n", nodeInterLocal, nodeInterRemote);
+      printf("CPU:::  The total number of particleInterLocal is %lld, particleInterRemote is %lld\n", particleInterLocal, particleInterRemote);
+      fflush(stdout);
+*/
     delete msg;
   }
 }
@@ -4333,11 +4337,11 @@ int TreePiece::doBookKeepingForTargetActive(int curbucket, int end,
 #endif
 
 #ifdef CUDA
-      if(bucketList[j]->rungs < activeRung){
+//CAMBRIDGE      if(bucketList[j]->rungs < activeRung){
 #endif
         finishBucket(j);
 #ifdef CUDA
-      }
+//CAMBRIDGE      }
 #endif
     }
 

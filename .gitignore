@@ -6,6 +6,7 @@ config.*
 !config.h.in
 Makefile
 charmrun
+charmrun.*
 ChaNGa*
 VERSION
 VERSION.new
@@ -28,3 +29,4 @@ cuda.mk
 *.000*
 *.log
 *.tbin
+*_bkp
