@@ -836,13 +836,14 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   printf("DataManager::nodeIndex::Final: %i\n", nodeIndex);
   // used later, when copying particle vars back to the host
   savedNumTotalParticles = numParticles;
+  NumTotalParticles = numParticles;
   savedNumTotalNodes = localMoments.length();
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
     TreePiece *tp = registeredTreePieces[i].treePiece;
     tp->getDMParticles(localParticles.getVec(), partIndex);
   }
-  printf("DataManager::partIndex::Final: %i\n", nodeIndex);
+  printf("DataManager::partIndex::Final: %i\n", partIndex);
 #ifdef CUDA_DM_PRINT_TREES
   CkPrintf("*************\n");
 #endif

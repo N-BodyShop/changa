@@ -812,7 +812,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     int counter = 0;
     part = node->particlePointer;
     for(counter = 0; counter <= node->lastParticle; counter++){
-      if(part[counter].rung > activeRung){
+      if(part[counter].rung >= activeRung){
         computed++;
       }
     }
@@ -846,10 +846,18 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     int computed = 0;//node->lastParticle-node->firstParticle+1;
     int counter = 0;
     for(counter = node->firstParticle; counter <= node->lastParticle; counter++){
-      if(part[counter].rung > activeRung){
+      if(part[counter-node->firstParticle].rung >= activeRung){
         computed++;
       }
     }
+    if(computed+node->bucketArrayIndex > tp->dm->NumTotalParticles){
+      if(!tp->largePhase()){
+        printf("Samll Fail(%i): %i %i\n", tp->thisIndex, computed, node->bucketArrayIndex);
+      }else{
+        printf("Large Fail(%i):  %i %i\n", tp->thisIndex, computed, node->bucketArrayIndex);
+      }
+    }
+    CkAssert(computed+node->bucketArrayIndex <= tp->dm->NumTotalParticles);
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key = node->getKey();
     addLocalParticlesToInt(part, computed, offset, s, key, node);
@@ -1249,6 +1257,14 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
             for(int k = 0; k < bucketLength; k++){
               flatlists[listpos].index = bucketStart+k;
               if(flatlists[listpos].index > max_num){ max_num = flatlists[listpos].index;}
+              /*if(flatlists[listpos].index >= tp->dm->NumTotalParticles){
+                if(!tp->largePhase()){
+                  printf("Samll Fail(%i): %i %i %i %i\n", tp->thisIndex, max_num, lists.length(), bucketLength, bucketStart);
+                }else{
+                  printf("Large Fail(%i): %i %i %i %i\n", tp->thisIndex, max_num, lists.length(), bucketLength, bucketStart);
+                }
+              }
+              CkAssert(flatlists[listpos].index < tp->dm->NumTotalParticles);*/
               flatlists[listpos].offsetID = offsetID;
               listpos++;
             }
@@ -1810,7 +1826,6 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 
               int gpuIndex = lpi.nd->bucketArrayIndex;
               if(gpuIndex < 0){
-                continue;
                 CkAssert(state->particles != NULL);
                 gpuIndex = state->particles->length();
                 lpi.nd->bucketArrayIndex = gpuIndex;
