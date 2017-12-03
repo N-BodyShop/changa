@@ -440,7 +440,7 @@ void run_TP_PART_GRAVITY_LOCAL_SMALLPHASE(workRequest *wr, cudaStream_t kernel_s
   if( wr->bufferInfo[ILPART_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
 #ifdef CUDA_2D_TB_KERNEL
-    /*
+    
     printf("run_TP_PART_GRAVITY_LOCAL_SMALLPHASE\n");
     particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
       (
@@ -452,7 +452,7 @@ void run_TP_PART_GRAVITY_LOCAL_SMALLPHASE(workRequest *wr, cudaStream_t kernel_s
        (int *)devBuffers[wr->bufferInfo[PART_BUCKET_START_MARKERS_IDX].bufferID],
        (int *)devBuffers[wr->bufferInfo[PART_BUCKET_SIZES_IDX].bufferID],
        ptr->fperiod 
-      );*/
+      );
 #else
     particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
       (

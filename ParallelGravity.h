@@ -932,13 +932,7 @@ class TreePiece : public CBase_TreePiece {
               GenericTreeNode *bucket = bucketList[b];
               BucketActiveInfo *binfo = &(bucketActiveInfo[b]);
 
-              if(bucket->rungs < activeRung){
-                bucket->bucketArrayIndex = -1;
-                binfo->start = -1;
-                binfo->size = 0;
-                continue;
-              }
-              pc++;
+              
               int buckstart = bucket->firstParticle;
               int buckend = bucket->lastParticle;
               GravityParticle *buckparts = bucket->particlePointer;
@@ -956,7 +950,15 @@ class TreePiece : public CBase_TreePiece {
                   fillIndex++;
                 }
               }
-              binfo->size = fillIndex-binfo->start;
+              if(bucket->bucketArrayIndex == fillIndex){
+                bucket->bucketArrayIndex = -1;
+                binfo->start = -1;
+                binfo->size = 0;
+                continue;
+              }else{
+                pc++;
+                binfo->size = fillIndex-binfo->start;
+              }
             }
           }
           //This is for the GPU Ewald
