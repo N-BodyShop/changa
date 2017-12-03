@@ -905,19 +905,15 @@ class TreePiece : public CBase_TreePiece {
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
           NumberOfGPUParticles = 0;
           FirstGPUParticleIndex = fillIndex;//This is for the GPU Ewald
-          int pc = 0;
           if(largePhase()){
-            printf("Large\n");
             for(int b = 0; b < numBuckets; b++){
               GenericTreeNode *bucket = bucketList[b];
               int buckstart = bucket->firstParticle;
               int buckend = bucket->lastParticle;
               GravityParticle *buckparts = bucket->particlePointer;
               bucket->bucketArrayIndex = fillIndex;
-              pc++;
               for(int i = buckstart; i <= buckend; i++){
                 fillArray[fillIndex] = buckparts[i-buckstart];
-                
 #if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
                 fillArray[fillIndex].tp = thisIndex;
                 fillArray[fillIndex].id = i;
@@ -927,9 +923,12 @@ class TreePiece : public CBase_TreePiece {
             }
           }
           else{
-            printf("Small\n");
             for(int b = 0; b < numBuckets; b++){
               GenericTreeNode *bucket = bucketList[b];
+
+              if(bucket->rungs < activeRung){
+                continue;
+              }
               BucketActiveInfo *binfo = &(bucketActiveInfo[b]);
 
               
@@ -938,11 +937,9 @@ class TreePiece : public CBase_TreePiece {
               GravityParticle *buckparts = bucket->particlePointer;
 
               binfo->start = fillIndex;
-              bucket->bucketArrayIndex = fillIndex;
               for(int i = buckstart; i <= buckend; i++){
                 if(buckparts[i-buckstart].rung >= activeRung){
                   fillArray[fillIndex] = buckparts[i-buckstart];
-                  
 #if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
                   fillArray[fillIndex].tp = thisIndex;
                   fillArray[fillIndex].id = i;
@@ -971,10 +968,6 @@ class TreePiece : public CBase_TreePiece {
           else{
             LastGPUParticleIndex = fillIndex - 1;
             NumberOfGPUParticles = LastGPUParticleIndex - FirstGPUParticleIndex + 1;
-            printf("pc, NumberOfGPUParticles , myNumActiveParticles: %i %i %i\n", pc, NumberOfGPUParticles , myNumActiveParticles );
-            if(!largePhase()){
-              CkAssert(NumberOfGPUParticles == myNumActiveParticles);
-            }
           }
         }
 
