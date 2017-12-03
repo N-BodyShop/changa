@@ -719,7 +719,6 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
 
   DoubleWalkState *s = (DoubleWalkState *)state;
   int level = s->level;
-  GravityParticle *part;
   CheckList &chklist = s->chklists[level];
   UndecidedList &undlist = s->undlists[level];
 
@@ -808,14 +807,8 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     addNodeToInt(node, reqID, s);
     // all particles beneath this node have been
     // scheduled for computation
-    computed = 0;//node->lastParticle-node->firstParticle+1;
-    int counter = 0;
-    part = node->particlePointer;
-    for(counter = 0; counter <= node->lastParticle; counter++){
-      if(part[counter].rung >= activeRung){
-        computed++;
-      }
-    }
+
+    computed = node->lastParticle-node->firstParticle+1;
 
     /*
     if(getOptType() == Remote){
@@ -840,24 +833,11 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
                          reqID);
 #endif
     // since this is a local bucket, we should have the particles at hand
-    part = node->particlePointer;
+    GravityParticle *part = node->particlePointer;
     CkAssert(part);
-    //int computed = node->lastParticle-node->firstParticle+1;
-    int computed = 0;//node->lastParticle-node->firstParticle+1;
-    int counter = 0;
-    for(counter = node->firstParticle; counter <= node->lastParticle; counter++){
-      if(part[counter-node->firstParticle].rung >= activeRung){
-        computed++;
-      }
-    }
-    if(computed+node->bucketArrayIndex > tp->dm->NumTotalParticles){
-      if(!tp->largePhase()){
-        printf("Samll Fail(%i): %i %i\n", tp->thisIndex, computed, node->bucketArrayIndex);
-      }else{
-        printf("Large Fail(%i):  %i %i\n", tp->thisIndex, computed, node->bucketArrayIndex);
-      }
-    }
-    CkAssert(computed+node->bucketArrayIndex <= tp->dm->NumTotalParticles);
+
+    int computed = node->lastParticle-node->firstParticle+1;
+
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key = node->getKey();
     addLocalParticlesToInt(part, computed, offset, s, key, node);
@@ -954,7 +934,6 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
 /// list and call stateReady() to compute their interactions.  Call
 /// TreePiece::finishedChunk() if all outstanding requests are satisfied.
 void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk,int reqID,State *state_,TreePiece *tp, Tree::NodeKey &remoteBucket){
-  printf("Called: ListCompute::recvdParticles\n");
 
   Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
   CkAssert(num > 0);
@@ -1191,11 +1170,10 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
 template<>
 CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
     // get count of buckets with interactions first
-
     int numFilledBuckets = 0;
     int listpos = 0;
     int curbucket = 0;
-    int max_num = 0;
+
 #ifdef CUDA_TRACE
     double starttime = CmiWallTimer();
 #endif
@@ -1239,7 +1217,6 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
       // populate flat lists
       int listslen = lists.length();
       // for each level i
-      
       for(int i = 0; i < listslen; i++){
         int listilen = lists[i].length();
         if(listilen > 0){
@@ -1256,20 +1233,11 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
             // for each particle k in bucket j
             for(int k = 0; k < bucketLength; k++){
               flatlists[listpos].index = bucketStart+k;
-              if(flatlists[listpos].index > max_num){ max_num = flatlists[listpos].index;}
-              /*if(flatlists[listpos].index >= tp->dm->NumTotalParticles){
-                if(!tp->largePhase()){
-                  printf("Samll Fail(%i): %i %i %i %i\n", tp->thisIndex, max_num, lists.length(), bucketLength, bucketStart);
-                }else{
-                  printf("Large Fail(%i): %i %i %i %i\n", tp->thisIndex, max_num, lists.length(), bucketLength, bucketStart);
-                }
-              }
-              CkAssert(flatlists[listpos].index < tp->dm->NumTotalParticles);*/
+
               flatlists[listpos].offsetID = offsetID;
               listpos++;
             }
           }
-
           if(tp->largePhase()){
             getBucketParameters(tp, i, starts[curbucket], sizes[curbucket]);
           }
@@ -1284,11 +1252,6 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
       CkAssert(listpos == numParticleInteractions);
     }
 
-    if(!tp->largePhase()){
-      printf("Max IDX(%i): %i %i\n", tp->thisIndex, max_num, lists.length());
-    }else{
-      printf("Large Max IDX(%i): %i %i\n", tp->thisIndex, max_num, lists.length());
-    }
     CudaRequest *request = new CudaRequest;
     request->list = (void *)flatlists;
     request->bucketMarkers = markers;
@@ -2189,7 +2152,6 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     else{
       CompactPartData *parts = state->particles->getVec();
       int leng = state->particles->length();
-      printf("Small Len(%i): %i\n", thisIndex, leng);
       TreePiecePartListDataTransferLocalSmallPhase(data, parts, leng);
       tp->clearMarkedBuckets(state->markedBuckets);
     }

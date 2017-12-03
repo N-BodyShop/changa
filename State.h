@@ -101,7 +101,6 @@ class GenericList{
         bucketSize = tp->bucketActiveInfo[bucket].size;
         bucketStart = tp->bucketActiveInfo[bucket].start;
 	CkAssert(bucketStart >= 0);
-  CkAssert(bucketSize > 0);
   }
 
   void push_back(int b, T &ilc, DoubleWalkState *state, TreePiece *tp);
