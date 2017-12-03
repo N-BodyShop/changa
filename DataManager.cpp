@@ -788,6 +788,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     numNodes += tp->getNumNodes();
     numParticles += tp->getDMNumParticles();
   }
+  printf("DataManager::numParticles %i\n", numParticles);
   numNodes -= cumNumReplicatedNodes;
 
   CkVec<CudaMultipoleMoments> localMoments;
@@ -832,7 +833,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       }
     }
   }// end while queue not empty
-
+  printf("DataManager::nodeIndex::Final: %i\n", nodeIndex);
   // used later, when copying particle vars back to the host
   savedNumTotalParticles = numParticles;
   NumTotalParticles = numParticles;
@@ -842,7 +843,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     TreePiece *tp = registeredTreePieces[i].treePiece;
     tp->getDMParticles(localParticles.getVec(), partIndex);
   }
-
+  printf("DataManager::partIndex::Final: %i\n", partIndex);
 #ifdef CUDA_DM_PRINT_TREES
   CkPrintf("*************\n");
 #endif
@@ -984,7 +985,7 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
     TreePiece *tp = registeredTreePieces[i].treePiece;
-    int numParticles = tp->getNumParticles();
+    int numParticles = tp->NumberOfGPUParticles;
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
     CkPrintf("(%d) tp %d, numParticles: %d\n", CkMyPe(), tp->getIndex(), numParticles);
 #endif
