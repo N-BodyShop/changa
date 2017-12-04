@@ -439,7 +439,6 @@ void run_TP_PART_GRAVITY_LOCAL_SMALLPHASE(workRequest *wr, cudaStream_t kernel_s
   if( wr->bufferInfo[ILPART_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
 #ifdef CUDA_2D_TB_KERNEL
-
     particleGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
       (
        (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],

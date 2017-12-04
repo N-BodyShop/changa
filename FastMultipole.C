@@ -254,14 +254,7 @@ int FMMCompute::doWork(GenericTreeNode *node,
             // particles at hand
             GravityParticle *part = node->particlePointer;
             CkAssert(part);
-            //int computed = node->lastParticle-node->firstParticle+1;
-            int computed = 0;//node->lastParticle-node->firstParticle+1;
-            int counter = 0;
-            for(counter = node->firstParticle; counter <= node->lastParticle; counter++){
-              if(part[counter].rung > activeRung){
-                computed++;
-              }
-            }
+            int computed = node->lastParticle-node->firstParticle+1;
             addLocalParticlesToInt(part, computed, offset, s);
             return DUMP;
             }

@@ -925,12 +925,10 @@ class TreePiece : public CBase_TreePiece {
           else{
             for(int b = 0; b < numBuckets; b++){
               GenericTreeNode *bucket = bucketList[b];
-
               if(bucket->rungs < activeRung){
                 continue;
               }
               BucketActiveInfo *binfo = &(bucketActiveInfo[b]);
-
               
               int buckstart = bucket->firstParticle;
               int buckend = bucket->lastParticle;
@@ -947,15 +945,7 @@ class TreePiece : public CBase_TreePiece {
                   fillIndex++;
                 }
               }
-              if(bucket->bucketArrayIndex == fillIndex){
-                bucket->bucketArrayIndex = -1;
-                binfo->start = -1;
-                binfo->size = 0;
-                continue;
-              }else{
-                pc++;
-                binfo->size = fillIndex-binfo->start;
-              }
+              binfo->size = fillIndex-binfo->start;
             }
           }
           //This is for the GPU Ewald
