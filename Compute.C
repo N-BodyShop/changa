@@ -807,9 +807,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     addNodeToInt(node, reqID, s);
     // all particles beneath this node have been
     // scheduled for computation
-
     computed = node->lastParticle-node->firstParticle+1;
-
     /*
     if(getOptType() == Remote){
       CkPrintf("[%d] adding %d to nodeinterremote\n", computed);
@@ -835,9 +833,7 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     // since this is a local bucket, we should have the particles at hand
     GravityParticle *part = node->particlePointer;
     CkAssert(part);
-
     int computed = node->lastParticle-node->firstParticle+1;
-
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key = node->getKey();
     addLocalParticlesToInt(part, computed, offset, s, key, node);
@@ -1233,7 +1229,6 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
             // for each particle k in bucket j
             for(int k = 0; k < bucketLength; k++){
               flatlists[listpos].index = bucketStart+k;
-
               flatlists[listpos].offsetID = offsetID;
               listpos++;
             }

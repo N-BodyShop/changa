@@ -191,7 +191,6 @@ private:
         void init();
 
 public:
-  int NumTotalParticles;
 
 	~DataManager() {
 	    for (unsigned int i = 0; i < nodeTable.length(); i++) {
