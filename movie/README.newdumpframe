@@ -27,7 +27,7 @@ where
     type is gas, dark or star property can currently be
          temperature, metals, timeform, udot, pressure (internal energy),
          or age but more can easily be added
-         to the dfPropertyToOuttype function in dumpframe.C based on the
+         to the dfPropertyToOuttype function in dumpframe.cpp based on the
          options available in the VecType function.
     min and max are the minimum and maximum values of the property that you
                 want to have colored. Values outside these limits will go
