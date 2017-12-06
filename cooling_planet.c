@@ -173,7 +173,7 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 }
 
 /* Placeholder functions which just need to be defined to make
- * Sph.C and the compiler happy */
+ * Sph.cpp and the compiler happy */
 
 void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns,
                         char *suffix )
