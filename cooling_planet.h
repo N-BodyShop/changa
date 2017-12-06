@@ -82,7 +82,7 @@ void clInitConstants( COOL *cl, double dGMPerCcunit,
                       double dComovingGmPerCcUnit, double dErgPerGmUnit,
                       double dSecUnit, double dKpcUnit, COOLPARAM CoolParam);
 
-/* Doesn't do anything, needed by Sph.C */
+/* Doesn't do anything, needed by Sph.cpp */
 void CoolInitRatesTable( COOL *cl, COOLPARAM CoolParam);
 
 double clThermalEnergy( double Y_Total, double T );
