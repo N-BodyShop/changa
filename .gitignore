@@ -21,3 +21,6 @@ autom4te.cache/
 # These should be rebuilt
 Makefile.dep
 cuda.mk
+
+# Dependency files
+*.d

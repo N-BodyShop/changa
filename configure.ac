@@ -17,6 +17,11 @@ if test "$CHARMC" = "no" ; then
    exit
 fi
 
+MINIMUM_CHARM_VERSION=60800
+if test $($CHARMC -V | awk '{print $3}') -lt $MINIMUM_CHARM_VERSION; then
+	AC_MSG_ERROR([[At least Charm++ $MINIMUM_CHARM_VERSION is required]])
+fi
+
 CHARM_PATH=${CHARMC%/bin/charmc}
 CONV_CONFIG=${CHARM_PATH}/tmp/conv-config.sh
 CHARMINC=${CHARM_PATH}/include
@@ -339,23 +344,17 @@ fi
 
 AC_SUBST([FLAG_RTFORCE])
 
-# Compiler flags
-AC_ARG_ENABLE([opts],
-	[AS_HELP_STRING([--enable-opts="options"], [Set compiler flags (override defaults)])],
-	[opts=$enableval], [])
-if test "$opts" = "yes" ; then
-    # The user called without arguments.  Assume this is an empty string
-    opts=""
-fi
-# Test if 'opts' is defined
-if test "${opts+x}" != ""  ; then
-    OPTS="$opts"
-else
-    # Default options
-    OPTS="-O3 -lpthread"
-fi
-echo "compiler options: $OPTS"
-AC_SUBST([OPTS])
+# Default load balancer
+AC_ARG_WITH([default_lb],
+	[AS_HELP_STRING([--with-default_lb], [Set default load balancer [MultistepLB_notopo]])],
+	[DEFAULT_LB=$enableval], [DEFAULT_LB=MultistepLB_notopo])
+AC_SUBST([DEFAULT_LB])
+
+# Enable projections
+AC_ARG_ENABLE([projections],
+	[AS_HELP_STRING([--enable-projections], [enable projections])],
+	[PROJECTIONS=$enableval], [PROJECTIONS=no])
+AC_SUBST([PROJECTIONS])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL

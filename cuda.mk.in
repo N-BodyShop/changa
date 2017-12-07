@@ -1,27 +1,100 @@
-# cuda.mk[.in]: [Template for] CUDA-support makefile
+# optional CUDA flags: 
+# memory:
+# -DCUDA_USE_CUDAMALLOCHOST
+# -DCUDA_MEMPOOL
+#
+# verbosity, debugging:
+# -DCUDA_DM_PRINT_TREES
+# -DCUDA_PRINT_TRANSFERRED_INTERACTIONS
+# -DCUDA_PRINT_TRANSFER_BACK_PARTICLES
+# -DCUDA_NOTIFY_DATA_TRANSFER_DONE
+# -DCUDA_VERBOSE_KERNEL_ENQUEUE
+# -DCUDA_NO_KERNELS
+# -DCUDA_NO_ACC_UPDATES
+# -DCUDA_UNIT_TEST
+#
+# emulation mode:
+# -DCUDA_EMU_KERNEL_PART_PRINTS
+# -DCUDA_EMU_KERNEL_NODE_PRINTS
+#
+# print errors returned by CUDA calls:
+# -DCUDA_PRINT_ERRORS
+#
+# for performance monitoring via projections/stats
+# -DCUDA_STATS
+# -DCUDA_TRACE
+# -DCUDA_INSTRUMENT_WRS: to instrument time taken for each phase of a request. 
+#                        prints average transfer, kernel and cleanup times for
+#                        various kinds of request.
+###############################################################################
 
-# "yes" if we have the CUDA toolkit available, and empty otherwise.
-HAVE_CUDA=@HAVE_CUDA@
-# "yes" if we have the CUDA SDK available, and empty otherwise
-HAVE_CUDA_SDK=@HAVE_CUDA_SDK@
+# Turn on if outer variable is set. Otherwise, allow user to set explicitly.
+CUDA_DEBUG   ?= $(DEBUG)
+CUDA_VERBOSE ?= $(VERBOSE)
 
-# Whether the user explicitly asked us to enable use of CUDA.
-# Empty means "no".
-ENABLE_CUDA=@ENABLE_CUDA@
+cuda_defines += -DCUDA -DSPCUDA
+cuda_defines += -DCUDA_MEMPOOL -DCUDA_USE_CUDAMALLOCHOST
+cuda_defines += -DCUDA_2D_TB_KERNEL
+#cuda_defines += -DCUDA_2D_FLAT
 
-ifneq (,$(HAVE_CUDA))
- # CUDA compute-capability to use (times ten, to match NVCC's integer-valued
- # `-code=` and `-arch=` options).
- CUDA_LEVEL=@CUDA_LEVEL@
-
- # CUDA toolkit install directory
- CUDA_DIR = @CUDA_DIR@
-
- ifneq (,$(HAVE_CUDA_SDK))
-  # CUDA SDK install directory
-  CUDA_SDK_DIR = @CUDA_SDK_DIR@
- endif
-
- # Path to the nVidia CUDA compiler
- NVCC = @NVCC_PATH@
+ifeq (1,$(CUDA_DEBUG))
+	cuda_defines += -DCUDA_VERBOSE_KERNEL_ENQUEUE
 endif
+
+ifeq (yes,@PROJECTIONS@)
+	cuda_defines += -DCUDA_TRACE
+endif
+
+cuda_includes := -I@CUDA_DIR@/include -I@CHARM_PATH@/tmp/hybridAPI
+cuda_includes += -I@CHARM_PATH@/src/arch/cuda/hybridAPI
+
+cuda_srcs     := HostCUDA.cu
+cuda_objects  := $(patsubst %.cu,%.o,$(cuda_srcs))
+cuda_libs     += -lcuda -lcudart
+cuda_ldflags  += -L@CUDA_DIR@/lib64
+
+ifeq (yes,@HAVE_CUDA_SDK@)
+	cuda_includes += -I@CUDA_SDK_DIR@/common/inc
+	cuda_ldflags  += -L@CUDA_SDK_DIR@/lib
+endif
+
+# For more details on the architectures, see
+# http://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#virtual-architecture-feature-list
+nvcc_flags += -arch=compute_@CUDA_LEVEL@ -code=sm_@CUDA_LEVEL@
+
+# nvcc includes are broken when the host compiler is gcc >= 5.0
+nvcc_flags += -D_FORCE_INLINES
+
+ifeq (1,$(CUDA_VERBOSE))
+	nvcc_flags += --ptxas-options=-v
+endif
+
+ifeq (1,$(CUDA_DEBUG))
+	nvcc_flags += --device-debug
+else
+	nvcc_flags += -use_fast_math
+endif
+
+show_config: cuda_show_config
+
+.PHONY: cuda_show_config
+cuda_show_config:
+	@ echo NVCC_FLAGS = $(nvcc_flags)"\n"
+	@ echo CUDA_DEFINES = $(cuda_defines)"\n"
+	@ echo CUDA_INCLUDES = $(cuda_includes)"\n"
+	@ echo CUDA_LDFLAGS = $(cuda_ldflags)"\n"
+	@ echo CUDA_LIBS = $(cuda_libs)"\n"
+
+.PHONY: dist-clean
+dist-clean: cuda_dist-clean
+
+.PHONY: cuda_dist-clean
+cuda_dist-clean:
+	@ $(RM) cuda.mk
+
+%.o: %.cu
+	@ echo Compiling $<...
+	$(quiet) @NVCC_PATH@ $(CXXFLAGS) $(nvcc_flags) -c $< -o $@
+# nvcc doesn't support the full set of dependency generation flags, so do it manually
+	$(quiet) @NVCC_PATH@ $(CXXFLAGS) $(nvcc_flags) -M $< > $(depend_dir)/$*$(depend_suffix)
+
