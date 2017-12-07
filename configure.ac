@@ -241,15 +241,15 @@ AC_SUBST([FLAG_COOLING])
 AC_SUBST([OBJECTS_COOLING])
 
 AC_ARG_ENABLE([hexadecapole],
-        [AS_HELP_STRING([--disable-hexadecapole], [disable use of hexadecapole expansions])],
-        # Note that "$enableval" being "yes" means ENABLE hexadecapole -- the
-        # help string, as one would expect, only affects how we document
-        # the option.
-        [case "$enableval" in
-              yes | no ) hexadecapole="$enableval";;
-              *) AC_MSG_ERROR("$enableval: invalid argument to `--disable-hexadecapole'") ;;
-         esac],
-        [hexadecapole="yes"])
+	[AS_HELP_STRING([--disable-hexadecapole], [disable use of hexadecapole expansions])],
+	# Note that "$enableval" being "yes" means ENABLE hexadecapole -- the
+	# help string, as one would expect, only affects how we document
+	# the option.
+	[case "$enableval" in
+		  yes | no ) hexadecapole="$enableval";;
+		  *) AC_MSG_ERROR("$enableval: invalid argument to '--disable-hexadecapole'") ;;
+	 esac],
+	[hexadecapole="yes"])
 
 HEXADECAPOLE=""
 if test "$hexadecapole" = "yes"; then
@@ -354,6 +354,9 @@ AC_SUBST([DEFAULT_LB])
 AC_ARG_ENABLE([projections],
 	[AS_HELP_STRING([--enable-projections], [enable projections])],
 	[PROJECTIONS=$enableval], [PROJECTIONS=no])
+if test x$PROJECTIONS = xyes -a x$CMK_TRACE_ENABLED = x0; then
+	AC_MSG_ERROR([You must enable tracing in Charm++ before using it in ChaNGa])
+fi
 AC_SUBST([PROJECTIONS])
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -369,6 +372,9 @@ AC_FUNC_REALLOC
 AC_CHECK_FUNCS([floor memset pow sqrt strchr])
 AC_CHECK_LIB([xdr], [xdr_hyper])
 AC_CHECK_FUNCS([xdr_hyper])
+
+# Compiler-specific options
+m4_include([compiler.ac])
 
 ####################### CUDA #######################
 m4_include([cuda.ac])
