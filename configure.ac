@@ -213,28 +213,7 @@ if test "$cooling" = "grackle" ; then
        AC_MSG_WARN([Also remember to set LD_LIBRARY_PATH when running, if grackle and hdf5 are dynamic libraries]);
        exit
    fi
-
 fi
-
-AC_ARG_ENABLE([hexadecapole],
-	[AS_HELP_STRING([--disable-hexadecapole], [disable use of hexadecapole expansions])],
-	# Note that "$enableval" being "yes" means ENABLE hexadecapole -- the
-	# help string, as one would expect, only affects how we document
-	# the option.
-	[case "$enableval" in
-		  yes | no ) hexadecapole="$enableval";;
-		  *) AC_MSG_ERROR("$enableval: invalid argument to '--disable-hexadecapole'") ;;
-	 esac],
-	[hexadecapole="yes"])
-
-HEXADECAPOLE=""
-if test "$hexadecapole" = "yes"; then
-    HEXADECAPOLE="-DHEXADECAPOLE"
-else
-    HEXADECAPOLE=""
-fi
-
-AC_SUBST([HEXADECAPOLE])
 
 # GPU local tree walk
 AC_ARG_ENABLE([gpu_local_tree_walk],
@@ -263,6 +242,9 @@ AC_FUNC_REALLOC
 AC_CHECK_FUNCS([floor memset pow sqrt strchr])
 AC_CHECK_LIB([xdr], [xdr_hyper])
 AC_CHECK_FUNCS([xdr_hyper])
+
+# Compiler-specific options
+m4_include([compiler.ac])
 
 ####################### CUDA #######################
 m4_include([cuda.ac])
