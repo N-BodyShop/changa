@@ -36,7 +36,6 @@ CPPFLAGS="$CPPFLAGS -I.."
 AC_CHECK_FILE(../libs, [LDFLAGS="$LDFLAGS -L../libs"])
 
 AC_PROG_CXX($CHARMC)
-# AC_PROG_CC($CHARMC)
 
 # Checks for header files.
 AC_HEADER_STDC
