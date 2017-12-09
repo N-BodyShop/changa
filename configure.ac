@@ -246,6 +246,13 @@ AC_CHECK_FUNCS([xdr_hyper])
 # Compiler-specific options
 m4_include([compiler.ac])
 
+# Require C++11
+COMPILER_FLAG_REQUIRE([-std=c++11],[ChaNGa requires full C++11 support])
+
+# Set compiler type
+COMPILER_MACRO_CHECK([__GNUC__],[IS_GNU])
+COMPILER_MACRO_CHECK([__ICC__],[IS_ICC])
+
 ####################### CUDA #######################
 m4_include([cuda.ac])
 ##################### END CUDA #####################
