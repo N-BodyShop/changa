@@ -168,6 +168,9 @@ typedef struct CompactPartData{
   cudatype mass;
   cudatype soft;
   CudaVector3D position;
+#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
+  int tp, id;
+#endif
 
 #if __cplusplus && !defined __CUDACC__
   CompactPartData(){}

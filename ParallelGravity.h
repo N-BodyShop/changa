@@ -914,6 +914,10 @@ class TreePiece : public CBase_TreePiece {
               bucket->bucketArrayIndex = fillIndex;
               for(int i = buckstart; i <= buckend; i++){
                 fillArray[fillIndex] = buckparts[i-buckstart];
+#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
+                fillArray[fillIndex].tp = thisIndex;
+                fillArray[fillIndex].id = i;
+#endif
                 fillIndex++;
               }
             }
@@ -934,6 +938,10 @@ class TreePiece : public CBase_TreePiece {
               for(int i = buckstart; i <= buckend; i++){
                 if(buckparts[i-buckstart].rung >= activeRung){
                   fillArray[fillIndex] = buckparts[i-buckstart];
+#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
+                  fillArray[fillIndex].tp = thisIndex;
+                  fillArray[fillIndex].id = i;
+#endif
                   fillIndex++;
                 }
               }
