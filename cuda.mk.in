@@ -94,7 +94,6 @@ cuda_dist-clean:
 
 %.o: %.cu
 	@ echo Compiling $<...
-	$(quiet) @NVCC_PATH@ $(CXXFLAGS) $(nvcc_flags) -c $< -o $@
 # nvcc doesn't support the full set of dependency generation flags, so do it manually
 	$(quiet) @NVCC_PATH@ $(CXXFLAGS) $(nvcc_flags) -M $< > $(depend_dir)/$*$(depend_suffix)
-
+	$(quiet) @NVCC_PATH@ $(CXXFLAGS) $(nvcc_flags) -c $< -o $@
