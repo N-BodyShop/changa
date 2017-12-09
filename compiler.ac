@@ -1,7 +1,7 @@
 # Compiler-specific options for ChaNGa
 
-# @synopsis COMPILER_FLAG_REQUIRE [compiler flag]
-# @summary Require compiler to support given flag                   
+# @synopsis COMPILER_FLAG_REQUIRE [flag]
+# @summary Require compiler to support 'flag'                   
 AC_DEFUN([COMPILER_FLAG_REQUIRE],
 [dnl
 	AC_MSG_CHECKING([if $CXX supports $1])
@@ -16,8 +16,8 @@ AC_DEFUN([COMPILER_FLAG_REQUIRE],
 	AC_LANG_POP([C++])
 ])
 
-dnl @synopsis COMPILER_MACRO_CHECK [compiler macro]
-dnl @summary check whether compiler supports given macro or not                   
+# @synopsis COMPILER_MACRO_CHECK [compiler macro]
+# @summary Check if compiler supports 'macro'
 AC_DEFUN([COMPILER_MACRO_CHECK],
 [dnl
 	AC_LANG_PUSH([C++])
