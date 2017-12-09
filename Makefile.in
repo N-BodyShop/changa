@@ -97,7 +97,7 @@ LDLIBS 	 ?= $(structures_path)/libTipsy.a $(threads) @LIBS@
 
 ifeq (1,$(DEBUG))
 	LDLIBS	 += -memory charmdebug
-	OPT_FLAG  = -O0
+	OPT_FLAG  = @OPT_DEBUG@
 	target	 := $(target).dbg
 	charmrun := $(charmrun).dbg
 endif
