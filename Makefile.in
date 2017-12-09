@@ -49,10 +49,6 @@ OPTS = @OPTS@ # compiler options
 # -DCUDA_NO_KERNELS
 # -DCUDA_NO_ACC_UPDATES
 #
-# emulation mode:
-# -DCUDA_EMU_KERNEL_PART_PRINTS
-# -DCUDA_EMU_KERNEL_NODE_PRINTS
-#
 # print errors returned by CUDA calls:
 # -DCUDA_PRINT_ERRORS
 #
