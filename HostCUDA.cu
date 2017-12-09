@@ -390,8 +390,6 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
 /************** Gravity *****************/
 
 void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-    //CAMBRIDGE
-    printf("run_TP_GRAVITY_LOCAL!\n");
   ParameterStruct *ptr = (ParameterStruct *)wr->userData;
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
@@ -554,8 +552,6 @@ void run_TP_PART_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void*
 }
 
 void run_TP_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-    //CAMBRIDGE
-    printf("run_TP_GRAVITY_REMOTE!\n");
   ParameterStruct *ptr = (ParameterStruct *)wr->userData;
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TP_GRAVITY_REMOTE KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nremote_moments: (0x%x)\nil_cell: %d (0x%x)\n", 
@@ -650,8 +646,6 @@ void run_TP_PART_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void
 }
 
 void run_TP_GRAVITY_REMOTE_RESUME(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-    //CAMBRIDGE
-    printf("run_TP_GRAVITY_REMOTE_RESUME!\n");
   ParameterStruct *ptr = (ParameterStruct *)wr->userData;
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TP_GRAVITY_REMOTE_RESUME KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_moments: %d (0x%x)\nil_cell: %d (0x%x)\n", 
@@ -1580,6 +1574,12 @@ __global__ void compute_force_gpu_lockstepping(
   int cur_my_index;
   cudatype dsq;
 
+  // According to the discussion with Prof Tom Quinn, 
+  // I don't need to worry about periodic condition.
+  // So I just initialize the fperiod variable with zero,
+  // otherwise it (adn reqId) will cause "nan" problem.
+  fperiod = 0.0f;
+
   // variables for CUDA_momEvalFmomrcm
   CudaVector3D r;
   cudatype rsq;
@@ -1603,7 +1603,7 @@ __global__ void compute_force_gpu_lockstepping(
     idt2 = 0;
 
     if (OBSERVE_FLAG && OBSERVING == pidx) {
-      printf("pidx %d entered the GPU Kernel!\n", pidx);
+      printf("pidx %d entered the GPU Kernel! gridDim.x = %d, blockDim.x = %d\n", pidx, gridDim.x, blockDim.x);
     }
 
     STACK_INIT();
@@ -1628,7 +1628,7 @@ __global__ void compute_force_gpu_lockstepping(
       int open = cuda_openCriterionNode(targetnode, mynode, offset, -1, theta, thetaMono);
 
       int action = cuda_OptAction(open, targetnode.type);
-
+      
       if (action == KEEP) {
         if (open == CONTAIN) {
           // if open == CONTAIN, push chilren in stack
@@ -1726,7 +1726,7 @@ __global__ void compute_force_gpu_lockstepping(
           acc.y -= qir3*r.y - c*qiry;
           acc.z -= qir3*r.z - c*qirz;
           idt2 = fmax(idt2, (myparticle.mass + targetnode.totalMass)*b);    
-#endif  
+#endif 
         }
       } else if (action == KEEP_LOCAL_BUCKET) {
         // compute with each particle contained by node targetnode
