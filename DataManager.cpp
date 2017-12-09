@@ -890,6 +890,12 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
   }
   transformLocalTreeRecursive(node, localMoments);
+/*  for (int i = 0; i < numTreePieces; i ++) {
+    TreePiece *tp = registeredTreePieces[i].treePiece;
+    if (tp->getIndex() == 2) {
+      printTreeRecursive(node, 0);
+    }
+  }*/
 //  printTreeRecursive(root, 0);
 //  CkPrintf("The time cost in transforming tree is %f sec. \n", CmiWallTimer() - startTimer);
 #endif
@@ -1153,10 +1159,10 @@ long long totalTraversedParticles = 0;
       }
 
 #ifdef CAMBRIDGE
-      if (tp->largePhase() && tp->getIndex() == 0) {
+/*      if (tp->largePhase() && tp->getIndex() != 2) {
 //        if (tp->largePhase()) {
         for(int j = 1; j <= numParticles; j++) {
-          CkPrintf("(%d)th tp %d th particle: acc.x = %f, acc.y = %f, acc.z = %f, potential = %f.\n", i, j, tp->myParticles[j].treeAcceleration.x,
+          CkPrintf("(%d)th tp %d th particle: acc.x = %f, acc.y = %f, acc.z = %f, potential = %f.\n", tp->getIndex(), j, tp->myParticles[j].treeAcceleration.x,
                                                                                                                           tp->myParticles[j].treeAcceleration.y,
                                                                                                                           tp->myParticles[j].treeAcceleration.z,
                                                                                                                           tp->myParticles[j].potential);
@@ -1166,7 +1172,7 @@ long long totalTraversedParticles = 0;
       printf("The total number of nodeInterLocal is %lld\n", totalTraversedNodes);
       printf("The total number of particleInterLocal is %lld\n", totalTraversedParticles);
       printf("The total time we spent on list construction is %f\n", tp->localListConstructionTime);
-      fflush(stdout);
+      fflush(stdout);*/
 #endif
 
 
