@@ -1909,12 +1909,36 @@ __global__ void nodeGravityComputation(
   cudatype rsq;
   cudatype twoh, a, b, c, d;
 
+#if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_NODE_PRINTS
+  int tp, id;
+  if(thread == 0)
+    printf("numMissedCores: %d, bucketSize: %d, start: %d, end: %d\n", numInteractions, bucketSize, start, end);
+#endif
+
+
+#ifdef __DEVICE_EMULATION__
+  if(blockIdx.x == 0){
+    //printf("t: %d, blen: %d, llen: %d\n", threadIdx.x, blen, llen);
+    //printf("group: %d, particle: %d, ngroups: %d, groupSize: %d\n", group, particle, ngroups, groupSize);
+  }
+#endif
+
   for(int particle = 0; particle < bucketSize; particle++){
     if(thread == 0){
       // load shared_particle_core
       shared_particle_core = particleCores[bucketStart+particle];
     }
     __syncthreads();
+
+#if defined __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_NODE_PRINTS
+    id = shared_particle_core.id;
+    tp = shared_particle_core.tp;
+    if(thread == 0){
+      printf("targetVars: 0x%x targetVars[%d,%d].a.x = %f\n",
+                             particleVars, tp,id,
+                             particleVars[bucketStart+particle].a.x);
+    }
+#endif
 
     acc[thread].x = 0;
     acc[thread].y = 0;
@@ -1984,6 +2008,21 @@ __global__ void nodeGravityComputation(
         acc[thread].z -= qir3*r.z - c*qirz;
         idt2[thread] = fmax(idt2[thread], (shared_particle_core.mass + m[thread].totalMass)*b);
       }// end if rsq != 0
+#if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_NODE_PRINTS
+      if(1){
+        CudaMultipoleMoments mm = m[thread];
+        printf("NODE target particle (%d,%d) type %d with moments[%d], acc: (%f,%f,%f)\n", tp, id, 
+            type,
+            ilc.index,
+            acc[thread].x, 
+            acc[thread].y,
+            acc[thread].z);
+        printf("{m=%f,s=%f,r=%f}\n", mm.totalMass, mm.soft, mm.radius);
+        printf("{xx=%f,xy=%f,xz=%f}\n", mm.xx, mm.xy, mm.xz);
+        printf("{yy=%f,yz=%f,zz=%f}\n", mm.yy, mm.yz, mm.zz);
+      }
+#endif
+
     }// for each node in list
     __syncthreads();
     // at this point, the total force on particle is distributed among
@@ -2001,11 +2040,29 @@ __global__ void nodeGravityComputation(
         poten += pot[i];
         idt2max = fmax(idt2[i], idt2max);
       }
+#if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_NODE_PRINTS
+      printf("aggregate acc[%d,%d] = (%f,%f,%f)\n", tp, id, sumx, sumy, sumz);
+      /*
+      printf("before (%d,%d) type: NODE %d acc: (%f,%f,%f)\n", tp, id, type,
+                                                    particleVars[bucketStart+particle].a.x,
+                                                    particleVars[bucketStart+particle].a.y,
+                                                    particleVars[bucketStart+particle].a.z
+                                                    );
+      */
+#endif
       particleVars[bucketStart+particle].a.x += sumx;
       particleVars[bucketStart+particle].a.y += sumy;
       particleVars[bucketStart+particle].a.z += sumz;
       particleVars[bucketStart+particle].potential += poten;
       particleVars[bucketStart+particle].dtGrav = fmax(idt2max,  particleVars[bucketStart+particle].dtGrav);
+      
+#if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_NODE_PRINTS
+      printf("after (%d,%d) type: NODE %d acc: (%f,%f,%f)\n", tp, id, type,
+                                                    particleVars[bucketStart+particle].a.x,
+                                                    particleVars[bucketStart+particle].a.y,
+                                                    particleVars[bucketStart+particle].a.z
+                                                    );
+#endif
     }
   }// for each particle in bucket
 
@@ -2260,15 +2317,33 @@ __global__ void particleGravityComputation(
   int bucketStart = bucketStarts[bucket];
   int thread = threadIdx.x;
 
+#if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_PART_PRINTS
+  int tp, id;
+#endif
+
   CudaVector3D r;
   cudatype rsq;
   cudatype twoh, a, b;
+
+#if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_PART_PRINTS
+  if(thread == 0)
+    printf("numMissedCores: %d, bucketSize: %d, start: %d, end: %d\n", numInteractions, bucketSize, start, end);
+#endif
 
   for(int target = 0; target < bucketSize; target++){
     if(thread == 0){
       shared_target_core = targetCores[bucketStart+target];
     }
     __syncthreads();
+#if defined __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_PART_PRINTS
+    id = shared_target_core.id;
+    tp = shared_target_core.tp;
+    if(thread == 0){
+      printf("targetVars: 0x%x targetVars[%d,%d].a.x = %f\n",
+                             targetVars, tp,id,
+                             targetVars[bucketStart+target].a.x);
+    }
+#endif
 
     acc[thread].x = 0;
     acc[thread].y = 0;
@@ -2347,11 +2422,27 @@ __global__ void particleGravityComputation(
         poten += pot[i];
         idt2max = fmax(idt2[i], idt2max);
       }
+#if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_PART_PRINTS
+      //printf("before acc[%d,%d] = (%f,%f,%f)\n", tp, id, sumx, sumy, sumz);
+      printf("before (%d,%d) type: %d acc: (%f,%f,%f)\n", tp, id, type,
+                                                    targetVars[bucketStart+target].a.x,
+                                                    targetVars[bucketStart+target].a.y,
+                                                    targetVars[bucketStart+target].a.z
+                                                    );
+#endif
       targetVars[bucketStart+target].a.x += sumx;
       targetVars[bucketStart+target].a.y += sumy;
       targetVars[bucketStart+target].a.z += sumz;
       targetVars[bucketStart+target].potential += poten;
       targetVars[bucketStart+target].dtGrav = fmax(idt2max,  targetVars[bucketStart+target].dtGrav);
+      
+#if defined  __DEVICE_EMULATION__ && defined CUDA_EMU_KERNEL_PART_PRINTS
+      printf("after (%d,%d) type: %d acc: (%f,%f,%f)\n", tp, id, type,
+                                                    targetVars[bucketStart+target].a.x,
+                                                    targetVars[bucketStart+target].a.y,
+                                                    targetVars[bucketStart+target].a.z
+                                                    );
+#endif
     }
 
   }// for each target part
