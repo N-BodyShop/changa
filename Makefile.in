@@ -175,6 +175,7 @@ $(filter %.C,$(sources)): $(ci_headers)
 	@ echo Compiling $*.c...
 	$(quiet) $(charmc) $(CFLAGS) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
 
+# Use a conditional include so consecutive cleans work
 -include $(depend_files)
 
 $(target): $(objects) $(structures_path)/libTipsy.a $(foreach m,$(changa_modules),libmodule$(m).a)
