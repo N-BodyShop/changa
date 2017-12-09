@@ -65,19 +65,6 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
-# Compiler-specific options
-m4_include([compiler.ac])
-
-# Require C++11
-COMPILER_FLAG_REQUIRE([-std=c++11],[ChaNGa requires full C++11 support])
-
-# Check if optimized debug builds are supported
-COMPILER_FLAG_CHECK([-Og], [OPT_DEBUG], [-Og], [-O0])
-
-# Set compiler type
-COMPILER_MACRO_CHECK([__GNUC__],[IS_GNU]) # also true for Clang
-COMPILER_MACRO_CHECK([__ICC__],[IS_ICC])
-
 # @synopsis ARG_ENABLE(name, description, flag_var, val_if_enabled, default_val)
 # @summary Wrapper around AC_ARG_ENABLE that does extra checking and automatic exporting
 AC_DEFUN([ARG_ENABLE],
@@ -85,7 +72,7 @@ AC_DEFUN([ARG_ENABLE],
 	AC_ARG_ENABLE([$1], [AS_HELP_STRING([--enable-$1], [$2])],
 	[case "$enableval" in
 		  yes | no ) val=$enableval;;
-		  *) AC_MSG_ERROR([invalid argument for '--enable-$1': $enableval]);;
+		  *) AC_MSG_ERROR("invalid argument for '--enable-$1': $enableval");;
 	 esac],
 	[val=$5])
 	if test x$val = xyes; then $3=$4; else $3=""; fi
@@ -93,25 +80,13 @@ AC_DEFUN([ARG_ENABLE],
 ])
 
 # Use single-precision for gravity calculations
-ARG_ENABLE([float], [use single-precision gravity calculations], [FLAG_FLOAT], [-DCOSMO_FLOAT], [no])
+ARG_ENABLE([float], [use single-precision for gravity calculations], [FLAG_FLOAT], [-DCOSMO_FLOAT], [no])
 
-# Select target CPU architecture (this determines SIMD type)
-# --- Deprecated flags ---
-ARG_ENABLE([sse2], [Deprecated. Use --enable-arch=sse], [flag_sse_deprecated], [sse], [no])
-ARG_ENABLE([avx], [Deprecated. Use --enable-arch=avx], [flag_avx_deprecated], [avx], [no])
-# -----------------------
-AC_ARG_ENABLE([arch], [AS_HELP_STRING([--enable-arch], [Set compiler target architecture])],
-			  [arch=$enableval], [arch=none])
-# --enable-arch overrules when one of the deprecated flags is also given
-if test x$arch = xnone -a x$flag_sse_deprecated != x; then arch=$flag_sse_deprecated; fi
-if test x$arch = xnone -a x$flag_avx_deprecated != x; then arch=$flag_avx_deprecated; fi
-case $arch in
-	no|none	) FLAG_ARCH="" ;;
- 	sse2	) FLAG_ARCH=-DCMK_USE_SSE2 ;;
-	avx		) FLAG_ARCH=-DCMK_USE_AVX ;;
-	*		) AC_MSG_ERROR("invalid argument for '--enable-arch': $arch");;
-esac
-AC_SUBST([FLAG_ARCH])
+# SSE2 vector optimization for gravity
+ARG_ENABLE([sse2], [enable sse2 gravity vectorization], [FLAG_SSE], [-DCMK_USE_SSE2], [no])
+
+# AVX vector optimization for gravity
+ARG_ENABLE([avx], [enable avx gravity vectorization], [FLAG_AVX], [-DCMK_USE_AVX], [no])
 
 # physical softening in comoving coordinates
 ARG_ENABLE([changesoft], [enable physical softening], [FLAG_CHANGESOFT], [-DCHANGESOFT], [yes])
@@ -122,25 +97,11 @@ ARG_ENABLE([bigkeys], [enable 128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [
 # DTADJUST
 ARG_ENABLE([dtadjust], [enable emergency timestep adjust], [FLAG_DTADJUST], [-DDTADJUST], [yes])
 
-# Select SPH interpolation kernel
-# --- Deprecated flags ---
-ARG_ENABLE([wendland], [Deprecated. Use --enable-sph-kernel=wendland], [flag_sph_wendland_deprecated], [wendland], [none])
-ARG_ENABLE([m6kernel], [Deprecated. Use --enable-sph-kernel=m6kernel], [flag_sph_m6kernel_deprecated], [m6kernel], [none])
-#------------------------
-AC_ARG_ENABLE([sph-kernel], [AS_HELP_STRING([--enable-sph-kernel], [SPH interpolation kernel (m4,m6,wendland)])],
-				[sph_kernel=$enableval], [sph_kernel=none])
-if test x$sph_kernel = xnone -a x$flag_sph_m6kernel_deprecated != x; then sph_kernel=$flag_sph_m6kernel_deprecated; fi
-if test x$sph_kernel = xnone -a x$flag_sph_wendland_deprecated != x; then sph_kernel=$flag_sph_wendland_deprecated; fi
-case $sph_kernel in
-	yes|none|"m4") FLAG_SPH_KERNEL="-DM4KERNEL=1 -DWENDLAND=0 -DM6KERNEL=0";;
-	m6			 ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=0 -DM6KERNEL=1";;
-	wendland	 ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=1 -DM6KERNEL=0";;
-	*			 ) AC_MSG_ERROR([invalid argument for '--enable-sph-kernel': $sph_kernel]);;
-esac
-AC_SUBST([FLAG_SPH_KERNEL])
+# Wendland C4 Kernel
+ARG_ENABLE([wendland], [enable Wendland C4 Kernel], [FLAG_KERNEL], [-DWENDLAND], [no])
 
 # Velocity damping
-ARG_ENABLE([damping], [enable velocity damping in gasses], [FLAG_DAMPING], [-DDAMPING], [no])
+ARG_ENABLE([damping], [enable velocity damping for glasses], [FLAG_DAMPING], [-DDAMPING], [no])
 
 # Hexadecapole expansion for gravity
 ARG_ENABLE([hexadecapole], [enable hexadecapole expansions], [HEXADECAPOLE], [-DHEXADECAPOLE], [yes])
@@ -166,7 +127,10 @@ ARG_ENABLE([vsigvisc], [enable alternative Monahan artificial viscosity], [FLAG_
 ARG_ENABLE([rtforce], [enable Richie-Thomas forces], [FLAG_RTFORCE], [-DRTFORCE], [yes])
 
 # Default load balancer
-ARG_ENABLE([default-lb], [Default load balancer], [DEFAULT_LB], [MultistepLB_notopo], [yes])
+AC_ARG_WITH([default_lb],
+	[AS_HELP_STRING([--with-default_lb], [Set default load balancer [MultistepLB_notopo]])],
+	[DEFAULT_LB=$enableval], [DEFAULT_LB=MultistepLB_notopo])
+AC_SUBST([DEFAULT_LB])
 
 # Enable projections
 ARG_ENABLE([projections], [enable projections], [PROJECTIONS], [yes], [no])
@@ -176,18 +140,20 @@ fi
 
 # Cooling
 AC_ARG_ENABLE([cooling],
-	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet,cosmo,grackle)])],
-	[cooling=$enableval], [cooling=none])
-case $cooling in
-	no|none	) FLAG_COOLING="-DCOOLING_NONE";;
-	planet	) FLAG_COOLING="-DCOOLING_PLANET";;
-	cosmo	) FLAG_COOLING="-DCOOLING_COSMO";;
-	grackle	) FLAG_COOLING="-DCOOLING_GRACKLE";;
-	*		) AC_MSG_ERROR([invalid argument for '--enable-cooling': $cooling]);;
-esac
-AC_SUBST([FLAG_COOLING])
-
-if test "$cooling" = "grackle" ; then
+	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet, cosmo, grackle)])],
+	[cooling=$enableval], [cooling=no])
+OBJECTS_COOLING=""
+if test "$cooling" = "no" ; then
+   FLAG_COOLING="-DCOOLING_NONE"
+elif test "$cooling" = "planet" ; then
+   FLAG_COOLING="-DCOOLING_PLANET"
+   OBJECTS_COOLING="cooling_planet.o stiff.o"
+elif test "$cooling" = "cosmo" ; then
+   FLAG_COOLING="-DCOOLING_COSMO"
+   OBJECTS_COOLING="cooling_cosmo.o stiff.o"
+elif test "$cooling" = "grackle" ; then
+   FLAG_COOLING="-DCOOLING_GRACKLE"
+   OBJECTS_COOLING="cooling_grackle.o"
    ac_cv_libhdf5="yes"
    AC_CHECK_LIB([hdf5], [H5Fcreate], [], [ac_cv_libhdf5=no]) 
    if test $ac_cv_libhdf5 = "no" ; then
@@ -266,17 +232,15 @@ AC_CONFIG_FILES([Makefile
 AC_OUTPUT
 
 echo "***************************************************************"
-echo "Configuration Summary for AC_PACKAGE_NAME AC_PACKAGE_VERSION:"
+echo Configuration Summary for AC_PACKAGE_NAME AC_PACKAGE_VERSION:
 echo
-echo "    "Charm path "      " $CHARM_PATH
-echo "    "Charm compiler"   " $CHARMC
-echo "    "C++ compiler"     " $CXX
+echo "    "Charm compiler" " $CHARMC
+echo "    "Charm path "    " $CHARM_PATH
 echo
-echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_SSE$FLAG_AVX $FLAG_CHANGESOFT $FLAG_DTADJUST
-echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE
-echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS
-echo "    "Load balancer "   " $DEFAULT_LB
-echo "    "CPU architecture" " $FLAG_ARCH
+echo "    "Gravity Flags " " $HEXADECAPOLE $FLAG_FLOAT $FLAG_SSE$FLAG_AVX $FLAG_CHANGESOFT $FLAG_DTADJUST
+echo "    "SPH flags "     " $FLAG_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE
+echo "    "Misc Flags "    " $FLAG_BIGKEYS $PROJECTIONS
+echo "    "Load balancer " " $DEFAULT_LB
 
 if test x$ENABLE_CUDA = xyes; then
 echo
