@@ -33,6 +33,7 @@
 #include "PETreeMerger.h"
 #include "IntraNodeLBManager.h"
 #include "CkLoopAPI.h"
+#include "formatted_string.h"
 
 #if !CMK_LB_USER_DATA
 #error "Please recompile charm with --enable-lbuserdata"
@@ -174,8 +175,8 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	}
 
 #if COSMO_DEBUG > 1
-  char fout[100];
-  sprintf(fout,"tree.%d.%d.before",thisIndex,iterationNo);
+  auto file_name = make_formatted_string("tree.%d.%d.before",thisIndex,iterationNo);
+  char const* fout = file_name.c_str();
   ofstream ofs(fout);
   for (int i=1; i<=myNumParticles; ++i)
     ofs << keyBits(myParticles[i].key,KeyBits) << " " << myParticles[i].position[0] << " "
@@ -2393,8 +2394,8 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
 {
 
 #if COSMO_DEBUG > 1
-  char fout[100];
-  sprintf(fout,"tree.%d.%d.after",thisIndex,iterationNo);
+  auto file_name = make_formatted_string("tree.%d.%d.after",thisIndex,iterationNo);
+  char const* fout = file_name.c_str();
   ofstream ofs(fout);
   for (int i=1; i<=myNumParticles; ++i)
     ofs << keyBits(myParticles[i].key,KeyBits) << " " << myParticles[i].position[0] << " "
@@ -3801,8 +3802,8 @@ void TreePiece::continueWrapUp(){
 
 void TreePiece::doAllBuckets(){
 #if COSMO_DEBUG > 0
-  char fout[100];
-  sprintf(fout,"tree.%d.%d",thisIndex,iterationNo);
+  auto file_name = make_formatted_string("tree.%d.%d",thisIndex,iterationNo);
+  char const* fout = file_name.c_str();
   ofstream ofs(fout);
   printTree(root,ofs);
   ofs.close();
