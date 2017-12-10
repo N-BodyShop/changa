@@ -6,6 +6,7 @@
 #include "ParallelGravity.h"
 #include "DataManager.h"
 #include "Reductions.h"
+#include "formatted_string.h"
 
 #ifdef CUDA
 #include "cuda_typedef.h"
@@ -173,9 +174,8 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
   int totalChares = registeredTreePieces.size();
   if (totalChares > 0) {
 #ifdef PRINT_MERGED_TREE
-    char fout[100];
-    sprintf(fout,"cache.%d.dot",CkMyPe());
-    ofstream ofs(fout);
+    auto fout = make_formatted_string("cache.%d.dot",CkMyPe());
+    ofstream ofs(fout.c_str());
 #endif
 
 #ifdef PRINT_MERGED_TREE
