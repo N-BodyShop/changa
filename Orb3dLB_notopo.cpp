@@ -4,7 +4,7 @@
 #include "ParallelGravity.h"
 #include "TopoManager.h"
 #include "Vector3D.h"
-
+#include "formatted_string.h"
 
 extern CProxy_TreePiece treeProxy;
 
@@ -119,9 +119,8 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   
   if(_lb_args.debug() >= 2) {
 	// Write out "particle file" of load balance information
-	char achFileName[1024];
-	sprintf(achFileName, "lb.%d.sim", step());
-	FILE *fp = fopen(achFileName, "w");
+	auto achFileName = make_formatted_string("lb.%d.sim", step());
+	FILE *fp = fopen(achFileName.c_str(), "w");
 	CkAssert(fp != NULL);
 
   int num_migratables = numobjs;
