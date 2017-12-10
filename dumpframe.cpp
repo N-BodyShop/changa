@@ -18,6 +18,7 @@
 #include "dumpframe.h"
 #include "ParallelGravity.h"
 #include "DataManager.h"
+#include "formatted_string.h"
 
 #include <assert.h>
 #include <libgen.h>
@@ -613,7 +614,7 @@ int dfPropertyToType(char *word)
     }
 
 int dfReadColorMapFile(DFCOLORTABLE *dfCT, char *word, float scaler){
-    char *pachFile, *mapFile, achTemp[128], fileText[100];
+    char *pachFile, *mapFile, fileText[100];
     FILE *fp;
     fpos_t fpPos;
     float fVal,r,g,b;
@@ -623,17 +624,22 @@ int dfReadColorMapFile(DFCOLORTABLE *dfCT, char *word, float scaler){
     if (fp == NULL) { /* Then try the directory where env var points */
       pachFile = getenv("PKDGRAV_CHECKPOINT_FDL");
       if(pachFile != NULL) {
-	strcpy(achTemp,pachFile);
-	mapFile = dirname(achTemp); /* source directory? */
-	sprintf(mapFile,"%s/colortables.txt",mapFile);
-	fp = fopen(mapFile, "r"); 
+        auto dir_name = make_formatted_string("%s", pachFile);
+
+        /*
+         * Passing dir_name.c_str() here is safe because
+         * 'dirname' respects the string's bounds.
+         */
+        mapFile = dirname(const_cast<char*>(dir_name.c_str())); /* source directory? */
+        auto map_filename = make_formatted_string("%s/colortables.txt",mapFile);
+        fp = fopen(map_filename.c_str(), "r");
 	}
       }
     if (fp == NULL) { /* Then try the directory where env var points */
       mapFile = getenv("CHANGA_AUX_DIR");
       if(mapFile != NULL) {
-	sprintf(mapFile,"%s/colortables.txt",mapFile);
-	fp = fopen(mapFile, "r"); 
+        auto map_filename = make_formatted_string("%s/colortables.txt",mapFile);
+        fp = fopen(map_filename.c_str(), "r");
 	}
       }
     if (fp == NULL) return 0; 
