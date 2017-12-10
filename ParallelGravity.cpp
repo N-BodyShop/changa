@@ -3091,7 +3091,7 @@ int path_is_directory (const char* path) {
 void delete_dir_tree (const char* achDir) {
     DIR*            dp;
     struct dirent*  ep;
-    char            p_buf[256];
+    char            p_buf[350];
 
     dp = opendir(achDir);
 
@@ -3116,7 +3116,7 @@ void delete_dir_tree (const char* achDir) {
 
 void Main::writeOutput(int iStep) 
 {
-    char achFile[256];
+    char achFile[350];
     double dOutTime;
     double dvFac;
     double startTime = 0.0;
@@ -3592,7 +3592,7 @@ void Main::growMass(double dTime, double dDelta)
  */
 int
 Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
-	char achFile[256];
+	char achFile[350];
 	
 	if (param.dDumpFrameStep > 0 || param.dDumpFrameTime > 0) {
                 if(param.iDirector < 1) {
