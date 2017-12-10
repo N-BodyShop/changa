@@ -13,6 +13,7 @@
 #include "smooth.h"
 #include "sinks.h"
 #include "Sph.h"
+#include "formatted_string.h"
 
 /// Utility function
 static inline double sqr(double x) 
@@ -226,13 +227,13 @@ void Sinks::CheckParams(PRM prm, struct parameters &param)
 ///
 void Main::outputBlackHoles(double dTime)
 {
-    char achOutFile[MAXPATHLEN];
     FILE *fp;
     double dOutTime;
     double dvFac;
 
     if (param.sinks.bBHSink) {
-	sprintf(achOutFile,"%s.orbit", param.achOutName);
+    	auto file_name = make_formatted_string("%s.orbit", param.achOutName);
+    	char const* achOutFile = file_name.c_str();
 
 	fp = CmiFopen(achOutFile,"a");
 	CkAssert(fp != NULL);
