@@ -95,11 +95,23 @@ AC_DEFUN([ARG_ENABLE],
 # Use single-precision for gravity calculations
 ARG_ENABLE([float], [use single-precision for gravity calculations], [FLAG_FLOAT], [-DCOSMO_FLOAT], [no])
 
-# SSE2 vector optimization for gravity
-ARG_ENABLE([sse2], [enable sse2 gravity vectorization], [FLAG_SSE], [-DCMK_USE_SSE2], [no])
-
-# AVX vector optimization for gravity
-ARG_ENABLE([avx], [enable avx gravity vectorization], [FLAG_AVX], [-DCMK_USE_AVX], [no])
+# Select target CPU architecture (this determines SIMD type)
+# --- Deprecated flags ---
+ARG_ENABLE([sse2], [Deprecated. Use --enable-arch=sse], [flag_sse_deprecated], [sse], [no])
+ARG_ENABLE([avx], [Deprecated. Use --enable-arch=avx], [flag_avx_deprecated], [avx], [no])
+# -----------------------
+AC_ARG_ENABLE([arch], [AS_HELP_STRING([--enable-arch], [Set compiler target architecture])],
+			  [arch=$enableval], [arch=none])
+# --enable-arch overrules when one of the deprecated flags is also given
+if test x$arch = xnone -a x$flag_sse_deprecated != x; then arch=$flag_sse_deprecated; fi
+if test x$arch = xnone -a x$flag_avx_deprecated != x; then arch=$flag_avx_deprecated; fi
+case $arch in
+	no|none	) FLAG_ARCH="" ;;
+ 	yes|sse	) FLAG_ARCH=-DCMK_USE_SSE2 ;;
+	avx		) FLAG_ARCH=-DCMK_USE_AVX ;;
+	*		) AC_MSG_ERROR("invalid argument for '--enable-arch': $arch");;
+esac
+AC_SUBST([FLAG_ARCH])
 
 # physical softening in comoving coordinates
 ARG_ENABLE([changesoft], [enable physical softening], [FLAG_CHANGESOFT], [-DCHANGESOFT], [yes])
