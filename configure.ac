@@ -122,8 +122,22 @@ ARG_ENABLE([bigkeys], [enable 128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [
 # DTADJUST
 ARG_ENABLE([dtadjust], [enable emergency timestep adjust], [FLAG_DTADJUST], [-DDTADJUST], [yes])
 
-# Wendland C4 Kernel
-ARG_ENABLE([wendland], [enable Wendland C4 Kernel], [FLAG_KERNEL], [-DWENDLAND], [no])
+# Select SPH interpolation kernel
+# --- Deprecated flags ---
+ARG_ENABLE([wendland], [Deprecated. Use --enable-sph-kernel=wendland], [flag_sph_wendland_deprecated], [wendland], [no])
+ARG_ENABLE([m6kernel], [Deprecated. Use --enable-sph-kernel=m6kernel], [flag_sph_m6kernel_deprecated], [m6kernel], [no])
+#------------------------
+AC_ARG_ENABLE([sph-kernel], [AS_HELP_STRING([--enable-sph-kernel], [SPH interpolation kernel])],
+				[sph_kernel=$enableval], [sph_kernel=none])
+if test x$sph_kernel = xnone -a x$flag_sph_m6kernel_deprecated != x; then sph_kernel=$flag_sph_m6kernel_deprecated; fi
+if test x$sph_kernel = xnone -a x$flag_sph_wendland_deprecated != x; then sph_kernel=$flag_sph_wendland_deprecated; fi
+case $sph_kernel in
+	yes|none|"m4kernel"	) FLAG_SPH_KERNEL="-DM4KERNEL=1 -DWENDLAND=0 -DM6KERNEL=0";;
+	wendland	 		) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=1 -DM6KERNEL=0";;
+	m6kernel	 		) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=0 -DM6KERNEL=1";;
+	*			 		) AC_MSG_ERROR([invalid argument for '--enable-sph-kernel': $sph_kernel]);;
+esac
+AC_SUBST([FLAG_SPH_KERNEL])
 
 # Velocity damping
 ARG_ENABLE([damping], [enable velocity damping in gasses], [FLAG_DAMPING], [-DDAMPING], [no])
@@ -267,7 +281,7 @@ echo "    "Charm path "      " $CHARM_PATH
 echo "    "Charm compiler"   " $CHARMC
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_SSE$FLAG_AVX $FLAG_CHANGESOFT $FLAG_DTADJUST
-echo "    "SPH flags "       " $FLAG_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE
+echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE
 echo "    "Misc Flags "      " $FLAG_BIGKEYS $PROJECTIONS
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
