@@ -109,7 +109,7 @@ endif
 
 # Capture all sources except the ones for cooling
 sources := $(filter-out $(source_dir)/cooling%,$(wildcard	\
-				$(addprefix $(source_dir)/,*.c *.C *.cpp)))
+			$(addprefix $(source_dir)/,*.c *.C *.cpp)))
 
 ci_headers := $(patsubst %.ci,%.decl.h,$(wildcard $(source_dir)/*.ci))
 
