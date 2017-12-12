@@ -66,12 +66,12 @@ target  	:= $(build_dir)/ChaNGa
 charmrun	:= charmrun
 cxx_std 	:= c++11
 c_std		:= c99
-OPT_FLAG	?= -O3
+opt_flag	:= -O3
 target_arch := -m64
 threads 	:= -lpthread
 
 # Always emit debug symbols in case of core dumps
-OPT_FLAG += -g
+opt_flag += -g
 
 define_flags := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_DIFFHARMONIC@	\
 				@FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@ @FLAG_ARCH@ \
@@ -91,13 +91,13 @@ include_flags = $(strip -I$(structures_path) -I$(cache_lib_path)	\
 				-I$(charm_util_path) -I@CHARM_PATH@/include)
 
 CPPFLAGS ?= $(include_flags) $(define_flags) @CPPFLAGS@
-CFLAGS 	 ?= $(OPT_FLAG) $(CPPFLAGS) $(threads) $(target_arch) -std=$(c_std)
-CXXFLAGS ?= $(OPT_FLAG) $(CPPFLAGS) $(threads) $(target_arch) -std=$(cxx_std)
+CFLAGS 	 ?= $(opt_flag) $(CPPFLAGS) $(threads) $(target_arch) -std=$(c_std)
+CXXFLAGS ?= $(opt_flag) $(CPPFLAGS) $(threads) $(target_arch) -std=$(cxx_std)
 LDLIBS 	 ?= $(structures_path)/libTipsy.a $(threads) @LIBS@
 
 ifeq (1,$(DEBUG))
 	LDLIBS	 += -memory charmdebug
-	OPT_FLAG  = @OPT_DEBUG@
+	opt_flag  = @OPT_DEBUG@
 	target	 := $(target).dbg
 	charmrun := $(charmrun).dbg
 endif
@@ -154,7 +154,7 @@ show_config:
 	@ echo TARGET = $(target)"\n"
 	@ echo INCLUDES = $(include_flags)"\n"
 	@ echo DEFINE_FLAGS = $(define_flags)"\n"
-	@ echo OPT_FLAG = $(OPT_FLAG)"\n"
+	@ echo OPT_FLAG = $(opt_flag)"\n"
 	@ echo DEFAULT_LB = @DEFAULT_LB@"\n"
 	@ echo TARGET_ARCH = $(target_arch)"\n"
 	@ echo CXX_STD = $(cxx_std)"\n"
@@ -215,7 +215,7 @@ docs:
 test: DIRS := teststep
 test: $(target)
 	$(quiet) for d in $(DIRS); do \
-		(cd $$d && $(MAKE) test OPTS='$(OPT_FLAG) $(threads)' || exit 1) || exit 1; \
+		(cd $$d && $(MAKE) test OPTS='$(opt_flag) $(threads)' || exit 1) || exit 1; \
 	done
 
 .PHONY: clean
