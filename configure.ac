@@ -93,7 +93,7 @@ AC_DEFUN([ARG_ENABLE],
 ])
 
 # Use single-precision for gravity calculations
-ARG_ENABLE([float], [use single-precision for gravity calculations], [FLAG_FLOAT], [-DCOSMO_FLOAT], [no])
+ARG_ENABLE([float], [use single-precision gravity calculations], [FLAG_FLOAT], [-DCOSMO_FLOAT], [no])
 
 # Select target CPU architecture (this determines SIMD type)
 # --- Deprecated flags ---
