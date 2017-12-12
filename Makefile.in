@@ -80,11 +80,11 @@ define_flags := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_DIFFHARMONIC@	\
 				@FLAG_DAMPING@ $(debug_defines) $(interlist)				\
 				$(flag_tree_build) -DREDUCTION_HELPER)
 
-module_flags := $(strip -language charm++ -balancer @DEFAULT_LB@	\
-				  $(foreach m,$(charm_modules),-module $(m))		\
-				  $(foreach m,$(changa_modules),-module $(m)))
+modules := $(strip -language charm++ -balancer @DEFAULT_LB@	\
+		    $(foreach m,$(charm_modules),-module $(m))		\
+		    $(foreach m,$(changa_modules),-module $(m)))
 
-LDFLAGS = $(module_flags) -L. -L@CHARM_PATH@/libs @LDFLAGS@
+LDFLAGS = $(modules) -L. -L@CHARM_PATH@/libs @LDFLAGS@
 
 include_flags = $(strip -I$(structures_path) -I$(cache_lib_path)	\
 				-I$(source_dir) -I$(threadsafe_ht_path)				\
