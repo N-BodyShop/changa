@@ -356,15 +356,16 @@ AC_CONFIG_FILES([Makefile
 AC_OUTPUT
 
 echo "***************************************************************"
-echo Configuration Summary for AC_PACKAGE_NAME AC_PACKAGE_VERSION:
+echo "Configuration Summary for AC_PACKAGE_NAME AC_PACKAGE_VERSION:"
 echo
-echo "    "Charm compiler" " $CHARMC
-echo "    "Charm path "    " $CHARM_PATH
+echo "    "Charm path "      " $CHARM_PATH
+echo "    "Charm compiler"   " $CHARMC
 echo
-echo "    "Gravity Flags " " $HEXADECAPOLE $FLAG_FLOAT $FLAG_SSE$FLAG_AVX $FLAG_CHANGESOFT $FLAG_DTADJUST
-echo "    "SPH flags "     " $FLAG_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE
-echo "    "Misc Flags "    " $FLAG_BIGKEYS $PROJECTIONS
-echo "    "Load balancer " " $DEFAULT_LB
+echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_SSE$FLAG_AVX $FLAG_CHANGESOFT $FLAG_DTADJUST
+echo "    "SPH flags "       " $FLAG_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE
+echo "    "Misc Flags "      " $FLAG_BIGKEYS $PROJECTIONS
+echo "    "Load balancer "   " $DEFAULT_LB
+echo "    "CPU architecture" " $FLAG_ARCH
 
 if test x$ENABLE_CUDA = xyes; then
 echo
