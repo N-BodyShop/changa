@@ -4,7 +4,7 @@
 # @summary Require compiler to support 'flag'                   
 AC_DEFUN([COMPILER_FLAG_REQUIRE],
 [dnl
-	AC_MSG_CHECKING([if $CXX supports $1])
+	AC_MSG_CHECKING([whether $CXX supports $1])
 	AC_LANG_PUSH([C++])
 	ac_saved_cxxflags="$CXXFLAGS"
 	CXXFLAGS="-Werror $1"
@@ -20,15 +20,14 @@ AC_DEFUN([COMPILER_FLAG_REQUIRE],
 # @summary Check if compiler supports 'flag'                   
 AC_DEFUN([COMPILER_FLAG_CHECK],
 [dnl
-	AC_MSG_CHECKING([for flag $1])
+	AC_MSG_CHECKING([whether $CXX supports $1])
 	AC_LANG_PUSH([C++])
 	ac_saved_cxxflags="$CXXFLAGS"
 	CXXFLAGS="-Werror $1"
 	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
-		[$2=$3],
-		[$2=$4]
+		[$2=$3; AC_MSG_RESULT([yes])],
+		[$2=$4; AC_MSG_RESULT([no])]
 	)
-	AC_MSG_RESULT([$$2])
 	CXXFLAGS="$ac_saved_cxxflags"
 	AC_LANG_POP([C++])
 	AC_SUBST([$2])
