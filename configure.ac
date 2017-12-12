@@ -178,18 +178,16 @@ fi
 AC_ARG_ENABLE([cooling],
 	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet, cosmo, grackle)])],
 	[cooling=$enableval], [cooling=no])
-OBJECTS_COOLING=""
-if test "$cooling" = "no" ; then
-   FLAG_COOLING="-DCOOLING_NONE"
-elif test "$cooling" = "planet" ; then
-   FLAG_COOLING="-DCOOLING_PLANET"
-   OBJECTS_COOLING="cooling_planet.o stiff.o"
-elif test "$cooling" = "cosmo" ; then
-   FLAG_COOLING="-DCOOLING_COSMO"
-   OBJECTS_COOLING="cooling_cosmo.o stiff.o"
-elif test "$cooling" = "grackle" ; then
-   FLAG_COOLING="-DCOOLING_GRACKLE"
-   OBJECTS_COOLING="cooling_grackle.o"
+case $cooling in
+	no|none	) FLAG_COOLING="-DCOOLING_NONE";;
+	planet	) FLAG_COOLING="-DCOOLING_PLANET";
+	cosmo	) FLAG_COOLING="-DCOOLING_COSMO";
+	grackle	) FLAG_COOLING="-DCOOLING_GRACKLE";
+	*		) AC_MSG_ERROR([invalid argument for '--enable-cooling': $cooling]);;
+esac
+AC_SUBST([FLAG_COOLING])
+
+if test "$cooling" = "grackle" ; then
    ac_cv_libhdf5="yes"
    AC_CHECK_LIB([hdf5], [H5Fcreate], [], [ac_cv_libhdf5=no]) 
    if test $ac_cv_libhdf5 = "no" ; then

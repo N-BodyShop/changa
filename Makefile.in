@@ -118,8 +118,16 @@ objects := $(strip $(addprefix 												\
 			$(build_dir)/,$(patsubst %.cpp,%.o,$(filter %.cpp,$(sources)))	\
 			$(patsubst %.C,%.o,$(filter %.C,$(sources)))					\
 			$(patsubst %.c,%.o,$(filter %.c,$(sources)))					\
-			@OBJECTS_COOLING@												\
 			))
+ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
+	objects += cooling_planet.o stiff.o
+endif
+ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
+	objects += cooling_cosmo.o stiff.o
+endif
+ifeq (-DCOOLING_GRACKLE,@FLAG_COOLING@)
+	objects += cooling_grackle.o
+endif
 
 # ------- Dependencies --------------------------------------------------------
 depend_flags 	:= -MMD -MP -MF
