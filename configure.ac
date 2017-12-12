@@ -85,7 +85,7 @@ AC_DEFUN([ARG_ENABLE],
 	AC_ARG_ENABLE([$1], [AS_HELP_STRING([--enable-$1], [$2])],
 	[case "$enableval" in
 		  yes | no ) val=$enableval;;
-		  *) AC_MSG_ERROR("invalid argument for '--enable-$1': $enableval");;
+		  *) AC_MSG_ERROR([invalid argument for '--enable-$1': $enableval]);;
 	 esac],
 	[val=$5])
 	if test x$val = xyes; then $3=$4; else $3=""; fi
