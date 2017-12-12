@@ -73,12 +73,12 @@ threads 	:= -lpthread
 # Always emit debug symbols in case of core dumps
 opt_flag += -g
 
-define_flags := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_DIFFHARMONIC@	\
-				@FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@ @FLAG_ARCH@ \
-				@FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@	\
-				@FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@ @FLAG_VSIGVISC@ \
-				@FLAG_DAMPING@ $(debug_defines) $(interlist)				\
-				$(flag_tree_build) -DREDUCTION_HELPER)
+define_flags := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@	\
+				@FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@  	\
+				@FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@ 	\
+				@FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@			\
+				@FLAG_VSIGVISC@ @FLAG_DAMPING@ @FLAG_DIFFHARMONIC@	\
+				$(debug_defines) $(interlist) $(flag_tree_build))
 
 modules := $(strip -language charm++ -balancer @DEFAULT_LB@	\
 		    $(foreach m,$(charm_modules),-module $(m))		\
