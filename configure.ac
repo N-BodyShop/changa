@@ -126,7 +126,7 @@ ARG_ENABLE([dtadjust], [enable emergency timestep adjust], [FLAG_DTADJUST], [-DD
 ARG_ENABLE([wendland], [enable Wendland C4 Kernel], [FLAG_KERNEL], [-DWENDLAND], [no])
 
 # Velocity damping
-ARG_ENABLE([damping], [enable velocity damping for glasses], [FLAG_DAMPING], [-DDAMPING], [no])
+ARG_ENABLE([damping], [enable velocity damping in gasses], [FLAG_DAMPING], [-DDAMPING], [no])
 
 # Hexadecapole expansion for gravity
 ARG_ENABLE([hexadecapole], [enable hexadecapole expansions], [HEXADECAPOLE], [-DHEXADECAPOLE], [yes])
