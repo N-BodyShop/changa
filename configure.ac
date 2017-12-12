@@ -166,10 +166,7 @@ ARG_ENABLE([vsigvisc], [enable alternative Monahan artificial viscosity], [FLAG_
 ARG_ENABLE([rtforce], [enable Richie-Thomas forces], [FLAG_RTFORCE], [-DRTFORCE], [yes])
 
 # Default load balancer
-AC_ARG_WITH([default_lb],
-	[AS_HELP_STRING([--with-default_lb], [Set default load balancer [MultistepLB_notopo]])],
-	[DEFAULT_LB=$enableval], [DEFAULT_LB=MultistepLB_notopo])
-AC_SUBST([DEFAULT_LB])
+ARG_ENABLE([default_lb], [Default load balancer], [DEFAULT_LB], [MultistepLB_notopo], [yes])
 
 # Enable projections
 ARG_ENABLE([projections], [enable projections], [PROJECTIONS], [yes], [no])
