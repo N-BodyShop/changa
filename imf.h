@@ -19,7 +19,7 @@ class IMF : public PUP::able {
     /** @brief return stars per unit logarithmic mass
 	@param mass in solar masses.
      */
-    virtual double returnimf(double mass) = 0;
+    virtual double returnimf(double mass) const = 0;
     /** @brief Charm++ requirement for passing polymorphic objects. */
     PUPable_abstract(IMF);
     /** @brief Charm++ migrate constructor */
@@ -71,7 +71,7 @@ class MillerScalo : public IMF {
     PUPable_decl(MillerScalo);
     /** @brief Charm++ migration constructor */
     MillerScalo(CkMigrateMessage *m) : IMF(m) {}
-    virtual double returnimf(double mass);
+    virtual double returnimf(double mass) const;
     virtual double CumNumber(double mass);
     virtual double CumMass(double mass);
     virtual MillerScalo* clone() const;
@@ -106,7 +106,7 @@ class Kroupa93 : public IMF {
     PUPable_decl(Kroupa93);
     /** @brief Charm++ migration constructor */
     Kroupa93(CkMigrateMessage *m) : IMF(m) {}
-    virtual double returnimf(double mass);
+    virtual double returnimf(double mass) const;
     virtual double CumNumber(double mass);
     virtual double CumMass(double mass);
     virtual Kroupa93* clone() const;
@@ -147,7 +147,7 @@ class Kroupa01 : public IMF {
     PUPable_decl(Kroupa01);
     /** @brief Charm++ migration constructor */
     Kroupa01(CkMigrateMessage *m) : IMF(m) {}
-    virtual double returnimf(double mass);
+    virtual double returnimf(double mass) const;
     virtual double CumNumber(double mass);
     virtual double CumMass(double mass);
     virtual Kroupa01* clone() const;
@@ -181,7 +181,7 @@ class Chabrier : public IMF {
 	a2=4.43e-2;b2=-1.3; m2=1.0;
 	mmax=100.0;
 	}
-    virtual double returnimf(double mass);
+    virtual double returnimf(double mass) const;
     virtual double CumNumber(double mass);
     virtual double CumMass(double mass);
     virtual Chabrier* clone() const;

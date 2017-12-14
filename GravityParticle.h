@@ -77,6 +77,7 @@ class extraSPHData
 #ifdef DTADJUST
     double _dtNew;		/* New timestep from gas pressure */
 #endif
+    double _dTimeFB;		/* Track feedback time */
 #ifndef COOLING_NONE
     double _uDot;		/* Rate of change of u, for
 				   predicting u */
@@ -121,6 +122,7 @@ class extraSPHData
 #ifdef DTADJUST
     inline double& dtNew() {return _dtNew;}
 #endif
+    inline double& dTimeFB() {return _dTimeFB;}
 #ifndef COOLING_NONE
     inline double& uDot() {return _uDot;}
     inline COOLPARTICLE& CoolParticle() {return _CoolParticle;}
@@ -162,6 +164,7 @@ class extraSPHData
 #ifdef DTADJUST
         p | _dtNew;
 #endif
+	p | _dTimeFB;
 #ifndef COOLING_NONE
 	p | _uDot;
 	p((char *) &_CoolParticle, sizeof(_CoolParticle)); /* PUPs as bytes */
@@ -195,6 +198,9 @@ class extraStarData
     double _fMOxygenOut;        /* Ejected oxygen */
     double _fMIronOut;          /* Ejected iron */
     int64_t _iGasOrder;		/* Gas from which this star formed */
+    int64_t _iEaterOrder;	/* iOrder for merging black holes */
+    double _dMDot;		/* Accretion rate of black holes */
+    double _dDeltaM;		/* Actual Mass Accreted on black holes */
  public:
     inline double& fMetals() {return _fMetals;}
     inline double& fTimeForm() {return _fTimeForm;}
@@ -208,6 +214,9 @@ class extraStarData
     inline double& fMOxygenOut() {return _fMOxygenOut;}
     inline double& fSNMetals() {return _fSNMetals;}
     inline int64_t& iGasOrder() {return _iGasOrder;}
+    inline int64_t& iEaterOrder() {return _iEaterOrder;}
+    inline double& dMDot() {return _dMDot;}
+    inline double& dDeltaM() {return _dDeltaM;}
     void pup(PUP::er &p) {
 	p | _fMetals;
 	p | _fTimeForm;
@@ -221,6 +230,9 @@ class extraStarData
 	p | _fMOxygenOut;
 	p | _fMIronOut;
 	p | _iGasOrder;
+	p | _iEaterOrder;
+	p | _dMDot;
+	p | _dDeltaM;
 	}
     };
 
@@ -341,6 +353,7 @@ public:
 #ifdef DTADJUST
         inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
 #endif
+	inline double& dTimeFB() { IMAGAS; return (((extraSPHData*)extraData)->dTimeFB());}
 #ifndef COOLING_NONE
 	inline double& uDot() { IMAGAS; return (((extraSPHData*)extraData)->uDot());}
 	inline COOLPARTICLE& CoolParticle() { IMAGAS; return (((extraSPHData*)extraData)->CoolParticle());}
@@ -369,6 +382,9 @@ public:
 	inline double& fMOxygenOut() {IMASTAR; return (((extraStarData*)extraData)->fMOxygenOut());}
 	inline double& fSNMetals() {IMASTAR; return (((extraStarData*)extraData)->fSNMetals());}
 	inline int64_t& iGasOrder() { IMASTAR; return (((extraStarData*)extraData)->iGasOrder());}
+	inline int64_t& iEaterOrder() { IMASTAR; return (((extraStarData*)extraData)->iEaterOrder());}
+	inline double& dDeltaM() { IMASTAR; return (((extraStarData*)extraData)->dDeltaM());}
+	inline double& dMDot() { IMASTAR; return (((extraStarData*)extraData)->dMDot());}
 
 // See above debugging macros
 #undef IMAGAS
@@ -384,7 +400,12 @@ public:
 
 #define TYPE_PHOTOGENIC        (1<<4)
 #define TYPE_NbrOfACTIVE       (1<<5)
-#define TYPE_MAXTYPE           (1<<6)
+#define TYPE_SMOOTHACTIVE      (1<<6)
+
+#define TYPE_SINK              (1<<7)
+#define TYPE_SINKING           (1<<8)
+#define TYPE_NEWSINKING        (1<<9)
+#define TYPE_MAXTYPE           (1<<10)
 
 	inline bool isDark() const { return TYPETest(this, TYPE_DARK);}
 	inline bool isGas() const { return TYPETest(this, TYPE_GAS);}
@@ -409,6 +430,9 @@ inline int TYPESet(GravityParticle *a, unsigned int b) {
 /// @brief Unset a type flag.
 inline int TYPEReset(GravityParticle *a, unsigned int b) {
     return a->iType &= (~b);
+    }
+inline int TYPEClear(GravityParticle *a) {
+    return a->iType = 0;
     }
 
 /// @brief unmark particle as deleted
@@ -447,6 +471,7 @@ class ExternalSmoothParticle {
   double fDensity;
   Vector3D<cosmoType> position;
   Vector3D<double> velocity;
+  int64_t iOrder;
   unsigned int iType;	// Bitmask to hold particle type information
   int rung;
 #ifdef DTADJUST
@@ -482,6 +507,9 @@ class ExternalSmoothParticle {
   double fMFracOxygenDot;
   double fMFracIronDot;
 #endif
+  double fNSN;
+  int64_t iEaterOrder;
+  double dTimeFB;
   int iBucketOff;               /* Used by the Cache */
 
   ExternalSmoothParticle() {}
@@ -493,6 +521,7 @@ class ExternalSmoothParticle {
 	  fDensity = p->fDensity;
 	  position = p->position;
 	  velocity = p->velocity;
+	  iOrder = p->iOrder;
 	  iType = p->iType;
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
@@ -531,6 +560,11 @@ class ExternalSmoothParticle {
               dt = p->dt;
               dtNew = p->dtNew();
 #endif
+	      dTimeFB = p->dTimeFB();
+	      }
+	  if(TYPETest(p, TYPE_STAR)) {
+	      fNSN = p->fNSN();
+	      iEaterOrder = p->iEaterOrder();
 	      }
 	  }
   
@@ -541,6 +575,7 @@ class ExternalSmoothParticle {
       tmp->fDensity = fDensity;
       tmp->position = position;
       tmp->velocity = velocity;
+      tmp->iOrder = iOrder;
       tmp->iType = iType;
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
@@ -579,6 +614,11 @@ class ExternalSmoothParticle {
           tmp->dt = dt;
           tmp->dtNew() = dtNew;
 #endif
+	  tmp->dTimeFB() = dTimeFB;
+	  }
+      if(TYPETest(tmp, TYPE_STAR)) {
+	  tmp->fNSN() = fNSN;
+	  tmp->iEaterOrder() = iEaterOrder;
 	  }
       }
 	  
@@ -589,6 +629,7 @@ class ExternalSmoothParticle {
     p | mass;
     p | fBall;
     p | fDensity;
+    p | iOrder;
     p | iType;
     p | rung;
 #ifdef DTADJUST
@@ -624,6 +665,9 @@ class ExternalSmoothParticle {
     p | fMFracOxygenDot;
     p | fMFracIronDot;
 #endif
+    p | fNSN;
+    p | iEaterOrder;
+    p | dTimeFB;
     p | iBucketOff;
   }
 #endif
@@ -631,5 +675,9 @@ class ExternalSmoothParticle {
 
 inline ExternalSmoothParticle GravityParticle::getExternalSmoothParticle()
 { return ExternalSmoothParticle(this); }
+
+inline int TYPETest(ExternalSmoothParticle *a, unsigned int b) {
+    return a->iType & b;
+    }
 
 #endif

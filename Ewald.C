@@ -376,7 +376,8 @@ void TreePiece::EwaldInit()
 
 	//contribute(cb);
 	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-	*((int *)CkPriorityPtr(msg)) = numTreePieces * numChunks + numTreePieces + thisIndex + 1;
+        // Make priority lower than gravity or smooth.
+	*((int *)CkPriorityPtr(msg)) = 3*numTreePieces * numChunks + thisIndex + 1;
 	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 	thisProxy[thisIndex].calculateEwald(msg);
 }

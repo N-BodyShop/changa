@@ -55,6 +55,7 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     p.fBallMax() = HUGE;
     p.fESNrate() = 0.0;
     p.fTimeCoolIsOffUntil() = 0.0;
+    p.dTimeFB() = 0.0;
 #ifdef DTADJUST
     p.dt = FLT_MAX;
     p.dtNew() = FLT_MAX;
@@ -568,6 +569,7 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         myParts[i].fBallMax() = HUGE;
         myParts[i].fESNrate() = 0.0;
         myParts[i].fTimeCoolIsOffUntil() = 0.0;
+        myParts[i].dTimeFB() = 0.0;
 #ifdef DTADJUST
         myParts[i].dt = FLT_MAX;
         myParts[i].dtNew() = FLT_MAX;
@@ -1432,7 +1434,7 @@ inline int64_t *iOrderBoundaries(int nPieces, int64_t nMaxOrder)
 ///
 /// @brief Reorder particles for output
 ///
-void TreePiece::reOrder(int64_t _nMaxOrder, CkCallback& cb)
+void TreePiece::reOrder(int64_t _nMaxOrder, const CkCallback& cb)
 {
     callback = cb; // Save callback for after shuffle
     int *counts = new int[numTreePieces];
@@ -1843,7 +1845,7 @@ void TreePiece::oneNodeOutVec(OutputParams& params,
 			      int nPart, // number of elements in avOut
 			      int iIndex, // treepiece which called me
 			      int bDone, // Last call
-			      CkCallback& cb) 
+			      const CkCallback& cb)
 {
     FILE* outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
     if(outfile == NULL)
@@ -1890,7 +1892,7 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
 			      int nPart, // length of adOut
 			      int iIndex, // treepiece which called me
 			      int bDone, // Last call
-			      CkCallback& cb) 
+			      const CkCallback& cb)
 {
     FILE* outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
     if(outfile == NULL)
@@ -1929,7 +1931,7 @@ void TreePiece::oneNodeOutIntArr(OutputParams& params,
 			      int *aiOut, // array to be output
 			      int nPart, // length of adOut
 			      int iIndex, // treepiece which called me
-			      CkCallback& cb) 
+			      const CkCallback& cb)
 {
     FILE* outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
     if(outfile == NULL)

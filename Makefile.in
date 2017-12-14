@@ -49,10 +49,6 @@ OPTS = @OPTS@ # compiler options
 # -DCUDA_NO_KERNELS
 # -DCUDA_NO_ACC_UPDATES
 #
-# emulation mode:
-# -DCUDA_EMU_KERNEL_PART_PRINTS
-# -DCUDA_EMU_KERNEL_NODE_PRINTS
-#
 # print errors returned by CUDA calls:
 # -DCUDA_PRINT_ERRORS
 #
@@ -166,7 +162,9 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
 	  MultistepLB_notopo.o MultistepNodeLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
-	  FastMultipole.o cha_commitid.o externalGravity.o \
+	  FastMultipole.o \
+	  sinks.o \
+	  cha_commitid.o externalGravity.o \
 	  @OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
@@ -175,7 +173,8 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManage
 	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C HierarchOrbLB.C starform.C \
 	MultistepLB_notopo.C MultistepNodeLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
 	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C externalGravity.C \
-	imf.C feedback.C supernova.C supernovaia.C starlifetime.C
+	starform.C feedback.C imf.C supernova.C supernovaia.C starlifetime.C \
+	sinks.C
 
 ifneq (,$(ENABLE_CUDA))
   CXXFLAGS += $(NVCC_INC)
@@ -244,8 +243,12 @@ libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 libmoduleHierarchOrbLB.a: HierarchOrbLB.o
 	$(CHARMC) -o libmoduleHierarchOrbLB.a HierarchOrbLB.o
 
-%.decl.h %.def.h : $(SOURCE_DIR)/%.ci
+%.ci.stamp: $(SOURCE_DIR)/%.ci
 	$(CHARMC) -E $(DEFINE_FLAGS) $<
+	touch $@
+
+%.decl.h %.def.h: %.ci.stamp
+	@true
 
 HostCUDA.o: $(SOURCE_DIR)/HostCUDA.cu $(SOURCE_DIR)/HostCUDA.h
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) $<
@@ -272,7 +275,7 @@ dist:
 	rm -Rf $(TARGET)-$(VERSION)
 
 clean:
-	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h charmrun conv-host 
+	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h *.ci.stamp charmrun conv-host
 	rm -f *.o *.a
 	cd $(STRUCTURES_PATH); $(MAKE) clean
 

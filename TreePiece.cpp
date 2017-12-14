@@ -1589,6 +1589,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 		       const CkCallback& cb) {
   int iCurrMaxRung = 0;
   int nMaxRung = 0;  // number of particles in maximum rung
+  int iCurrMaxRungGas = 0;
   
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     GravityParticle *p = &myParticles[i];
@@ -1705,6 +1706,8 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	  }
       else if(iNewRung == iCurrMaxRung)
 	  nMaxRung++;
+      if(iNewRung > iCurrMaxRungGas && myParticles[i].isGas())
+          iCurrMaxRungGas = iNewRung;
       myParticles[i].rung = iNewRung;
 #ifdef NEED_DT
       myParticles[i].dt = dTIdeal;
@@ -1712,10 +1715,11 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
     }
   }
   // Pack into array for reduction
-  int64_t newcount[2];
+  int64_t newcount[3];
   newcount[0] = iCurrMaxRung;
   newcount[1] = nMaxRung;
-  contribute(2*sizeof(int64_t), newcount, max_count, cb);
+  newcount[2] = iCurrMaxRungGas;
+  contribute(3*sizeof(int64_t), newcount, max_count, cb);
 }
 
 void TreePiece::truncateRung(int iCurrMaxRung, const CkCallback& cb) {
@@ -1751,6 +1755,17 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
 	  }
       }
   contribute(2*sizeof(int64_t), nActive, CkReduction::sum_long, cb);
+}
+
+void TreePiece::countType(int iType, const CkCallback& cb) {
+  int nCount = 0;
+
+  for(unsigned int i = 1; i <= myNumParticles; ++i) {
+      if(TYPETest(&myParticles[i], iType)) {
+	  nCount++;
+	  }
+      }
+  contribute(sizeof(int), &nCount, CkReduction::sum_int, cb);
 }
 
 void TreePiece::gatherInteracts(const CkCallback& cb) {
@@ -3285,6 +3300,25 @@ void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
       return;
   }
 
+  // If this piece has no particles send the request elsewhere
+  if(myNumParticles == 0) {
+      int first, last;
+      bool bIsShared = nodeOwnership(key, first, last);
+      if(verbosity > 0) {
+          CkPrintf("requestRemote empty piece %d: %d %d %d\n", thisIndex,
+                   first, last, bIsShared);
+          CkPrintf("requestRemote resp. pieces %d: %d %d\n", thisIndex,
+                   getResponsibleIndex(first, first),
+                   getResponsibleIndex(last, last));
+      }
+      int iResp = getResponsibleIndex(first, first);
+      if (iResp == thisIndex)
+          iResp = getResponsibleIndex(last, last);
+      CkAssert(iResp !=  thisIndex);
+      streamingProxy[iResp].requestRemoteMoments(key, sender);
+      return;
+      }
+
   // If this node is NULL and outside this TP range (last Particle < key firstKey)
   // and if so send it to my right neighbor.
   // If the TP first particle > key last key, then send it to my left neighbor.
@@ -3301,9 +3335,11 @@ void TreePiece::requestRemoteMoments(const Tree::NodeKey key, int sender) {
 
   if (myParticles[myNumParticles].key < firstKey
       && thisIndex < numTreePieces-1) {
-    streamingProxy[thisIndex+1].requestRemoteMoments(key, sender);
+      int iNextIndex = dm->responsibleIndex[myPlace + 1];
+      streamingProxy[iNextIndex].requestRemoteMoments(key, sender);
   } else if (myParticles[1].key > lastKey && thisIndex > 0) {
-    streamingProxy[thisIndex-1].requestRemoteMoments(key, sender);
+      int iPrevIndex = dm->responsibleIndex[myPlace - 1];
+      streamingProxy[iPrevIndex].requestRemoteMoments(key, sender);
   } else {
 
     // Save request for when we've calculated the moment.
@@ -3732,6 +3768,31 @@ void TreePiece::finishBucket(int iBucket) {
     }
   }
 }
+
+#ifdef CUDA
+/// @brief update particle accelerations with GPU results
+void TreePiece::updateParticles(intptr_t data, int partIndex) {
+    VariablePartData *deviceParticles = ((UpdateParticlesStruct *)data)->buf;
+
+    for(int j = 1; j <= myNumParticles; j++){
+        if(isActive(j)){
+#ifndef CUDA_NO_ACC_UPDATES
+            myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x;
+            myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y;
+            myParticles[j].treeAcceleration.z += deviceParticles[partIndex].a.z;
+            myParticles[j].potential += deviceParticles[partIndex].potential;
+            myParticles[j].dtGrav = fmax(myParticles[j].dtGrav,
+                                         deviceParticles[partIndex].dtGrav);
+#endif
+            if(!largePhase()) partIndex++;
+            }
+        if(largePhase()) partIndex++;
+        }
+
+    dm->updateParticlesFreeMemory((UpdateParticlesStruct *)data);
+    continueWrapUp();
+    }
+#endif
 
 void TreePiece::continueWrapUp(){
 #ifdef CHECK_WALK_COMPLETIONS
@@ -4804,7 +4865,7 @@ void TreePiece::recvPushAccelerations(CkReductionMsg *msg){
 }
 #endif
 
-void TreePiece::findTotalMass(CkCallback &cb){
+void TreePiece::findTotalMass(const CkCallback &cb){
   callback = cb;
   myTotalMass = 0;
   for(int i = 1; i <= myNumParticles; i++){
@@ -4859,6 +4920,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     nodeLBMgrProxy.ckLocalBranch()->finishedTPWork();
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
+    bBucketsInited = true;
     return;
   }
   
@@ -5277,7 +5339,7 @@ void TreePiece::setTreePieceLoad(int activeRung) {
 
   // jetley - contribute your centroid. AtSync is now called by the load balancer (broadcast) when it has
   // all centroids.
-void TreePiece::startlb(CkCallback &cb, int activeRung){
+void TreePiece::startlb(const CkCallback &cb, int activeRung){
 
   if(verbosity > 1)
      CkPrintf("[%d] load set to: %g, actual: %g\n", thisIndex, treePieceLoad, getObjTime());  
@@ -5330,10 +5392,12 @@ void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
 
   setTreePieceLoad(lbActiveRung);
 
-  if (CkpvAccess(_lb_obj_index) != -1) {
-    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
-    *(TaggedVector3D *) data = tv;
-  }
+  if (foundLB != Null) {
+      if (CkpvAccess(_lb_obj_index) != -1) {
+          void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+          *(TaggedVector3D *) data = tv;
+          }
+      }
   thisProxy[thisIndex].doAtSync();
   prevLARung = lbActiveRung;
 }
@@ -5590,10 +5654,7 @@ void TreePiece::pup(PUP::er& p) {
   p | savedPhaseParticle;
 
   // jetley
-  p | proxy;
   p | foundLB;
-  p | proxyValid;
-  p | proxySet;
   p | savedCentroid;
   p | prevLARung;
 
@@ -6007,7 +6068,7 @@ CkReduction::reducerType TreePieceStatistics::sum;
  * Collect treewalking statistics across all TreePieces
  */
 
-void TreePiece::collectStatistics(CkCallback& cb) {
+void TreePiece::collectStatistics(const CkCallback& cb) {
   LBTurnInstrumentOff();
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
 
@@ -6481,7 +6542,7 @@ void TreePiece::memCacheStats(const CkCallback &cb)
     contribute(4*sizeof(int), memOut, CkReduction::max_int, cb);
 }
 
-void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
+void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
   LDObjHandle handle = myRec->getLdHandle();
   LBDatabase *lbdb = LBDatabaseObj();
   int nlbs = lbdb->getNLoadBalancers(); 
@@ -6528,47 +6589,41 @@ void TreePiece::balanceBeforeInitialForces(CkCallback &cb){
   if(foundLB == Null){
     for(i = 0; i < nlbs; i++){
       if(msname == string(lbs[i]->lbName())){ 
-      	proxy = lbs[i]->getGroupID();
         foundLB = Multistep;
-	proxy = lbs[i]->getGroupID();
         break;
       }
       else if(orb3dname == string(lbs[i]->lbName())){ 
-      	proxy = lbs[i]->getGroupID();
         foundLB = Orb3d;
-	proxy = lbs[i]->getGroupID();
         break;
       }
      else if(ms_notoponame == string(lbs[i]->lbName())){ 
-        proxy = lbs[i]->getGroupID();
         foundLB = Multistep_notopo;
         break;
       }
      else if(msnode_notoponame == string(lbs[i]->lbName())){ 
-        proxy = lbs[i]->getGroupID();
         foundLB = MultistepNode_notopo;
         break;
       }
      else if(msorb_name == string(lbs[i]->lbName())){ 
-        proxy = lbs[i]->getGroupID();
         foundLB = MultistepOrb;
         break;
       }
       else if(orb3d_notoponame == string(lbs[i]->lbName())){
-      	proxy = lbs[i]->getGroupID();
         foundLB = Orb3d_notopo;
         break;
       } else if(hierarch_name == string(lbs[i]->lbName())) {
-        proxy = lbs[i]->getGroupID();
         foundLB = HierarchOrb;
       }
     }
   }
 
-  if (CkpvAccess(_lb_obj_index) != -1) {
-    void *data = getObjUserData(CkpvAccess(_lb_obj_index));
-    *(TaggedVector3D *)data = tv;
-  }
+  if (foundLB != Null) {        // We found an LB that can use the
+                                // Treepiece's spacial information
+      if (CkpvAccess(_lb_obj_index) != -1) {
+          void *data = getObjUserData(CkpvAccess(_lb_obj_index));
+          *(TaggedVector3D *)data = tv;
+          }
+      }
   thisProxy[thisIndex].doAtSync();
 
   // this will be called in resumeFromSync()
