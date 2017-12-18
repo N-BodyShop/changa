@@ -795,12 +795,14 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
 	    p->uPred() = p->u();
 #ifdef SUPERBUBBLE
         E = p->uHot();
-        T = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
-        double frac = p->massHot()/p->mass;
-        double PoverRho = gammam1*(p->uHot()*frac+p->u()*(1-frac));
-        double fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
-        CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, T, p->fMetals());
-        p->cpHotInit() = 0;
+	if(E > 0) {
+		T = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
+		double frac = p->massHot()/p->mass;
+		double PoverRho = gammam1*(p->uHot()*frac+p->u()*(1-frac));
+		double fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
+		CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, T, p->fMetals());
+		p->cpHotInit() = 0;
+	}
         p->uHotPred() = p->uHot();
 #endif 
 	    }
