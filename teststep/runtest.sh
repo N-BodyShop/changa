@@ -11,6 +11,6 @@
 # one dynamical time in the center of the cluster.
 # compare this with numbers in "pkdtest.log"
 
-../charmrun +p 1 ++mpiexec ++remote-shell "ibrun -o 0" ../ChaNGa -v 1 test_pg.param
+../charmrun +p 8 ++mpiexec ++remote-shell "ibrun -o 0" ../ChaNGa -v 1 test_pg.param
 
 # pkdgrav test_pkd.param
