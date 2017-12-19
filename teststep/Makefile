@@ -20,7 +20,7 @@ pgtest_ms.log:
 	sh runtest.sh #../charmrun +p 2 ../ChaNGa test_pg.param
 	
 testrestart:
-	../charmrun +p 2 ++mpiexec ++remote-shell "ibrun -o 0" ../ChaNGa -dt 0.001 -binout 6 -v 1 test_pg.param
-	../charmrun +p 2 ++mpiexec ++remote-shell "ibrun -o 0" ../ChaNGa -n 15 +restart pgtest_ms.chk0
+	../charmrun +p 8 ++mpiexec ++remote-shell "ibrun -o 0" ../ChaNGa -dt 0.001 -binout 6 -v 1 test_pg.param
+	../charmrun +p 8 ++mpiexec ++remote-shell "ibrun -o 0" ../ChaNGa -n 15 +restart pgtest_ms.chk0
 clean:
 	rm -rf *.chk? pgtest_ms.log pgtest_ms.000* lastcheckpoint

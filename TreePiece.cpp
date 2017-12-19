@@ -3628,11 +3628,21 @@ void TreePiece::doAllBuckets(){
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
   listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+  bool useckloop = false;
+  for (int i = 0; i < numBuckets; i ++) {
+    sLocalGravityState->currentBucket = i;
+    GenericTreeNode *target = bucketList[i];
+    if(target->rungs >= activeRung){
+      doBookKeepingForTargetActive(i, i+1, -1, !useckloop, sLocalGravityState);
+    } else {
+      doBookKeepingForTargetInactive(-1, !useckloop, sLocalGravityState);
+    }
+  }
   listcompute->resetCudaNodeState(state);
   listcompute->resetCudaPartState(state);
 #endif
 // Completely bypass CPU local tree walk
-  thisProxy[thisIndex].nextBucket(msg);
+//  thisProxy[thisIndex].nextBucket(msg);
 
 
 #ifdef CUDA_INSTRUMENT_WRS
@@ -4337,11 +4347,11 @@ int TreePiece::doBookKeepingForTargetActive(int curbucket, int end,
 #endif
 
 #ifdef CUDA
-//CAMBRIDGE      if(bucketList[j]->rungs < activeRung){
+      if(bucketList[j]->rungs < activeRung){
 #endif
         finishBucket(j);
 #ifdef CUDA
-//CAMBRIDGE      }
+      }
 #endif
     }
 

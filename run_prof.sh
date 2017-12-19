@@ -6,4 +6,4 @@
 #SBATCH -p gpu     # queue (partition) -- normal, development, etc.
 #SBATCH -t 00:1:00        # run time (hh:mm:ss) - 1.5 hours
 
-charmrun +p 2 ++mpiexec ++remote-shell "ibrun -o 0" ./ChaNGa -killat 1 ./testdata/testdata.param > CAM_result.out
+charmrun +p 1 ++mpiexec ++remote-shell "ibrun -o 0" ./ChaNGa -killat 1 ./testdata/testdata.param > CAM_result.out

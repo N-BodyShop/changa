@@ -1465,7 +1465,7 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
     bucket = affectedBuckets[i];
     state->counterArrays[0][bucket]--;
 //    state->counterArrays[0][bucket] = 0;
-    //CkPrintf("[%d] bucket %d numAddReq: %d\n", tp->getIndex(), bucket, state->counterArrays[0][bucket]);
+//    CkPrintf("CAM: [%d] bucket %d numAddReq: %d\n", tp->getIndex(), bucket, state->counterArrays[0][bucket]);
     tp->finishBucket(bucket);
   }
 
@@ -1523,8 +1523,8 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
   ILCell temp_ilc;
   memcpy(&flatlists[0], &temp_ilc, fake_totalNumInteractions * sizeof(ILCell));
   for (int i = start_id; i < end_id; i ++) {
-    ((DoubleWalkState *)state)->counterArrays[0][i] ++;
     if (tp->bucketList[i]->rungs >= activeRung) {
+      ((DoubleWalkState *)state)->counterArrays[0][i] ++;
       nodeMarkers[fake_curbucket] = tp->bucketList[i]->nodeArrayIndex;
       int temp_num = 0;
       memcpy(&starts[fake_curbucket], &temp_num, sizeof(int));
