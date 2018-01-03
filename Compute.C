@@ -1451,6 +1451,7 @@ template<class type> int calcParticleForces(TreePiece *tp, int b, int activeRung
 }
 
 void cudaCallbackForAllBuckets(void *param, void *msg) {
+    printf("CALLED!\n");
   CudaRequest *data = (CudaRequest *)param;
   int *affectedBuckets = data->affectedBuckets;
   TreePiece *tp = (TreePiece*)data->tp;

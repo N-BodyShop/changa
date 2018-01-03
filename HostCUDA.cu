@@ -1505,8 +1505,9 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define THREADS_PER_WARP 32
 #define NWARPS_PER_BLOCK (THREADS_PER_BLOCK / THREADS_PER_WARP)
 #define WARP_INDEX (threadIdx.x >> 5)
+#define sp SP[WARP_INDEX]
 #define ROOT 0
-#define OBSERVE_FLAG 0
+#define OBSERVE_FLAG 1
 #define OBSERVING 1
 #define TEXTURE_LOAD 1
 
@@ -1539,7 +1540,7 @@ __global__ void compute_force_gpu_lockstepping(
   CompactPartData       targetparticle;
   CompactPartData       myparticle;
 
-  __shared__ unsigned int sp;
+  __shared__ unsigned int SP[NWARPS_PER_BLOCK];
   __shared__ int Tstack[NWARPS_PER_BLOCK][64];     // Target index stack
   __shared__ int Mstack[NWARPS_PER_BLOCK][64];     // My index stack
 
@@ -1568,9 +1569,9 @@ __global__ void compute_force_gpu_lockstepping(
   int traversedParticles = 0;
 
 
-  int pidx = threadIdx.x % 32;
+  pidx = threadIdx.x % 32;
   int bucketId = blockIdx.x * NWARPS_PER_BLOCK + WARP_INDEX;
-  int bucketStart = buckets[bucketId];
+  int bucketStart = bucketStarts[bucketId];
   int bucketEnd = bucketStart + bucketSizes[bucketId];
   for (pidx += bucketStart; pidx < bucketEnd; pidx += 32) {
 #ifdef TEXTURE_LOAD
@@ -1583,6 +1584,10 @@ __global__ void compute_force_gpu_lockstepping(
     acc.z = 0;
     pot = 0;
     idt2 = 0;
+
+    if (OBSERVE_FLAG && OBSERVING == pidx) {
+        printf("pidx %d entered the GPU Kernel! gridDim.x = %d, blockDim.x = %d\n", pidx, gridDim.x, blockDim.x);
+    }
 
     while(sp >= 1) {
       cur_target_index = STACK_TOP_TARGET_INDEX;
