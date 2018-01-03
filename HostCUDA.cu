@@ -404,6 +404,8 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
       (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
+      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
+      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
       ptr->fperiod, 
       ptr->totalNumOfParticles,
       ptr->theta,
@@ -757,8 +759,13 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 
 #ifdef CAMBRIDGE
   // Small trick here. +1 to avoid the zero value.
-  gravityKernel.dimGrid = data->totalNumOfParticles / THREADS_PER_BLOCK+1;
+/*  gravityKernel.dimGrid = data->totalNumOfParticles / THREADS_PER_BLOCK+1;
+   gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);*/
+
+  int WARPS_PER_BLOCK = THREADS_PER_BLOCK / 32;
+  gravityKernel.dimGrid = numBlocks / WARPS_PER_BLOCK + 1;
   gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
+
 #endif
 
 	gravityKernel.smemSize = 0;
@@ -1515,6 +1522,8 @@ __global__ void compute_force_gpu_lockstepping(
     VariablePartData *particleVars,
     CudaMultipoleMoments* moments,
     int *ilmarks,
+    int *bucketStarts,
+    int *bucketSizes,
     cudatype fperiod,
     int totalNumOfParticles,
     cudatype theta,

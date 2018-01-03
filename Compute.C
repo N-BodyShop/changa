@@ -1526,9 +1526,14 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
     if (tp->bucketList[i]->rungs >= activeRung) {
       ((DoubleWalkState *)state)->counterArrays[0][i] ++;
       nodeMarkers[fake_curbucket] = tp->bucketList[i]->nodeArrayIndex;
-      int temp_num = 0;
-      memcpy(&starts[fake_curbucket], &temp_num, sizeof(int));
-      memcpy(&sizes[fake_curbucket], &temp_num, sizeof(int));
+      if(tp->largePhase()){
+        GenericTreeNode *bucketNode = tp->bucketList[i];
+        sizes[fake_curbucket] = bucketNode->lastParticle - bucketNode->firstParticle + 1;
+        starts[fake_curbucket] = bucketNode->bucketArrayIndex;
+      } else {
+        sizes[fake_curbucket] = tp->bucketActiveInfo[i].size;
+        starts[fake_curbucket] = tp->bucketActiveInfo[i].start;
+      }
       affectedBuckets[fake_curbucket] = i;
       fake_curbucket++;
     }
