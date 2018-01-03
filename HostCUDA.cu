@@ -1511,11 +1511,11 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define TEXTURE_LOAD 1
 
 // Used in lockstepping, sync for threads in a warp
-#define STACK_INIT() sp = 1; Tstack[sp] = ROOT; Mstack[sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
+#define STACK_INIT() sp = 1; Tstack[WARP_INDEX][sp] = ROOT; Mstack[WARP_INDEX][sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
 #define STACK_POP() sp -= 1
 #define STACK_PUSH() sp += 1
-#define STACK_TOP_TARGET_INDEX Tstack[sp]
-#define STACK_TOP_MY_INDEX Mstack[sp]
+#define STACK_TOP_TARGET_INDEX Tstack[WARP_INDEX][sp]
+#define STACK_TOP_MY_INDEX Mstack[WARP_INDEX][sp]
 
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
@@ -1539,9 +1539,9 @@ __global__ void compute_force_gpu_lockstepping(
   CompactPartData       targetparticle;
   CompactPartData       myparticle;
 
-  unsigned int sp;
-  int Tstack[64];     // Target index stack
-  int Mstack[64];     // My index stack
+  __shared__ unsigned int sp;
+  __shared__ int Tstack[NWARPS_PER_BLOCK][64];     // Target index stack
+  __shared__ int Mstack[NWARPS_PER_BLOCK][64];     // My index stack
 
   // variable for current particle
   CompactPartData p;
@@ -1567,9 +1567,12 @@ __global__ void compute_force_gpu_lockstepping(
   int traversedNodes = 0;
   int traversedParticles = 0;
 
-  for(pidx = blockIdx.x*blockDim.x + threadIdx.x; pidx < totalNumOfParticles; pidx += gridDim.x*blockDim.x) {
-//    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
-    // initialize the variables belonging to current thread
+
+  int pidx = threadIdx.x % 32;
+  int bucketId = blockIdx.x * NWARPS_PER_BLOCK + WARP_INDEX;
+  int bucketStart = buckets[bucketId];
+  int bucketEnd = bucketStart + bucketSizes[bucketId];
+  for (pidx += bucketStart; pidx < bucketEnd; pidx += 32) {
 #ifdef TEXTURE_LOAD
     cuda_ldg_cPartData(myparticle, &particleCores[pidx]);
 #else
@@ -1580,12 +1583,6 @@ __global__ void compute_force_gpu_lockstepping(
     acc.z = 0;
     pot = 0;
     idt2 = 0;
-
-    if (OBSERVE_FLAG && OBSERVING == pidx) {
-      printf("pidx %d entered the GPU Kernel! gridDim.x = %d, blockDim.x = %d\n", pidx, gridDim.x, blockDim.x);
-    }
-
-    STACK_INIT();
 
     while(sp >= 1) {
       cur_target_index = STACK_TOP_TARGET_INDEX;
