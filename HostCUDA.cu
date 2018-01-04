@@ -766,6 +766,8 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
   gravityKernel.dimGrid = numBlocks / WARPS_PER_BLOCK + 1;
   gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 
+    printf("numBlocks = %d, dimGrid = %d\n", numBlocks, gravityKernel.dimGrid);
+
 #endif
 
 	gravityKernel.smemSize = 0;
@@ -1587,7 +1589,10 @@ __global__ void compute_force_gpu_lockstepping(
 
     if (OBSERVE_FLAG && OBSERVING == pidx) {
         printf("pidx %d entered the GPU Kernel! gridDim.x = %d, blockDim.x = %d\n", pidx, gridDim.x, blockDim.x);
+        printf("bucketStart = %d, bucketEnd = %d\n", bucketStart, bucketEnd);
     }
+
+    STACK_INIT();
 
     while(sp >= 1) {
       cur_target_index = STACK_TOP_TARGET_INDEX;
@@ -1756,7 +1761,7 @@ __global__ void compute_force_gpu_lockstepping(
     particleVars[pidx].numOfParticlesTraversed = traversedParticles;
 
     if (OBSERVE_FLAG && OBSERVING == pidx) {
-      printf("pidx %d exit the GPU Kernel!\n", pidx);
+      printf("pidx %d exit the GPU Kernel! acc.y = %f\n", pidx, acc.y);
     }
   }
 }
