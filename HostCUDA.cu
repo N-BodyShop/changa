@@ -1528,17 +1528,18 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define THREADS_PER_WARP 32
 #define NWARPS_PER_BLOCK (THREADS_PER_BLOCK / THREADS_PER_WARP)
 #define WARP_INDEX (threadIdx.x >> 5)
+#define sp SP[WARP_INDEX]
 #define ROOT 0
 #define OBSERVE_FLAG 0
 #define OBSERVING 1
 #define TEXTURE_LOAD 1
 
 // Used in lockstepping, sync for threads in a warp
-#define STACK_INIT() sp = 1; Tstack[sp] = ROOT; Mstack[sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
+#define STACK_INIT() sp = 1; Tstack[WARP_INDEX][sp] = ROOT; Mstack[WARP_INDEX][sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
 #define STACK_POP() sp -= 1
 #define STACK_PUSH() sp += 1
-#define STACK_TOP_TARGET_INDEX Tstack[sp]
-#define STACK_TOP_MY_INDEX Mstack[sp]
+#define STACK_TOP_TARGET_INDEX Tstack[WARP_INDEX][sp]
+#define STACK_TOP_MY_INDEX Mstack[WARP_INDEX][sp]
 
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
@@ -1560,9 +1561,10 @@ __global__ void compute_force_gpu_lockstepping(
   CompactPartData       targetparticle;
   CompactPartData       myparticle;
 
-  unsigned int sp;
-  int Tstack[64];     // Target index stack
-  int Mstack[64];     // My index stack
+//  unsigned int sp;
+  __shared__ unsigned int SP[NWARPS_PER_BLOCK];
+  __shared__ int Tstack[NWARPS_PER_BLOCK][64];     // Target index stack
+  __shared__ int Mstack[NWARPS_PER_BLOCK][64];     // My index stack
 
   // variable for current particle
   CompactPartData p;
@@ -1588,6 +1590,10 @@ __global__ void compute_force_gpu_lockstepping(
   int traversedNodes = 0;
   int traversedParticles = 0;
 
+  int flag = 1;
+  int critical = 63;
+  int skip = -1;
+
   for(pidx = blockIdx.x*blockDim.x + threadIdx.x; pidx < totalNumOfParticles; pidx += gridDim.x*blockDim.x) {
 //    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
     // initialize the variables belonging to current thread
@@ -1609,6 +1615,22 @@ __global__ void compute_force_gpu_lockstepping(
     STACK_INIT();
 
     while(sp >= 1) {
+      
+/*    if (OBSERVE_FLAG && OBSERVING == pidx) {
+        printf("sp = %d, target_index = %d, my_index = %d\n", sp, STACK_TOP_TARGET_INDEX, STACK_TOP_MY_INDEX);
+        for (int k = sp; k > 0; k --) {
+            printf("    k = %d, target: %d, my : %d\n", k, Tstack[k], Mstack[k]);
+        }
+    }*/
+
+      if (skip == sp) {
+        skip = -1;
+        flag = 0;
+        critical = sp - 1;
+      } else if (critical >= sp) {
+        flag = 1;
+      }
+
       cur_target_index = STACK_TOP_TARGET_INDEX;
       cur_my_index = STACK_TOP_MY_INDEX;
 #ifdef TEXTURE_LOAD
@@ -1620,30 +1642,19 @@ __global__ void compute_force_gpu_lockstepping(
 #endif
       STACK_POP();
 
-      // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
-      int offsetID = cuda_encodeOffset(0, 0, 0, 0);
-//      int reqID = cuda_reEncodeOffset(mynode.bucketIndex, targetnode.offsetID);
-      int reqID = cuda_reEncodeOffset(mynode.bucketIndex, offsetID);
-      CudaVector3D offset = cuda_decodeOffset(reqID, fperiod);
-      int open = cuda_openCriterionNode(targetnode, mynode, offset, -1, theta, thetaMono);
+      if (flag) {
+        // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
+        int offsetID = cuda_encodeOffset(0, 0, 0, 0);
+  //      int reqID = cuda_reEncodeOffset(mynode.bucketIndex, targetnode.offsetID);
+        int reqID = cuda_reEncodeOffset(mynode.bucketIndex, offsetID);
+        CudaVector3D offset = cuda_decodeOffset(reqID, fperiod);
+        int open = cuda_openCriterionNode(targetnode, mynode, offset, -1, theta, thetaMono);
 
-      int action = cuda_OptAction(open, targetnode.type);
-      
-      if (action == KEEP) {
-        if (open == CONTAIN) {
-          // if open == CONTAIN, push chilren in stack
-          if (targetnode.children[1] != -1) {
-            STACK_PUSH();
-            STACK_TOP_TARGET_INDEX = targetnode.children[1];
-            STACK_TOP_MY_INDEX = cur_my_index;
-          }
-          if (targetnode.children[0] != -1) {
-            STACK_PUSH();
-            STACK_TOP_TARGET_INDEX = targetnode.children[0];
-            STACK_TOP_MY_INDEX = cur_my_index;
-          }
-        } else if (open == INTERSECT) {
-          if (mynode.type == cuda_Bucket) {
+        int action = cuda_OptAction(open, targetnode.type);
+        
+        if (action == KEEP) {
+          if (open == CONTAIN) {
+            // if open == CONTAIN, push chilren in stack
             if (targetnode.children[1] != -1) {
               STACK_PUSH();
               STACK_TOP_TARGET_INDEX = targetnode.children[1];
@@ -1654,115 +1665,148 @@ __global__ void compute_force_gpu_lockstepping(
               STACK_TOP_TARGET_INDEX = targetnode.children[0];
               STACK_TOP_MY_INDEX = cur_my_index;
             }
-          } else {
-            int child_id = mynode.children[0];
-            bool left = (child_id != -1);
-            if (left) {
-              int start_pidx = moments[child_id].bucketStart;
-              int end_pidx = start_pidx + moments[child_id].bucketSize;
-              left = (start_pidx <= pidx && pidx < end_pidx);
-            }
-
-            if (left) {
-              STACK_PUSH();
-              STACK_TOP_TARGET_INDEX = cur_target_index;
-              STACK_TOP_MY_INDEX = mynode.children[0];
-            } else if (mynode.children[1] != -1){
-              STACK_PUSH();
-              STACK_TOP_TARGET_INDEX = cur_target_index;
-              STACK_TOP_MY_INDEX = mynode.children[1];
+          } else if (open == INTERSECT) {
+            if (mynode.type == cuda_Bucket) {
+              if (targetnode.children[1] != -1) {
+                STACK_PUSH();
+                STACK_TOP_TARGET_INDEX = targetnode.children[1];
+                STACK_TOP_MY_INDEX = cur_my_index;
+              }
+              if (targetnode.children[0] != -1) {
+                STACK_PUSH();
+                STACK_TOP_TARGET_INDEX = targetnode.children[0];
+                STACK_TOP_MY_INDEX = cur_my_index;
+              }
             } else {
-              continue;
+              int child_id = mynode.children[0];
+              bool left = (child_id != -1);
+              if (left) {
+                int start_pidx = moments[child_id].bucketStart;
+                int end_pidx = start_pidx + moments[child_id].bucketSize;
+                left = (start_pidx <= pidx && pidx < end_pidx);
+              }
+              
+              bool right = (!left && mynode.children[1] != -1);
+
+              if (__any(right) && __any(left)) {
+                STACK_PUSH();
+                STACK_TOP_TARGET_INDEX = cur_target_index;
+                STACK_TOP_MY_INDEX = mynode.children[1];
+
+                STACK_PUSH();
+                STACK_TOP_TARGET_INDEX = cur_target_index;
+                STACK_TOP_MY_INDEX = mynode.children[0];
+
+                if (right) {
+                  flag = 0;
+                  critical = sp - 1;
+                } else {
+                  flag = 1;
+                  skip = sp - 1;
+                }
+              } else if (left) {
+                STACK_PUSH();
+                STACK_TOP_TARGET_INDEX = cur_target_index;
+                STACK_TOP_MY_INDEX = mynode.children[0];
+              } else if (mynode.children[1] != -1){
+                STACK_PUSH();
+                STACK_TOP_TARGET_INDEX = cur_target_index;
+                STACK_TOP_MY_INDEX = mynode.children[1];
+              } else {
+                continue;
+              }
             }
           }
-        }
-      } else if (action == COMPUTE) {        
-        traversedNodes ++;
-        if (cuda_openSoftening(targetnode, mynode, offset)) {
-          r.x = ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x) - myparticle.position.x;
-          r.y = ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y) - myparticle.position.y;
-          r.z = ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z) - myparticle.position.z;
+        } else if (action == COMPUTE) {        
+          traversedNodes ++;
+          if (cuda_openSoftening(targetnode, mynode, offset)) {
+            r.x = ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x) - myparticle.position.x;
+            r.y = ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y) - myparticle.position.y;
+            r.z = ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z) - myparticle.position.z;
 
-          rsq = r.x*r.x + r.y*r.y + r.z*r.z; 
-          twoh = targetnode.soft + myparticle.soft;
+            rsq = r.x*r.x + r.y*r.y + r.z*r.z; 
+            twoh = targetnode.soft + myparticle.soft;
+            cudatype a, b;
+            if (rsq != 0) {
+              cuda_SPLINE(rsq, twoh, a, b);
+              idt2 = fmax(idt2, (myparticle.mass + targetnode.totalMass) * b);
+
+              pot -= targetnode.totalMass * a;
+
+              acc.x += r.x*b*targetnode.totalMass;
+              acc.y += r.y*b*targetnode.totalMass;
+              acc.z += r.z*b*targetnode.totalMass;
+            }
+            continue;
+          }
+          // compute with the node targetnode
+          r.x = myparticle.position.x - ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x);
+          r.y = myparticle.position.y - ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y);
+          r.z = myparticle.position.z - ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z);
+
+          rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
+          if (rsq != 0) {
+            cudatype dir = rsqrt(rsq);     
+  #if defined (HEXADECAPOLE)
+            CUDA_momEvalFmomrcm(&targetnode, &r, dir, &acc, &pot);
+            idt2 = fmax(idt2, (myparticle.mass + targetnode.totalMass)*dir*dir*dir);
+  #else
+            cudatype a, b, c, d;
+            twoh = targetnode.soft + myparticle.soft;
+            cuda_SPLINEQ(dir, rsq, twoh, a, b, c, d);
+
+            cudatype qirx = targetnode.xx*r.x + targetnode.xy*r.y + targetnode.xz*r.z;
+            cudatype qiry = targetnode.xy*r.x + targetnode.yy*r.y + targetnode.yz*r.z;
+            cudatype qirz = targetnode.xz*r.x + targetnode.yz*r.y + targetnode.zz*r.z;
+            cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
+            cudatype tr = 0.5*(targetnode.xx + targetnode.yy + targetnode.zz);
+            cudatype qir3 = b*targetnode.totalMass + d*qir - c*tr;
+
+            pot -= targetnode.totalMass * a + c*qir - b*tr;
+            acc.x -= qir3*r.x - c*qirx;
+            acc.y -= qir3*r.y - c*qiry;
+            acc.z -= qir3*r.z - c*qirz;
+            idt2 = fmax(idt2, (myparticle.mass + targetnode.totalMass)*b);    
+  #endif 
+          }
+        } else if (action == KEEP_LOCAL_BUCKET) {
+          // compute with each particle contained by node targetnode
+          int target_firstparticle = targetnode.bucketStart;
+          int target_lastparticle = targetnode.bucketStart + targetnode.bucketSize;
           cudatype a, b;
-          if (rsq != 0) {
-            cuda_SPLINE(rsq, twoh, a, b);
-            idt2 = fmax(idt2, (myparticle.mass + targetnode.totalMass) * b);
+          for (i = target_firstparticle; i < target_lastparticle; i ++) {
+  #ifdef TEXTURE_LOAD
+            cuda_ldg_cPartData(targetparticle, &particleCores[i]);
+  #else
+            targetparticle = particleCores[i];
+  #endif
+            traversedParticles ++;
 
-            pot -= targetnode.totalMass * a;
+            r.x = (((reqID >> 22) & 0x7)-3)*fperiod + targetparticle.position.x - myparticle.position.x;
+            r.y = (((reqID >> 25) & 0x7)-3)*fperiod + targetparticle.position.y - myparticle.position.y;
+            r.z = (((reqID >> 28) & 0x7)-3)*fperiod + targetparticle.position.z - myparticle.position.z;
 
-            acc.x += r.x*b*targetnode.totalMass;
-            acc.y += r.y*b*targetnode.totalMass;
-            acc.z += r.z*b*targetnode.totalMass;
+            rsq = r.x*r.x + r.y*r.y + r.z*r.z;       
+            twoh = targetparticle.soft + myparticle.soft;
+            if (rsq != 0) {
+              cuda_SPLINE(rsq, twoh, a, b);
+
+              pot -= targetparticle.mass * a;
+
+              acc.x += r.x*b*targetparticle.mass;
+              acc.y += r.y*b*targetparticle.mass;
+              acc.z += r.z*b*targetparticle.mass;
+              idt2 = fmax(idt2, (myparticle.mass + targetparticle.mass) * b);
+            }
           }
-          continue;
+        } else if (action == DUMP || action == NOP) {
+          // do nothing here
+        } else {
+          printf("We got into a trouble in compute_force_gpu_lockstepping!\n");
         }
-        // compute with the node targetnode
-        r.x = myparticle.position.x - ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x);
-        r.y = myparticle.position.y - ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y);
-        r.z = myparticle.position.z - ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z);
-
-        rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
-        if (rsq != 0) {
-          cudatype dir = rsqrt(rsq);     
-#if defined (HEXADECAPOLE)
-          CUDA_momEvalFmomrcm(&targetnode, &r, dir, &acc, &pot);
-          idt2 = fmax(idt2, (myparticle.mass + targetnode.totalMass)*dir*dir*dir);
-#else
-          cudatype a, b, c, d;
-          twoh = targetnode.soft + myparticle.soft;
-          cuda_SPLINEQ(dir, rsq, twoh, a, b, c, d);
-
-          cudatype qirx = targetnode.xx*r.x + targetnode.xy*r.y + targetnode.xz*r.z;
-          cudatype qiry = targetnode.xy*r.x + targetnode.yy*r.y + targetnode.yz*r.z;
-          cudatype qirz = targetnode.xz*r.x + targetnode.yz*r.y + targetnode.zz*r.z;
-          cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
-          cudatype tr = 0.5*(targetnode.xx + targetnode.yy + targetnode.zz);
-          cudatype qir3 = b*targetnode.totalMass + d*qir - c*tr;
-
-          pot -= targetnode.totalMass * a + c*qir - b*tr;
-          acc.x -= qir3*r.x - c*qirx;
-          acc.y -= qir3*r.y - c*qiry;
-          acc.z -= qir3*r.z - c*qirz;
-          idt2 = fmax(idt2, (myparticle.mass + targetnode.totalMass)*b);    
-#endif 
-        }
-      } else if (action == KEEP_LOCAL_BUCKET) {
-        // compute with each particle contained by node targetnode
-        int target_firstparticle = targetnode.bucketStart;
-        int target_lastparticle = targetnode.bucketStart + targetnode.bucketSize;
-        cudatype a, b;
-        for (i = target_firstparticle; i < target_lastparticle; i ++) {
-#ifdef TEXTURE_LOAD
-          cuda_ldg_cPartData(targetparticle, &particleCores[i]);
-#else
-          targetparticle = particleCores[i];
-#endif
-          traversedParticles ++;
-
-          r.x = (((reqID >> 22) & 0x7)-3)*fperiod + targetparticle.position.x - myparticle.position.x;
-          r.y = (((reqID >> 25) & 0x7)-3)*fperiod + targetparticle.position.y - myparticle.position.y;
-          r.z = (((reqID >> 28) & 0x7)-3)*fperiod + targetparticle.position.z - myparticle.position.z;
-
-          rsq = r.x*r.x + r.y*r.y + r.z*r.z;       
-          twoh = targetparticle.soft + myparticle.soft;
-          if (rsq != 0) {
-            cuda_SPLINE(rsq, twoh, a, b);
-
-            pot -= targetparticle.mass * a;
-
-            acc.x += r.x*b*targetparticle.mass;
-            acc.y += r.y*b*targetparticle.mass;
-            acc.z += r.z*b*targetparticle.mass;
-            idt2 = fmax(idt2, (myparticle.mass + targetparticle.mass) * b);
-          }
-        }
-      } else if (action == DUMP || action == NOP) {
-        // do nothing here
-      } else {
-        printf("We got into a trouble in compute_force_gpu_lockstepping!\n");
       }
+
+      
     }
 
     particleVars[pidx].a.x += acc.x;
