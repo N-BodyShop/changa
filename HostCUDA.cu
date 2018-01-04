@@ -1530,7 +1530,7 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define WARP_INDEX (threadIdx.x >> 5)
 #define sp SP[WARP_INDEX]
 #define ROOT 0
-#define OBSERVE_FLAG 0
+#define OBSERVE_FLAG 1
 #define OBSERVING 1
 #define TEXTURE_LOAD 1
 
@@ -1616,12 +1616,12 @@ __global__ void compute_force_gpu_lockstepping(
 
     while(sp >= 1) {
       
-/*    if (OBSERVE_FLAG && OBSERVING == pidx) {
+    if (OBSERVE_FLAG && OBSERVING == pidx) {
         printf("sp = %d, target_index = %d, my_index = %d\n", sp, STACK_TOP_TARGET_INDEX, STACK_TOP_MY_INDEX);
         for (int k = sp; k > 0; k --) {
-            printf("    k = %d, target: %d, my : %d\n", k, Tstack[k], Mstack[k]);
+            printf("    k = %d, target: %d, my : %d\n", k, Tstack[WARP_INDEX][k], Mstack[WARP_INDEX][k]);
         }
-    }*/
+    }
 
       if (skip == sp) {
         skip = -1;
