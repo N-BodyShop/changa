@@ -1598,6 +1598,13 @@ __global__ void compute_force_gpu_lockstepping(
       int open = cuda_openCriterionNode(targetnode, mynode, offset, -1, theta, thetaMono);
 
       int action = cuda_OptAction(open, targetnode.type);
+
+      if (pidx == 1) {
+        printf("pidx = %d, sp = %d, target node: %d, my node: %d, open = %d, action = %d\n", pidx, sp, cur_target_index, cur_my_index, open, action);
+        for (int k = sp; k > 0; k --) {
+            printf("    k = %d, target node:%d, my node: %d\n", k, Tstack[k], Mstack[k]);
+        }
+      }
       
       if (action == KEEP) {
         if (open == CONTAIN) {
