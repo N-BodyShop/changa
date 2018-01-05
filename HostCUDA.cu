@@ -1500,16 +1500,21 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define WARP_INDEX (threadIdx.x >> 5)
 #define sp SP[WARP_INDEX]
 #define ROOT 0
-#define OBSERVE_FLAG 1
+#define OBSERVE_FLAG 0
 #define OBSERVING 1
 #define TEXTURE_LOAD 1
 
+struct footprint {
+  int target;
+  int self;
+};
+
 // Used in lockstepping, sync for threads in a warp
-#define STACK_INIT() sp = 1; Tstack[WARP_INDEX][sp] = ROOT; Mstack[WARP_INDEX][sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
+#define STACK_INIT() sp = 1; stk[WARP_INDEX][sp].target = ROOT; stk[WARP_INDEX][sp].self = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
 #define STACK_POP() sp -= 1
 #define STACK_PUSH() sp += 1
-#define STACK_TOP_TARGET_INDEX Tstack[WARP_INDEX][sp]
-#define STACK_TOP_MY_INDEX Mstack[WARP_INDEX][sp]
+#define STACK_TOP_TARGET_INDEX stk[WARP_INDEX][sp].target
+#define STACK_TOP_MY_INDEX stk[WARP_INDEX][sp].self 
 
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
@@ -1533,8 +1538,10 @@ __global__ void compute_force_gpu_lockstepping(
 
 //  unsigned int sp;
   __shared__ unsigned int SP[NWARPS_PER_BLOCK];
-  __shared__ int Tstack[NWARPS_PER_BLOCK][64];     // Target index stack
-  __shared__ int Mstack[NWARPS_PER_BLOCK][64];     // My index stack
+  __shared__ footprint stk[NWARPS_PER_BLOCK][64];
+
+  unsigned int ssp = 0;
+  int Sstack[32];
 
   // variable for current particle
   CompactPartData p;
@@ -1583,18 +1590,12 @@ __global__ void compute_force_gpu_lockstepping(
     }
 
     STACK_INIT();
+    Sstack[ssp] = -1;
 
     while(sp >= 1) {
-      
-    if (OBSERVE_FLAG && OBSERVING == pidx) {
-        printf("sp = %d, target_index = %d, my_index = %d\n", sp, STACK_TOP_TARGET_INDEX, STACK_TOP_MY_INDEX);
-        for (int k = sp; k > 0; k --) {
-            printf("    k = %d, target: %d, my : %d\n", k, Tstack[WARP_INDEX][k], Mstack[WARP_INDEX][k]);
-        }
-    }
 
-      if (skip == sp) {
-        skip = -1;
+      if (Sstack[ssp] == sp) {
+        ssp --;
         flag = 0;
         critical = sp - 1;
       } else if (critical >= sp) {
@@ -1603,6 +1604,9 @@ __global__ void compute_force_gpu_lockstepping(
 
       cur_target_index = STACK_TOP_TARGET_INDEX;
       cur_my_index = STACK_TOP_MY_INDEX;
+      STACK_POP();
+
+      if (flag) {
 #ifdef TEXTURE_LOAD
       cuda_ldg_moments(targetnode, &moments[cur_target_index]);
       cuda_ldg_moments(mynode, &moments[cur_my_index]);
@@ -1610,16 +1614,12 @@ __global__ void compute_force_gpu_lockstepping(
       targetnode = moments[cur_target_index];
       mynode = moments[cur_my_index];
 #endif
-      STACK_POP();
-
-      if (flag) {
         // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
         int offsetID = cuda_encodeOffset(0, 0, 0, 0);
   //      int reqID = cuda_reEncodeOffset(mynode.bucketIndex, targetnode.offsetID);
         int reqID = cuda_reEncodeOffset(mynode.bucketIndex, offsetID);
         CudaVector3D offset = cuda_decodeOffset(reqID, fperiod);
         int open = cuda_openCriterionNode(targetnode, mynode, offset, -1, theta, thetaMono);
-
         int action = cuda_OptAction(open, targetnode.type);
         
         if (action == KEEP) {
@@ -1672,7 +1672,8 @@ __global__ void compute_force_gpu_lockstepping(
                   critical = sp - 1;
                 } else {
                   flag = 1;
-                  skip = sp - 1;
+                  ssp ++;
+                  Sstack[ssp] = sp - 1;
                 }
               } else if (left) {
                 STACK_PUSH();

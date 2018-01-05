@@ -1167,12 +1167,12 @@ long long totalTraversedParticles = 0;
                                                                                                                           tp->myParticles[j].treeAcceleration.z,
                                                                                                                           tp->myParticles[j].potential);
         }
-      }*/
+      }
 
       printf("The total number of nodeInterLocal is %lld\n", totalTraversedNodes);
       printf("The total number of particleInterLocal is %lld\n", totalTraversedParticles);
       printf("The total time we spent on list construction is %f\n", tp->localListConstructionTime);
-      fflush(stdout);
+      fflush(stdout);*/
 #endif
 
 
