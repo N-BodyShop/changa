@@ -75,7 +75,7 @@ COMPILER_FLAG_REQUIRE([-std=c++11],[ChaNGa requires full C++11 support])
 COMPILER_FLAG_CHECK([-Og], [OPT_DEBUG], [-Og], [-O0])
 
 # Set compiler type
-COMPILER_MACRO_CHECK([__GNUC__],[IS_GNU])
+COMPILER_MACRO_CHECK([__GNUC__],[IS_GNU]) # also true for Clang
 COMPILER_MACRO_CHECK([__ICC__],[IS_ICC])
 
 # @synopsis ARG_ENABLE(name, description, flag_var, val_if_enabled, default_val)
