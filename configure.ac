@@ -176,7 +176,7 @@ fi
 
 # Cooling
 AC_ARG_ENABLE([cooling],
-	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet, cosmo, grackle)])],
+	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet,cosmo,grackle)])],
 	[cooling=$enableval], [cooling=no])
 case $cooling in
 	no|none	) FLAG_COOLING="-DCOOLING_NONE";;
