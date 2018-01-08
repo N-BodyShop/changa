@@ -399,6 +399,7 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
 #endif
   if( wr->bufferInfo[ILCELL_IDX].transferToDevice ){
 #ifdef CAMBRIDGE
+    cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
     compute_force_gpu_lockstepping<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
@@ -757,7 +758,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 
 #ifdef CAMBRIDGE
   // Small trick here. +1 to avoid the zero value.
-  gravityKernel.dimGrid = data->totalNumOfParticles / THREADS_PER_BLOCK+1;
+  gravityKernel.dimGrid = data->totalNumOfParticles / THREADS_PER_BLOCK + 1;
   gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 #endif
 
@@ -1503,6 +1504,7 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define OBSERVE_FLAG 0
 #define OBSERVING 1
 #define TEXTURE_LOAD 1
+#define CHECK_INTERACTION_LISTS 0
 
 struct footprint {
   int target;
@@ -1516,6 +1518,7 @@ struct footprint {
 #define STACK_TOP_TARGET_INDEX stk[WARP_INDEX][sp].target
 #define STACK_TOP_MY_INDEX stk[WARP_INDEX][sp].self 
 
+__launch_bounds__(435,1)
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
     VariablePartData *particleVars,
@@ -1527,8 +1530,8 @@ __global__ void compute_force_gpu_lockstepping(
     cudatype thetaMono) {
 
   int i = 0;
-  int j = 0;
-  int k = 0;
+//  int j = 0;
+//  int k = 0;
   int pidx = 0; // thread id
 
   CudaMultipoleMoments  targetnode;
@@ -1564,12 +1567,13 @@ __global__ void compute_force_gpu_lockstepping(
   cudatype rsq;
   cudatype twoh;
 
+#ifdef CHECK_INTERACTION_LISTS
   int traversedNodes = 0;
   int traversedParticles = 0;
+#endif
 
   int flag = 1;
   int critical = 63;
-  int skip = -1;
 
   for(pidx = blockIdx.x*blockDim.x + threadIdx.x; pidx < totalNumOfParticles; pidx += gridDim.x*blockDim.x) {
 //    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
@@ -1689,7 +1693,9 @@ __global__ void compute_force_gpu_lockstepping(
             }
           }
         } else if (action == COMPUTE) {        
+#ifdef CHECK_INTERACTION_LISTS
           traversedNodes ++;
+#endif
           if (cuda_openSoftening(targetnode, mynode, offset)) {
             r.x = ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x) - myparticle.position.x;
             r.y = ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y) - myparticle.position.y;
@@ -1751,8 +1757,9 @@ __global__ void compute_force_gpu_lockstepping(
   #else
             targetparticle = particleCores[i];
   #endif
+#ifdef CHECK_INTERACTION_LISTS 
             traversedParticles ++;
-
+#endif
             r.x = (((reqID >> 22) & 0x7)-3)*fperiod + targetparticle.position.x - myparticle.position.x;
             r.y = (((reqID >> 25) & 0x7)-3)*fperiod + targetparticle.position.y - myparticle.position.y;
             r.z = (((reqID >> 28) & 0x7)-3)*fperiod + targetparticle.position.z - myparticle.position.z;
@@ -1776,8 +1783,6 @@ __global__ void compute_force_gpu_lockstepping(
           printf("We got into a trouble in compute_force_gpu_lockstepping!\n");
         }
       }
-
-      
     }
 
     particleVars[pidx].a.x += acc.x;
@@ -1786,8 +1791,10 @@ __global__ void compute_force_gpu_lockstepping(
     particleVars[pidx].potential += pot;
     particleVars[pidx].dtGrav = fmax(idt2,  particleVars[pidx].dtGrav);
 
+#ifdef CHECK_INTERACTION_LISTS
     particleVars[pidx].numOfNodesTraversed = traversedNodes;
     particleVars[pidx].numOfParticlesTraversed = traversedParticles;
+#endif
 
     if (OBSERVE_FLAG && OBSERVING == pidx) {
       printf("pidx %d exit the GPU Kernel!\n", pidx);
