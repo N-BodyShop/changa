@@ -1548,7 +1548,8 @@ struct footprint {
 #define STACK_TOP_TARGET_INDEX stk[WARP_INDEX][sp].target
 #define STACK_TOP_MY_INDEX stk[WARP_INDEX][sp].self 
 
-__launch_bounds__(435,1)
+//__launch_bounds__(432,1)
+__launch_bounds__(1024,1)
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
     VariablePartData *particleVars,
@@ -1564,9 +1565,17 @@ __global__ void compute_force_gpu_lockstepping(
 //  int k = 0;
   int pidx = 0; // thread id
 
-  CudaMultipoleMoments  targetnode;
-  CudaMultipoleMoments  mynode;
-  CompactPartData       targetparticle;
+//  CudaMultipoleMoments  targetnode;
+//  CudaMultipoleMoments  mynode;
+//  CompactPartData       targetparticle;
+
+  __shared__ CudaMultipoleMoments TARGETNODE[NWARPS_PER_BLOCK];
+  __shared__ CudaMultipoleMoments MYNODE[NWARPS_PER_BLOCK];
+  __shared__ CompactPartData TARGETPARTICLE[NWARPS_PER_BLOCK];
+#define targetnode TARGETNODE[WARP_INDEX]
+#define mynode MYNODE[WARP_INDEX]
+#define targetparticle TARGETPARTICLE[WARP_INDEX]
+
   CompactPartData       myparticle;
 
 //  unsigned int sp;
@@ -1578,13 +1587,13 @@ __global__ void compute_force_gpu_lockstepping(
 
   // variable for current particle
   CompactPartData p;
-  CudaVector3D acc;
-  cudatype pot;
-  cudatype idt2;
+  CudaVector3D acc = {0,0,0};
+  cudatype pot = 0;
+  cudatype idt2 = 0;
 
-  int cur_target_index;
-  int cur_my_index;
-  cudatype dsq;
+  int cur_target_index = -1;
+  int cur_my_index = -1;
+  cudatype dsq = 0;
 
   // According to the discussion with Prof Tom Quinn, 
   // I don't need to worry about periodic condition.
@@ -1594,8 +1603,8 @@ __global__ void compute_force_gpu_lockstepping(
 
   // variables for CUDA_momEvalFmomrcm
   CudaVector3D r;
-  cudatype rsq;
-  cudatype twoh;
+  cudatype rsq = 0;
+  cudatype twoh = 0;
 
 #ifdef CHECK_INTERACTION_LISTS
   int traversedNodes = 0;
@@ -1613,11 +1622,6 @@ __global__ void compute_force_gpu_lockstepping(
 #else
     myparticle = particleCores[pidx];
 #endif
-    acc.x = 0;
-    acc.y = 0;
-    acc.z = 0;
-    pot = 0;
-    idt2 = 0;
 
     if (OBSERVE_FLAG && OBSERVING == pidx) {
       printf("pidx %d entered the GPU Kernel! gridDim.x = %d, blockDim.x = %d\n", pidx, gridDim.x, blockDim.x);
