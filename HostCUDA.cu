@@ -1623,11 +1623,7 @@ __global__ void compute_force_gpu_lockstepping(
       mynode = moments[cur_my_index];
 #endif
         // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
-        int offsetID = cuda_encodeOffset(0, 0, 0, 0);
-  //      int reqID = cuda_reEncodeOffset(mynode.bucketIndex, targetnode.offsetID);
-        int reqID = cuda_reEncodeOffset(mynode.bucketIndex, offsetID);
-        CudaVector3D offset = cuda_decodeOffset(reqID, fperiod);
-        int open = cuda_openCriterionNode(targetnode, mynode, offset, -1, theta, thetaMono);
+        int open = cuda_openCriterionNode(targetnode, mynode, -1, theta, thetaMono);
         int action = cuda_OptAction(open, targetnode.type);
         
         if (action == KEEP) {
@@ -1700,10 +1696,10 @@ __global__ void compute_force_gpu_lockstepping(
 #ifdef CHECK_INTERACTION_LISTS
           traversedNodes ++;
 #endif
-          if (cuda_openSoftening(targetnode, mynode, offset)) {
-            r.x = ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x) - myparticle.position.x;
-            r.y = ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y) - myparticle.position.y;
-            r.z = ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z) - myparticle.position.z;
+          if (cuda_openSoftening(targetnode, mynode)) {
+            r.x = targetnode.cm.x - myparticle.position.x;
+            r.y = targetnode.cm.y - myparticle.position.y;
+            r.z = targetnode.cm.z - myparticle.position.z;
 
             rsq = r.x*r.x + r.y*r.y + r.z*r.z; 
             twoh = targetnode.soft + myparticle.soft;
@@ -1721,9 +1717,9 @@ __global__ void compute_force_gpu_lockstepping(
             continue;
           }
           // compute with the node targetnode
-          r.x = myparticle.position.x - ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x);
-          r.y = myparticle.position.y - ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y);
-          r.z = myparticle.position.z - ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z);
+          r.x = myparticle.position.x - targetnode.cm.x;
+          r.y = myparticle.position.y - targetnode.cm.y;
+          r.z = myparticle.position.z - targetnode.cm.z;
 
           rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
           if (rsq != 0) {
@@ -1764,9 +1760,9 @@ __global__ void compute_force_gpu_lockstepping(
 #ifdef CHECK_INTERACTION_LISTS 
             traversedParticles ++;
 #endif
-            r.x = (((reqID >> 22) & 0x7)-3)*fperiod + targetparticle.position.x - myparticle.position.x;
-            r.y = (((reqID >> 25) & 0x7)-3)*fperiod + targetparticle.position.y - myparticle.position.y;
-            r.z = (((reqID >> 28) & 0x7)-3)*fperiod + targetparticle.position.z - myparticle.position.z;
+            r.x = targetparticle.position.x - myparticle.position.x;
+            r.y = targetparticle.position.y - myparticle.position.y;
+            r.z = targetparticle.position.z - myparticle.position.z;
 
             rsq = r.x*r.x + r.y*r.y + r.z*r.z;       
             twoh = targetparticle.soft + myparticle.soft;
