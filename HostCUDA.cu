@@ -1515,7 +1515,7 @@ struct footprint {
 #define STACK_TOP_TARGET_INDEX stk[sp].target
 #define STACK_TOP_MY_INDEX stk[sp].self
 
-__launch_bounds__(437,1)
+__launch_bounds__(1024,1)
 //__launch_bounds__(512,1)
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
@@ -1592,11 +1592,7 @@ __global__ void compute_force_gpu_lockstepping(
       STACK_POP();
 
       // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
-      int offsetID = cuda_encodeOffset(0, 0, 0, 0);
-//      int reqID = cuda_reEncodeOffset(mynode.bucketIndex, targetnode.offsetID);
-      int reqID = cuda_reEncodeOffset(mynode.bucketIndex, offsetID);
-      CudaVector3D offset = cuda_decodeOffset(reqID, fperiod);
-      int open = cuda_openCriterionNode(targetnode, mynode, offset, -1, theta, thetaMono);
+      int open = cuda_openCriterionNode(targetnode, mynode, -1, theta, thetaMono);
 
       int action = cuda_OptAction(open, targetnode.type);
 
@@ -1638,21 +1634,23 @@ __global__ void compute_force_gpu_lockstepping(
               STACK_PUSH();
               STACK_TOP_TARGET_INDEX = cur_target_index;
               STACK_TOP_MY_INDEX = mynode.children[0];
-            } else if (mynode.children[1] != -1){
+//            } else if (mynode.children[1] != -1){
+            } else {
               STACK_PUSH();
               STACK_TOP_TARGET_INDEX = cur_target_index;
               STACK_TOP_MY_INDEX = mynode.children[1];
-            } else {
-              continue;
-            }
+            } 
+//            else {
+//              continue;
+//            }
           }
         }
       } else if (action == COMPUTE) {        
 //        traversedNodes ++;
-        if (cuda_openSoftening(targetnode, mynode, offset)) {
-          r.x = ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x) - myparticle.position.x;
-          r.y = ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y) - myparticle.position.y;
-          r.z = ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z) - myparticle.position.z;
+        if (cuda_openSoftening(targetnode, mynode)) {
+          r.x = targetnode.cm.x - myparticle.position.x;
+          r.y = targetnode.cm.y - myparticle.position.y;
+          r.z = targetnode.cm.z - myparticle.position.z;
 
           rsq = r.x*r.x + r.y*r.y + r.z*r.z; 
           twoh = targetnode.soft + myparticle.soft;
@@ -1670,9 +1668,9 @@ __global__ void compute_force_gpu_lockstepping(
           continue;
         }
         // compute with the node targetnode
-        r.x = myparticle.position.x - ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x);
-        r.y = myparticle.position.y - ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y);
-        r.z = myparticle.position.z - ((((reqID >> 28) & 0x7)-3)*fperiod + targetnode.cm.z);
+        r.x = myparticle.position.x - targetnode.cm.x;
+        r.y = myparticle.position.y - targetnode.cm.y;
+        r.z = myparticle.position.z - targetnode.cm.z;
 
         rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
         if (rsq != 0) {
@@ -1712,9 +1710,9 @@ __global__ void compute_force_gpu_lockstepping(
 #endif
 //          traversedParticles ++;
 
-          r.x = (((reqID >> 22) & 0x7)-3)*fperiod + targetparticle.position.x - myparticle.position.x;
-          r.y = (((reqID >> 25) & 0x7)-3)*fperiod + targetparticle.position.y - myparticle.position.y;
-          r.z = (((reqID >> 28) & 0x7)-3)*fperiod + targetparticle.position.z - myparticle.position.z;
+          r.x = targetparticle.position.x - myparticle.position.x;
+          r.y = targetparticle.position.y - myparticle.position.y;
+          r.z = targetparticle.position.z - myparticle.position.z;
 
           rsq = r.x*r.x + r.y*r.y + r.z*r.z;       
           twoh = targetparticle.soft + myparticle.soft;
