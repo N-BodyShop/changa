@@ -26,6 +26,7 @@
 
 #include "wr.h"
 #ifdef CAMBRIDGE
+#define CAM_THREADS_PER_BLOCK 1024
 #include "codes.h"
 #endif
 
@@ -762,8 +763,12 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 
 #ifdef CAMBRIDGE
   // Small trick here. +1 to avoid the zero value.
-  gravityKernel.dimGrid = data->totalNumOfParticles / THREADS_PER_BLOCK + 1;
-  gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
+//  gravityKernel.dimGrid = data->totalNumOfParticles / THREADS_PER_BLOCK + 1;
+//  gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
+
+  gravityKernel.dimGrid = data->totalNumOfParticles / CAM_THREADS_PER_BLOCK + 1; 
+  gravityKernel.dimBlock = dim3(CAM_THREADS_PER_BLOCK);
+
 #endif
 
 	gravityKernel.smemSize = 0;
@@ -1527,7 +1532,7 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 }
 
 #define THREADS_PER_WARP 32
-#define NWARPS_PER_BLOCK (THREADS_PER_BLOCK / THREADS_PER_WARP)
+#define NWARPS_PER_BLOCK (CAM_THREADS_PER_BLOCK / THREADS_PER_WARP)
 #define WARP_INDEX (threadIdx.x >> 5)
 #define sp SP[WARP_INDEX]
 #define ROOT 0
