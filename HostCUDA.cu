@@ -1512,14 +1512,22 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define OBSERVE_FLAG 1
 #define OBSERVING 1
 #define TEXTURE_LOAD 1
+#define CHECK_INTERACTION_LISTS 0
+
+struct footprint {
+  int target;
+  int self;
+};
 
 // Used in lockstepping, sync for threads in a warp
-#define STACK_INIT() sp = 1; Tstack[WARP_INDEX][sp] = ROOT; Mstack[WARP_INDEX][sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
+#define STACK_INIT() sp = 1; stk[WARP_INDEX][sp].target = ROOT; stk[WARP_INDEX][sp].self = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
 #define STACK_POP() sp -= 1
 #define STACK_PUSH() sp += 1
-#define STACK_TOP_TARGET_INDEX Tstack[WARP_INDEX][sp]
-#define STACK_TOP_MY_INDEX Mstack[WARP_INDEX][sp]
+#define STACK_TOP_TARGET_INDEX stk[WARP_INDEX][sp].target
+#define STACK_TOP_MY_INDEX stk[WARP_INDEX][sp].self 
 
+//__launch_bounds__(432,1)
+__launch_bounds__(1024,1)
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
     VariablePartData *particleVars,
@@ -1537,24 +1545,32 @@ __global__ void compute_force_gpu_lockstepping(
   int k = 0;
   int pidx = 0; // thread id
 
-  CudaMultipoleMoments  targetnode;
-  CudaMultipoleMoments  mynode;
-  CompactPartData       targetparticle;
+//  CudaMultipoleMoments  targetnode;
+//  CudaMultipoleMoments  mynode;
+//  CompactPartData       targetparticle;
+
+  __shared__ CudaMultipoleMoments TARGETNODE[NWARPS_PER_BLOCK];
+  __shared__ CudaMultipoleMoments MYNODE[NWARPS_PER_BLOCK];
+  __shared__ CompactPartData TARGETPARTICLE[NWARPS_PER_BLOCK];
+#define targetnode TARGETNODE[WARP_INDEX]
+#define mynode MYNODE[WARP_INDEX]
+#define targetparticle TARGETPARTICLE[WARP_INDEX]
+
   CompactPartData       myparticle;
 
+//  unsigned int sp;
   __shared__ unsigned int SP[NWARPS_PER_BLOCK];
-  __shared__ int Tstack[NWARPS_PER_BLOCK][64];     // Target index stack
-  __shared__ int Mstack[NWARPS_PER_BLOCK][64];     // My index stack
+  __shared__ footprint stk[NWARPS_PER_BLOCK][48];
 
   // variable for current particle
   CompactPartData p;
-  CudaVector3D acc;
-  cudatype pot;
-  cudatype idt2;
+  CudaVector3D acc = {0,0,0};
+  cudatype pot = 0;
+  cudatype idt2 = 0;
 
-  int cur_target_index;
-  int cur_my_index;
-  cudatype dsq;
+  int cur_target_index = -1;
+  int cur_my_index = -1;
+  cudatype dsq = 0;
 
   // According to the discussion with Prof Tom Quinn, 
   // I don't need to worry about periodic condition.
@@ -1564,12 +1580,13 @@ __global__ void compute_force_gpu_lockstepping(
 
   // variables for CUDA_momEvalFmomrcm
   CudaVector3D r;
-  cudatype rsq;
-  cudatype twoh;
+  cudatype rsq = 0;
+  cudatype twoh = 0;
 
+#ifdef CHECK_INTERACTION_LISTS
   int traversedNodes = 0;
   int traversedParticles = 0;
-
+#endif
 
   pidx = threadIdx.x % 32;
   int bucketId = blockIdx.x * NWARPS_PER_BLOCK + WARP_INDEX;
@@ -1581,11 +1598,6 @@ __global__ void compute_force_gpu_lockstepping(
 #else
     myparticle = particleCores[pidx];
 #endif
-    acc.x = 0;
-    acc.y = 0;
-    acc.z = 0;
-    pot = 0;
-    idt2 = 0;
 
     if (OBSERVE_FLAG && OBSERVING == pidx) {
         printf("pidx %d entered the GPU Kernel! gridDim.x = %d, blockDim.x = %d\n", pidx, gridDim.x, blockDim.x);
@@ -1663,7 +1675,9 @@ __global__ void compute_force_gpu_lockstepping(
           }
         }
       } else if (action == COMPUTE) {        
-        traversedNodes ++;
+#ifdef CHECK_INTERACTION_LISTS
+          traversedNodes ++;
+#endif
         if (cuda_openSoftening(targetnode, mynode, offset)) {
           r.x = ((((reqID >> 22) & 0x7)-3)*fperiod + targetnode.cm.x) - myparticle.position.x;
           r.y = ((((reqID >> 25) & 0x7)-3)*fperiod + targetnode.cm.y) - myparticle.position.y;
@@ -1725,7 +1739,9 @@ __global__ void compute_force_gpu_lockstepping(
 #else
           targetparticle = particleCores[i];
 #endif
-          traversedParticles ++;
+#ifdef CHECK_INTERACTION_LISTS 
+            traversedParticles ++;
+#endif
 
           r.x = (((reqID >> 22) & 0x7)-3)*fperiod + targetparticle.position.x - myparticle.position.x;
           r.y = (((reqID >> 25) & 0x7)-3)*fperiod + targetparticle.position.y - myparticle.position.y;
@@ -1757,8 +1773,10 @@ __global__ void compute_force_gpu_lockstepping(
     particleVars[pidx].potential += pot;
     particleVars[pidx].dtGrav = fmax(idt2,  particleVars[pidx].dtGrav);
 
+#ifdef CHECK_INTERACTION_LISTS
     particleVars[pidx].numOfNodesTraversed = traversedNodes;
     particleVars[pidx].numOfParticlesTraversed = traversedParticles;
+#endif
 
     if (OBSERVE_FLAG && OBSERVING == pidx) {
       printf("pidx %d exit the GPU Kernel! acc.y = %f\n", pidx, acc.y);
