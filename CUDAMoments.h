@@ -30,8 +30,7 @@ __device__ inline bool __attribute__(( always_inline ))
 cuda_contained(const CudaMultipoleMoments &b, const CudaSphere &s);
 
 __device__ inline int __attribute__(( always_inline ))
-cuda_openSoftening(CudaMultipoleMoments &node, CudaMultipoleMoments &myNode,
-      CudaVector3D &offset);
+cuda_openSoftening(CudaMultipoleMoments &node, CudaMultipoleMoments &myNode);
 
 __device__ inline int __attribute__(( always_inline ))
 cuda_encodeOffset(int reqID, int x, int y, int z);
@@ -45,7 +44,6 @@ cuda_decodeOffset(int reqID, CudaVector3D fPeriod);
 __device__ inline CudaVector3D __attribute__(( always_inline ))
 cuda_openCriterionNode(CudaMultipoleMoments &node,
                     CudaMultipoleMoments &myNode,
-                    CudaVector3D &offset,
                     int localIndex,
                     cudatype theta,
                     cudatype thetaMono);
