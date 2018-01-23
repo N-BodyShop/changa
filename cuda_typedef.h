@@ -179,6 +179,27 @@ typedef struct CudaMultipoleMoments{
 #endif
 }CudaMultipoleMoments;
 
+struct CUDATreeNode
+{
+  cudatype radius;
+  cudatype soft;
+  cudatype totalMass;
+  CudaVector3D cm;
+  
+#ifdef CAMBRIDGE
+  CudaVector3D lesser_corner;
+  CudaVector3D greater_corner;
+  int bucketStart;
+  int bucketSize;
+  int particleCount;  // Trouble maker
+  int nodeArrayIndex;
+  int bucketIndex;
+//  int parentIndex;
+  int children[2];
+  int type;
+#endif
+};
+
 /** @brief Bucket of particles on the interaction list for the GPU.
  */
 typedef struct ILPart{

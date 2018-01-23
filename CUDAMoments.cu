@@ -115,7 +115,7 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
 #define OPENING_GEOMETRY_FACTOR (2.0 / sqrt(3.0))
 
 __device__ inline bool __attribute__(( always_inline ))
-cuda_intersect(CudaMultipoleMoments &b, CudaSphere &s) {
+cuda_intersect(CUDATreeNode &b, CudaSphere &s) {
   cudatype dsq = 0.0;
   cudatype rsq = s.radius * s.radius;
   cudatype delta;
@@ -158,7 +158,7 @@ cuda_contains(const CudaSphere &s, const CudaVector3D &v) {
 }
 
 __device__ inline bool __attribute__(( always_inline ))
-cuda_contained(const CudaMultipoleMoments &b, const CudaSphere &s) {
+cuda_contained(const CUDATreeNode &b, const CudaSphere &s) {
   CudaVector3D vec;
   cudatype delta1;
   cudatype delta2;
@@ -216,7 +216,7 @@ cuda_contained(const CudaMultipoleMoments &b, const CudaSphere &s) {
 }
 
 __device__ inline int __attribute__(( always_inline ))
-cuda_openSoftening(CudaMultipoleMoments &node, CudaMultipoleMoments &myNode) {
+cuda_openSoftening(CUDATreeNode &node, CUDATreeNode &myNode) {
   CudaSphere s;
   s.origin = node.cm;
   s.radius = 2.0*node.soft;
@@ -264,8 +264,8 @@ cuda_decodeOffset(int reqID, cudatype fPeriod) {
 }
 
 __device__ inline int __attribute__(( always_inline ))
-cuda_openCriterionNode(CudaMultipoleMoments &node,
-                    CudaMultipoleMoments &myNode,
+cuda_openCriterionNode(CUDATreeNode &node,
+                    CUDATreeNode &myNode,
                     int localIndex,
                     cudatype theta,
                     cudatype thetaMono) {
