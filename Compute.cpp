@@ -305,10 +305,6 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   computeTimePart += CmiWallTimer() - startTime;
 #endif
   tp->particleInterRemote[chunk] += computed * num;
-#if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK
-  tp->bucketcheckList[reqIDlist].insert(remoteBucketID);
-  tp->combineKeys(remoteBucketID,reqIDlist);
-#endif
   tp->finishBucket(reqIDlist);
   CkAssert(state->counterArrays[1][chunk] >= 0);
   if (state->counterArrays[1][chunk] == 0) {
