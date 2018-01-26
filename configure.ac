@@ -276,6 +276,7 @@ echo "Configuration Summary for AC_PACKAGE_NAME AC_PACKAGE_VERSION:"
 echo
 echo "    "Charm path "      " $CHARM_PATH
 echo "    "Charm compiler"   " $CHARMC
+echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_SSE$FLAG_AVX $FLAG_CHANGESOFT $FLAG_DTADJUST
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE
