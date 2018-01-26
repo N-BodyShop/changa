@@ -89,7 +89,6 @@ ld_libs   := $(modules) $(structures_path)/libTipsy.a $(threads) @LIBS@ $(LDLIBS
 ld_flags  := -L. -L@CHARM_PATH@/libs @LDFLAGS@ $(LDFLAGS)
 
 ifeq (1,$(DEBUG))
-	LDLIBS	 += -memory charmdebug
 	opt_flag  = @OPT_DEBUG@
 	target	 := $(target).dbg
 	charmrun := $(charmrun).dbg
