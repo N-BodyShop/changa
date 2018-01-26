@@ -17,6 +17,8 @@ autom4te.cache/
 # Eclipse folders
 .cproject
 .project
+.pydevproject
+language.settings.xml
 
 # These should be rebuilt
 Makefile.dep
