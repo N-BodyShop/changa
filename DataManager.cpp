@@ -273,7 +273,7 @@ Tree::GenericTreeNode *DataManager::pickNodeFromMergeList(int n, GenericTreeNode
     if (nt == Tree::Internal || nt == Tree::Bucket) {
       // we can use this directly, noone else can have it other than NL
       CkAssert(nUnresolved == 0);
-#if COSMO_DEBUG > 0
+#if COSMO_DEBUG > 0 && defined(PRINT_MERGED_TREE)
       (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[i]->getKey(),KeyBits)<<" using Internal node"<<endl;
 #endif
       pickedIndex = i;
@@ -291,7 +291,7 @@ Tree::GenericTreeNode *DataManager::pickNodeFromMergeList(int n, GenericTreeNode
   if(nUnresolved == 0){
     CkAssert(pick < 0);
     // only NonLocal (or Empty). any is good
-#if COSMO_DEBUG > 0
+#if COSMO_DEBUG > 0 && defined(PRINT_MERGED_TREE)
     (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[0]->getKey(),KeyBits)<<" using NonLocal node"<<endl;
 #endif
     pickedIndex = 0;
@@ -299,7 +299,7 @@ Tree::GenericTreeNode *DataManager::pickNodeFromMergeList(int n, GenericTreeNode
   }
   else{
     // multiple boundary nodes: return anyone of them
-#if COSMO_DEBUG > 0
+#if COSMO_DEBUG > 0 && defined(PRINT_MERGED_TREE)
     (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(gtn[pick]->getKey(),KeyBits)<<" using Boundary node"<<endl;
 #endif
     pickedIndex = pick;
@@ -356,7 +356,7 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
     // keep track if all the children are internal, in which case we have to
     // change this node type too from boundary to internal
     bool isInternal = true;
-#if COSMO_DEBUG > 0
+#if COSMO_DEBUG > 0 && defined(PRINT_MERGED_TREE)
     (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(newNode->getKey(),KeyBits)<<" duplicating node"<<endl;
 #endif
     nodeTable.push_back(newNode);
@@ -377,7 +377,7 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
     }
     if (isInternal) {
       newNode->setType(Internal);
-#if COSMO_DEBUG > 0
+#if COSMO_DEBUG > 0 && defined(PRINT_MERGED_TREE)
       (*ofs) << "cache "<<CkMyPe()<<": "<<keyBits(newNode->getKey(),KeyBits)<<" converting to Internal"<<endl;
 #endif
     }
