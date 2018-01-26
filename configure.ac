@@ -107,7 +107,7 @@ if test x$arch = xnone -a x$flag_sse_deprecated != x; then arch=$flag_sse_deprec
 if test x$arch = xnone -a x$flag_avx_deprecated != x; then arch=$flag_avx_deprecated; fi
 case $arch in
 	no|none	) FLAG_ARCH="" ;;
- 	yes|sse	) FLAG_ARCH=-DCMK_USE_SSE2 ;;
+ 	sse2	) FLAG_ARCH=-DCMK_USE_SSE2 ;;
 	avx		) FLAG_ARCH=-DCMK_USE_AVX ;;
 	*		) AC_MSG_ERROR("invalid argument for '--enable-arch': $arch");;
 esac
