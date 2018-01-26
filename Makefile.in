@@ -145,17 +145,15 @@ endif
 all: $(target)
 
 .PHONY: show_config
-show_config:
+show-config:
 	@ echo TARGET = $(target)"\n"
-	@ echo INCLUDES = $(includes)"\n"
-	@ echo DEFINE_FLAGS = $(defines)"\n"
-	@ echo OPT_FLAG = $(opt_flag)"\n"
 	@ echo DEFAULT_LB = @DEFAULT_LB@"\n"
 	@ echo TARGET_ARCH = $(target_arch)"\n"
-	@ echo CXX_STD = $(cxx_std)"\n"
-	@ echo C_STD = $(c_std)"\n"
-	@ echo LDFLAGS = $(LDFLAGS)"\n"
-	@ echo LDLIBS = $(LDLIBS)"\n"
+	@ echo CPPFLAGS = $(cpp_flags)"\n"
+	@ echo CFLAGS = $(c_flags)"\n"
+	@ echo CXXFLAGS = $(cxx_flags)"\n"
+	@ echo LDFLAGS = $(ld_flags)"\n"
+	@ echo LDLIBS = $(ld_libs)"\n"
 
 $(source_dir)/%.decl.h: $(source_dir)/%.ci
 	@ echo Compiling $<...
