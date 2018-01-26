@@ -180,9 +180,9 @@ AC_ARG_ENABLE([cooling],
 	[cooling=$enableval], [cooling=none])
 case $cooling in
 	no|none	) FLAG_COOLING="-DCOOLING_NONE";;
-	planet	) FLAG_COOLING="-DCOOLING_PLANET";
-	cosmo	) FLAG_COOLING="-DCOOLING_COSMO";
-	grackle	) FLAG_COOLING="-DCOOLING_GRACKLE";
+	planet	) FLAG_COOLING="-DCOOLING_PLANET";;
+	cosmo	) FLAG_COOLING="-DCOOLING_COSMO";;
+	grackle	) FLAG_COOLING="-DCOOLING_GRACKLE";;
 	*		) AC_MSG_ERROR([invalid argument for '--enable-cooling': $cooling]);;
 esac
 AC_SUBST([FLAG_COOLING])
