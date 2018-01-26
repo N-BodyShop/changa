@@ -159,7 +159,7 @@ show_config:
 
 $(source_dir)/%.decl.h: $(source_dir)/%.ci
 	@ echo Compiling $<...
-	$(quiet) $(charmc) -E $(defines) $<
+	$(quiet) $(charmc) -E $(cpp_flags) $<
 
 %.o: Makefile
 
