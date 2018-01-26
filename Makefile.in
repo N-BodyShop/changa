@@ -19,11 +19,6 @@ quiet	:= $(if $(filter $(VERBOSE),1),,@)
 # ------- Top-level configurations --------------------------------------------
 interlist := -DINTERLIST_VER=2	# enable interaction lists
 
-# ------- Tree building: Use **ONLY ONE** of these ----------------------------
-#	-DMERGE_REMOTE_REQUESTS		# merges remote requests before sending; local trees built after requests sent
-#	-DSPLIT_PHASE_TREE_BUILD	# no merging of remote requests on PE; local trees built after requests sent
-flag_tree_build := -DMERGE_REMOTE_REQUESTS
-
 # ------- Debugging -----------------------------------------------------------
 #	-DPRINT_MERGED_TREE 
 #	-DCOSMO_PRINT=1       			# enable really verbose prints
@@ -78,7 +73,7 @@ defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@	\
 			@FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@ 	\
 			@FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@			\
 			@FLAG_VSIGVISC@ @FLAG_DAMPING@ @FLAG_DIFFHARMONIC@	\
-			$(debug_defines) $(interlist) $(flag_tree_build))
+			@FLAG_TREE_BUILD@ $(debug_defines) $(interlist))
 
 modules := $(strip -language charm++ -balancer @DEFAULT_LB@	\
 		    $(foreach m,$(charm_modules),-module $(m))		\

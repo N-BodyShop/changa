@@ -176,7 +176,7 @@ fi
 
 # Cooling
 AC_ARG_ENABLE([cooling],
-	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet,cosmo,grackle)])],
+	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (none,planet,cosmo,grackle)])],
 	[cooling=$enableval], [cooling=none])
 case $cooling in
 	no|none	) FLAG_COOLING="-DCOOLING_NONE";;
@@ -229,6 +229,19 @@ fi
 
 AC_SUBST([GPU_LOCAL_TREE_WALK])
 
+# Tree building
+AC_ARG_ENABLE([tree-build],
+	[AS_HELP_STRING([--enable-tree-build], [enable tree building (merge-remote,split-phase)])],
+	[tree_build=$enableval], [tree_build=merge-remote])
+case $tree_build in
+	# merges remote requests before sending; local trees built after requests sent
+	merge-remote ) FLAG_TREE_BUILD="-DMERGE_REMOTE_REQUESTS";;
+	# no merging of remote requests on PE; local trees built after requests sent
+	split-phase  ) FLAG_TREE_BUILD="-DSPLIT_PHASE_TREE_BUILD";;
+	*		) AC_MSG_ERROR([invalid argument for '--enable-tree-build': $tree_build]);;
+esac
+AC_SUBST([FLAG_TREE_BUILD])
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
 AC_C_CONST
@@ -259,7 +272,7 @@ echo "    "Charm path "      " $CHARM_PATH
 echo "    "Charm compiler"   " $CHARMC
 echo "    "C++ compiler"     " $CXX
 echo
-echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_SSE$FLAG_AVX $FLAG_CHANGESOFT $FLAG_DTADJUST
+echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_SSE$FLAG_AVX $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS
 echo "    "Load balancer "   " $DEFAULT_LB
