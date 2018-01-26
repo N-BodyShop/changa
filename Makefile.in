@@ -65,9 +65,6 @@ opt_flag	:= -O3
 target_arch := -m64
 threads 	:= -lpthread
 
-# Always emit debug symbols in case of core dumps
-opt_flag += -g
-
 defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@	\
 			@FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@  	\
 			@FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@ 	\
@@ -101,6 +98,9 @@ ifeq (yes,@PROJECTIONS@)
 	target 	 := $(target).prj
 	charmrun := $(charmrun).prj
 endif
+
+# Always emit debug symbols in case of core dumps
+opt_flag += -g
 
 # Capture all sources except the ones for cooling
 sources := $(filter-out $(source_dir)/cooling%,$(wildcard	\
