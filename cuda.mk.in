@@ -29,8 +29,8 @@
 ###############################################################################
 
 # Turn on if outer variable is set. Otherwise, allow user to set explicitly.
-CUDA_DEBUG   ?= $(DEBUG)
-CUDA_VERBOSE ?= $(VERBOSE)
+CUDA_DEBUG   = $(DEBUG)
+CUDA_VERBOSE = $(VERBOSE)
 
 cuda_defines += -DCUDA -DSPCUDA
 cuda_defines += -DCUDA_MEMPOOL -DCUDA_USE_CUDAMALLOCHOST
