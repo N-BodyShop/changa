@@ -242,7 +242,7 @@ case $tree_build in
 	merge-remote ) FLAG_TREE_BUILD="-DMERGE_REMOTE_REQUESTS";;
 	# no merging of remote requests on PE; local trees built after requests sent
 	split-phase  ) FLAG_TREE_BUILD="-DSPLIT_PHASE_TREE_BUILD";;
-	*		) AC_MSG_ERROR([invalid argument for '--enable-tree-build': $tree_build]);;
+	*		     ) AC_MSG_ERROR([invalid argument for '--enable-tree-build': $tree_build]);;
 esac
 AC_SUBST([FLAG_TREE_BUILD])
 
