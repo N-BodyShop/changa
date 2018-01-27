@@ -16,6 +16,16 @@ RM 		:= rm -f
 RMR		:= $(RM) -r
 quiet	:= $(if $(filter $(VERBOSE),1),,@)
 
+# ------- Compiler setup -----------------------------------------------------
+charmc 		:= @CHARM_PATH@/bin/charmc
+target  	:= $(build_dir)/ChaNGa
+charmrun	:= charmrun
+cxx_std 	:= c++11
+c_std		:= c99
+opt_flag	:= -O3
+target_arch := -m64
+threads 	:= -lpthread
+
 # ------- Debugging -----------------------------------------------------------
 #	-DPRINT_MERGED_TREE 
 #	-DCOSMO_PRINT=1       			# enable really verbose prints
@@ -35,7 +45,26 @@ quiet	:= $(if $(filter $(VERBOSE),1),,@)
 debug_defines =
 
 ifeq (1,$(DEBUG))
-	debug_defines += -DCOSMO_DEBUG=2
+	debug_defines 	+= -DCOSMO_DEBUG=2
+	opt_flag 		:= @OPT_DEBUG@
+	target	 		:= $(target).dbg
+	charmrun 		:= $(charmrun).dbg
+endif
+
+# Always emit debug symbols in case of core dumps
+opt_flag += -g
+
+# ------- Projections ---------------------------------------------------------
+ifeq (yes,@PROJECTIONS@)
+	target 	 	  := $(target).prj
+	charmrun 	  := $(charmrun).prj
+	debug_ldflags += -tracemode projections
+endif
+
+# ------- CUDA ----------------------------------------------------------------
+ifeq (yes,@ENABLE_CUDA@)
+	# Use a conditional include so seqential cleans work
+	-include cuda.mk
 endif
 
 # ------- Include paths -------------------------------------------------------
@@ -52,65 +81,50 @@ changa_modules := $(strip MultistepLB MultistepOrbLB MultistepLB_notopo	\
 charm_modules := $(strip CkCache CkIO CkMulticast RefineLB RefineCommLB	\
 					GreedyLB GreedyCommLB OrbLB RotateLB liveViz CkLoop)
 
-# ------- Compiler setup -----------------------------------------------------
-charmc 		:= @CHARM_PATH@/bin/charmc
-target  	:= $(build_dir)/ChaNGa
-charmrun	:= charmrun
-cxx_std 	:= c++11
-c_std		:= c99
-opt_flag	:= -O3
-target_arch := -m64
-threads 	:= -lpthread
-
+# ------- Helper Variables ----------------------------------------------------
 defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@	\
 			@FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@  	\
 			@FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@ 	\
 			@FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@			\
 			@FLAG_VSIGVISC@ @FLAG_DAMPING@ @FLAG_DIFFHARMONIC@	\
-			@FLAG_TREE_BUILD@ $(debug_defines) -DINTERLIST_VER=2)
+			@FLAG_TREE_BUILD@ $(debug_defines) $(interlist)		\
+			$(cuda_defines) -DINTERLIST_VER=2)					\
 
-modules := $(strip -language charm++ -balancer @DEFAULT_LB@	\
-		    $(foreach m,$(charm_modules),-module $(m))		\
+modules := $(strip -language charm++ -balancer @DEFAULT_LB@		\
+		    $(foreach m,$(charm_modules),-module $(m))			\
 		    $(foreach m,$(changa_modules),-module $(m)))
 
-includes = $(strip -I$(structures_path) -I$(cache_lib_path)	\
-			-I$(source_dir) -I$(threadsafe_ht_path)			\
+includes := $(strip -I$(structures_path) -I$(cache_lib_path)	\
+			-I$(source_dir) -I$(threadsafe_ht_path)				\
 			-I$(charm_util_path) -I@CHARM_PATH@/include)
 
+basic_flags := $(opt_flag) $(threads) $(target_arch) $(debug_flags)
+
+basic_ldlibs := $(cuda_libs) $(modules) $(structures_path)/libTipsy.a $(threads)
+
+basic_ldflags := $(debug_ldflags) $(cuda_ldflags) -L. -L@CHARM_PATH@/libs  
+
+# ------- Standard Variables --------------------------------------------------
 # The global version of each flag must be at the end so that the user
 # can override our defaults here from the command line
-cpp_flags := $(includes) $(defines) @CPPFLAGS@ $(CPPFLAGS)
-c_flags   := $(opt_flag) $(threads) $(target_arch) -std=$(c_std) $(cpp_flags) $(CFLAGS)
-cxx_flags := $(opt_flag) $(threads) $(target_arch) -std=$(cxx_std) $(cpp_flags) $(CXXFLAGS)
-ld_libs   := $(modules) $(structures_path)/libTipsy.a $(threads) @LIBS@ $(LDLIBS)
-ld_flags  := -L. -L@CHARM_PATH@/libs @LDFLAGS@ $(LDFLAGS)
+cpp_flags := $(includes) $(defines) $(CPPFLAGS)
+c_flags   := $(basic_flags) -std=$(c_std) $(cpp_flags) $(CFLAGS)
+cxx_flags := $(basic_flags) -std=$(cxx_std) $(cpp_flags) $(CXXFLAGS)
+ld_libs   := $(basic_ldlibs) $(LDLIBS)
+ld_flags  := $(basic_ldflags) $(LDFLAGS)
 
-ifeq (1,$(DEBUG))
-	opt_flag  = @OPT_DEBUG@
-	target	 := $(target).dbg
-	charmrun := $(charmrun).dbg
-endif
-
-ifeq (yes,@PROJECTIONS@)
-	LDLIBS 	 += -tracemode projections
-	target 	 := $(target).prj
-	charmrun := $(charmrun).prj
-endif
-
-# Always emit debug symbols in case of core dumps
-opt_flag += -g
-
+# ------- Sources -------------------------------------------------------------
 # Capture all sources except the ones for cooling
 sources := $(filter-out $(source_dir)/cooling%,$(wildcard	\
-			$(addprefix $(source_dir)/,*.c *.C *.cpp)))
+			$(addprefix $(source_dir)/,*.c *.cpp)))
 
 ci_headers := $(patsubst %.ci,%.decl.h,$(wildcard $(source_dir)/*.ci))
 
 objects := $(strip $(addprefix 												\
 			$(build_dir)/,$(patsubst %.cpp,%.o,$(filter %.cpp,$(sources)))	\
-			$(patsubst %.C,%.o,$(filter %.C,$(sources)))					\
 			$(patsubst %.c,%.o,$(filter %.c,$(sources)))					\
-			))
+			$(cuda_objects)))												\
+
 ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
 	objects += cooling_planet.o stiff.o
 endif
@@ -127,21 +141,10 @@ depend_dir	 	:= $(build_dir)/.
 depend_suffix 	:= .d
 depend_files    := $(wildcard $(depend_dir)/*$(depend_suffix))
 
-# ------- CUDA ----------------------------------------------------------------
-# Do not move this include. cuda.mk assumes all of the compiler flags are
-# defined before it is parsed.
-ifeq (yes,@ENABLE_CUDA@)
-	-include cuda.mk	# Use a conditional include so seqential cleans work
-	ld_flags += $(cuda_ldflags)
-	ld_libs	 += $(cuda_libs)
-	objects	 += $(cuda_objects)
-	defines	 += $(cuda_defines)
-endif
-
 # ------- Build targets -------------------------------------------------------
 all: $(target)
 
-.PHONY: show_config
+.PHONY: show-config
 show-config:
 	@ echo TARGET = $(target)"\n"
 	@ echo DEFAULT_LB = @DEFAULT_LB@"\n"
@@ -159,11 +162,6 @@ $(source_dir)/%.decl.h: $(source_dir)/%.ci
 %.o: Makefile
 
 $(filter %.cpp,$(sources)): $(ci_headers)
-$(filter %.C,$(sources)): $(ci_headers)
-
-%.o: $(source_dir)/%.C
-	@ echo Compiling $*.C...
-	$(quiet) $(charmc) $(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
 
 %.o: $(source_dir)/%.cpp
 	@ echo Compiling $*.cpp...
@@ -201,13 +199,6 @@ docs:
 	@ Building docs...
 	$(quiet) doxygen $(source_dir)/Doxyfile
 
-.PHONY: test
-test: DIRS := teststep
-test: $(target)
-	$(quiet) for d in $(DIRS); do \
-		(cd $$d && $(MAKE) test OPTS='$(opt_flag) $(threads)' || exit 1) || exit 1; \
-	done
-
 .PHONY: clean
 clean:
 	@ echo Cleaning...
@@ -228,3 +219,5 @@ full-clean: dist-clean
 ref-clean:
 .PHONY: depends
 depends:
+.PHONY: test
+test:
