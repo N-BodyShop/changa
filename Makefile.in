@@ -202,13 +202,13 @@ docs:
 .PHONY: clean
 clean:
 	@ echo Cleaning...
-	$(quiet) $(RM) $(objects) *~ $(target) *.decl.h *.def.h $(charmrun) $(depend_files)
+	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files)
 	$(quiet) $(RM) $(foreach m,$(changa_modules),libmodule$(m).a)
 	$(quiet) cd $(structures_path); $(MAKE) clean
 
 .PHONY: dist-clean
 dist-clean: clean
-	$(quiet) $(RM) config.status config.log config.h Makefile
+	$(quiet) $(RM) $(target) $(charmrun) ChaNGa.* charmrun.* config.status config.log config.h Makefile
 
 .PHONY: full-clean
 full-clean: dist-clean
