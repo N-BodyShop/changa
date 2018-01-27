@@ -71,6 +71,10 @@ m4_include([compiler.ac])
 # Require C++11
 COMPILER_FLAG_REQUIRE([-std=c++11],[ChaNGa requires full C++11 support])
 
+# Require dependency-generation flags
+COMPILER_FLAG_REQUIRE([-MMD -MP -MF .dummy],[ChaNGa requires the dependency-generation flags '-MMD -MP -MF'])
+rm -f .dummy
+
 # Check if optimized debug builds are supported
 COMPILER_FLAG_CHECK([-Og], [OPT_DEBUG], [-Og], [-O0])
 
