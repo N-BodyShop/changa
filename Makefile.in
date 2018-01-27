@@ -61,6 +61,14 @@ ifeq (yes,@PROJECTIONS@)
 	debug_ldflags += -tracemode projections
 endif
 
+# ------- Sanitizers ----------------------------------------------------------
+ifneq (no,@FLAG_SANITIZER@)
+	target 	 	  := $(target).san
+	charmrun 	  := $(charmrun).san
+	debug_flags   += -fno-omit-frame-pointer -fsanitize=@FLAG_SANITIZER@
+	debug_ldflags += -fsanitize=@FLAG_SANITIZER@
+endif
+
 # ------- CUDA ----------------------------------------------------------------
 ifeq (yes,@ENABLE_CUDA@)
 	# Use a conditional include so seqential cleans work

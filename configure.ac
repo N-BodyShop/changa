@@ -265,6 +265,21 @@ case $tree_build in
 esac
 AC_SUBST([FLAG_TREE_BUILD])
 
+# Sanitizers
+AC_ARG_ENABLE([sanitizer],
+	[AS_HELP_STRING([--enable sanitizer], [enable one of the LLVM sanitizers])],
+	[sanitizer=$enableval], [sanitizer=no])
+case $sanitizer in
+	no|none) FLAG_SANITIZER=no;;
+	yes    ) FLAG_SANITIZER=address;;  # default to the AddressSanitizer
+	*      ) FLAG_SANITIZER=$sanitizer;;
+esac
+if test ! x$FLAG_SANITIZER = xno; then
+	COMPILER_FLAG_REQUIRE([-fsanitize=$FLAG_SANITIZER],[$CXX does not support the $FLAG_SANITIZER sanitizer])
+	COMPILER_FLAG_REQUIRE([-fno-omit-frame-pointer],[-fno-omit-frame-pointer is required when using the sanitizers])
+fi
+AC_SUBST([FLAG_SANITIZER])
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
 AC_C_CONST
@@ -297,13 +312,27 @@ echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_SSE$FLAG_AVX $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE
-echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
 
 if test x$ENABLE_CUDA = xyes; then
-echo
-echo "    "CUDA directory" " $CUDA_DIR
-echo "    "CUDA SDK "      " $CUDA_SDK_DIR
-echo "    "CUDA nvcc "     " $NVCC_PATH
+	echo
+	echo "    "CUDA directory" " $CUDA_DIR
+	echo "    "CUDA SDK "      " $CUDA_SDK_DIR
+	echo "    "CUDA nvcc "     " $NVCC_PATH
+	
+	if test ! x$FLAG_SANITIZER = xno; then
+		echo
+		echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		echo !
+		echo ! You are using a sanitizer with CUDA. In order to avoid spurious errors,
+		echo ! you will need to export the following before running ChaNGa
+		echo !
+		echo !"     " ASAN_OPTIONS=protect_shadow_gap=0:replace_intrin=0:detect_leaks=0
+		echo !
+		echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+	fi
 fi
+
+echo
