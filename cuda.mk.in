@@ -75,10 +75,11 @@ else
 	nvcc_flags += -use_fast_math
 endif
 
-show_config: cuda_show_config
+.PHONY: show-config
+show-config: cuda-show-config
 
-.PHONY: cuda_show_config
-cuda_show_config:
+.PHONY: cuda-show-config
+cuda-show-config:
 	@ echo NVCC_FLAGS = $(nvcc_flags)"\n"
 	@ echo CUDA_DEFINES = $(cuda_defines)"\n"
 	@ echo CUDA_INCLUDES = $(cuda_includes)"\n"
@@ -88,8 +89,8 @@ cuda_show_config:
 .PHONY: dist-clean
 dist-clean: cuda_dist-clean
 
-.PHONY: cuda_dist-clean
-cuda_dist-clean:
+.PHONY: cuda-dist-clean
+cuda-dist-clean:
 	@ $(RM) cuda.mk
 
 # nvcc doesn't support -Og
