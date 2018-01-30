@@ -261,6 +261,11 @@ if test ! x$FLAG_SANITIZER = xno; then
 fi
 AC_SUBST([FLAG_SANITIZER])
 
+# Force compiler flags
+AC_ARG_ENABLE([opts],
+	[AS_HELP_STRING([--enable-opts], [DEPRECATED - Do not use])],
+	[], [])
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
 AC_C_CONST
