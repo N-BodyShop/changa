@@ -101,8 +101,8 @@ ARG_ENABLE([float], [use single-precision gravity calculations], [FLAG_FLOAT], [
 
 # Select target CPU architecture (this determines SIMD type)
 # --- Deprecated flags ---
-ARG_ENABLE([sse2], [Deprecated. Use --enable-arch=sse2], [flag_sse_deprecated], [sse], [no])
-ARG_ENABLE([avx], [Deprecated. Use --enable-arch=avx], [flag_avx_deprecated], [avx], [no])
+ARG_ENABLE([sse2], [DEPRECATED. Use --enable-arch=sse2], [flag_sse_deprecated], [sse], [no])
+ARG_ENABLE([avx], [DEPRECATED. Use --enable-arch=avx], [flag_avx_deprecated], [avx], [no])
 # -----------------------
 AC_ARG_ENABLE([arch], [AS_HELP_STRING([--enable-arch], [Set compiler target architecture])],
 			  [arch=$enableval], [arch=none])
@@ -128,8 +128,8 @@ ARG_ENABLE([dtadjust], [enable emergency timestep adjust], [FLAG_DTADJUST], [-DD
 
 # Select SPH interpolation kernel
 # --- Deprecated flags ---
-ARG_ENABLE([wendland], [Deprecated. Use --enable-sph-kernel=wendland], [flag_sph_wendland_deprecated], [wendland], [none])
-ARG_ENABLE([m6kernel], [Deprecated. Use --enable-sph-kernel=m6kernel], [flag_sph_m6kernel_deprecated], [m6kernel], [none])
+ARG_ENABLE([wendland], [DEPRECATED. Use --enable-sph-kernel=wendland], [flag_sph_wendland_deprecated], [wendland], [none])
+ARG_ENABLE([m6kernel], [DEPRECATED. Use --enable-sph-kernel=m6kernel], [flag_sph_m6kernel_deprecated], [m6kernel], [none])
 #------------------------
 AC_ARG_ENABLE([sph-kernel], [AS_HELP_STRING([--enable-sph-kernel], [SPH interpolation kernel (m4,m6,wendland)])],
 				[sph_kernel=$enableval], [sph_kernel=none])
