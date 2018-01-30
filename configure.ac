@@ -104,7 +104,7 @@ ARG_ENABLE([float], [use single-precision gravity calculations], [FLAG_FLOAT], [
 ARG_ENABLE([sse2], [DEPRECATED. Use --enable-arch=sse2], [flag_sse_deprecated], [sse], [no])
 ARG_ENABLE([avx], [DEPRECATED. Use --enable-arch=avx], [flag_avx_deprecated], [avx], [no])
 # -----------------------
-AC_ARG_ENABLE([arch], [AS_HELP_STRING([--enable-arch], [Set compiler target architecture])],
+AC_ARG_ENABLE([arch], [AS_HELP_STRING([--enable-arch], [set compiler target architecture])],
 			  [arch=$enableval], [arch=none])
 # --enable-arch overrules when one of the deprecated flags is also given
 if test x$arch = xnone -a x$flag_sse_deprecated != x; then arch=$flag_sse_deprecated; fi
@@ -118,13 +118,13 @@ esac
 AC_SUBST([FLAG_ARCH])
 
 # physical softening in comoving coordinates
-ARG_ENABLE([changesoft], [enable physical softening], [FLAG_CHANGESOFT], [-DCHANGESOFT], [yes])
+ARG_ENABLE([changesoft], [physical softening], [FLAG_CHANGESOFT], [-DCHANGESOFT], [yes])
 
 # 128 bit keys:
-ARG_ENABLE([bigkeys], [enable 128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [no])
+ARG_ENABLE([bigkeys], [128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [no])
 
 # DTADJUST
-ARG_ENABLE([dtadjust], [enable emergency timestep adjust], [FLAG_DTADJUST], [-DDTADJUST], [yes])
+ARG_ENABLE([dtadjust], [emergency timestep adjust], [FLAG_DTADJUST], [-DDTADJUST], [yes])
 
 # Select SPH interpolation kernel
 # --- Deprecated flags ---
@@ -144,13 +144,13 @@ esac
 AC_SUBST([FLAG_SPH_KERNEL])
 
 # Velocity damping
-ARG_ENABLE([damping], [enable velocity damping in gasses], [FLAG_DAMPING], [-DDAMPING], [no])
+ARG_ENABLE([damping], [velocity damping in gasses], [FLAG_DAMPING], [-DDAMPING], [no])
 
 # Hexadecapole expansion for gravity
-ARG_ENABLE([hexadecapole], [enable hexadecapole expansions], [HEXADECAPOLE], [-DHEXADECAPOLE], [yes])
+ARG_ENABLE([hexadecapole], [hexadecapole expansions in gravity], [HEXADECAPOLE], [-DHEXADECAPOLE], [yes])
  
 # diffusion (thermal and metal)
-ARG_ENABLE([diffusion], [enable thermal and metal diffusion], [FLAG_DIFFUSION], [-DDIFFUSION], [yes])
+ARG_ENABLE([diffusion], [thermal and metal diffusion], [FLAG_DIFFUSION], [-DDIFFUSION], [yes])
 
 # Limit supernova feedback
 # By default this also enables DIFFHARMONIC
@@ -161,26 +161,26 @@ fi
 AC_SUBST([FLAG_DIFFHARMONIC])
 
 # Calculate artificial viscosity from Cullen & Dehnen 2010
-ARG_ENABLE([cullenalpha], [enable Cullen Dehnen artificial viscosity], [FLAG_CULLENALPHA], [-DCULLENALPHA], [no])
+ARG_ENABLE([cullenalpha], [Cullen Dehnen artificial viscosity], [FLAG_CULLENALPHA], [-DCULLENALPHA], [no])
 
 # Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
-ARG_ENABLE([vsigvisc], [enable alternative Monahan artificial viscosity], [FLAG_VSIGVISC], [-DVSIGVISC], [yes])
+ARG_ENABLE([vsigvisc], [alternative Monahan artificial viscosity], [FLAG_VSIGVISC], [-DVSIGVISC], [yes])
 
 # Richie-Thomas forces (Pressure SPH)
-ARG_ENABLE([rtforce], [enable Richie-Thomas forces], [FLAG_RTFORCE], [-DRTFORCE], [yes])
+ARG_ENABLE([rtforce], [Richie-Thomas forces], [FLAG_RTFORCE], [-DRTFORCE], [yes])
 
 # Default load balancer
-ARG_ENABLE([default-lb], [Default load balancer], [DEFAULT_LB], [MultistepLB_notopo], [yes])
+ARG_ENABLE([default-lb], [default load balancer], [DEFAULT_LB], [MultistepLB_notopo], [yes])
 
 # Enable projections
-ARG_ENABLE([projections], [enable projections], [PROJECTIONS], [yes], [no])
+ARG_ENABLE([projections], [Charm++ projections], [PROJECTIONS], [yes], [no])
 if test x$PROJECTIONS = xyes -a x$CMK_TRACE_ENABLED = x0; then
 	AC_MSG_ERROR([You must enable tracing in Charm++ before using it in ChaNGa])
 fi
 
 # Cooling
 AC_ARG_ENABLE([cooling],
-	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (none,planet,cosmo,grackle)])],
+	[AS_HELP_STRING([--enable-cooling], [gas cooling (none,planet,cosmo,grackle)])],
 	[cooling=$enableval], [cooling=none])
 case $cooling in
 	no|none	) FLAG_COOLING="-DCOOLING_NONE";;
@@ -254,7 +254,7 @@ AC_ARG_ENABLE([opts],
 
 # Tree building
 AC_ARG_ENABLE([tree-build],
-	[AS_HELP_STRING([--enable-tree-build], [enable tree building (merge-remote,split-phase)])],
+	[AS_HELP_STRING([--enable-tree-build], [tree building (merge-remote,split-phase)])],
 	[tree_build=$enableval], [tree_build=merge-remote])
 case $tree_build in
 	# merges remote requests before sending; local trees built after requests sent
@@ -267,7 +267,7 @@ AC_SUBST([FLAG_TREE_BUILD])
 
 # Sanitizers
 AC_ARG_ENABLE([sanitizer],
-	[AS_HELP_STRING([--enable sanitizer], [enable one of the LLVM sanitizers])],
+	[AS_HELP_STRING([--enable-sanitizer], [LLVM sanitizers])],
 	[sanitizer=$enableval], [sanitizer=no])
 case $sanitizer in
 	no|none) FLAG_SANITIZER=no;;
