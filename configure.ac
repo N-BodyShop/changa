@@ -101,7 +101,7 @@ ARG_ENABLE([float], [use single-precision gravity calculations], [FLAG_FLOAT], [
 
 # Select target CPU architecture (this determines SIMD type)
 # --- Deprecated flags ---
-ARG_ENABLE([sse2], [Deprecated. Use --enable-arch=sse], [flag_sse_deprecated], [sse], [no])
+ARG_ENABLE([sse2], [Deprecated. Use --enable-arch=sse2], [flag_sse_deprecated], [sse], [no])
 ARG_ENABLE([avx], [Deprecated. Use --enable-arch=avx], [flag_avx_deprecated], [avx], [no])
 # -----------------------
 AC_ARG_ENABLE([arch], [AS_HELP_STRING([--enable-arch], [Set compiler target architecture])],
