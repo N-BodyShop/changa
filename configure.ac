@@ -110,10 +110,10 @@ AC_ARG_ENABLE([arch], [AS_HELP_STRING([--enable-arch], [set compiler target arch
 if test x$arch = xnone -a x$flag_sse_deprecated != x; then arch=$flag_sse_deprecated; fi
 if test x$arch = xnone -a x$flag_avx_deprecated != x; then arch=$flag_avx_deprecated; fi
 case $arch in
-	no|none	) FLAG_ARCH="" ;;
- 	sse2	) FLAG_ARCH=-DCMK_USE_SSE2 ;;
-	avx		) FLAG_ARCH=-DCMK_USE_AVX ;;
-	*		) AC_MSG_ERROR("invalid argument for '--enable-arch': $arch");;
+	no|none ) FLAG_ARCH="" ;;
+ 	sse2    ) FLAG_ARCH=-DCMK_USE_SSE2 ;;
+	avx     ) FLAG_ARCH=-DCMK_USE_AVX ;;
+	*       ) AC_MSG_ERROR("invalid argument for '--enable-arch': $arch");;
 esac
 AC_SUBST([FLAG_ARCH])
 
@@ -131,15 +131,15 @@ ARG_ENABLE([dtadjust], [emergency timestep adjust], [FLAG_DTADJUST], [-DDTADJUST
 ARG_ENABLE([wendland], [DEPRECATED. Use --enable-sph-kernel=wendland], [flag_sph_wendland_deprecated], [wendland], [none])
 ARG_ENABLE([m6kernel], [DEPRECATED. Use --enable-sph-kernel=m6kernel], [flag_sph_m6kernel_deprecated], [m6kernel], [none])
 #------------------------
-AC_ARG_ENABLE([sph-kernel], [AS_HELP_STRING([--enable-sph-kernel], [SPH interpolation kernel (m4,m6,wendland)])],
-				[sph_kernel=$enableval], [sph_kernel=none])
-if test x$sph_kernel = xnone -a x$flag_sph_m6kernel_deprecated != x; then sph_kernel=$flag_sph_m6kernel_deprecated; fi
-if test x$sph_kernel = xnone -a x$flag_sph_wendland_deprecated != x; then sph_kernel=$flag_sph_wendland_deprecated; fi
+AC_ARG_ENABLE([sph_kernel], [AS_HELP_STRING([--enable-sph-kernel], [SPH interpolation kernel (m4,m6,wendland)])],
+				[sph_kernel=$enableval], [sph_kernel=sph_none])
+if test x$sph_kernel = xsph_none -a x$flag_sph_m6kernel_deprecated != x; then sph_kernel=$flag_sph_m6kernel_deprecated; fi
+if test x$sph_kernel = xsph_none -a x$flag_sph_wendland_deprecated != x; then sph_kernel=$flag_sph_wendland_deprecated; fi
 case $sph_kernel in
-	yes|none|"m4") FLAG_SPH_KERNEL="-DM4KERNEL=1 -DWENDLAND=0 -DM6KERNEL=0";;
-	m6			 ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=0 -DM6KERNEL=1";;
-	wendland	 ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=1 -DM6KERNEL=0";;
-	*			 ) AC_MSG_ERROR([invalid argument for '--enable-sph-kernel': $sph_kernel]);;
+	sph_none|"m4") FLAG_SPH_KERNEL="-DM4KERNEL=1 -DWENDLAND=0 -DM6KERNEL=0";;
+	m6           ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=0 -DM6KERNEL=1";;
+	wendland     ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=1 -DM6KERNEL=0";;
+	*            ) AC_MSG_ERROR([invalid argument for '--enable-sph-kernel': $sph_kernel]);;
 esac
 AC_SUBST([FLAG_SPH_KERNEL])
 
@@ -219,20 +219,6 @@ if test "$cooling" = "grackle" ; then
    fi
 fi
 
-# GPU local tree walk
-AC_ARG_ENABLE([gpu_local_tree_walk],
-  [AS_HELP_STRING([--enable-gpu_local_tree_walk], [Enable gpu_local_tree_walk (yes, no)])],
-  [gpu_local_tree_walk=$enableval], [gpu_local_tree_walk=no])
-GPU_LOCAL_TREE_WALK=""
-if test "$gpu_local_tree_walk" = "yes" ; then
-  echo "DGPU_LOCAL_TREE_WALK selected"
-  GPU_LOCAL_TREE_WALK="-DGPU_LOCAL_TREE_WALK"
-else
-  GPU_LOCAL_TREE_WALK=""
-fi
-
-AC_SUBST([GPU_LOCAL_TREE_WALK])
-
 # Tree building
 AC_ARG_ENABLE([tree-build],
 	[AS_HELP_STRING([--enable-tree-build], [tree building (merge-remote,split-phase)])],
@@ -242,7 +228,7 @@ case $tree_build in
 	merge-remote ) FLAG_TREE_BUILD="-DMERGE_REMOTE_REQUESTS";;
 	# no merging of remote requests on PE; local trees built after requests sent
 	split-phase  ) FLAG_TREE_BUILD="-DSPLIT_PHASE_TREE_BUILD";;
-	*		     ) AC_MSG_ERROR([invalid argument for '--enable-tree-build': $tree_build]);;
+	*            ) AC_MSG_ERROR([invalid argument for '--enable-tree-build': $tree_build]);;
 esac
 AC_SUBST([FLAG_TREE_BUILD])
 
@@ -260,6 +246,16 @@ if test ! x$FLAG_SANITIZER = xno; then
 	COMPILER_FLAG_REQUIRE([-fno-omit-frame-pointer],[-fno-omit-frame-pointer is required when using the sanitizers])
 fi
 AC_SUBST([FLAG_SANITIZER])
+
+# Interaction list version
+AC_ARG_ENABLE([interlist],
+	[AS_HELP_STRING([--enable-interlist], [interaction list version])],
+	[interlist=$enableval], [interlist=2])
+case $interlist in
+	1|2) FLAG_INTERLIST="-DINTERLIST_VER=$interlist";;
+	*  ) AC_MSG_ERROR([invalid argument for '--enable-interlist': $interlist]);;
+esac
+AC_SUBST([FLAG_INTERLIST])
 
 # Force compiler flags
 AC_ARG_ENABLE([opts],
@@ -305,7 +301,6 @@ echo "    "CPU architecture" " $FLAG_ARCH
 if test x$ENABLE_CUDA = xyes; then
 	echo
 	echo "    "CUDA directory" " $CUDA_DIR
-	echo "    "CUDA SDK "      " $CUDA_SDK_DIR
 	echo "    "CUDA nvcc "     " $NVCC_PATH
 	
 	if test ! x$FLAG_SANITIZER = xno; then

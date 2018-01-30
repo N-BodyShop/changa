@@ -95,8 +95,8 @@ defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@	\
 			@FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@ 	\
 			@FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@			\
 			@FLAG_VSIGVISC@ @FLAG_DAMPING@ @FLAG_DIFFHARMONIC@	\
-			@FLAG_TREE_BUILD@ $(debug_defines) $(interlist)		\
-			$(cuda_defines) -DINTERLIST_VER=2)					\
+			@FLAG_TREE_BUILD@ $(debug_defines) @FLAG_INTERLIST@	\
+			$(cuda_defines))
 
 modules := $(strip -language charm++ -balancer @DEFAULT_LB@		\
 		    $(foreach m,$(charm_modules),-module $(m))			\
@@ -126,7 +126,8 @@ ld_flags  := $(basic_ldflags) $(LDFLAGS)
 sources := $(filter-out $(source_dir)/cooling%,$(wildcard	\
 			$(addprefix $(source_dir)/,*.c *.cpp)))
 
-ci_headers := $(patsubst %.ci,%.decl.h,$(wildcard $(source_dir)/*.ci))
+ci_files   := $(wildcard $(source_dir)/*.ci)
+ci_headers := $(patsubst %.ci,%.decl.h,$(ci_files))
 
 objects := $(strip $(addprefix 												\
 			$(build_dir)/,$(patsubst %.cpp,%.o,$(filter %.cpp,$(sources)))	\
@@ -182,6 +183,15 @@ $(filter %.cpp,$(sources)): $(ci_headers)
 # Use a conditional include so consecutive cleans work
 -include $(depend_files)
 
+# Force a rebuild if the compiler flags have changed
+.PHONY: force
+settings: force
+	$(quiet) flags="$(cxx_flags) $(c_flags) $(ld_libs) $(ld_flags)" && \
+			 echo "$$flags" | cmp -s - $@ || echo "$$flags" > $@
+
+$(ci_files): settings
+$(objects): settings
+
 $(target): $(objects) $(structures_path)/libTipsy.a $(foreach m,$(changa_modules),libmodule$(m).a)
 	@ echo Building $@...
 	$(quiet) $(charmc) -o $(target) $(ld_flags) $(objects) $(ld_libs)
@@ -210,7 +220,7 @@ docs:
 .PHONY: clean
 clean:
 	@ echo Cleaning...
-	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files)
+	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files) settings
 	$(quiet) $(RM) $(foreach m,$(changa_modules),libmodule$(m).a)
 	$(quiet) cd $(structures_path); $(MAKE) clean
 
