@@ -185,7 +185,7 @@ public:
 #endif
         DataManager(){} 
 #endif
-        void clearInstrument(CkCallback &cb);
+        void clearInstrument(CkCallback const& cb);
 
 private:
         void init();

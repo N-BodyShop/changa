@@ -1028,7 +1028,7 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
     CmiUnlock(__nodelock);
 }
 
-void DataManager::clearInstrument(CkCallback &cb){
+void DataManager::clearInstrument(CkCallback const& cb){
 #ifdef CUDA_INSTRUMENT_WRS
   hapi_clearInstrument();
   contribute(cb);
