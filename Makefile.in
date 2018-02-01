@@ -185,7 +185,7 @@ SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManage
 	TreeWalk.cpp Compute.cpp CacheInterface.cpp smooth.cpp Sph.cpp externalGravity.cpp \
 	starform.cpp feedback.cpp imf.cpp supernova.cpp supernovaia.cpp starlifetime.cpp \
 	sinks.cpp \
-        SIDM.C
+	SIDM.cpp
 
 ifneq (,$(ENABLE_CUDA))
   CXXFLAGS += $(NVCC_INC)
