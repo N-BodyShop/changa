@@ -1477,20 +1477,14 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define TEXTURE_LOAD 1
 #define CHECK_INTERACTION_LISTS 0
 
-struct footprint {
-  int target;
-  int self;
-};
-
 // Used in lockstepping, sync for threads in a warp
-#define STACK_INIT() sp = 1; stk[WARP_INDEX][sp].target = ROOT; stk[WARP_INDEX][sp].self = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
+#define STACK_INIT() sp = 1; stk[WARP_INDEX][sp] = ROOT; //stack[WARP_INDEX][sp].items.dsq = size * size * itolsq
 #define STACK_POP() sp -= 1
 #define STACK_PUSH() sp += 1
-#define STACK_TOP_TARGET_INDEX stk[WARP_INDEX][sp].target
-#define STACK_TOP_MY_INDEX stk[WARP_INDEX][sp].self 
+#define STACK_TOP_TARGET_INDEX stk[WARP_INDEX][sp]
 
 //__launch_bounds__(432,1)
-__launch_bounds__(1152,1)
+//__launch_bounds__(1152,1)
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
     VariablePartData *particleVars,
@@ -1502,29 +1496,23 @@ __global__ void compute_force_gpu_lockstepping(
     cudatype thetaMono) {
 
   int i = 0;
-//  int j = 0;
-//  int k = 0;
   int pidx = 0; // thread id
 
 //  CudaMultipoleMoments  targetnode;
-//  CudaMultipoleMoments  mynode;
+  CUDATreeNode  my_tree_node;
 //  CompactPartData       targetparticle;
 
   __shared__ CUDATreeNode TARGET_TREE_NODE[NWARPS_PER_BLOCK];
-  __shared__ CUDATreeNode MY_TREE_NODE[NWARPS_PER_BLOCK];
-  __shared__ CompactPartData TARGETPARTICLE[NWARPS_PER_BLOCK];
+//  __shared__ CompactPartData TARGETPARTICLE[NWARPS_PER_BLOCK];
 #define target_tree_node TARGET_TREE_NODE[WARP_INDEX]
-#define my_tree_node MY_TREE_NODE[WARP_INDEX]
-#define targetparticle TARGETPARTICLE[WARP_INDEX]
+//#define my_tree_node MY_TREE_NODE[WARP_INDEX]
+//#define targetparticle TARGETPARTICLE[WARP_INDEX]
 
   CompactPartData       myparticle;
 
 //  unsigned int sp;
   __shared__ unsigned int SP[NWARPS_PER_BLOCK];
-  __shared__ footprint stk[NWARPS_PER_BLOCK][64];
-
-  unsigned int ssp = 0;
-  int Sstack[32];
+  __shared__ int stk[NWARPS_PER_BLOCK][64];
 
   // variable for current particle
   CompactPartData p;
@@ -1533,7 +1521,6 @@ __global__ void compute_force_gpu_lockstepping(
   cudatype idt2 = 0;
 
   int cur_target_index = -1;
-  int cur_my_index = -1;
   cudatype dsq = 0;
 
   // According to the discussion with Prof Tom Quinn, 
@@ -1554,14 +1541,18 @@ __global__ void compute_force_gpu_lockstepping(
 
   int flag = 1;
   int critical = 63;
+  int cond = 1;
 
   for(pidx = blockIdx.x*blockDim.x + threadIdx.x; pidx < totalNumOfParticles; pidx += gridDim.x*blockDim.x) {
 //    for(pidx = threadIdx.x + bucketStart; pidx < bucketEnd; pidx += THREADS_PER_BLOCK) {
     // initialize the variables belonging to current thread
+    int nodePointer = particleCores[pidx].nodeId;
 #ifdef TEXTURE_LOAD
     cuda_ldg_cPartData(myparticle, &particleCores[pidx]);
+    cuda_ldg_treenode(my_tree_node, &moments[nodePointer]);
 #else
     myparticle = particleCores[pidx];
+    my_tree_node = moments[nodePointer];
 #endif
 
     if (OBSERVE_FLAG && OBSERVING == pidx) {
@@ -1569,97 +1560,28 @@ __global__ void compute_force_gpu_lockstepping(
     }
 
     STACK_INIT();
-    Sstack[ssp] = -1;
 
     while(sp >= 1) {
 
-      if (Sstack[ssp] == sp) {
-        ssp --;
-        flag = 0;
-        critical = sp - 1;
-      } else if (critical >= sp) {
+      if (flag == 0 && critical >= sp) {
         flag = 1;
       }
 
       cur_target_index = STACK_TOP_TARGET_INDEX;
-      cur_my_index = STACK_TOP_MY_INDEX;
       STACK_POP();
 
       if (flag) {
-      cuda_ldg_treenode(target_tree_node, &moments[cur_target_index]);
-      cuda_ldg_treenode(my_tree_node, &moments[cur_my_index]);
+        cuda_ldg_treenode(target_tree_node, &moments[cur_target_index]);
+//        CudaMultipoleMoments& target_tree_node = moments[cur_target_index];
 
         // Here should be initialized with nReplicas ID. but since I'm not using it at all, I just fill it with zeros.
         int open = cuda_openCriterionNode(target_tree_node, my_tree_node, -1, theta, thetaMono);
         int action = cuda_OptAction(open, target_tree_node.type);
         
-        if (action == KEEP) {
-          if (open == CONTAIN) {
-            // if open == CONTAIN, push chilren in stack
-            if (target_tree_node.children[1] != -1) {
-              STACK_PUSH();
-              STACK_TOP_TARGET_INDEX = target_tree_node.children[1];
-              STACK_TOP_MY_INDEX = cur_my_index;
-            }
-            if (target_tree_node.children[0] != -1) {
-              STACK_PUSH();
-              STACK_TOP_TARGET_INDEX = target_tree_node.children[0];
-              STACK_TOP_MY_INDEX = cur_my_index;
-            }
-          } else if (open == INTERSECT) {
-            if (my_tree_node.type == cuda_Bucket) {
-              if (target_tree_node.children[1] != -1) {
-                STACK_PUSH();
-                STACK_TOP_TARGET_INDEX = target_tree_node.children[1];
-                STACK_TOP_MY_INDEX = cur_my_index;
-              }
-              if (target_tree_node.children[0] != -1) {
-                STACK_PUSH();
-                STACK_TOP_TARGET_INDEX = target_tree_node.children[0];
-                STACK_TOP_MY_INDEX = cur_my_index;
-              }
-            } else {
-              int child_id = my_tree_node.children[0];
-              bool left = (child_id != -1);
-              if (left) {
-                int start_pidx = moments[child_id].bucketStart;
-                int end_pidx = start_pidx + moments[child_id].bucketSize;
-                left = (start_pidx <= pidx && pidx < end_pidx);
-              }
-              
-              bool right = (!left && my_tree_node.children[1] != -1);
+        critical = sp;
+        cond = ((action == KEEP) && (open == CONTAIN || open == INTERSECT));
 
-              if (__any(right) && __any(left)) {
-                STACK_PUSH();
-                STACK_TOP_TARGET_INDEX = cur_target_index;
-                STACK_TOP_MY_INDEX = my_tree_node.children[1];
-
-                STACK_PUSH();
-                STACK_TOP_TARGET_INDEX = cur_target_index;
-                STACK_TOP_MY_INDEX = my_tree_node.children[0];
-
-                if (right) {
-                  flag = 0;
-                  critical = sp - 1;
-                } else {
-                  flag = 1;
-                  ssp ++;
-                  Sstack[ssp] = sp - 1;
-                }
-              } else if (left) {
-                STACK_PUSH();
-                STACK_TOP_TARGET_INDEX = cur_target_index;
-                STACK_TOP_MY_INDEX = my_tree_node.children[0];
-              } else if (my_tree_node.children[1] != -1){
-                STACK_PUSH();
-                STACK_TOP_TARGET_INDEX = cur_target_index;
-                STACK_TOP_MY_INDEX = my_tree_node.children[1];
-              } else {
-                continue;
-              }
-            }
-          }
-        } else if (action == COMPUTE) {        
+        if (action == COMPUTE) {        
 #ifdef CHECK_INTERACTION_LISTS
           traversedNodes ++;
 #endif
@@ -1681,37 +1603,37 @@ __global__ void compute_force_gpu_lockstepping(
               acc.y += r.y*b*target_tree_node.totalMass;
               acc.z += r.z*b*target_tree_node.totalMass;
             }
-            continue;
-          }
-          // compute with the node targetnode
-          r.x = myparticle.position.x - target_tree_node.cm.x;
-          r.y = myparticle.position.y - target_tree_node.cm.y;
-          r.z = myparticle.position.z - target_tree_node.cm.z;
+          } else {
+            // compute with the node targetnode
+            r.x = myparticle.position.x - target_tree_node.cm.x;
+            r.y = myparticle.position.y - target_tree_node.cm.y;
+            r.z = myparticle.position.z - target_tree_node.cm.z;
 
-          rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
-          if (rsq != 0) {
-            cudatype dir = rsqrt(rsq);     
-  #if defined (HEXADECAPOLE)
-            CUDA_momEvalFmomrcm(&moments[cur_target_index], &r, dir, &acc, &pot);
-            idt2 = fmax(idt2, (myparticle.mass + moments[cur_target_index].totalMass)*dir*dir*dir);
-  #else
-            cudatype a, b, c, d;
-            twoh = moments[cur_target_index].soft + myparticle.soft;
-            cuda_SPLINEQ(dir, rsq, twoh, a, b, c, d);
+            rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
+            if (rsq != 0) {
+              cudatype dir = rsqrt(rsq);     
+    #if defined (HEXADECAPOLE)
+              CUDA_momEvalFmomrcm(&moments[cur_target_index], &r, dir, &acc, &pot);
+              idt2 = fmax(idt2, (myparticle.mass + moments[cur_target_index].totalMass)*dir*dir*dir);
+    #else
+              cudatype a, b, c, d;
+              twoh = moments[cur_target_index].soft + myparticle.soft;
+              cuda_SPLINEQ(dir, rsq, twoh, a, b, c, d);
 
-            cudatype qirx = moments[cur_target_index].xx*r.x + moments[cur_target_index].xy*r.y + moments[cur_target_index].xz*r.z;
-            cudatype qiry = moments[cur_target_index].xy*r.x + moments[cur_target_index].yy*r.y + moments[cur_target_index].yz*r.z;
-            cudatype qirz = moments[cur_target_index].xz*r.x + moments[cur_target_index].yz*r.y + moments[cur_target_index].zz*r.z;
-            cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
-            cudatype tr = 0.5*(moments[cur_target_index].xx + moments[cur_target_index].yy + moments[cur_target_index].zz);
-            cudatype qir3 = b*moments[cur_target_index].totalMass + d*qir - c*tr;
+              cudatype qirx = moments[cur_target_index].xx*r.x + moments[cur_target_index].xy*r.y + moments[cur_target_index].xz*r.z;
+              cudatype qiry = moments[cur_target_index].xy*r.x + moments[cur_target_index].yy*r.y + moments[cur_target_index].yz*r.z;
+              cudatype qirz = moments[cur_target_index].xz*r.x + moments[cur_target_index].yz*r.y + moments[cur_target_index].zz*r.z;
+              cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
+              cudatype tr = 0.5*(moments[cur_target_index].xx + moments[cur_target_index].yy + moments[cur_target_index].zz);
+              cudatype qir3 = b*moments[cur_target_index].totalMass + d*qir - c*tr;
 
-            pot -= moments[cur_target_index].totalMass * a + c*qir - b*tr;
-            acc.x -= qir3*r.x - c*qirx;
-            acc.y -= qir3*r.y - c*qiry;
-            acc.z -= qir3*r.z - c*qirz;
-            idt2 = fmax(idt2, (myparticle.mass + moments[cur_target_index].totalMass)*b);    
-  #endif 
+              pot -= moments[cur_target_index].totalMass * a + c*qir - b*tr;
+              acc.x -= qir3*r.x - c*qirx;
+              acc.y -= qir3*r.y - c*qiry;
+              acc.z -= qir3*r.z - c*qirz;
+              idt2 = fmax(idt2, (myparticle.mass + moments[cur_target_index].totalMass)*b);    
+    #endif 
+            }
           }
         } else if (action == KEEP_LOCAL_BUCKET) {
           // compute with each particle contained by node targetnode
@@ -1719,11 +1641,12 @@ __global__ void compute_force_gpu_lockstepping(
           int target_lastparticle = target_tree_node.bucketStart + target_tree_node.bucketSize;
           cudatype a, b;
           for (i = target_firstparticle; i < target_lastparticle; i ++) {
-  #ifdef TEXTURE_LOAD
+/*  #ifdef TEXTURE_LOAD
             cuda_ldg_cPartData(targetparticle, &particleCores[i]);
   #else
             targetparticle = particleCores[i];
-  #endif
+  #endif*/
+            CompactPartData& targetparticle = particleCores[i];
 #ifdef CHECK_INTERACTION_LISTS 
             traversedParticles ++;
 #endif
@@ -1744,10 +1667,23 @@ __global__ void compute_force_gpu_lockstepping(
               idt2 = fmax(idt2, (myparticle.mass + targetparticle.mass) * b);
             }
           }
-        } else if (action == DUMP || action == NOP) {
-          // do nothing here
+        } 
+
+        if (!__any(cond)) {
+          continue;
+        }
+
+        if (!cond) {
+          flag = 0;
         } else {
-          printf("We got into a trouble in compute_force_gpu_lockstepping!\n");
+          if (target_tree_node.children[1] != -1) {
+            STACK_PUSH();
+            STACK_TOP_TARGET_INDEX = target_tree_node.children[1];
+          }
+          if (target_tree_node.children[0] != -1) {
+            STACK_PUSH();
+            STACK_TOP_TARGET_INDEX = target_tree_node.children[0];
+          }
         }
       }
     }
