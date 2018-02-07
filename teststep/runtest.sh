@@ -1,8 +1,9 @@
 #!/bin/sh
 #SBATCH -J Cambridge           # job name
 #SBATCH -o CAM_result.o%j       # output and error file name (%j expands to jobID)
-#SBATCH -n 32              # total number of mpi tasks requested
-#SBATCH -N 8
+#SBATCH --nodes=8
+#SBATCH --ntasks-per-node=1
+#SBATCH --cpus-per-task=1
 #SBATCH -p gpu     # queue (partition) -- normal, development, etc.
 #SBATCH -t 00:1:00        # run time (hh:mm:ss) - 1.5 hours
 
