@@ -1470,6 +1470,24 @@ cuda_ldg_treenode(CUDATreeNode &m, CudaMultipoleMoments *ptr) {
   m.cm.y   = __ldg(&(ptr->cm.y));
   m.cm.z   = __ldg(&(ptr->cm.z));
 #ifdef CAMBRIDGE
+  m.bucketStart       = __ldg(&(ptr->bucketStart));
+  m.bucketSize        = __ldg(&(ptr->bucketSize));
+  m.particleCount     = __ldg(&(ptr->particleCount));
+  m.children[0]       = __ldg(&(ptr->children[0]));
+  m.children[1]       = __ldg(&(ptr->children[1]));
+  m.type              = __ldg(&(ptr->type));
+#endif
+};
+
+__device__ __forceinline__ void 
+cuda_ldg_bucketnode(CUDABucketNode &m, CudaMultipoleMoments *ptr) {
+  m.radius = __ldg(&(ptr->radius));
+  m.soft   = __ldg(&(ptr->soft));
+  m.totalMass   = __ldg(&(ptr->totalMass));
+  m.cm.x   = __ldg(&(ptr->cm.x));
+  m.cm.y   = __ldg(&(ptr->cm.y));
+  m.cm.z   = __ldg(&(ptr->cm.z));
+#ifdef CAMBRIDGE
   m.lesser_corner.x   = __ldg(&(ptr->lesser_corner.x));
   m.lesser_corner.y   = __ldg(&(ptr->lesser_corner.y));
   m.lesser_corner.z   = __ldg(&(ptr->lesser_corner.z));
@@ -1477,15 +1495,6 @@ cuda_ldg_treenode(CUDATreeNode &m, CudaMultipoleMoments *ptr) {
   m.greater_corner.x  = __ldg(&(ptr->greater_corner.x));
   m.greater_corner.y  = __ldg(&(ptr->greater_corner.y));
   m.greater_corner.z  = __ldg(&(ptr->greater_corner.z));
-
-  m.bucketStart       = __ldg(&(ptr->bucketStart));
-  m.bucketSize        = __ldg(&(ptr->bucketSize));
-  m.particleCount     = __ldg(&(ptr->particleCount));
-  m.nodeArrayIndex    = __ldg(&(ptr->nodeArrayIndex));
-  m.bucketIndex       = __ldg(&(ptr->bucketIndex));
-  m.children[0]       = __ldg(&(ptr->children[0]));
-  m.children[1]       = __ldg(&(ptr->children[1]));
-  m.type              = __ldg(&(ptr->type));
 #endif
 };
 
@@ -1514,7 +1523,7 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define STACK_TOP_TARGET_INDEX stk[WARP_INDEX][sp]
 
 //__launch_bounds__(432,1)
-//__launch_bounds__(1152,1)
+__launch_bounds__(1024,1)
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
     VariablePartData *particleVars,
@@ -1529,7 +1538,7 @@ __global__ void compute_force_gpu_lockstepping(
   int pidx = 0; // thread id
 
 //  CudaMultipoleMoments  targetnode;
-  CUDATreeNode  my_tree_node;
+  CUDABucketNode  my_tree_node;
 //  CompactPartData       targetparticle;
 
   __shared__ CUDATreeNode TARGET_TREE_NODE[NWARPS_PER_BLOCK];
@@ -1541,7 +1550,7 @@ __global__ void compute_force_gpu_lockstepping(
   CompactPartData       myparticle;
 
 //  unsigned int sp;
-  __shared__ unsigned int SP[NWARPS_PER_BLOCK];
+  __shared__ int SP[NWARPS_PER_BLOCK];
   __shared__ int stk[NWARPS_PER_BLOCK][64];
 
   // variable for current particle
@@ -1579,10 +1588,10 @@ __global__ void compute_force_gpu_lockstepping(
     int nodePointer = particleCores[pidx].nodeId;
 #ifdef TEXTURE_LOAD
     cuda_ldg_cPartData(myparticle, &particleCores[pidx]);
-    cuda_ldg_treenode(my_tree_node, &moments[nodePointer]);
+    cuda_ldg_bucketnode(my_tree_node, &moments[nodePointer]);
 #else
     myparticle = particleCores[pidx];
-    my_tree_node = moments[nodePointer];
+//    my_tree_node = moments[nodePointer];
 #endif
 
     if (OBSERVE_FLAG && OBSERVING == pidx) {

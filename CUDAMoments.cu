@@ -115,7 +115,7 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
 #define OPENING_GEOMETRY_FACTOR (2.0 / sqrt(3.0))
 
 __device__ inline bool __attribute__(( always_inline ))
-cuda_intersect(CUDATreeNode &b, CudaSphere &s) {
+cuda_intersect(CUDABucketNode &b, CudaSphere &s) {
   cudatype dsq = 0.0;
   cudatype rsq = s.radius * s.radius;
   cudatype delta;
@@ -157,7 +157,7 @@ cuda_contains(const CudaSphere &s, const CudaVector3D &v) {
   return (dist <= s.radius);
 }
 
-__device__ inline bool __attribute__(( always_inline ))
+/*__device__ inline bool __attribute__(( always_inline ))
 cuda_contained(const CUDATreeNode &b, const CudaSphere &s) {
   CudaVector3D vec;
   cudatype delta1;
@@ -213,10 +213,10 @@ cuda_contained(const CUDATreeNode &b, const CudaSphere &s) {
   else
     return false;
 
-}
+}*/
 
 __device__ inline int __attribute__(( always_inline ))
-cuda_openSoftening(CUDATreeNode &node, CUDATreeNode &myNode) {
+cuda_openSoftening(CUDATreeNode &node, CUDABucketNode &myNode) {
   CudaSphere s;
   s.origin = node.cm;
   s.radius = 2.0*node.soft;
@@ -265,7 +265,7 @@ cuda_decodeOffset(int reqID, cudatype fPeriod) {
 
 __device__ inline int __attribute__(( always_inline ))
 cuda_openCriterionNode(CUDATreeNode &node,
-                    CUDATreeNode &myNode,
+                    CUDABucketNode &myNode,
                     int localIndex,
                     cudatype theta,
                     cudatype thetaMono) {
@@ -285,7 +285,7 @@ cuda_openCriterionNode(CUDATreeNode &node,
   s.origin = node.cm;
   s.radius = radius;
 
-  if(myNode.type==cuda_Bucket || myNode.type==cuda_CachedBucket || myNode.type==cuda_NonLocalBucket){
+//  if(myNode.type==cuda_Bucket || myNode.type==cuda_CachedBucket || myNode.type==cuda_NonLocalBucket){
     if(cuda_intersect(myNode, s))
         return 1;
     else
@@ -310,7 +310,7 @@ cuda_openCriterionNode(CUDATreeNode &node,
 #else
       return 0;
 #endif
-    } else {
+/*    } else {
       if(cuda_intersect(myNode, s)){
         if(cuda_contained(myNode,s))
           return 1;
@@ -339,7 +339,7 @@ cuda_openCriterionNode(CUDATreeNode &node,
 #else
       return 0;
 #endif
-    }
+    }*/
 }
 
 __device__ inline void __attribute__(( always_inline ))
