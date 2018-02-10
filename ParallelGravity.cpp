@@ -173,9 +173,9 @@ enum GasModel {
 	GASMODEL_GLASS
 	}; 
 
-bool doDumpLB;
+int doDumpLB;
 int lbDumpIteration;
-bool doSimulateLB;
+int doSimulateLB;
 
 /// Number of bins to use for the first iteration
 /// of every Oct decomposition step
@@ -770,7 +770,7 @@ Main::Main(CkArgMsg* m) {
 
         doDumpLB = false;
         prmAddParam(prm, "bdoDumpLB", paramBool, &doDumpLB,
-              sizeof(bool),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
+              sizeof(int),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
 
         lbDumpIteration = 0;
         prmAddParam(prm, "ilbDumpIteration", paramInt, &lbDumpIteration,
@@ -778,7 +778,7 @@ Main::Main(CkArgMsg* m) {
 
         doSimulateLB = false;
         prmAddParam(prm, "bDoSimulateLB", paramBool, &doSimulateLB,
-              sizeof(bool),"doSimulateLB", "Should Orb3dLB simulate LB decisions from dumped text file and stop?");
+              sizeof(int),"doSimulateLB", "Should Orb3dLB simulate LB decisions from dumped text file and stop?");
 
         CkAssert(!(doDumpLB && doSimulateLB));
 
