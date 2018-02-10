@@ -77,9 +77,9 @@ mainmodule ParallelGravity {
   // Specifies the number of sub-bins a bin is split into
   //  for Oct decomposition
   readonly int octRefineLevel;
-  readonly bool doDumpLB;
+  readonly int doDumpLB;
   readonly int lbDumpIteration;
-  readonly bool doSimulateLB;
+  readonly int doSimulateLB;
 
   message dummyMsg;
   message ComputeChunkMsg;
