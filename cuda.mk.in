@@ -49,11 +49,6 @@ cuda_objects  := $(patsubst %.cu,%.o,$(cuda_srcs))
 cuda_libs     += -lcuda -lcudart
 cuda_ldflags  += -L@CUDA_DIR@/lib64
 
-ifeq (yes,@HAVE_CUDA_SDK@)
-	cuda_includes += -I@CUDA_SDK_DIR@/common/inc
-	cuda_ldflags  += -L@CUDA_SDK_DIR@/lib
-endif
-
 # For more details on the architectures, see
 # http://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#virtual-architecture-feature-list
 nvcc_flags += -arch=compute_@CUDA_LEVEL@ -code=sm_@CUDA_LEVEL@

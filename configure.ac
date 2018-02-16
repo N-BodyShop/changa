@@ -305,7 +305,6 @@ echo "    "CPU architecture" " $FLAG_ARCH
 if test x$ENABLE_CUDA = xyes; then
 	echo
 	echo "    "CUDA directory" " $CUDA_DIR
-	echo "    "CUDA SDK "      " $CUDA_SDK_DIR
 	echo "    "CUDA nvcc "     " $NVCC_PATH
 	
 	if test ! x$FLAG_SANITIZER = xno; then
