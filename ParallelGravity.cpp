@@ -1359,6 +1359,11 @@ void Main::getStartTime()
 		ckout << "Simulation to Time:" << tTo << endl;
 		}
 	    }
+        if(param.nSteps == 0 && param.dDelta == 0.0) {
+            /* set dDelta to a non-zero value so timestep
+             * adjustment works. */
+            param.dDelta = 1.0;
+        }
     }
 
 /// @brief Return true if we need to write an output
@@ -2250,6 +2255,10 @@ void Main::setupICs() {
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
     treeProxy.setSoft(param.dSoft, CkCallbackResumeThread());
+    if(param.dSoft == 0.0 && param.bEpsAccStep) {
+        ckerr << "WARNING: bEpsAccStep does not work with dSoft == 0; disabling\n";
+        param.bEpsAccStep = 0;
+    }
   }
 	
 // for periodic, puts all particles within the boundary
