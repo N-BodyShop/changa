@@ -145,43 +145,30 @@ if test "$ENABLE_CUDA" != "no"; then
 fi
 
 
-# Check for the CUDA SDK.
-AC_ARG_VAR([CUDA_SDK_DIR], [CUDA SDK install directory])
-AC_ARG_WITH([cuda-sdk],
-        [AS_HELP_STRING([--with-cuda-sdk=PATH],
-                [specify the CUDA SDK install directory])],
-                [CUDA_SDK_DIR=$withval],[CUDA_SDK_DIR=""])
-
-if test -n "$CUDA_SDK_DIR"; then
-    AC_MSG_CHECKING([for CUDA SDK directory])
-    if test -d "$CUDA_SDK_DIR"; then
-        AC_MSG_RESULT($CUDA_SDK_DIR)
-        HAVE_CUDA_SDK=yes
-    else
-        AC_MSG_RESULT(not found)
-        AC_MSG_ERROR([specified CUDA SDK directory not found.])
-    fi
-fi
-
 # Allow setting CUDA compute capability at `configure`-time.
 AC_ARG_WITH([cuda-level],
         [AS_HELP_STRING([--with-cuda-level=LEVEL],[use CUDA compute capability LEVEL])],
         [CUDA_LEVEL=$withval],[CUDA_LEVEL=35])
 
 # Set up boolean AC_SUBST variables for use in Make.
-for var in HAVE_CUDA HAVE_CUDA_SDK ENABLE_CUDA; do
+for var in HAVE_CUDA ENABLE_CUDA; do
     eval value='$'"$var"
     if test "$value" = "no"; then
         eval "$var=''"
     fi
 done
 
+# Deprecate using the SDK
+AC_ARG_WITH([cuda-sdk],
+	[AS_HELP_STRING([--with-cuda-sdk=PATH], [DEPRECATED. Do not use.])],
+	[CUDA_SDK_DIR=$withval],
+	[CUDA_SDK_DIR=""]
+)
+
 AC_SUBST([ENABLE_CUDA])
 AC_SUBST([HAVE_CUDA])
-AC_SUBST([HAVE_CUDA_SDK])
 AC_SUBST([CUDA_LEVEL])
 AC_SUBST([CUDA_DIR])
-AC_SUBST([CUDA_SDK_DIR])
 AC_SUBST([NVCC_PATH])
 
 if test -n "$ENABLE_CUDA"; then
