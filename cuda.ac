@@ -23,9 +23,9 @@ AC_ARG_WITH([cuda],
 
 # We also support using the argument "auto" to mean "yes"
 case x$CUDA_DIR in
-			 xno) ENABLE_CUDA=no ;;
-	x|xauto|xyes) ENABLE_CUDA=yes; CUDA_DIR=$CHARM_CUDA_DIR ;;
-			   *) ENABLE_CUDA=yes ;;
+             xno) ENABLE_CUDA=no ;;
+    x|xauto|xyes) ENABLE_CUDA=yes; CUDA_DIR=$CHARM_CUDA_DIR ;;
+               *) ENABLE_CUDA=yes ;;
 esac
 
 # BUILD_CUDA is exported by $CHARMINC/conv-mach-cuda.sh
