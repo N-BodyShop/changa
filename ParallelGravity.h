@@ -1710,7 +1710,7 @@ public:
   /// Count add/deleted particles, and compact main particle storage.
   void colNParts(const CkCallback &cb);
   /// Assign iOrders to recently added particles.
-  void newOrder(const NewMaxOrder *nStarts, const int n, const CkCallback &cb) ;
+  void newOrder(const NewMaxOrder *nStarts, const int n, int bUseStoch, const CkCallback &cb) ;
   
   /// Update total particle numbers
   void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,

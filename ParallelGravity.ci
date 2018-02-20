@@ -360,7 +360,7 @@ mainmodule ParallelGravity {
     entry void starCenterOfMass(const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void colNParts(const CkCallback &cb);
-    entry [nokeep] void newOrder(const NewMaxOrder nStarts[n], const int n,
+    entry [nokeep] void newOrder(const NewMaxOrder nStarts[n], const int n, int bUseStoch,
 			  const CkCallback &cb);
     entry void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
 		 int64_t _nTotalStar, const CkCallback &cb);

@@ -224,14 +224,18 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		newParticle(starp);
                 p = &myParticles[i]; // newParticle can change pointers
 		CmiLock(dm->lockStarLog);
-        CmiLock(dm->lockHMStarLog);
-                // Record current spot in seTab
+            if(stfm.bUseStoch){
+                CmiLock(dm->lockHMStarLog);
                 CkAssert(dm->starLog->seTab.size()==dm->hmstarLog->seTab.size());
+                }
+                // Record current spot in seTab
                 iSeTab.push_back(dm->starLog->seTab.size());
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm));
-        if(stfm.bUseStoch) dm->hmStarLog->seTab.push_back(HMStarLogEvent(starp));
+        if(stfm.bUseStoch){
+            dm->hmStarLog->seTab.push_back(HMStarLogEvent(starp));
+            CmiUnlock(dm->lockHMStarLog);
+            }
 		CmiUnlock(dm->lockStarLog);
-		CmiUnlock(dm->lockHMStarLog);
 		delete (extraStarData *)starp->extraData;
 		delete starp;
 		if(TYPETest(p, TYPE_DELETED))

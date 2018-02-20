@@ -2571,6 +2571,7 @@ Main::doSimulation()
 	   || iStep%param.iOutInterval == 0)) {
 	writeOutput(iStep);
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
+    if(param.feedback->sn.bUseStoch)
     treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
     }
 	  
@@ -2600,6 +2601,7 @@ Main::doSimulation()
 	// so it won't be saved on disk.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, CkCallbackResumeThread());
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
+    if(param.feedback->sn.bUseStoch)
     treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
@@ -2818,6 +2820,7 @@ Main::doSimulation()
   }
 
   treeProxy[0].flushStarLog(CkCallbackResumeThread());
+  if(param.feedback->sn.bUseStoch)
   treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
 	
 #if COSMO_STATS > 0
@@ -3650,7 +3653,7 @@ void Main::addDelParticles()
 	nTotalStar += counts[iPiece].nAddStar - counts[iPiece].nDelStar;
 	}
     delete msg;
-    treeProxy.newOrder(nMaxOrders, numTreePieces, CkCallbackResumeThread());
+    treeProxy.newOrder(nMaxOrders, numTreePieces, param.feedback->sn.bUseStoch, CkCallbackResumeThread());
     delete[] nMaxOrders;
 
     nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
