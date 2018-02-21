@@ -198,15 +198,9 @@ struct CUDATreeNode
 
 struct CUDABucketNode
 {
-  cudatype radius;
   cudatype soft;
   cudatype totalMass;
   CudaVector3D cm;
-  
-#ifdef CAMBRIDGE
-  CudaVector3D lesser_corner;
-  CudaVector3D greater_corner;
-#endif
 };
 
 /** @brief Bucket of particles on the interaction list for the GPU.

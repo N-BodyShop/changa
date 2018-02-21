@@ -114,7 +114,7 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
 
 #define OPENING_GEOMETRY_FACTOR (2.0 / sqrt(3.0))
 
-__device__ inline bool __attribute__(( always_inline ))
+/*__device__ inline bool __attribute__(( always_inline ))
 cuda_intersect(CUDABucketNode &b, CudaSphere &s) {
   cudatype dsq = 0.0;
   cudatype rsq = s.radius * s.radius;
@@ -136,7 +136,7 @@ cuda_intersect(CUDABucketNode &b, CudaSphere &s) {
     else if((delta = s.origin.z - b.greater_corner.z) > 0)
       dsq += delta * delta;
     return (dsq <= s.radius * s.radius);
-}
+}*/
 
 __device__ inline bool __attribute__(( always_inline ))
 cuda_intersect(CudaSphere &s1, CudaSphere &s2) {
@@ -227,7 +227,7 @@ cuda_openSoftening(CUDATreeNode &node, CUDABucketNode &myNode) {
 
   if(cuda_intersect(myS, s))
     return true;
-  return cuda_intersect(myNode, s);
+  return cuda_contains(s, myNode.cm);
 }
 
 __device__ inline int __attribute__(( always_inline ))
@@ -271,7 +271,7 @@ cuda_openCriterionNode(CUDATreeNode &node,
                     cudatype thetaMono) {
   const int nMinParticleNode = 6;
 //  if(node.bucketSize <= nMinParticleNode) {
-  if(node.particleCount <= nMinParticleNode) {
+  if(node.particleCount <= nMinParticleNode || node.type == cuda_Bucket) {
     return 1;
   }
 
@@ -286,7 +286,7 @@ cuda_openCriterionNode(CUDATreeNode &node,
   s.radius = radius;
 
 //  if(myNode.type==cuda_Bucket || myNode.type==cuda_CachedBucket || myNode.type==cuda_NonLocalBucket){
-    if(cuda_intersect(myNode, s))
+    if(cuda_contains(s, myNode.cm))
         return 1;
     else
 #ifdef HEXADECAPOLE
@@ -299,7 +299,7 @@ cuda_openCriterionNode(CUDATreeNode &node,
         CudaSphere sM;
         sM.origin = node.cm;
         sM.radius = radius;
-        if(cuda_intersect(myNode, sM)) {
+        if(cuda_contains(sM, myNode.cm)) {
           return 1;
         }
         else {
@@ -310,36 +310,6 @@ cuda_openCriterionNode(CUDATreeNode &node,
 #else
       return 0;
 #endif
-/*    } else {
-      if(cuda_intersect(myNode, s)){
-        if(cuda_contained(myNode,s))
-          return 1;
-        else
-          return -1;
-      } else
-#ifdef HEXADECAPOLE
-      {
-        // Well separated, now check softening
-        if(!cuda_openSoftening(node, myNode)) {
-          return 0;   // passed both tests: will be a Hex interaction
-        }
-        else {      // Open as monopole?
-          radius = OPENING_GEOMETRY_FACTOR*node.radius/thetaMono;
-          CudaSphere sM;
-          sM.origin = node.cm;
-          sM.radius = radius;
-          if(cuda_intersect(myNode, sM)) {
-            return 1;
-          }
-          else {
-            return 0;
-          }
-        }
-      }
-#else
-      return 0;
-#endif
-    }*/
 }
 
 __device__ inline void __attribute__(( always_inline ))

@@ -1480,22 +1480,12 @@ cuda_ldg_treenode(CUDATreeNode &m, CudaMultipoleMoments *ptr) {
 };
 
 __device__ __forceinline__ void 
-cuda_ldg_bucketnode(CUDABucketNode &m, CudaMultipoleMoments *ptr) {
-  m.radius = __ldg(&(ptr->radius));
+cuda_ldg_bucketnode(CUDABucketNode &m, CompactPartData *ptr) {
   m.soft   = __ldg(&(ptr->soft));
-  m.totalMass   = __ldg(&(ptr->totalMass));
-  m.cm.x   = __ldg(&(ptr->cm.x));
-  m.cm.y   = __ldg(&(ptr->cm.y));
-  m.cm.z   = __ldg(&(ptr->cm.z));
-#ifdef CAMBRIDGE
-  m.lesser_corner.x   = __ldg(&(ptr->lesser_corner.x));
-  m.lesser_corner.y   = __ldg(&(ptr->lesser_corner.y));
-  m.lesser_corner.z   = __ldg(&(ptr->lesser_corner.z));
-
-  m.greater_corner.x  = __ldg(&(ptr->greater_corner.x));
-  m.greater_corner.y  = __ldg(&(ptr->greater_corner.y));
-  m.greater_corner.z  = __ldg(&(ptr->greater_corner.z));
-#endif
+  m.totalMass   = __ldg(&(ptr->mass));
+  m.cm.x   = __ldg(&(ptr->position.x));
+  m.cm.y   = __ldg(&(ptr->position.y));
+  m.cm.z   = __ldg(&(ptr->position.z));
 };
 
 __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPartData *ptr) {
@@ -1588,7 +1578,7 @@ __global__ void compute_force_gpu_lockstepping(
     int nodePointer = particleCores[pidx].nodeId;
 #ifdef TEXTURE_LOAD
     cuda_ldg_cPartData(myparticle, &particleCores[pidx]);
-    cuda_ldg_bucketnode(my_tree_node, &moments[nodePointer]);
+    cuda_ldg_bucketnode(my_tree_node, &particleCores[pidx]);
 #else
     myparticle = particleCores[pidx];
 //    my_tree_node = moments[nodePointer];
