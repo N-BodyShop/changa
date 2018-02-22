@@ -112,6 +112,11 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
 #ifdef CHANGESOFT
     p.fSoft0 = sp.eps;
 #endif
+#ifdef COLLISION
+    p.dtCol = DBL_MAX;
+    p.iOrderCol = -1;
+    p.w = (0.);
+#endif
     p.fDensity = 0.0;
     p.iType = TYPE_STAR;
     p.fStarMetals() = sp.metals;
