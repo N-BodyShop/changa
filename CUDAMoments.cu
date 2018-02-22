@@ -271,7 +271,7 @@ cuda_openCriterionNode(CUDATreeNode &node,
                     cudatype thetaMono) {
   const int nMinParticleNode = 6;
 //  if(node.bucketSize <= nMinParticleNode) {
-  if(node.particleCount <= nMinParticleNode || node.type == cuda_Bucket) {
+  if(node.particleCount <= nMinParticleNode) {
     return 1;
   }
 
