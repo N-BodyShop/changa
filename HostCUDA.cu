@@ -406,7 +406,6 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
       (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
-      ptr->fperiod, 
       ptr->totalNumOfParticles,
       ptr->theta,
       ptr->thetaMono
@@ -1482,14 +1481,12 @@ __device__ __forceinline__ void cuda_ldg_cPartData(CompactPartData &m, CompactPa
 #define STACK_PUSH() sp += 1
 #define STACK_TOP_TARGET_INDEX stk[WARP_INDEX][sp]
 
-//__launch_bounds__(432,1)
 __launch_bounds__(1024,1)
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
     VariablePartData *particleVars,
     CudaMultipoleMoments* moments,
     int *ilmarks,
-    cudatype fperiod,
     int totalNumOfParticles,
     cudatype theta,
     cudatype thetaMono) {
@@ -1521,12 +1518,6 @@ __global__ void compute_force_gpu_lockstepping(
 
   int cur_target_index = -1;
   cudatype dsq = 0;
-
-  // According to the discussion with Prof Tom Quinn, 
-  // I don't need to worry about periodic condition.
-  // So I just initialize the fperiod variable with zero,
-  // otherwise it (adn reqId) will cause "nan" problem.
-  fperiod = 0.0f;
 
   // variables for CUDA_momEvalFmomrcm
   CudaVector3D r;
@@ -1611,10 +1602,10 @@ __global__ void compute_force_gpu_lockstepping(
             rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
             if (rsq != 0) {
               cudatype dir = rsqrt(rsq);     
-    #if defined (HEXADECAPOLE)
+#if defined (HEXADECAPOLE)
               CUDA_momEvalFmomrcm(&moments[cur_target_index], &r, dir, &acc, &pot);
               idt2 = fmax(idt2, (myparticle.mass + moments[cur_target_index].totalMass)*dir*dir*dir);
-    #else
+#else
               cudatype a, b, c, d;
               twoh = moments[cur_target_index].soft + myparticle.soft;
               cuda_SPLINEQ(dir, rsq, twoh, a, b, c, d);
@@ -1631,7 +1622,7 @@ __global__ void compute_force_gpu_lockstepping(
               acc.y -= qir3*r.y - c*qiry;
               acc.z -= qir3*r.z - c*qirz;
               idt2 = fmax(idt2, (myparticle.mass + moments[cur_target_index].totalMass)*b);    
-    #endif 
+#endif 
             }
           }
         } else if (action == KEEP_LOCAL_BUCKET) {
@@ -1640,11 +1631,6 @@ __global__ void compute_force_gpu_lockstepping(
           int target_lastparticle = target_tree_node.bucketStart + target_tree_node.bucketSize;
           cudatype a, b;
           for (i = target_firstparticle; i < target_lastparticle; i ++) {
-/*  #ifdef TEXTURE_LOAD
-            cuda_ldg_cPartData(targetparticle, &particleCores[i]);
-  #else
-            targetparticle = particleCores[i];
-  #endif*/
             CompactPartData& targetparticle = particleCores[i];
 #ifdef CHECK_INTERACTION_LISTS 
             traversedParticles ++;

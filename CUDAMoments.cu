@@ -114,30 +114,6 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
 
 #define OPENING_GEOMETRY_FACTOR (2.0 / sqrt(3.0))
 
-/*__device__ inline bool __attribute__(( always_inline ))
-cuda_intersect(CUDABucketNode &b, CudaSphere &s) {
-  cudatype dsq = 0.0;
-  cudatype rsq = s.radius * s.radius;
-  cudatype delta;
-  if((delta = b.lesser_corner.x - s.origin.x) > 0)
-      dsq += delta * delta;
-    else if((delta = s.origin.x - b.greater_corner.x) > 0)
-      dsq += delta * delta;
-    if(rsq < dsq)
-      return false;
-    if((delta = b.lesser_corner.y - s.origin.y) > 0)
-      dsq += delta * delta;
-    else if((delta = s.origin.y - b.greater_corner.y) > 0)
-      dsq += delta * delta;
-    if(rsq < dsq)
-      return false;
-    if((delta = b.lesser_corner.z - s.origin.z) > 0)
-      dsq += delta * delta;
-    else if((delta = s.origin.z - b.greater_corner.z) > 0)
-      dsq += delta * delta;
-    return (dsq <= s.radius * s.radius);
-}*/
-
 __device__ inline bool __attribute__(( always_inline ))
 cuda_intersect(CudaSphere &s1, CudaSphere &s2) {
   CudaVector3D diff;
@@ -157,64 +133,6 @@ cuda_contains(const CudaSphere &s, const CudaVector3D &v) {
   return (dist <= s.radius);
 }
 
-/*__device__ inline bool __attribute__(( always_inline ))
-cuda_contained(const CUDATreeNode &b, const CudaSphere &s) {
-  CudaVector3D vec;
-  cudatype delta1;
-  cudatype delta2;
-
-  delta1 = b.lesser_corner.x - s.origin.x;
-  delta2 = s.origin.x - b.greater_corner.x;
-  if(delta1 > 0)
-    vec.x = b.greater_corner.x;
-  else if(delta2 > 0)
-    vec.x = b.lesser_corner.x;
-  else{
-    delta1 = -delta1;
-    delta2 = -delta2;
-    if(delta1>=delta2)
-      vec.x = b.lesser_corner.x;
-    else
-      vec.x = b.greater_corner.x;
-  }
-  
-  delta1 = b.lesser_corner.y - s.origin.y;
-  delta2 = s.origin.y - b.greater_corner.y;
-  if(delta1 > 0)
-    vec.y = b.greater_corner.y;
-  else if(delta2 > 0)
-    vec.y = b.lesser_corner.y;
-  else{
-    delta1 = -delta1;
-    delta2 = -delta2;
-    if(delta1>=delta2)
-      vec.y = b.lesser_corner.y;
-    else
-      vec.y = b.greater_corner.y;
-  }
-
-  delta1 = b.lesser_corner.z - s.origin.z;
-  delta2 = s.origin.z - b.greater_corner.z;
-  if(delta1 > 0)
-    vec.z = b.greater_corner.z;
-  else if(delta2 > 0)
-    vec.z = b.lesser_corner.z;
-  else{
-    delta1 = -delta1;
-    delta2 = -delta2;
-    if(delta1>=delta2)
-      vec.z = b.lesser_corner.z;
-    else
-      vec.z = b.greater_corner.z;
-  }
-
-  if(cuda_contains(s,vec))
-    return true;
-  else
-    return false;
-
-}*/
-
 __device__ inline int __attribute__(( always_inline ))
 cuda_openSoftening(CUDATreeNode &node, CUDABucketNode &myNode) {
   CudaSphere s;
@@ -228,39 +146,6 @@ cuda_openSoftening(CUDATreeNode &node, CUDABucketNode &myNode) {
   if(cuda_intersect(myS, s))
     return true;
   return cuda_contains(s, myNode.cm);
-}
-
-__device__ inline int __attribute__(( always_inline ))
-cuda_encodeOffset(int reqID, int x, int y, int z) {
-  // Replica in each direction is mapped to 0-7 range
-  int offsetcode = (x + 3) | ((y+3) << 3) | ((z+3) << 6);
-
-  // Assume we only have 32 bits to work with (minus sign bit)
-  // 4 million buckets is our limitation
-  return reqID | (offsetcode << 22);
-}
-
-__device__ inline int __attribute__(( always_inline ))
-cuda_reEncodeOffset(int reqID, int offsetID)
-{
-    const int offsetmask = 0x1ff << 22;
-
-    return reqID | (offsetmask & offsetID);
-}
-
-__device__ inline CudaVector3D __attribute__(( always_inline ))
-cuda_decodeOffset(int reqID, cudatype fPeriod) {
-  int offsetcode = reqID >> 22;
-  int x = (offsetcode & 0x7) - 3;
-  int y = ((offsetcode >> 3) & 0x7) - 3;
-  int z = ((offsetcode >> 6) & 0x7) - 3;
-
-  CudaVector3D offset;
-  offset.x = x*fPeriod;
-  offset.y = y*fPeriod;
-  offset.z = z*fPeriod;
-
-  return offset;
 }
 
 __device__ inline int __attribute__(( always_inline ))
