@@ -3814,18 +3814,12 @@ void TreePiece::doAllBuckets(){
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
 #ifdef CAMBRIDGE 
-/*#define CUDA_PTF_BUF_SIZE (50 * 1024 * 1024)
-  cudaDeviceSetLimit(cudaLimitPrintfFifoSize, (size_t) CUDA_PTF_BUF_SIZE);
-  size_t size;
-  cudaDeviceGetLimit(&size,cudaLimitPrintfFifoSize);
-  printf("our cuda printf fifo buffer size is %d.\n", size);*/
-
-//  printf("CAMBRIDGE         The numBuckets = %d\n", numBuckets);
-//  fflush(stdout);
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
   listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+
+  // Set up the book keeping flags
   bool useckloop = false;
   for (int i = 0; i < numBuckets; i ++) {
     sLocalGravityState->currentBucket = i;

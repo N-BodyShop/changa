@@ -32,15 +32,6 @@ cuda_contained(const CUDATreeNode &b, const CudaSphere &s);
 __device__ inline int __attribute__(( always_inline ))
 cuda_openSoftening(CUDATreeNode &node, CUDABucketNode &myNode);
 
-__device__ inline int __attribute__(( always_inline ))
-cuda_encodeOffset(int reqID, int x, int y, int z);
-
-__device__ inline int __attribute__(( always_inline ))
-cuda_reEncodeOffset(int reqID, int offsetID);
-
-__device__ inline CudaVector3D __attribute__(( always_inline ))
-cuda_decodeOffset(int reqID, CudaVector3D fPeriod);
-
 __device__ inline CudaVector3D __attribute__(( always_inline ))
 cuda_openCriterionNode(CUDATreeNode &node,
                     CUDABucketNode &myNode,
