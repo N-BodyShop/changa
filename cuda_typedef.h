@@ -85,17 +85,17 @@ typedef struct CudaSphere {
 }CudaSphere;
 
 enum CudaNodeType {
-    cuda_Invalid = 1,
-    cuda_Bucket = 2,
-    cuda_Internal = 3,
-    cuda_Boundary = 4,
-    cuda_NonLocal = 5,
-    cuda_Empty = 6,
-    cuda_Top = 7,
-    cuda_NonLocalBucket = 8,
-    cuda_Cached = 9,
-    cuda_CachedBucket = 10,
-    cuda_CachedEmpty = 11
+    CudaInvalid = 1,
+    CudaBucket = 2,
+    CudaInternal = 3,
+    CudaBoundary = 4,
+    CudaNonLocal = 5,
+    CudaEmpty = 6,
+    CudaTop = 7,
+    CudaNonLocalBucket = 8,
+    CudaCached = 9,
+    CudaCachedBucket = 10,
+    CudaCachedEmpty = 11
 };
 #endif
 

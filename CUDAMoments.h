@@ -18,36 +18,36 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
 #ifdef CAMBRIDGE
 
 __device__ inline bool __attribute__(( always_inline ))
-cuda_intersect(CUDABucketNode &b, CudaSphere &s);
+CUDA_intersect(CUDABucketNode &b, CudaSphere &s);
 
 __device__ inline bool __attribute__(( always_inline ))
-cuda_intersect(CudaSphere &s1, CudaSphere &s2);
+CUDA_intersect(CudaSphere &s1, CudaSphere &s2);
 
 __device__ inline bool __attribute__(( always_inline ))
-cuda_contains(const CudaSphere &s, const CudaVector3D &v);
+CUDA_contains(const CudaSphere &s, const CudaVector3D &v);
 
 __device__ inline bool __attribute__(( always_inline ))
-cuda_contained(const CUDATreeNode &b, const CudaSphere &s);
+CUDA_contained(const CUDATreeNode &b, const CudaSphere &s);
 
 __device__ inline int __attribute__(( always_inline ))
-cuda_openSoftening(CUDATreeNode &node, CUDABucketNode &myNode);
+CUDA_openSoftening(CUDATreeNode &node, CUDABucketNode &myNode);
 
 __device__ inline CudaVector3D __attribute__(( always_inline ))
-cuda_openCriterionNode(CUDATreeNode &node,
+CUDA_openCriterionNode(CUDATreeNode &node,
                     CUDABucketNode &myNode,
                     int localIndex,
                     cudatype theta,
                     cudatype thetaMono);
 
 __device__ inline void __attribute__(( always_inline ))
-cuda_SPLINEQ(cudatype invr, cudatype r2, cudatype twoh, cudatype& a,
+CUDA_SPLINEQ(cudatype invr, cudatype r2, cudatype twoh, cudatype& a,
        cudatype& b,cudatype& c,cudatype& d);
 
 __device__ inline void __attribute__(( always_inline ))
-cuda_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b); 
+CUDA_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b); 
 
 __device__ inline int __attribute__(( always_inline ))
-cuda_OptAction(int fakeOpen, int nodetype);
+CUDA_OptAction(int fakeOpen, int nodetype);
 
 #endif
 
