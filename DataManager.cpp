@@ -624,7 +624,7 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 #endif
 
 #ifdef CAMBRIDGE
-#define CAM_addNodeToList(nd, list, index) \
+#define addTreeNodeToList(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
         nd->wasNeg = false; \
@@ -820,14 +820,14 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     else if(type == Bucket || type == NonLocalBucket){ // NLB
       // don't need the particles, only the moments
 #ifdef CAMBRIDGE
-      CAM_addNodeToList(node,localMoments,nodeIndex)
+      addTreeNodeToList(node,localMoments,nodeIndex)
 #else
       addNodeToList(node,localMoments,nodeIndex)
 #endif
     }
     else if(type == Boundary || type == Internal){ // B,I 
 #ifdef CAMBRIDGE
-      CAM_addNodeToList(node,localMoments,nodeIndex)
+      addTreeNodeToList(node,localMoments,nodeIndex)
 #else
       addNodeToList(node,localMoments,nodeIndex)
 #endif
@@ -867,7 +867,6 @@ void DataManager::serializeLocal(GenericTreeNode *node){
           int id = bucketNode->nodeArrayIndex;
           localMoments[id].bucketStart = bucketNode->bucketArrayIndex;
           localMoments[id].bucketSize = bucketNode->lastParticle - bucketNode->firstParticle + 1;
-//          CkPrintf("CAMBRIDGE     --> (%d)the bucket in TP, nodeArrayId = %d, the starter is %d, the size is %d\n", j, id, localMoments[id].bucketStart, localMoments[id].bucketSize);
       }
     } else {
       for (int j = 0; j < tp->numBuckets; ++j) {
@@ -875,7 +874,6 @@ void DataManager::serializeLocal(GenericTreeNode *node){
           int id = bucketNode->nodeArrayIndex;
           localMoments[id].bucketStart = tp->bucketActiveInfo[id].start;
           localMoments[id].bucketSize =  tp->bucketActiveInfo[id].size;
-//          CkPrintf("CAMBRIDGE     --> (%d)the bucket in TP, nodeArrayId = %d, the starter is %d, the size is %d\n", j, id, localMoments[id].bucketStart, localMoments[id].bucketSize);
       }
     }
 
@@ -888,21 +886,11 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       int end = start + localMoments[id].bucketSize;
       for (int k = start; k < end; k ++) {
         localParicalsVec[k].nodeId = id;
-        // here we don't initialize the "numOfNodesTraversed" or "numOfParticlesTraversed"
-        // because their value will be directly overwriten by GPU kernel
       }
     }
 
   }
   transformLocalTreeRecursive(node, localMoments);
-/*  for (int i = 0; i < numTreePieces; i ++) {
-    TreePiece *tp = registeredTreePieces[i].treePiece;
-    if (tp->getIndex() == 2) {
-      printTreeRecursive(node, 0);
-    }
-  }*/
-//  printTreeRecursive(root, 0);
-//  CkPrintf("The time cost in transforming tree is %f sec. \n", CmiWallTimer() - startTimer);
 #endif
 
 #ifdef CUDA_DM_PRINT_TREES
