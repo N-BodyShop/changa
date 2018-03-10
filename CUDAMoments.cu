@@ -115,7 +115,7 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
 #define OPENING_GEOMETRY_FACTOR (2.0 / sqrt(3.0))
 
 __device__ inline bool __attribute__(( always_inline ))
-cuda_intersect(CudaSphere &s1, CudaSphere &s2) {
+CUDA_intersect(CudaSphere &s1, CudaSphere &s2) {
   CudaVector3D diff;
   cudatype dist;
   minusCudaVector3D(s1.origin, s2.origin, diff);
@@ -125,7 +125,7 @@ cuda_intersect(CudaSphere &s1, CudaSphere &s2) {
 
 
 __device__ inline bool __attribute__(( always_inline ))
-cuda_contains(const CudaSphere &s, const CudaVector3D &v) {
+CUDA_contains(const CudaSphere &s, const CudaVector3D &v) {
   CudaVector3D diff;
   cudatype dist;
   minusCudaVector3D(s.origin, v, diff);
@@ -134,28 +134,28 @@ cuda_contains(const CudaSphere &s, const CudaVector3D &v) {
 }
 
 __device__ inline int __attribute__(( always_inline ))
-cuda_openSoftening(CUDATreeNode &node, CUDABucketNode &myNode) {
+CUDA_openSoftening(CUDATreeNode &node, CUDABucketNode &myNode) {
   CudaSphere s;
   s.origin = node.cm;
-  s.radius = 2.0*node.soft;
+  s.radius = 2.0 * node.soft;
 
   CudaSphere myS;
   myS.origin = myNode.cm;
-  myS.radius = 2.0*myNode.soft;
+  myS.radius = 2.0 * myNode.soft;
 
-  if(cuda_intersect(myS, s))
+  if(CUDA_intersect(myS, s)) {
     return true;
-  return cuda_contains(s, myNode.cm);
+  }
+  return CUDA_contains(s, myNode.cm);
 }
 
 __device__ inline int __attribute__(( always_inline ))
-cuda_openCriterionNode(CUDATreeNode &node,
+CUDA_openCriterionNode(CUDATreeNode &node,
                     CUDABucketNode &myNode,
                     int localIndex,
                     cudatype theta,
                     cudatype thetaMono) {
   const int nMinParticleNode = 6;
-//  if(node.bucketSize <= nMinParticleNode) {
   if(node.particleCount <= nMinParticleNode) {
     return 1;
   }
@@ -163,42 +163,41 @@ cuda_openCriterionNode(CUDATreeNode &node,
   // Note that some of this could be pre-calculated into an "opening radius"
   cudatype radius = OPENING_GEOMETRY_FACTOR * node.radius / theta;
 
-  if(radius < node.radius)
-      radius = node.radius;
+  if(radius < node.radius) {
+    radius = node.radius;
+  }
 
   CudaSphere s;
   s.origin = node.cm;
   s.radius = radius;
 
-//  if(myNode.type==cuda_Bucket || myNode.type==cuda_CachedBucket || myNode.type==cuda_NonLocalBucket){
-    if(cuda_contains(s, myNode.cm))
-        return 1;
-    else
+  if(CUDA_contains(s, myNode.cm)) {
+    return 1;
+  } else {
 #ifdef HEXADECAPOLE
-    {
-      // Well separated, now check softening
-      if(!cuda_openSoftening(node, myNode)) {
-        return 0;   // passed both tests: will be a Hex interaction
-      } else {      // Open as monopole?
-        radius = OPENING_GEOMETRY_FACTOR*node.radius/thetaMono;
-        CudaSphere sM;
-        sM.origin = node.cm;
-        sM.radius = radius;
-        if(cuda_contains(sM, myNode.cm)) {
-          return 1;
-        }
-        else {
-          return 0;
-        }
+    // Well separated, now check softening
+    if(!CUDA_openSoftening(node, myNode)) {
+      return 0;   // passed both tests: will be a Hex interaction
+    } else {      // Open as monopole?
+      radius = OPENING_GEOMETRY_FACTOR * node.radius / thetaMono;
+      CudaSphere sM;
+      sM.origin = node.cm;
+      sM.radius = radius;
+      if(CUDA_contains(sM, myNode.cm)) {
+        return 1;
+      }
+      else {
+        return 0;
       }
     }
 #else
-      return 0;
-#endif
+    return 0;
+#endif //HEXADECAPOLE
+  }
 }
 
 __device__ inline void __attribute__(( always_inline ))
-cuda_SPLINEQ(cudatype invr, cudatype r2, cudatype twoh, cudatype& a,
+CUDA_SPLINEQ(cudatype invr, cudatype r2, cudatype twoh, cudatype& a,
        cudatype& b,cudatype& c,cudatype& d) {
   cudatype u,dih,dir=(invr);
   if ((r2) < (twoh)*(twoh)) {
@@ -244,7 +243,7 @@ cuda_SPLINEQ(cudatype invr, cudatype r2, cudatype twoh, cudatype& a,
 }
 
 __device__ inline void __attribute__(( always_inline ))
-cuda_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b) {
+CUDA_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b) {
   cudatype r, u,dih,dir;
   r = sqrt(r2);
 
@@ -279,31 +278,32 @@ cuda_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b) {
   }
 }
 
+// This function will to be simplified soon.
 __device__ inline int __attribute__(( always_inline ))
-cuda_OptAction(int fakeOpen, int nodetype) {
+CUDA_OptAction(int fakeOpen, int nodetype) {
   if (fakeOpen == 0) {
-    if (nodetype == cuda_Internal || nodetype == cuda_Bucket || nodetype == cuda_Boundary || nodetype == cuda_NonLocalBucket) {
+    if (nodetype == CudaInternal || nodetype == CudaBucket || nodetype == CudaBoundary || nodetype == CudaNonLocalBucket) {
       return COMPUTE;
-    } else if (nodetype == cuda_NonLocal || nodetype == cuda_Cached || nodetype == cuda_CachedBucket || nodetype == cuda_Empty || nodetype == cuda_CachedEmpty) {
+    } else if (nodetype == CudaNonLocal || nodetype == CudaCached || nodetype == CudaCachedBucket || nodetype == CudaEmpty || nodetype == CudaCachedEmpty) {
       return DUMP;
-    } else if (nodetype == cuda_Top || nodetype == cuda_Invalid) {
+    } else if (nodetype == CudaTop || nodetype == CudaInvalid) {
       return ERROR;
     } else {
-      printf("ERROR in cuda_OptAction\n");
+      printf("ERROR in CUDA_OptAction\n");
       return -1;
     }
   } else {
-    if (nodetype == cuda_Internal || nodetype == cuda_Boundary) {
+    if (nodetype == CudaInternal || nodetype == CudaBoundary) {
       return KEEP;
-    } else if (nodetype == cuda_Bucket) {
+    } else if (nodetype == CudaBucket) {
       return KEEP_LOCAL_BUCKET;
-    } else if (nodetype == cuda_NonLocal || nodetype == cuda_NonLocalBucket || nodetype == cuda_CachedBucket || nodetype == cuda_Cached || nodetype == cuda_Empty ||
-              nodetype == cuda_CachedEmpty) {
+    } else if (nodetype == CudaNonLocal || nodetype == CudaNonLocalBucket || nodetype == CudaCachedBucket || nodetype == CudaCached || nodetype == CudaEmpty ||
+              nodetype == CudaCachedEmpty) {
       return DUMP;
-    } else if (nodetype == cuda_Top || nodetype == cuda_Invalid) {
+    } else if (nodetype == CudaTop || nodetype == CudaInvalid) {
       return ERROR;
     } else {
-      printf("ERROR in cuda_OptAction\n");
+      printf("ERROR in CUDA_OptAction\n");
       return -1;
     }
   }
