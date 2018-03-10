@@ -1482,73 +1482,66 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
   delete data; 
 }
 
+#ifdef CAMBRIDGE
 /**
- * The purposes of this function include:
- * 1. Trigger a data transfer to GPU. This transfer will eventually start our new GPU kernel.
- * 2. Feed some data structures to coax ChaNGa. These data structure ensure that when our kernel is done, 
- *    the rest part of ChaNGa can correctly handle the data transfer and terminate/start next step.
- */ 
-void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int start_id, int end_id) {
-  int numFilledBuckets = 0;          
-  int fake_totalNumInteractions = 1;      // suppose we have only one fake interaction list
-  int fake_curbucket = 0;
-
-  for (int i = start_id; i < end_id; ++i) {
+ * The purpose of this function is to send a ignition signal to GPU manager.
+ * To make minor change to existing ChaNGa code, we mimic a nodeGravityCompute 
+ * request. This request will eventually call our local tree walk kernel. 
+ */
+void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, 
+  int activeRung, int startBucket, int endBucket) {
+  int numFilledBuckets = 0;      
+  for (int i = startBucket; i < endBucket; ++i) {
     if (tp->bucketList[i]->rungs >= activeRung) {
-      numFilledBuckets ++;
+      ++numFilledBuckets;
     }
   }
+  int *affectedBuckets = new int[numFilledBuckets];
 
-  ILCell *flatlists = NULL;
-  int *nodeMarkers = NULL;
-  int *starts = NULL;
-  int *sizes = NULL;
-  int *affectedBuckets = NULL;
+  // Set up a series of fake parameters to match existing function interfaces
+  int fakeTotalNumInteractions = 1;
+  int fakeCurBucket = 0;
+  ILCell *fakeFlatlists = NULL;
+  int *fakeNodeMarkers = NULL;
+  int *fakeStarts = NULL;
+  int *fakeSizes = NULL;
 
 #ifdef CUDA_USE_CUDAMALLOCHOST
-  allocatePinnedHostMemory((void **)&flatlists, fake_totalNumInteractions*sizeof(ILCell));
-  allocatePinnedHostMemory((void **)&nodeMarkers, (numFilledBuckets)*sizeof(int));
-  allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
-  allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
+  allocatePinnedHostMemory((void **)&fakeFlatlists, fakeTotalNumInteractions * 
+                                                    sizeof(ILCell));
+  allocatePinnedHostMemory((void **)&fakeNodeMarkers, numFilledBuckets * 
+                                                      sizeof(int));
+  allocatePinnedHostMemory((void **)&fakeStarts, numFilledBuckets * 
+                                                  sizeof(int));
+  allocatePinnedHostMemory((void **)&fakeSizes, numFilledBuckets * sizeof(int));
 #else
-  flatlists = (ILCell *) malloc(fake_totalNumInteractions*sizeof(ILCell));
-  nodeMarkers = (int *) malloc((numFilledBuckets)*sizeof(int));
-  starts = (int *) malloc(numFilledBuckets*sizeof(int));
-  sizes = (int *) malloc(numFilledBuckets*sizeof(int));
+  fakeFlatlists = (ILCell *) malloc(fake_totalNumInteractions*sizeof(ILCell));
+  fakeNodeMarkers = (int *) malloc((numFilledBuckets)*sizeof(int));
+  fakeStarts = (int *) malloc(numFilledBuckets*sizeof(int));
+  fakeSizes = (int *) malloc(numFilledBuckets*sizeof(int));
 #endif
-  affectedBuckets = new int[numFilledBuckets];
 
 //  No need to memset the interaction list array since we're not using it at all
 //  And, we can't directly memset it.
   ILCell temp_ilc;
-  memcpy(&flatlists[0], &temp_ilc, fake_totalNumInteractions * sizeof(ILCell));
-  for (int i = start_id; i < end_id; i ++) {
+  memcpy(&fakeFlatlists[0], &temp_ilc, fakeTotalNumInteractions * sizeof(ILCell));
+  for (int i = startBucket; i < endBucket; ++i) {
     if (tp->bucketList[i]->rungs >= activeRung) {
       ((DoubleWalkState *)state)->counterArrays[0][i] ++;
-      nodeMarkers[fake_curbucket] = tp->bucketList[i]->nodeArrayIndex;
-      int temp_num = 0;
-      memcpy(&starts[fake_curbucket], &temp_num, sizeof(int));
-      memcpy(&sizes[fake_curbucket], &temp_num, sizeof(int));
-      affectedBuckets[fake_curbucket] = i;
-      fake_curbucket++;
+      fakeNodeMarkers[fakeCurBucket] = tp->bucketList[i]->nodeArrayIndex;
+      int tempNum = 0;
+      memcpy(&fakeStarts[fakeCurBucket], &tempNum, sizeof(int));
+      memcpy(&fakeSizes[fakeCurBucket], &tempNum, sizeof(int));
+      affectedBuckets[fakeCurBucket] = i;
+      fakeCurBucket++;
     }
   }
 
-  // Most of these data structures are useless, but we need them to collaborate with the rest ChaNGa code.
   CudaRequest *request = new CudaRequest;
-  request->list = (void *)flatlists;                                // Useless
-  request->bucketMarkers = nodeMarkers;                                 // Useless
-  request->bucketStarts = starts;                           // Useless
-  request->bucketSizes = sizes;                             // Useless
-  request->numInteractions = fake_totalNumInteractions;                  // Useless
-  request->numBucketsPlusOne = numFilledBuckets+1;              // Useful
-  request->affectedBuckets = affectedBuckets;                   // Not sure
-  request->tp = (void *)tp;
-  request->fperiod = tp->fPeriod.x;
 
-#ifdef CUDA_TRACE
-  traceUserBracketEvent(CUDA_SER_LIST, starttime, CmiWallTimer());
-#endif
+  request->numBucketsPlusOne = numFilledBuckets+1;
+  request->affectedBuckets = affectedBuckets;
+  request->tp = (void *)tp;
   request->state = (void *)state;
   request->node = true;
   request->remote = false;
@@ -1558,8 +1551,15 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
   request->thetaMono = thetaMono;
   request->cb = new CkCallback(cudaCallbackForAllBuckets, request);
 
+  request->list = (void *)fakeFlatlists;
+  request->bucketMarkers = fakeNodeMarkers;
+  request->bucketStarts = fakeStarts;
+  request->bucketSizes = fakeSizes;
+  request->numInteractions = fakeTotalNumInteractions;
+
   TreePieceCellListDataTransferLocal(request);
 }
+#endif //CAMBRIDGE
 
 /// @brief Check for computation
 /// Computation can be done on buckets indexed from start to end
@@ -1573,15 +1573,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int
 void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start, int end){
   int thisIndex = tp->getIndex();
   GravityParticle *particles = tp->getParticles();
-
   DoubleWalkState *state = (DoubleWalkState *)state_;
-#ifdef CAMBRIDGE
-  if (getOptType() == Local) {
-// In new GPU kernel, we let GPU do all the local tree walk. 
-// So we skip local walk here.
-    return;
-  }
-#endif
 
 #ifdef CUDA
   bool resume = state->resume;
