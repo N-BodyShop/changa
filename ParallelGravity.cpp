@@ -1485,6 +1485,48 @@ inline void Main::waitForGravity(const CkCallback &cb, double startTime,
 #endif
     }
 
+/// @brief Perform domain decomposition
+/// @param Active rung (or phase).
+
+void Main::domainDecomp(int iPhase)
+{
+    double startTime = CkWallTimer();
+    bool bDoDD; // determine new domains (true) or use existing
+                // domains (false)
+    if(iPhase == PHASE_FEEDBACK) {
+        CkPrintf("Domain decomposition for star formation/feedback... ");
+        bDoDD = true;
+    }
+    else {
+        CkPrintf("Domain decomposition ... ");
+        bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
+    }
+
+    if (bDoDD) {
+        sorter.startSorting(dataManagerID, ddTolerance,
+                            CkCallbackResumeThread(), bDoDD);
+    } else {
+      CkReductionMsg *isTPEmpty;
+      treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread((void*&)isTPEmpty));
+
+      // After shuffling of particles based on the previous boundaries, if any
+      // TreePiece ends up with no particles, then startSorting needs to be
+      // called as we cannot handle the case where there are empty TreePieces in
+      // the middle.
+      if (*((int*)isTPEmpty->getData())) {
+        sorter.startSorting(dataManagerID, ddTolerance,
+            CkCallbackResumeThread(), bDoDD);
+      }
+      delete isTPEmpty;
+    }
+    double tDD = CkWallTimer()-startTime;
+    timings[iPhase].tDD += tDD;
+    CkPrintf("total %g seconds.\n", tDD);
+
+    if(verbosity && !bDoDD)
+        CkPrintf("Skipped DD\n");
+}
+
 ///
 /// @brief Take one base timestep of the simulation.
 /// @param iStep The current step number.
@@ -1648,15 +1690,9 @@ void Main::advanceBigStep(int iStep) {
     if((param.bStarForm || param.bFeedback)
        && param.stfm->isStarFormRung(activeRung)) {
         timings[PHASE_FEEDBACK].count++;
-        double startTime = CkWallTimer();
-        CkPrintf("Domain decomposition for star formation/feedback... ");
-        sorter.startSorting(dataManagerID, ddTolerance,
-                            CkCallbackResumeThread(), true);
-        double tDD = CkWallTimer()-startTime;
-        timings[PHASE_FEEDBACK].tDD += tDD;
-        CkPrintf("total %g seconds.\n", tDD);
+        domainDecomp(PHASE_FEEDBACK);
         CkPrintf("Load balancer for star formation/feedback... ");
-        startTime = CkWallTimer();
+        double startTime = CkWallTimer();
         treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
         double tLB = CkWallTimer()-startTime;
         timings[PHASE_FEEDBACK].tLoadB += tLB;
@@ -1687,41 +1723,14 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
 
     /***** Resorting of particles and Domain Decomposition *****/
-    CkPrintf("Domain decomposition ... ");
-    double startTime;
-    bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
-
-    startTime = CkWallTimer();
-    if (bDoDD) {
-      sorter.startSorting(dataManagerID, ddTolerance,
-                        CkCallbackResumeThread(), bDoDD);
-    } else {
-      CkReductionMsg *isTPEmpty;
-      treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread((void*&)isTPEmpty));
-
-      // After shuffling of particles based on the previous splitter, if any
-      // TreePiece ends up with no particles, then startSorting needs to be
-      // called as we cannot handle the case where there are empty TreePieces in
-      // the middle.
-      if (*((int*)isTPEmpty->getData())) {
-        sorter.startSorting(dataManagerID, ddTolerance,
-            CkCallbackResumeThread(), bDoDD);
-      }
-      delete isTPEmpty;
-    }
-    double tDD = CkWallTimer()-startTime;
-    timings[activeRung].tDD += tDD;
-    CkPrintf("total %g seconds.\n", tDD);
-
-    if(verbosity && !bDoDD)
-	CkPrintf("Skipped DD\n");
+    domainDecomp(activeRung);
 
     if(verbosity > 1)
 	memoryStats();
     /********* Load balancer ********/
     //ckout << "Load balancer ...";
     CkPrintf("Load balancer ... ");
-    startTime = CkWallTimer();
+    double startTime = CkWallTimer();
     treeProxy.startlb(CkCallbackResumeThread(), activeRung);
     double tLB = CkWallTimer()-startTime;
     timings[activeRung].tLoadB += tLB;
@@ -2397,17 +2406,17 @@ Main::restart(CkCheckpointStatusMsg *msg)
         if(param.bStarForm || param.bFeedback)
             treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
         DumpFrameInit(dTime0, 0.0, bIsRestarting);
+        timings.resize(PHASE_FEEDBACK+1);
+        nActiveGrav = nTotalParticles;
+        nActiveSPH = nTotalSPH;
 
-	/***** Initial sorting of particles and Domain Decomposition *****/
-	CkPrintf("Initial domain decomposition ... ");
+        /***** Initial sorting of particles and Domain Decomposition *****/
+        CkPrintf("Initial ");
+        domainDecomp(0);
 
-	double startTime = CkWallTimer();
-	sorter.startSorting(dataManagerID, ddTolerance,
-			  CkCallbackResumeThread(), true);
-	CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
 	// Balance load initially after decomposition
 	CkPrintf("Initial load balancing ... ");
-	startTime = CkWallTimer();
+	double startTime = CkWallTimer();
 	treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
 	CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
 
@@ -2437,21 +2446,14 @@ void
 Main::initialForces()
 {
   double startTime;
+  timings.resize(PHASE_FEEDBACK+1);
 
   // DEBUGGING
   // CkStartQD(CkCallback(CkIndex_TreePiece::quiescence(),treeProxy));
 
   /***** Initial sorting of particles and Domain Decomposition *****/
-  CkPrintf("Initial domain decomposition ... ");
-
-  startTime = CkWallTimer();
-  sorter.startSorting(dataManagerID, ddTolerance,
-	 	      CkCallbackResumeThread(), true);
-  CkPrintf("total %g seconds.\n", CkWallTimer()-startTime);
-  /*
-  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-        << endl;
-        */
+  CkPrintf("Initial ");
+  domainDecomp(0);
 
 #ifdef PUSH_GRAVITY
   treeProxy.findTotalMass(CkCallbackResumeThread());
@@ -2626,7 +2628,6 @@ Main::doSimulation()
 #ifdef CHECK_TIME_WITHIN_BIGSTEP
   wallTimeStart = CkWallTimer();
 #endif
-  timings.resize(PHASE_FEEDBACK+1);
 
   for(int iStep = param.iStartStep+1; iStep <= param.nSteps; iStep++){
     if (killAt > 0 && killAt == iStep) {
@@ -2853,8 +2854,7 @@ Main::doSimulation()
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-	  sorter.startSorting(dataManagerID, ddTolerance,
-			      CkCallbackResumeThread(), true);
+          domainDecomp(0);
 #ifdef PUSH_GRAVITY
 	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else
@@ -3359,8 +3359,7 @@ void Main::writeOutput(int iStep)
 	// The following call is to get the particles in key order
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-	sorter.startSorting(dataManagerID, ddTolerance,
-			    CkCallbackResumeThread(), true);
+        domainDecomp(0);
 #ifdef PUSH_GRAVITY
 	treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else
@@ -3408,8 +3407,7 @@ void Main::writeOutput(int iStep)
 	    // The following call is to get the particles in key order
 	    // before the sort.
 	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-	    sorter.startSorting(dataManagerID, ddTolerance,
-				CkCallbackResumeThread(), true);
+            domainDecomp(0);
 #ifdef PUSH_GRAVITY
 	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
 #else
