@@ -543,6 +543,7 @@ public:
             int activeRung);
         void advanceBigStep(int);
         void domainDecomp(int iPhase);
+        void loadBalance(int iPhase);
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
