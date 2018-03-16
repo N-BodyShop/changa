@@ -237,15 +237,11 @@ void Main::StellarFeedback(double dTime, double dDelta)
     // Overload tAdjust with FB stellar evolution
     timings[PHASE_FEEDBACK].tAdjust += tFB;
     
-    startTime = CkWallTimer();
     if(verbosity)
       CkPrintf("Distribute Stellar Feedback ... ");
     // Need to build tree since we just did addDelParticle.
     //
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-    double tTB = CkWallTimer() - startTime;
-    timings[PHASE_FEEDBACK].tTBuild += tTB;
-    startTime = CkWallTimer();
+    buildTree(PHASE_FEEDBACK);
     DistStellarFeedbackSmoothParams pDSFB(TYPE_GAS, 0, param.csm, dTime, 
 					  param.dConstGamma, param.feedback);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;

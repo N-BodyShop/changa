@@ -1537,12 +1537,12 @@ void Main::domainDecomp(int iPhase)
 void
 Main::loadBalance(int iPhase)
 {
-    double startTime = CkWallTimer();
     if(iPhase == -1) {
         CkPrintf("Initial load balancing ... ");
         treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
     }
     else {
+        double startTime = CkWallTimer();
         if(iPhase == PHASE_FEEDBACK) {
             CkPrintf("Load balancer for star formation/feedback... ");
         }
@@ -1551,10 +1551,31 @@ Main::loadBalance(int iPhase)
         }
 
         treeProxy.startlb(CkCallbackResumeThread(), iPhase);
+        double tLB = CkWallTimer()-startTime;
+        timings[iPhase].tLoadB += tLB;
+        CkPrintf("took %g seconds.\n", tLB);
     }
-    double tLB = CkWallTimer()-startTime;
-    timings[iPhase].tLoadB += tLB;
-    CkPrintf("took %g seconds.\n", tLB);
+}
+
+/// @brief Build Tree
+/// @param iPhase Active rung (or phase).
+void Main::buildTree(int iPhase)
+{
+#ifdef PUSH_GRAVITY
+    bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
+    if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
+#endif
+    CkPrintf("Building trees ... ");
+    double startTime = CkWallTimer();
+#ifdef PUSH_GRAVITY
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
+#else
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
+    double tTB =  CkWallTimer()-startTime;
+    timings[iPhase].tTBuild += tTB;
+    CkPrintf("took %g seconds.\n", tTB);
+
 }
 
 ///
@@ -1666,9 +1687,9 @@ void Main::advanceBigStep(int iStep) {
 	      
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
 	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
-	      bool buildTree = (iSub + 1 == driftSteps);
+	      bool bBuildTree = (iSub + 1 == driftSteps);
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
-			      dKickFac, dTimeSub, nGrowMassDrift, buildTree,
+			      dKickFac, dTimeSub, nGrowMassDrift, bBuildTree,
 			      CkCallbackResumeThread());
               double tDrift = CkWallTimer() - startTime;
               timings[activeRung].tDrift += tDrift;
@@ -1758,26 +1779,11 @@ void Main::advanceBigStep(int iStep) {
     if(verbosity > 1)
 	memoryStats();
 
-
-#ifdef PUSH_GRAVITY
-    bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
-    if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
-#endif
-
     /******** Tree Build *******/
-    //ckout << "Building trees ...";
-    CkPrintf("Building trees ... ");
-    double startTime = CkWallTimer();
-#ifdef PUSH_GRAVITY
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
-#else
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-#endif
-    double tTB =  CkWallTimer()-startTime;
-    timings[activeRung].tTBuild += tTB;
-    CkPrintf("took %g seconds.\n", tTB);
+    buildTree(activeRung);
 
     CkCallback cbGravity(CkCallback::resumeThread);
+    double startTime; /// XXX to be removed
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGravity) {
@@ -2483,15 +2489,7 @@ Main::initialForces()
   loadBalance(-1);
 
   /******** Tree Build *******/
-  //ckout << "Building trees ...";
-  CkPrintf("Building trees ... ");
-  startTime = CkWallTimer();
-#ifdef PUSH_GRAVITY
-  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
-#else
-  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-#endif
-  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+  buildTree(0);
 
   if(verbosity)
       memoryStats();
@@ -2867,11 +2865,7 @@ Main::doSimulation()
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
           domainDecomp(0);
-#ifdef PUSH_GRAVITY
-	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
-#else
-	  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-#endif
+          buildTree(0);
 	  
 	  ckout << "Calculating total densities ...";
 	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
@@ -3372,11 +3366,7 @@ void Main::writeOutput(int iStep)
 	// before the sort.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
         domainDecomp(0);
-#ifdef PUSH_GRAVITY
-	treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
-#else
-	treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-#endif
+        buildTree(0);
 
 	if(verbosity)
 	    ckout << "Calculating total densities ...";
@@ -3420,11 +3410,7 @@ void Main::writeOutput(int iStep)
 	    // before the sort.
 	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
             domainDecomp(0);
-#ifdef PUSH_GRAVITY
-	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
-#else
-	    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-#endif
+            buildTree(0);
 	    DensitySmoothParams pDenGas(TYPE_GAS, 0);
 	    dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	    treeProxy.startSmooth(&pDenGas, 1, param.nSmooth, dfBall2OverSoft2,

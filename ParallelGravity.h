@@ -544,6 +544,7 @@ public:
         void advanceBigStep(int);
         void domainDecomp(int iPhase);
         void loadBalance(int iPhase);
+        void buildTree(int iPhase);
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
