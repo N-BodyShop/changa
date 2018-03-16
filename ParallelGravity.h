@@ -542,6 +542,7 @@ public:
 	void waitForGravity(const CkCallback &cb, double startTime,
             int activeRung);
         void advanceBigStep(int);
+        void domainDecomp(int iPhase);
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
