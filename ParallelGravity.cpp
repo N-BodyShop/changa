@@ -1527,6 +1527,31 @@ void Main::domainDecomp(int iPhase)
         CkPrintf("Skipped DD\n");
 }
 
+/// @brief Perform load balance.
+/// @param iPhase Active rung (or phase).  -1 indicates initial LB.
+void
+Main::loadBalance(int iPhase)
+{
+    double startTime = CkWallTimer();
+    if(iPhase == -1) {
+        CkPrintf("Initial load balancing ... ");
+        treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
+    }
+    else {
+        if(iPhase == PHASE_FEEDBACK) {
+            CkPrintf("Load balancer for star formation/feedback... ");
+        }
+        else {
+            CkPrintf("Load balancer ... ");
+        }
+
+        treeProxy.startlb(CkCallbackResumeThread(), iPhase);
+    }
+    double tLB = CkWallTimer()-startTime;
+    timings[iPhase].tLoadB += tLB;
+    CkPrintf("took %g seconds.\n", tLB);
+}
+
 ///
 /// @brief Take one base timestep of the simulation.
 /// @param iStep The current step number.
@@ -1691,12 +1716,7 @@ void Main::advanceBigStep(int iStep) {
        && param.stfm->isStarFormRung(activeRung)) {
         timings[PHASE_FEEDBACK].count++;
         domainDecomp(PHASE_FEEDBACK);
-        CkPrintf("Load balancer for star formation/feedback... ");
-        double startTime = CkWallTimer();
-        treeProxy.startlb(CkCallbackResumeThread(), PHASE_FEEDBACK);
-        double tLB = CkWallTimer()-startTime;
-        timings[PHASE_FEEDBACK].tLoadB += tLB;
-        CkPrintf("took %g seconds.\n", tLB);
+        loadBalance(PHASE_FEEDBACK);
         if(param.bStarForm)
             FormStars(dTime, param.stfm->dDeltaStarForm);
         if(param.bFeedback) 
@@ -1728,13 +1748,7 @@ void Main::advanceBigStep(int iStep) {
     if(verbosity > 1)
 	memoryStats();
     /********* Load balancer ********/
-    //ckout << "Load balancer ...";
-    CkPrintf("Load balancer ... ");
-    double startTime = CkWallTimer();
-    treeProxy.startlb(CkCallbackResumeThread(), activeRung);
-    double tLB = CkWallTimer()-startTime;
-    timings[activeRung].tLoadB += tLB;
-    CkPrintf("took %g seconds.\n", tLB);
+    loadBalance(activeRung);
 
     if(verbosity > 1)
 	memoryStats();
@@ -1748,7 +1762,7 @@ void Main::advanceBigStep(int iStep) {
     /******** Tree Build *******/
     //ckout << "Building trees ...";
     CkPrintf("Building trees ... ");
-    startTime = CkWallTimer();
+    double startTime = CkWallTimer();
 #ifdef PUSH_GRAVITY
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
 #else
@@ -2414,11 +2428,8 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	CkPrintf("Initial ");
         domainDecomp(0);
 
-	// Balance load initially after decomposition
-	CkPrintf("Initial load balancing ... ");
-	double startTime = CkWallTimer();
-	treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
-	CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+        // Balance load initially after decomposition
+        loadBalance(-1);
 
         doSimulation();
 	}
@@ -2460,15 +2471,7 @@ Main::initialForces()
 #endif
   
   // Balance load initially after decomposition
-  //ckout << "Initial load balancing ..." << endl;
-  CkPrintf("Initial load balancing ... ");
-  startTime = CkWallTimer();
-  treeProxy.balanceBeforeInitialForces(CkCallbackResumeThread());
-  /*
-  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-        << endl;
-        */
-  CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
+  loadBalance(-1);
 
   /******** Tree Build *******/
   //ckout << "Building trees ...";
