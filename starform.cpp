@@ -153,16 +153,10 @@ void Main::FormStars(double dTime, double dDelta)
 {
     if(verbosity)
 	CkPrintf("Form Stars ... ");
-    double startTime = CkWallTimer();
     //
     // Need to build tree since we just did a drift.
-#ifdef PUSH_GRAVITY
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),true);
-#else
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-#endif
-    double tTB = CkWallTimer() - startTime;
-    timings[PHASE_FEEDBACK].tTBuild += tTB;
+    buildTree(PHASE_FEEDBACK);
+    double startTime = CkWallTimer();
     DensitySmoothParams pDen(TYPE_GAS, 0);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
