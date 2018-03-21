@@ -2367,21 +2367,7 @@ void run_EWALD_KERNEL_Large(workRequest *wr, cudaStream_t kernel_stream,void** d
   EwaldKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
     ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
      (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-     (int *)devBuffers[wr->bufferInfo[PARTICLE_TABLE_IDX].bufferID], 1, 
-     Ewaldptr[0], Ewaldptr[1]);
-#ifdef CUDA_PRINT_ERRORS
-  printf("EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-}
-
-void run_EWALD_KERNEL_Small(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  int *Ewaldptr = (int*)wr->userData;
-  cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA_IDX].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice);
-  cudaMemcpyToSymbol(ewt, wr->bufferInfo[EWALD_TABLE_IDX].hostBuffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice);  
-  EwaldKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-    ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-     (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-     (int *)NULL, 0,
+     (int *)devBuffers[wr->bufferInfo[PARTICLE_TABLE_IDX].bufferID], 
      Ewaldptr[0], Ewaldptr[1]);
 #ifdef CUDA_PRINT_ERRORS
   printf("EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
@@ -2390,33 +2376,25 @@ void run_EWALD_KERNEL_Small(workRequest *wr, cudaStream_t kernel_stream,void** d
 
 extern unsigned int timerHandle; 
 
-void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop, int largephase) {
+void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop) {
 #ifdef CUDA_MEMPOOL
-  if(largephase)
-    h_idata->EwaldMarkers = (int *) hapi_poolMalloc((nParticles)*sizeof(int));
-  else
-    h_idata->EwaldMarkers = NULL;
+  h_idata->EwaldMarkers = (int *) hapi_poolMalloc((nParticles)*sizeof(int));
   h_idata->ewt = (EwtData *) hapi_poolMalloc((nEwhLoop)*sizeof(EwtData));
   h_idata->cachedData = (EwaldReadOnlyData *) hapi_poolMalloc(sizeof(EwaldReadOnlyData));
 #else
-  if(largephase)
-    cudaMallocHost((void**)&(h_idata->EwaldMarkers), (nParticles)*sizeof(int));
-  else
-    h_idata->EwaldMarkers = NULL;
+  cudaMallocHost((void**)&(h_idata->EwaldMarkers), (nParticles)*sizeof(int));
   cudaMallocHost((void**)&(h_idata->ewt), nEwhLoop * sizeof(EwtData));
   cudaMallocHost((void**)&(h_idata->cachedData), sizeof(EwaldReadOnlyData));
 #endif
 }
 
-void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
+void EwaldHostMemoryFree(EwaldData *h_idata) {
 #ifdef CUDA_MEMPOOL
-  if(largephase)
-    hapi_poolFree(h_idata->EwaldMarkers); 
+  hapi_poolFree(h_idata->EwaldMarkers); 
   hapi_poolFree(h_idata->ewt); 
   hapi_poolFree(h_idata->cachedData); 
 #else
-  if(largephase)
-    cudaFreeHost(h_idata->EwaldMarkers); 
+  cudaFreeHost(h_idata->EwaldMarkers); 
   cudaFreeHost(h_idata->ewt); 
   cudaFreeHost(h_idata->cachedData); 
 #endif
@@ -2433,9 +2411,9 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
  *  
  */
 #ifdef CUDA_INSTRUMENT_WRS
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase)
+void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase)
 #else
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
+void EwaldHost(EwaldData *h_idata, void *cb, int myIndex)
 #endif
 {
 
@@ -2460,14 +2438,11 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
 
   markers = &(EwaldKernel.bufferInfo[PARTICLE_TABLE_IDX]);
   markers->bufferID = -1;
-  if(largephase) markers->transferToDevice = true;
-  else markers->transferToDevice = false; 
+  markers->transferToDevice = true;
   markers->transferFromDevice = false; 
-  if(largephase) markers->freeBuffer = true;
-  else markers->freeBuffer = false;
+  markers->freeBuffer = true;
   markers->hostBuffer = h_idata->EwaldMarkers; 
-  if(largephase) markers->size = n * sizeof(int);
-  else markers->size = 0;  
+  markers->size = n * sizeof(int);
 
   cachedDataInfo = &(EwaldKernel.bufferInfo[EWALD_READ_ONLY_DATA_IDX]); 
   cachedDataInfo->bufferID = NUM_GRAVITY_BUFS + EWALD_READ_ONLY_DATA;
@@ -2486,13 +2461,8 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
   ewtInfo->size = nEwhLoop * sizeof(EwtData); 
 
   EwaldKernel.callbackFn = cb;
-  if(largephase){
-    EwaldKernel.runKernel = run_EWALD_KERNEL_Large;
-    EwaldKernel.traceName = "EwaldLarge"; 
-  }else{ 
-    EwaldKernel.runKernel = run_EWALD_KERNEL_Small;
-    EwaldKernel.traceName = "EwaldSmall";
-  }
+  EwaldKernel.runKernel = run_EWALD_KERNEL_Large;
+  EwaldKernel.traceName = "EwaldLarge"; 
 #ifdef CUDA_INSTRUMENT_WRS
   EwaldKernel.chareIndex = myIndex;
   EwaldKernel.compType = EWALD_KERNEL;
@@ -2506,20 +2476,16 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
 
 __global__ void EwaldKernel(CompactPartData *particleCores, 
                                VariablePartData *particleVars, 
-                               int *markers, int largephase,
-                               int First, int Last) {
+                               int *markers, int First, int Last) {
   /////////////////////////////////////
   ////////////// Ewald TOP ////////////
   /////////////////////////////////////
   int id;
-  if(largephase){
-    id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if(id > Last) return;
-    id = markers[id];
-  }else{
-    id = First + blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if(id > Last) return;
-  }
+
+  id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+  if(id > Last) return;
+  id = markers[id];
+  
 
   CompactPartData *p;
 

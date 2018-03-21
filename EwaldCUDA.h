@@ -73,15 +73,15 @@ typedef struct {
   EwaldReadOnlyData *cachedData;
 } EwaldData; 
 
-void EwaldHostMemorySetup(EwaldData *h_idata, int size, int nEwhLoop, int largephase); 
-void EwaldHostMemoryFree(EwaldData *h_idata, int largephase); 
+void EwaldHostMemorySetup(EwaldData *h_idata, int size, int nEwhLoop); 
+void EwaldHostMemoryFree(EwaldData *h_idata); 
 #ifdef CUDA_INSTRUMENT_WRS
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase); 
+void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase); 
 #else
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase); 
+void EwaldHost(EwaldData *h_idata, void *cb, int myIndex); 
 #endif
 
-__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
+__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int First, int Last);
 
 #endif
 

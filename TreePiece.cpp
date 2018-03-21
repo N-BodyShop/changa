@@ -3744,6 +3744,7 @@ void TreePiece::finishBucket(int iBucket) {
       // been called), the registeredTreePieces list will
       // not be reset, so that the data manager gets 
       // confused.
+      CkPrintf("TreePiece[%d]: transferParticleVarsBack\n",thisIndex);
       dm->transferParticleVarsBack();
       //dm->freeLocalTreeMemory();
 #else
@@ -3759,6 +3760,8 @@ void TreePiece::finishBucket(int iBucket) {
 void TreePiece::updateParticles(intptr_t data, int partIndex) {
     VariablePartData *deviceParticles = ((UpdateParticlesStruct *)data)->buf;
 
+    if(largePhase()){
+
     for(int j = 1; j <= myNumParticles; j++){
         if(isActive(j)){
 #ifndef CUDA_NO_ACC_UPDATES
@@ -3773,6 +3776,7 @@ void TreePiece::updateParticles(intptr_t data, int partIndex) {
             }
         if(largePhase()) partIndex++;
         }
+    }
 
     dm->updateParticlesFreeMemory((UpdateParticlesStruct *)data);
     continueWrapUp();
@@ -4025,14 +4029,30 @@ void TreePiece::calculateGravityLocal() {
 
 void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
-  if(dm->gputransfer){
+  // if(largePhase()){
+  //   if(dm->gputransfer){
+  //     cout << "EwaldGPU" << endl;
+  //     thisProxy[thisIndex].EwaldGPU();
+  //     delete msg;
+  //   }else{
+  //     thisProxy[thisIndex].calculateEwald(msg);
+  //   }
+  //   return;
+  // }
+  if(!dm->gputransfer){
+    thisProxy[thisIndex].calculateEwald(msg);
+    return;
+  }
+  bool lp = (1.0*myNumActiveParticles/myNumParticles) >= 0.6;
+  if(lp){
+    CkPrintf("TreePiece[%d]: EwaldGPU\n",thisIndex);
+    // cout << "EwaldGPU" << endl;
     thisProxy[thisIndex].EwaldGPU();
     delete msg;
-  }else{
-    thisProxy[thisIndex].calculateEwald(msg);
+    return;
   }
-#else
-
+#endif
+  // cout << "calculateEwald" << endl;
   bool useckloop = false;
   int yield_num = _yieldPeriod;
 
@@ -4061,8 +4081,9 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
       thisProxy[thisIndex].calculateEwald(msg);
   } else {
     delete msg;
+    CkPrintf("TreePiece[%d]: calculateEwald\n",thisIndex);
   }
-#endif
+
 }
 
 bool TreePiece::otherIdlePesAvail() {
@@ -5188,6 +5209,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   // though calculateGravityLocal can only come
   // afterwards.
   dm->serializeLocalTree();
+
 #else
   thisProxy[thisIndex].commenceCalculateGravityLocal();
 #endif
