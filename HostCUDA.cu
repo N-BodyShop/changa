@@ -400,7 +400,7 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
   if( wr->bufferInfo[ILCELL_IDX].transferToDevice ){
 #ifdef GPU_LOCAL_TREE_WALK
     cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
-    compute_force_gpu_lockstepping<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
+    gpuLocalTreeWalk<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
       (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
@@ -1473,7 +1473,7 @@ __device__ __forceinline__ void stackPop(int &sp) {
 const int stackDepth = 64;
 
 __launch_bounds__(1024,1)
-__global__ void compute_force_gpu_lockstepping(
+__global__ void gpuLocalTreeWalk(
   CompactPartData *particleCores,
   VariablePartData *particleVars,
   CudaMultipoleMoments* moments,

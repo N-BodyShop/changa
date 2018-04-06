@@ -9,7 +9,7 @@ void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *wr);
 void TreePieceLocalWalkDataTransferBasic(CudaRequest *data, workRequest *wr);
 
 #ifdef GPU_LOCAL_TREE_WALK
-__global__ void compute_force_gpu_lockstepping(
+__global__ void gpuLocalTreeWalk(
     CompactPartData *particleCores,
     VariablePartData *particleVars,
     CudaMultipoleMoments* moments,
