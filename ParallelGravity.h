@@ -1340,11 +1340,7 @@ private:
 	 * to trigger nextBucket() which will loop over all the buckets.
 	 */
 	void doAllBuckets();
-#ifdef CAMBRIDGE
-  double localListConstructionTime;
-  /** In CAMBRIDGE version, the whole local tree can be find on the GPU side
-   * We can do the local tree walk in one shot.
-   */
+#ifdef GPU_LOCAL_TREE_WALK
   void localTreeWalkForAllBuckets();
 #endif
 	void reconstructNodeLookup(GenericTreeNode *node);

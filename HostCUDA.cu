@@ -25,7 +25,7 @@
 #include "EwaldCUDA.h"
 
 #include "wr.h"
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
 #include "codes.h"
 #endif
 
@@ -398,7 +398,7 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       );
 #endif
   if( wr->bufferInfo[ILCELL_IDX].transferToDevice ){
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
     cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
     compute_force_gpu_lockstepping<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
@@ -423,7 +423,7 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
          ptr->fperiod
         );
   #endif
-#endif
+#endif //GPU_LOCAL_TREE_WALK
     CUDA_TRACE_BEGIN();
     hapi_hostFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
     hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
@@ -755,11 +755,11 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 	gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 #endif
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
   // +1 to avoid dimGrid = 0 when we run test with extremely small input.
   gravityKernel.dimGrid = data->totalNumOfParticles / THREADS_PER_BLOCK + 1; 
   gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 
 	gravityKernel.smemSize = 0;
 
@@ -923,11 +923,11 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityK
         ptr->numBucketsPlusOne = numBucketsPlusOne;
         ptr->fperiod = data->fperiod;
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
         ptr->totalNumOfParticles = data->totalNumOfParticles;
         ptr->theta      = data->theta;
         ptr->thetaMono  = data->thetaMono; 
-#endif
+#endif //GPU_LOCAL_TREE_WALK
         gravityKernel->userData = ptr;
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
@@ -1422,7 +1422,7 @@ void DummyKernel(void *cb){
 /****
  * GPU Local tree walk (computation integrated)
 ****/
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
 __device__ __forceinline__ void 
 ldgTreeNode(CUDATreeNode &m, CudaMultipoleMoments *ptr) {
   m.radius        = __ldg(&(ptr->radius));
@@ -1653,7 +1653,7 @@ __global__ void compute_force_gpu_lockstepping(
   }
 }
 
-#endif //CAMBRIDGE
+#endif //GPU_LOCAL_TREE_WALK
 
 /**
  * @brief interaction between multipole moments and buckets of particles.

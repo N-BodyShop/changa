@@ -632,7 +632,7 @@ NVCC_PATH
 CUDA_DIR
 LIBOBJS
 HEXADECAPOLE
-FLAG_CAMBRIDGE
+GPU_LOCAL_TREE_WALK
 OBJECTS_COOLING
 FLAG_COOLING
 FLAG_KERNEL
@@ -706,7 +706,7 @@ enable_bigkeys
 enable_wendland
 enable_cooling
 enable_hexadecapole
-enable_cambridge
+enable_gpu_local_tree_walk
 with_cuda
 with_cuda_sdk
 with_cuda_level
@@ -1343,7 +1343,7 @@ Optional Features:
   --enable-wendland       enable Wendland C4 Kernel
   --enable-cooling        enable gas cooling (planet,cosmo)
   --disable-hexadecapole  disable use of hexadecapole expansions
-  --enable-cambridge      Enable cambridge (yes, no)
+  --enable-gpu-local-tree-walk     Enable gpu local tree walk (yes, no)
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -4179,20 +4179,20 @@ else
 fi
 
 
-###################### CAMBRIDGE ###################
-# CAMBRIDGE
-# Check whether --enable-cambridge was given.
-if test "${enable_cambridge+set}" = set; then
-  enableval=$enable_cambridge; cambridge=$enableval
+###################### GPU local tree walk ###################
+# Check whether --enable_gpu_local_tree_walk was given.
+if test "${enable_gpu_local_tree_walk+set}" = set; then
+  gpu_local_tree_walk=$enable_gpu_local_tree_walk
 else
-  cambridge=no
+  gpu_local_tree_walk=no
 fi
 
-if test "$cambridge" = "yes" ; then
-    echo "DCAMBRIDGE selected"
-    FLAG_CAMBRIDGE="-DCAMBRIDGE"
+GPU_LOCAL_TREE_WALK=""
+if test "$gpu_local_tree_walk" = "yes" ; then
+    echo "DGPU_LOCAL_TREE_WALK selected"
+    GPU_LOCAL_TREE_WALK="-DGPU_LOCAL_TREE_WALK"
 else
-    FLAG_CAMBRIDGE=""
+    GPU_LOCAL_TREE_WALK=""
 fi
 
 

@@ -556,7 +556,6 @@ Main::Main(CkArgMsg* m) {
 	//
 	// Output parameters
 	//
-//CAMBRIDGE	printBinaryAcc=0;
 	printBinaryAcc=0;
 	prmAddParam(prm, "bPrintBinary", paramBool, &printBinaryAcc,
 		    sizeof(int),"z", "Print accelerations in Binary");

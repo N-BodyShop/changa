@@ -8,7 +8,7 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *wr);
 void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *wr);
 void TreePieceLocalWalkDataTransferBasic(CudaRequest *data, workRequest *wr);
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
 __global__ void compute_force_gpu_lockstepping(
     CompactPartData *particleCores,
     VariablePartData *particleVars,
@@ -17,8 +17,7 @@ __global__ void compute_force_gpu_lockstepping(
     int totalNumOfParticles,
     cudatype theta,
     cudatype thetaMono);
-#endif
-
+#endif //GPU_LOCAL_TREE_WALK
 
 __global__ void nodeGravityComputation(
 		CompactPartData *particleCores,

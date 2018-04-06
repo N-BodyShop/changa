@@ -620,7 +620,7 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 
 #endif
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
 #define addTreeNodeToList(nd, list, index) \
       { \
         nd->nodeArrayIndex = index; \
@@ -631,7 +631,7 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
         list.push_back(cmm);\
         index++;\
       }
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 
 const char *typeString(NodeType type);
 
@@ -814,18 +814,18 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     }
     else if(type == Bucket || type == NonLocalBucket){ // NLB
       // don't need the particles, only the moments
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
       addTreeNodeToList(node,localMoments,nodeIndex)
 #else
       addNodeToList(node,localMoments,nodeIndex)
-#endif
+#endif //GPU_LOCAL_TREE_WALK
     }
     else if(type == Boundary || type == Internal){ // B,I 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
       addTreeNodeToList(node,localMoments,nodeIndex)
 #else
       addNodeToList(node,localMoments,nodeIndex)
-#endif
+#endif //GPU_LOCAL_TREE_WALK
       for(int i = 0; i < node->numChildren(); i++){
         GenericTreeNode *child = node->getChildren(i);
         queue.enq(child);
@@ -842,7 +842,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     tp->getDMParticles(localParticles.getVec(), partIndex);
   }
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
   double startTimer = CmiWallTimer();
   // set proper active bucketStart and bucketSize for each bucketNode
   for(int i = 0; i < numTreePieces; i++){
@@ -886,7 +886,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
   }
   transformLocalTreeRecursive(node, localMoments);
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 
 #ifdef CUDA_DM_PRINT_TREES
   CkPrintf("*************\n");
@@ -907,7 +907,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
 }// end serializeLocal
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
 // Add more information to each Moment, basically transform moment to a computable tree node
 void DataManager::transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments) {
   CkQ<GenericTreeNode *> queue;
@@ -1002,7 +1002,7 @@ void DataManager::printTreeRecursive(GenericTreeNode *node, int indent) {
     printTreeRecursive((GenericTreeNode*) node->getChildren(0), indent + 1);
     printTreeRecursive((GenericTreeNode*) node->getChildren(1), indent + 1);
 }
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 
 void DataManager::freeLocalTreeMemory(){
   CmiLock(__nodelock);
@@ -1145,24 +1145,6 @@ long long totalTraversedParticles = 0;
         }
         if(tp->largePhase()) partIndex++;
       }
-
-#ifdef CAMBRIDGE
-/*      if (tp->largePhase() && tp->getIndex() != 2) {
-//        if (tp->largePhase()) {
-        for(int j = 1; j <= numParticles; j++) {
-          CkPrintf("(%d)th tp %d th particle: acc.x = %f, acc.y = %f, acc.z = %f, potential = %f.\n", tp->getIndex(), j, tp->myParticles[j].treeAcceleration.x,
-                                                                                                                          tp->myParticles[j].treeAcceleration.y,
-                                                                                                                          tp->myParticles[j].treeAcceleration.z,
-                                                                                                                          tp->myParticles[j].potential);
-        }
-      }
-
-      printf("The total number of nodeInterLocal is %lld\n", totalTraversedNodes);
-      printf("The total number of particleInterLocal is %lld\n", totalTraversedParticles);
-      printf("The total time we spent on list construction is %f\n", tp->localListConstructionTime);
-      fflush(stdout);*/
-#endif
-
 
 #ifdef CHANGA_REFACTOR_MEMCHECK 
     CkPrintf("(%d) memcheck after updating tp %d particles\n", CkMyPe(), tp->getIndex());

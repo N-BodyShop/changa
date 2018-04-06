@@ -1482,11 +1482,11 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
   delete data; 
 }
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
 /**
  * The purpose of this function is to send a ignition signal to GPU manager.
  * To make minor change to existing ChaNGa code, we mimic a nodeGravityCompute 
- * request. This request will eventually call our local tree walk kernel. 
+ * request. This request will eventually call our GPU local tree walk kernel. 
  */
 void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, 
   int activeRung, int startBucket, int endBucket) {
@@ -1559,7 +1559,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
 
   TreePieceCellListDataTransferLocal(request);
 }
-#endif //CAMBRIDGE
+#endif //GPU_LOCAL_TREE_WALK
 
 /// @brief Check for computation
 /// Computation can be done on buckets indexed from start to end

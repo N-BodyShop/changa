@@ -73,7 +73,7 @@ typedef struct CudaVector3D{
 #endif
 }CudaVector3D;
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
 #define addCudaVector3D(a, b, c) {c.x = a.x + b.x; c.y = a.y + b.y; c.z = a.z + b.z;}
 #define minusCudaVector3D(a, b, c) {c.x = a.x - b.x; c.y = a.y - b.y; c.z = a.z - b.z;}
 #define assignCudaVector3D(a, b) {b.x = a.x; b.y = a.y; b.z = a.z;}
@@ -97,7 +97,7 @@ enum CudaNodeType {
     CudaCachedBucket = 10,
     CudaCachedEmpty = 11
 };
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 
 /** @brief Version of MultipoleMoments using cudatype
  */
@@ -107,21 +107,17 @@ typedef struct CudaMultipoleMoments{
   cudatype totalMass;
   CudaVector3D cm;
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
   CudaVector3D lesser_corner;
   CudaVector3D greater_corner;
   int bucketStart;
   int bucketSize;
-  int particleCount;  // Trouble maker
+  int particleCount;
   int nodeArrayIndex;
   int bucketIndex;
-//  int parentIndex;
   int children[2];
   int type;
-
-// Uninitialized 
-//  int offsetID;
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 
 #ifdef HEXADECAPOLE
   cudatype xx, xy, xz, yy, yz;
@@ -186,14 +182,13 @@ struct CUDATreeNode
   cudatype totalMass;
   CudaVector3D cm;
   
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
   int bucketStart;
   int bucketSize;
-  int particleCount;  // Trouble maker
-//  int parentIndex;
+  int particleCount;
   int children[2];
   int type;
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 };
 
 struct CUDABucketNode
@@ -245,9 +240,9 @@ typedef struct CompactPartData{
   int tp, id;
 #endif
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
   int nodeId;
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 
 #if __cplusplus && !defined __CUDACC__
   CompactPartData(){}
@@ -273,10 +268,10 @@ typedef struct VariablePartData{
   cudatype potential;
   cudatype dtGrav;
   
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
   int numOfNodesTraversed;
   int numOfParticlesTraversed;
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 }VariablePartData;
 
 
