@@ -209,7 +209,7 @@ AC_SUBST([HEXADECAPOLE])
 AC_ARG_ENABLE([gpu_local_tree_walk],
     [AS_HELP_STRING([--enable-gpu-local-tree-walk], [Enable gpu_local_tree_walk (yes, no)])],
     [gpu_local_tree_walk=$enableval], [gpu_local_tree_walk=no])
-if test "$cambridge" = "yes" ; then
+if test "$gpu_local_tree_walk" = "yes" ; then
     echo "DGPU_LOCAL_TREE_WALK selected"
     GPU_LOCAL_TREE_WALK="-DGPU_LOCAL_TREE_WALK"
 else
