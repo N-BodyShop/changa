@@ -1146,35 +1146,6 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
     treePieces[registeredTreePieces[i].treePiece->getIndex()].updateParticles((intptr_t) data, partIndex);
     partIndex += numParticles;
 
-<<<<<<< master
-=======
-#ifdef CAMBRIDGE
-/*      if (tp->largePhase() && tp->getIndex() != 2) {
-//        if (tp->largePhase()) {
-        for(int j = 1; j <= numParticles; j++) {
-          CkPrintf("(%d)th tp %d th particle: acc.x = %f, acc.y = %f, acc.z = %f, potential = %f.\n", tp->getIndex(), j, tp->myParticles[j].treeAcceleration.x,
-                                                                                                                          tp->myParticles[j].treeAcceleration.y,
-                                                                                                                          tp->myParticles[j].treeAcceleration.z,
-                                                                                                                          tp->myParticles[j].potential);
-        }
-      }
-
-      printf("The total number of nodeInterLocal is %lld\n", totalTraversedNodes);
-      printf("The total number of particleInterLocal is %lld\n", totalTraversedParticles);
-      printf("The total time we spent on list construction is %f\n", tp->localListConstructionTime);
-      fflush(stdout);*/
-#endif
-
-
-#ifdef CHANGA_REFACTOR_MEMCHECK 
-    CkPrintf("(%d) memcheck after updating tp %d particles\n", CkMyPe(), tp->getIndex());
-    CmiMemoryCheck();
-#endif
-
-    // tell treepiece to go ahead with 
-    // iteration wrap-up
-    treePieces[registeredTreePieces[i].treePiece->getIndex()].continueWrapUp();
->>>>>>> HEAD~23
   }
 
 }
