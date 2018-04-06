@@ -26,7 +26,6 @@
 
 #include "wr.h"
 #ifdef CAMBRIDGE
-#define CAM_THREADS_PER_BLOCK 64
 #include "codes.h"
 #endif
 
@@ -1539,7 +1538,7 @@ __global__ void compute_force_gpu_lockstepping(
   cudatype twoh = 0;
 
   int flag = 1;
-  int critical = 63;
+  int critical = stackDepth;
   int cond = 1;
 
   for(int pidx = blockIdx.x*blockDim.x + threadIdx.x; 
@@ -1567,7 +1566,8 @@ __global__ void compute_force_gpu_lockstepping(
         int action = CUDA_OptAction(open, TARGET_NODE.type);
         
         critical = SP;
-        cond = ((action == KEEP) && (open == CONTAIN || open == INTERSECT));
+//        cond = (open == CONTAIN || open == INTERSECT);
+        cond = (action == KEEP);
 
         if (action == COMPUTE) {        
           if (CUDA_openSoftening(TARGET_NODE, myNode)) {
