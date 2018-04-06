@@ -15,8 +15,7 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
                     CudaVector3D* out,
                     cudatype* pot);
 
-#ifdef CAMBRIDGE
-
+#ifdef GPU_LOCAL_TREE_WALK
 __device__ inline bool __attribute__(( always_inline ))
 CUDA_intersect(CUDABucketNode &b, CudaSphere &s);
 
@@ -48,7 +47,6 @@ CUDA_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b);
 
 __device__ inline int __attribute__(( always_inline ))
 CUDA_OptAction(int fakeOpen, int nodetype);
-
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 
 #endif  /* CUDAMoments_h */

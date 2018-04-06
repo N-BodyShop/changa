@@ -253,19 +253,18 @@ AC_SUBST([FLAG_COOLING])
 AC_SUBST([OBJECTS_COOLING])
 AC_SUBST([HEXADECAPOLE])
 
-###################### CAMBRIDGE ###################
-# CAMBRIDGE
-AC_ARG_ENABLE([cambridge],
-    [AS_HELP_STRING([--enable-cambridge], [Enable cambridge (yes, no)])],
-    [cambridge=$enableval], [cambridge=no])
+###################### GPU_LOCAL_TREE_WALK ###################
+AC_ARG_ENABLE([gpu_local_tree_walk],
+    [AS_HELP_STRING([--enable-gpu-local-tree-walk], [Enable gpu_local_tree_walk (yes, no)])],
+    [gpu_local_tree_walk=$enableval], [gpu_local_tree_walk=no])
 if test "$cambridge" = "yes" ; then
-    echo "DCAMBRIDGE selected"
-    FLAG_CAMBRIDGE="-DCAMBRIDGE"
+    echo "DGPU_LOCAL_TREE_WALK selected"
+    GPU_LOCAL_TREE_WALK="-DGPU_LOCAL_TREE_WALK"
 else
-    FLAG_CAMBRIDGE=""
+    GPU_LOCAL_TREE_WALK=""
 fi
 
-AC_SUBST([FLAG_CAMBRIDGE])
+AC_SUBST([GPU_LOCAL_TREE_WALK])
  
 # diffusion (thermal and metal)
 AC_ARG_ENABLE([diffusion],

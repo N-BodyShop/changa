@@ -4,9 +4,9 @@
 # include "cuda_typedef.h"
 #endif
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
 #include "codes.h"
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 
 #ifdef CUDA_UNIT_TEST
 __global__ void
@@ -110,7 +110,7 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
   out->z += dir*(xz + xxz + tz - z*g0);
 }
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
 
 #define OPENING_GEOMETRY_FACTOR (2.0 / sqrt(3.0))
 
@@ -309,6 +309,6 @@ CUDA_OptAction(int fakeOpen, int nodetype) {
   }
 }
 
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 
 

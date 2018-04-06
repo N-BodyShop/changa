@@ -3668,7 +3668,6 @@ void TreePiece::startNextBucket() {
                 on.node = chunkRoot;
                 // value of currentBucket doesn't matter
                 on.offsetID = encodeOffset(0, x,y,z);
-//                CkPrintf("CAMBRIDGE:    tell me the offsetID: %d, x = %d, y = %d, z = %d\n", on.offsetID, x, y, z);
                 lstate->chklists[lcaLevel].enq(on);
 #else
                 // last -1 arg is the activeWalkIndex
@@ -3813,7 +3812,7 @@ void TreePiece::doAllBuckets(){
   *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
-#ifdef CAMBRIDGE 
+#ifdef GPU_LOCAL_TREE_WALK 
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
@@ -3832,10 +3831,12 @@ void TreePiece::doAllBuckets(){
   }
   listcompute->resetCudaNodeState(state);
   listcompute->resetCudaPartState(state);
-#endif
+
 // Completely bypass CPU local tree walk
 //  thisProxy[thisIndex].nextBucket(msg);
-
+#else
+  thisProxy[thisIndex].nextBucket(msg);
+#endif //GPU_LOCAL_TREE_WALK
 
 #ifdef CUDA_INSTRUMENT_WRS
   ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
@@ -3878,21 +3879,8 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_BUCKET_START_FIN
       CkPrintf("[%d] local bucket active %d buckRem: %d + %d \n", thisIndex, currentBucket, sRemoteGravityState->counterArrays[0][currentBucket], sLocalGravityState->counterArrays[0][currentBucket]);
 #endif
-      // construct lists
-#ifdef CAMBRIDGE
-//  #ifdef COSMO_EVENT
-    traceRegisterUserEvent("startNextBucket", 20); 
-    double startTimer = CmiWallTimer();
-//  #endif
-#endif
-      startNextBucket();
 
-#ifdef CAMBRIDGE
-//  #ifdef COSMO_EVENT
-    localListConstructionTime += CmiWallTimer()-startTimer;
-    traceUserBracketEvent(20, startTimer, CmiWallTimer());
-//  #endif
-#endif
+      startNextBucket();
 
 #if INTERLIST_VER > 0
       // do computation
@@ -3922,22 +3910,8 @@ void TreePiece::nextBucket(dummyMsg *msg){
       } else
 #endif
 	{
-//#ifndef CAMBRIDGE    
-
-#ifdef CAMBRIDGE
-//  #ifdef COSMO_EVENT
-    traceRegisterUserEvent("stateReady", 21); 
-    startTimer = CmiWallTimer();
-//  #endif
-#endif
         sGravity->stateReady(sLocalGravityState, this, -1, currentBucket, end);
 
-
-#ifdef CAMBRIDGE
-//  #ifdef COSMO_EVENT
-    traceUserBracketEvent(21, startTimer, CmiWallTimer());
-//  #endif
-#endif
       }
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: nextBucket memcheck after stateReady\n");
@@ -4042,11 +4016,6 @@ void TreePiece::nextBucket(dummyMsg *msg){
       }
     }
 #endif
-//CAMBRIDGE
-/*      printf("CPU:::  The total number of nodeInterLocal is %lld, nodeInterRemote is %lld\n", nodeInterLocal, nodeInterRemote);
-      printf("CPU:::  The total number of particleInterLocal is %lld, particleInterRemote is %lld\n", particleInterLocal, particleInterRemote);
-      fflush(stdout);
-*/
     delete msg;
   }
 }

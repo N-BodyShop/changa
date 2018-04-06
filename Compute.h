@@ -4,10 +4,10 @@
 #include "codes.h"
 #include "ParallelGravity.h"
 
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
 extern cosmoType theta;
 extern cosmoType thetaMono;
-#endif
+#endif //GPU_LOCAL_TREE_WALK
 
 class State;
 class DoubleWalkState;
@@ -192,9 +192,9 @@ class ListCompute : public Compute{
   void freeDoubleWalkState(DoubleWalkState *state);
 
 #ifdef CUDA
-#ifdef CAMBRIDGE
+#ifdef GPU_LOCAL_TREE_WALK
   void sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int startBucket, int endBucket);
-#endif
+#endif //GPU_LOCAL_TREE_WALK
   void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
   void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
 #endif

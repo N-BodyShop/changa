@@ -609,7 +609,7 @@ FLAG_DIFFHARMONIC
 FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFUSION
 HEXADECAPOLE
-FLAG_CAMBRIDGE
+GPU_LOCAL_TREE_WALK
 OBJECTS_COOLING
 FLAG_COOLING
 FLAG_DAMPING
@@ -694,7 +694,7 @@ enable_cullenalpha
 enable_vsigvisc
 enable_rtforce
 enable_opts
-enable_cambridge
+enable_gpu_local_tree_walk
 with_cuda
 with_cuda_sdk
 with_cuda_level
@@ -1340,7 +1340,7 @@ Optional Features:
   --enable-vsigvisc       enable alternative Monahan artificial viscosity
   --enable-rtforce        enable Richie-Thomas forces
   --enable-opts="options" Set compiler flags (override defaults)
-  --enable-cambridge      Enable cambridge (yes, no)
+  --enable-gpu-local-tree-walk     Enable gpu local tree walk (yes, no)
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
@@ -5509,20 +5509,20 @@ else
 fi
 
 
-###################### CAMBRIDGE ###################
-# CAMBRIDGE
-# Check whether --enable-cambridge was given.
-if test "${enable_cambridge+set}" = set; then
-  enableval=$enable_cambridge; cambridge=$enableval
+###################### GPU local tree walk ###################
+# Check whether --enable_gpu_local_tree_walk was given.
+if test "${enable_gpu_local_tree_walk+set}" = set; then
+  gpu_local_tree_walk=$enable_gpu_local_tree_walk
 else
-  cambridge=no
+  gpu_local_tree_walk=no
 fi
 
-if test "$cambridge" = "yes" ; then
-    echo "DCAMBRIDGE selected"
-    FLAG_CAMBRIDGE="-DCAMBRIDGE"
+GPU_LOCAL_TREE_WALK=""
+if test "$gpu_local_tree_walk" = "yes" ; then
+    echo "DGPU_LOCAL_TREE_WALK selected"
+    GPU_LOCAL_TREE_WALK="-DGPU_LOCAL_TREE_WALK"
 else
-    FLAG_CAMBRIDGE=""
+    GPU_LOCAL_TREE_WALK=""
 fi
 
 
