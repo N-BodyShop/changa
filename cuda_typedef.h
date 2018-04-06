@@ -74,9 +74,6 @@ typedef struct CudaVector3D{
 }CudaVector3D;
 
 #ifdef GPU_LOCAL_TREE_WALK
-#define addCudaVector3D(a, b, c) {c.x = a.x + b.x; c.y = a.y + b.y; c.z = a.z + b.z;}
-#define minusCudaVector3D(a, b, c) {c.x = a.x - b.x; c.y = a.y - b.y; c.z = a.z - b.z;}
-#define assignCudaVector3D(a, b) {b.x = a.x; b.y = a.y; b.z = a.z;}
 typedef struct CudaSphere {
   /// The origin of this sphere
   CudaVector3D origin;
