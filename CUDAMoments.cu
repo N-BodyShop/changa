@@ -114,6 +114,25 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
 
 #define OPENING_GEOMETRY_FACTOR (2.0 / sqrt(3.0))
 
+__device__ inline void __attribute__(( always_inline ))
+addCudaVector3D(const CudaVector3D &a, const CudaVector3D &b, CudaVector3D &c) {
+  c.x = a.x + b.x;
+  c.y = a.y + b.y;
+  c.z = a.z + b.z;
+}
+__device__ inline void __attribute__(( always_inline ))
+minusCudaVector3D(const CudaVector3D &a, const CudaVector3D &b, CudaVector3D &c) {
+  c.x = a.x - b.x;
+  c.y = a.y - b.y;
+  c.z = a.z - b.z;
+}
+__device__ inline void __attribute__(( always_inline ))
+assignCudaVector3D(const CudaVector3D &a, CudaVector3D &b) {
+  b.x = a.x;
+  b.y = a.y;
+  b.z = a.z;
+}
+
 __device__ inline bool __attribute__(( always_inline ))
 CUDA_intersect(CudaSphere &s1, CudaSphere &s2) {
   CudaVector3D diff;

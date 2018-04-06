@@ -16,6 +16,16 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
                     cudatype* pot);
 
 #ifdef GPU_LOCAL_TREE_WALK
+
+__device__ inline void __attribute__(( always_inline ))
+addCudaVector3D(CudaVector3D &a, CudaVector3D &b, CudaVector3D &c);
+
+__device__ inline void __attribute__(( always_inline ))
+minusCudaVector3D(CudaVector3D &a, CudaVector3D &b, CudaVector3D &c);
+
+__device__ inline void __attribute__(( always_inline ))
+assignCudaVector3D(CudaVector3D &a, CudaVector3D &b);
+
 __device__ inline bool __attribute__(( always_inline ))
 CUDA_intersect(CUDABucketNode &b, CudaSphere &s);
 
