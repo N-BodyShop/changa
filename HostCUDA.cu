@@ -2206,15 +2206,15 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
   //Range of particles on GPU
   EwaldKernel->setUserData(h_idata->EwaldRange, sizeof(h_idata->EwaldRange));
 
-/* schedule buffers for transfer to the GPU */ 
+  /* schedule buffers for transfer to the GPU */
   bool transferToDevice, freeBuffer;
   size_t size;
   if(largephase) transferToDevice = true;
-  else transferToDevice = false; 
+  else transferToDevice = false;
   if(largephase) freeBuffer = true;
   else freeBuffer = false;
   if(largephase) size = n * sizeof(int);
-  else size = 0;  
+  else size = 0;
   EwaldKernel->addBufferInfo(h_idata->EwaldMarkers, size, transferToDevice,
                              false, freeBuffer);
 
@@ -2234,17 +2234,17 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
   EwaldKernel->setDeviceToHostCallback(cb);
   if(largephase){
     EwaldKernel->setRunKernel(run_EWALD_KERNEL_Large);
-    EwaldKernel->setTraceName("EwaldLarge"); 
-  }else{ 
+    EwaldKernel->setTraceName("EwaldLarge");
+  }else{
     EwaldKernel->setRunKernel(run_EWALD_KERNEL_Small);
     EwaldKernel->setTraceName("EwaldSmall");
   }
 #ifdef CUDA_INSTRUMENT_WRS
   EwaldKernel->chareIndex = myIndex;
   EwaldKernel->compType = EWALD_KERNEL;
-  EwaldKernel->compPhase = phase; 
+  EwaldKernel->compPhase = phase;
 #endif
-  hapi_enqueue(EwaldKernel); 
+  hapi_enqueue(EwaldKernel);
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("[%d] in EwaldHost, enqueued EwaldKernel\n", myIndex);
 #endif
