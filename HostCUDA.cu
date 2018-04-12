@@ -24,7 +24,7 @@
 #include "HostCUDA.h"
 #include "EwaldCUDA.h"
 
-#include "wr.h"
+#include "hapi.h"
 
 
 #ifdef CUDA_TRACE
