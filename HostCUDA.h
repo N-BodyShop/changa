@@ -7,7 +7,7 @@
 
 #ifdef CUDA_USE_CUDAMALLOCHOST
 # ifdef CUDA_MEMPOOL
-#  define CUDA_MALLOC(ptr,sz) ptr = hapi_poolMalloc(size)
+#  define CUDA_MALLOC(ptr,sz) ptr = hapiPoolMalloc(size)
 # else
 #  define CUDA_MALLOC(ptr,sz) cudaMallocHost(&(ptr), size)
 # endif
