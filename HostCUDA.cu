@@ -36,7 +36,7 @@
 #endif
 
 
-#define CmiMyPe() _Cmi_mype
+#define CmiMyPe() 0
 extern int _Cmi_mype;
 
 __device__ __constant__ EwaldReadOnlyData cachedData[1];
@@ -1090,7 +1090,7 @@ void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool fr
   // save a pointer to the data manager so that
   // the next chunk's transfer can be initiated once
   // the memory for this chunk has been freed
-  gravityKernel->user_data = dm;
+  gravityKernel->user_data = static_cast<char*>(dm);
   //printf("DM TRANSFER FREE REMOTE CHUNK\n");
 #ifdef CUDA_INSTRUMENT_WRS
   gravityKernel->chareIndex = index;
@@ -1123,7 +1123,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
   workRequest* gravityKernel = hapiCreateWorkRequest();
 
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
-  printf("Enqueue kernel to transfer particles back from: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
+  printf("Enqueue kernel to transfer particles back from: 0x%x\n", 0/*devBuffers[LOCAL_PARTICLE_VARS]*/);
 #endif
 
   /* The buffers are: 1) forces on local particles, 2) Local multipole moments
