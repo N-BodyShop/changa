@@ -2218,11 +2218,11 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
   EwaldKernel->addBuffer(h_idata->EwaldMarkers, size, transferToDevice,
                              false, freeBuffer);
 
-  cachedDataInfo->addBuffer(h_idata->cachedData, sizeof(EwaldReadOnlyData),
+  EwaldKernel->addBuffer(h_idata->cachedData, sizeof(EwaldReadOnlyData),
                                 false, false, false,
                                 NUM_GRAVITY_BUFS + EWALD_READ_ONLY_DATA);
 
-  ewtInfo->addBuffer(h_idata->ewt, nEwhLoop * sizeof(EwtData), false, false,
+  EwaldKernel->addBuffer(h_idata->ewt, nEwhLoop * sizeof(EwtData), false, false,
                          false, NUM_GRAVITY_BUFS + EWALD_TABLE);
 
   /* See NUM_BUFFERS define in
