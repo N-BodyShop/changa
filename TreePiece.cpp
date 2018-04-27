@@ -3812,7 +3812,32 @@ void TreePiece::doAllBuckets(){
   *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
+#ifdef GPU_LOCAL_TREE_WALK 
+  ListCompute *listcompute = (ListCompute *) sGravity;
+  DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
+
+  listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+
+  // Set up the book keeping flags
+  bool useckloop = false;
+  for (int i = 0; i < numBuckets; i ++) {
+    sLocalGravityState->currentBucket = i;
+    GenericTreeNode *target = bucketList[i];
+    if(target->rungs >= activeRung){
+      doBookKeepingForTargetActive(i, i+1, -1, !useckloop, sLocalGravityState);
+    } else {
+      doBookKeepingForTargetInactive(-1, !useckloop, sLocalGravityState);
+    }
+  }
+  listcompute->resetCudaNodeState(state);
+  listcompute->resetCudaPartState(state);
+
+// Completely bypass CPU local tree walk
+//  thisProxy[thisIndex].nextBucket(msg);
+#else
   thisProxy[thisIndex].nextBucket(msg);
+#endif //GPU_LOCAL_TREE_WALK
+
 #ifdef CUDA_INSTRUMENT_WRS
   ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
   ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
