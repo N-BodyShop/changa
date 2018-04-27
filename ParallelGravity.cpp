@@ -1573,6 +1573,83 @@ void Main::buildTree(int iPhase)
 
 }
 
+/// @brief Routine to start self gravity; if gravity is not being
+/// calculated, then clear the accelerations.
+/// @param cbGravity Callback if we overlapping gravity with SPH.
+/// @param iActiveRung Rung (and higher) on which to calculate forces.
+/// @param pointer to start time
+void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
+                        double *startTime)
+{
+    if(param.bDoGravity) {
+#ifdef PUSH_GRAVITY
+        bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
+#endif
+	updateSoft();
+	if(param.csm->bComove) {
+	    double a = csmTime2Exp(param.csm,dTime);
+	    if (a >= param.daSwitchTheta) theta = param.dTheta2;
+        }
+	/******** Force Computation ********/
+#ifdef SELECTIVE_TRACING
+        turnProjectionsOn(iActiveRung);
+#endif
+
+        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
+        *startTime = CkWallTimer();
+	if(param.bConcurrentSph) {
+#ifdef PUSH_GRAVITY
+            if(bDoPush){
+                treeProxy.startPushGravity(iActiveRung, theta);
+            }
+	    else{
+#endif
+                treeProxy.startGravity(iActiveRung, theta, cbGravity);
+#ifdef PUSH_GRAVITY
+            }
+#endif
+
+#ifdef CUDA_INSTRUMENT_WRS
+            // XXX this is probably broken (cbGravity gets called too soon.)
+            dMProxy.clearInstrument(cbGravity);
+#endif
+        }
+	else {
+#ifdef PUSH_GRAVITY
+	    if(bDoPush){
+              treeProxy.startPushGravity(iActiveRung, theta);
+              CkWaitQD();
+            }
+	    else{
+#endif
+                treeProxy.startGravity(iActiveRung, theta, CkCallbackResumeThread());
+#ifdef PUSH_GRAVITY
+            }
+#endif
+
+#ifdef CUDA_INSTRUMENT_WRS
+            dMProxy.clearInstrument(CkCallbackResumeThread());
+#endif
+            double tGrav = CkWallTimer() - *startTime;
+            timings[iActiveRung].tGrav += tGrav;
+            CkPrintf("took %g seconds\n", tGrav);
+#ifdef SELECTIVE_TRACING
+            turnProjectionsOff();
+#endif
+            if(verbosity)
+                memoryStatsCache();
+        }
+    }
+    else {
+	treeProxy.initAccel(iActiveRung, CkCallbackResumeThread());
+#ifdef CUDA
+        // We didn't do gravity where the registered TreePieces on the
+        // DataManager normally get cleared.  Clear them here instead.
+        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+#endif
+	}
+}
+
 ///
 /// @brief Take one base timestep of the simulation.
 /// @param iStep The current step number.
@@ -1778,74 +1855,10 @@ void Main::advanceBigStep(int iStep) {
     buildTree(activeRung);
 
     CkCallback cbGravity(CkCallback::resumeThread);
-    double startTime; /// XXX to be removed
     if(verbosity > 1)
 	memoryStats();
-    if(param.bDoGravity) {
-	updateSoft();
-	if(param.csm->bComove) {
-	    double a = csmTime2Exp(param.csm,dTime);
-	    if (a >= param.daSwitchTheta) theta = param.dTheta2; 
-	    }
-	/******** Force Computation ********/
-#ifdef SELECTIVE_TRACING
-        turnProjectionsOn(activeRung);
-#endif
-
-        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
-	startTime = CkWallTimer();
-	if(param.bConcurrentSph) {
-
-#ifdef PUSH_GRAVITY
-            if(bDoPush){ 
-              treeProxy.startPushGravity(activeRung, theta);
-            }
-	    else{ 
-#endif
-              treeProxy.startGravity(activeRung, theta, cbGravity);
-#ifdef PUSH_GRAVITY
-            }
-#endif
-
-
-#ifdef CUDA_INSTRUMENT_WRS
-            dMProxy.clearInstrument(cbGravity);
-#endif
-	    }
-	else {
-#ifdef PUSH_GRAVITY
-	    if(bDoPush){
-              treeProxy.startPushGravity(activeRung, theta);
-              CkWaitQD();
-            }
-	    else{
-#endif
-              treeProxy.startGravity(activeRung, theta, CkCallbackResumeThread());
-#ifdef PUSH_GRAVITY
-            }
-#endif
-
-#ifdef CUDA_INSTRUMENT_WRS
-            dMProxy.clearInstrument(CkCallbackResumeThread());
-#endif
-            double tGrav = CkWallTimer()-startTime;
-            timings[activeRung].tGrav += tGrav;
-            CkPrintf("took %g seconds\n", tGrav);
-#ifdef SELECTIVE_TRACING
-            turnProjectionsOff();
-#endif
-            if(verbosity)
-                memoryStatsCache();
-	    }
-        }
-    else {
-	treeProxy.initAccel(activeRung, CkCallbackResumeThread());
-#ifdef CUDA
-        // We didn't do gravity where the registered TreePieces on the
-        // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
-#endif
-	}
+    double gravStartTime;
+    startGravity(cbGravity, activeRung, &gravStartTime);
     if(param.bDoExternalGravity) {
         CkReductionMsg *msgFrameAcc;
         treeProxy.externalGravity(activeRung, param.externalGravity,
@@ -1900,8 +1913,8 @@ void Main::advanceBigStep(int iStep) {
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
 	  }
-      waitForGravity(cbGravity, startTime, activeRung);
-      startTime = CkWallTimer();
+      waitForGravity(cbGravity, gravStartTime, activeRung);
+      double startTime = CkWallTimer();
       treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
 		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
       double tKick = CkWallTimer() - startTime;
@@ -1926,7 +1939,7 @@ void Main::advanceBigStep(int iStep) {
       doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
       }
     else
-	waitForGravity(cbGravity, startTime, activeRung);
+	waitForGravity(cbGravity, gravStartTime, activeRung);
 
 #if COSMO_STATS > 0
     /********* TreePiece Statistics ********/
@@ -1966,7 +1979,7 @@ void Main::advanceBigStep(int iStep) {
             }
         }
 
-    startTime = CkWallTimer();
+    double startTime = CkWallTimer();
     treeProxy.finishNodeCache(CkCallbackResumeThread());
     double tCache = CkWallTimer() - startTime;
     timings[activeRung].tCache += tCache;
@@ -2495,50 +2508,8 @@ Main::initialForces()
       
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
-  if(param.bDoGravity) {
-      updateSoft();
-      if(param.csm->bComove) {
-	  double a = csmTime2Exp(param.csm,dTime);
-	  if (a >= param.daSwitchTheta) theta = param.dTheta2; 
-	  }
-      /******** Force Computation ********/
-      //ckout << "Calculating gravity (theta = " << theta
-      //    << ") ...";
-#ifdef SELECTIVE_TRACING
-      turnProjectionsOn(0);
-#endif
-      CkPrintf("Calculating gravity (theta = %f) ... ", theta);
-      startTime = CkWallTimer();
-      if(param.bConcurrentSph) {
-
-	  treeProxy.startGravity(0, theta, cbGravity);
-
-#ifdef CUDA_INSTRUMENT_WRS
-            dMProxy.clearInstrument(cbGravity);
-#endif
-	  }
-      else {
-	  treeProxy.startGravity(0, theta, CkCallbackResumeThread());
-
-#ifdef CUDA_INSTRUMENT_WRS
-            dMProxy.clearInstrument(CkCallbackResumeThread());
-#endif
-          CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);
-#ifdef SELECTIVE_TRACING
-          turnProjectionsOff();
-#endif
-	  if(verbosity)
-	      memoryStatsCache();
-	  }
-      }
-  else {
-      treeProxy.initAccel(0, CkCallbackResumeThread());
-#ifdef CUDA
-        // We didn't do gravity where the registered TreePieces on the
-        // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
-#endif
-      }
+  double gravStartTime;
+  startGravity(cbGravity, 0, &gravStartTime);
   if(param.bDoExternalGravity) {
       CkReductionMsg *msgFrameAcc;
       treeProxy.externalGravity(0, param.externalGravity,
@@ -2555,13 +2526,7 @@ Main::initialForces()
       initSph();
       }
   
-  if(param.bConcurrentSph && param.bDoGravity) {
-      CkFreeMsg(cbGravity.thread_delay());
-      CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
-#ifdef SELECTIVE_TRACING
-        turnProjectionsOff();
-#endif
-      }
+  waitForGravity(cbGravity, gravStartTime, 0);
   
   if (param.sinks.bDoSinksAtStart) doSinks(dTime, 0.0, 0);
 
