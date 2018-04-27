@@ -6,6 +6,18 @@
 #include "HostCUDA.h"
 void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *wr);
 void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *wr);
+
+#ifdef GPU_LOCAL_TREE_WALK
+__global__ void gpuLocalTreeWalk(
+    CompactPartData *particleCores,
+    VariablePartData *particleVars,
+    CudaMultipoleMoments* moments,
+    int *ilmarks,
+    int totalNumOfParticles,
+    cudatype theta,
+    cudatype thetaMono);
+#endif //GPU_LOCAL_TREE_WALK
+
 __global__ void nodeGravityComputation(
 		CompactPartData *particleCores,
 		VariablePartData *particleVars,
