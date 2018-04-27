@@ -1437,6 +1437,84 @@ template<class type> int calcParticleForces(TreePiece *tp, int b, int activeRung
   return computed;
 }
 
+#ifdef GPU_LOCAL_TREE_WALK
+/**
+ * This function is designed to send an ignition signal to the GPU manager.
+ * To make minor change to existing ChaNGa code, we mimic a nodeGravityCompute 
+ * request. This request will eventually call our GPU local tree walk kernel. 
+ */
+void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, 
+  int activeRung, int startBucket, int endBucket) {
+  int numFilledBuckets = 0;      
+  for (int i = startBucket; i < endBucket; ++i) {
+    if (tp->bucketList[i]->rungs >= activeRung) {
+      ++numFilledBuckets;
+    }
+  }
+  int *affectedBuckets = new int[numFilledBuckets];
+
+  // Set up a series of fake parameters to match existing function interfaces
+  int fakeTotalNumInteractions = 1;
+  int fakeCurBucket = 0;
+  ILCell *fakeFlatlists = NULL;
+  int *fakeNodeMarkers = NULL;
+  int *fakeStarts = NULL;
+  int *fakeSizes = NULL;
+
+#ifdef CUDA_USE_CUDAMALLOCHOST
+  allocatePinnedHostMemory((void **)&fakeFlatlists, fakeTotalNumInteractions * 
+                                                    sizeof(ILCell));
+  allocatePinnedHostMemory((void **)&fakeNodeMarkers, numFilledBuckets * 
+                                                      sizeof(int));
+  allocatePinnedHostMemory((void **)&fakeStarts, numFilledBuckets * 
+                                                  sizeof(int));
+  allocatePinnedHostMemory((void **)&fakeSizes, numFilledBuckets * sizeof(int));
+#else
+  fakeFlatlists = (ILCell *) malloc(fake_totalNumInteractions*sizeof(ILCell));
+  fakeNodeMarkers = (int *) malloc((numFilledBuckets)*sizeof(int));
+  fakeStarts = (int *) malloc(numFilledBuckets*sizeof(int));
+  fakeSizes = (int *) malloc(numFilledBuckets*sizeof(int));
+#endif
+
+//  No need to memset the interaction list array since we're not using it at all
+//  And, we can't directly memset it.
+  ILCell temp_ilc;
+  memcpy(&fakeFlatlists[0], &temp_ilc, fakeTotalNumInteractions * sizeof(ILCell));
+  for (int i = startBucket; i < endBucket; ++i) {
+    if (tp->bucketList[i]->rungs >= activeRung) {
+      ((DoubleWalkState *)state)->counterArrays[0][i] ++;
+      fakeNodeMarkers[fakeCurBucket] = tp->bucketList[i]->nodeArrayIndex;
+      int tempNum = 0;
+      memcpy(&fakeStarts[fakeCurBucket], &tempNum, sizeof(int));
+      memcpy(&fakeSizes[fakeCurBucket], &tempNum, sizeof(int));
+      affectedBuckets[fakeCurBucket] = i;
+      fakeCurBucket++;
+    }
+  }
+
+  CudaRequest *request = new CudaRequest;
+
+  request->numBucketsPlusOne = numFilledBuckets+1;
+  request->affectedBuckets = affectedBuckets;
+  request->tp = (void *)tp;
+  request->state = (void *)state;
+  request->node = true;
+  request->remote = false;
+  request->callDummy = false;
+  request->totalNumOfParticles = tp->getDMNumParticles();
+  request->theta = theta;
+  request->thetaMono = thetaMono;
+  request->cb = new CkCallback(cudaCallbackForAllBuckets, request);
+
+  request->list = (void *)fakeFlatlists;
+  request->bucketMarkers = fakeNodeMarkers;
+  request->bucketStarts = fakeStarts;
+  request->bucketSizes = fakeSizes;
+  request->numInteractions = fakeTotalNumInteractions;
+
+  TreePieceCellListDataTransferLocal(request);
+}
+#endif //GPU_LOCAL_TREE_WALK
 
 /// @brief Check for computation
 /// Computation can be done on buckets indexed from start to end
