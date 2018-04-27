@@ -545,6 +545,8 @@ public:
         void domainDecomp(int iPhase);
         void loadBalance(int iPhase);
         void buildTree(int iPhase);
+        void startGravity(const CkCallback& cbGravity, int iActiveRung,
+            double *startTime) ;
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
