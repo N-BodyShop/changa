@@ -4,6 +4,10 @@
 # include "cuda_typedef.h"
 #endif
 
+#ifdef GPU_LOCAL_TREE_WALK
+#include "codes.h"
+#endif //GPU_LOCAL_TREE_WALK
+
 #ifdef CUDA_UNIT_TEST
 __global__ void
 #else
