@@ -171,6 +171,12 @@ public:
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
 
+#ifdef GPU_LOCAL_TREE_WALK
+        void transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
+        void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
+        void printTreeRecursive(GenericTreeNode *node, int indent);
+#endif //GPU_LOCAL_TREE_WALK
+        
         // actual serialization methods
         PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
