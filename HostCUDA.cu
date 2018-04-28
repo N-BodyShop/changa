@@ -1447,7 +1447,7 @@ void DummyKernel(void *cb){
 /*
  * Kernels
  */
- 
+
 /****
  * GPU Local tree walk (computation integrated)
 ****/
@@ -1543,7 +1543,6 @@ __global__ void gpuLocalTreeWalk(
   for(int pidx = blockIdx.x*blockDim.x + threadIdx.x; 
       pidx < totalNumOfParticles; pidx += gridDim.x*blockDim.x) {
     // initialize the variables belonging to current thread
-    int nodePointer = particleCores[pidx].nodeId;
     ldgParticle(myParticle, &particleCores[pidx]);
     ldgBucketNode(myNode, &particleCores[pidx]);
 

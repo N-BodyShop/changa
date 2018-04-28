@@ -876,19 +876,6 @@ void DataManager::serializeLocal(GenericTreeNode *node){
           localMoments[id].bucketSize =  tp->bucketActiveInfo[id].size;
       }
     }
-
-    // tell each particle which node it belongs to
-    CompactPartData *localParicalsVec = localParticles.getVec();
-    for (int j = 0; j < tp->numBuckets; ++j) {
-      GenericTreeNode *bucketNode = tp->bucketList[j];
-      int id = bucketNode->nodeArrayIndex;
-      int start = localMoments[id].bucketStart;
-      int end = start + localMoments[id].bucketSize;
-      for (int k = start; k < end; k ++) {
-        localParicalsVec[k].nodeId = id;
-      }
-    }
-
   }
   transformLocalTreeRecursive(node, localMoments);
 #endif //GPU_LOCAL_TREE_WALK
