@@ -1438,6 +1438,39 @@ template<class type> int calcParticleForces(TreePiece *tp, int b, int activeRung
 }
 
 #ifdef GPU_LOCAL_TREE_WALK
+
+void cudaCallbackForAllBuckets(void *param, void *msg) {
+  CudaRequest *data = (CudaRequest *)param;
+  int *affectedBuckets = data->affectedBuckets;
+  TreePiece *tp = (TreePiece*)data->tp;
+  DoubleWalkState *state = (DoubleWalkState *)data->state;
+  int bucket;
+
+  int numBucketsDone = data->numBucketsPlusOne-1;
+
+  // bucket computations finished
+  //
+  for(int i = 0; i < numBucketsDone; i++){
+    bucket = affectedBuckets[i];
+    state->counterArrays[0][bucket]--;
+//    state->counterArrays[0][bucket] = 0;
+//    CkPrintf("CAM: [%d] bucket %d numAddReq: %d\n", tp->getIndex(), bucket, state->counterArrays[0][bucket]);
+    tp->finishBucket(bucket);
+  }
+
+  if(data->callDummy){
+    // doesn't matter what argument is passed in
+    tp->callFreeRemoteChunkMemory(-1);
+  }
+
+  // free data structures 
+  if(numBucketsDone > 0){
+    delete [] data->affectedBuckets;
+  }
+  delete ((CkCallback *)data->cb);
+  delete data; 
+}
+
 /**
  * This function is designed to send an ignition signal to the GPU manager.
  * To make minor change to existing ChaNGa code, we mimic a nodeGravityCompute 
