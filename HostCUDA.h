@@ -133,6 +133,11 @@ typedef struct _CudaRequest{
         int tpIndex;
         char phase;
 #endif
+#ifdef GPU_LOCAL_TREE_WALK
+  int totalNumOfParticles;      
+  cosmoType theta;
+  cosmoType thetaMono;
+#endif //GPU_LOCAL_TREE_WALK
 }CudaRequest;
 
 typedef struct _ParameterStruct{
@@ -141,6 +146,11 @@ typedef struct _ParameterStruct{
   int numMissedCores;
   int numEntities;// TODO: can be removed later on
   cudatype fperiod;
+#ifdef GPU_LOCAL_TREE_WALK
+  int totalNumOfParticles;
+  cudatype theta;
+  cudatype thetaMono;
+#endif //GPU_LOCAL_TREE_WALK
 }ParameterStruct;
 
 #ifdef CUDA_INSTRUMENT_WRS
