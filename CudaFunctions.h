@@ -13,7 +13,9 @@ __global__ void gpuLocalTreeWalk(
     VariablePartData *particleVars,
     CudaMultipoleMoments* moments,
     int *ilmarks,
-    int totalNumOfParticles,
+    int firstParticle,
+    int lastParticle,
+    int rootIdx,
     cudatype theta,
     cudatype thetaMono);
 #endif //GPU_LOCAL_TREE_WALK

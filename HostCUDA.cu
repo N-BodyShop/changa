@@ -408,7 +408,9 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
       (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
-      ptr->totalNumOfParticles,
+      ptr->firstParticle,
+      ptr->lastParticle,
+      ptr->rootIdx,
       ptr->theta,
       ptr->thetaMono
     );
@@ -760,7 +762,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 
 #ifdef GPU_LOCAL_TREE_WALK
   // +1 to avoid dimGrid = 0 when we run test with extremely small input.
-  gravityKernel.dimGrid = data->totalNumOfParticles / THREADS_PER_BLOCK + 1; 
+  gravityKernel.dimGrid = (data->lastParticle - data->firstParticle + 1) / THREADS_PER_BLOCK + 1;
   gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 #endif //GPU_LOCAL_TREE_WALK
 
@@ -927,9 +929,11 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityK
         ptr->fperiod = data->fperiod;
 
 #ifdef GPU_LOCAL_TREE_WALK
-        ptr->totalNumOfParticles = data->totalNumOfParticles;
-        ptr->theta      = data->theta;
-        ptr->thetaMono  = data->thetaMono; 
+        ptr->firstParticle  = data->firstParticle;
+        ptr->lastParticle   = data->lastParticle;
+        ptr->rootIdx        = data->rootIdx;
+        ptr->theta          = data->theta;
+        ptr->thetaMono      = data->thetaMono;
 #endif //GPU_LOCAL_TREE_WALK
         gravityKernel->userData = ptr;
 
@@ -1486,9 +1490,9 @@ ldgParticle(CompactPartData &m, CompactPartData *ptr) {
   m.position.z = __ldg(&(ptr->position.z));
 }
 
-__device__ __forceinline__ void stackInit(int &sp, int* stk) {
+__device__ __forceinline__ void stackInit(int &sp, int* stk, int rootIdx) {
   sp = 0;
-  stk[sp] = 0;
+  stk[sp] = rootIdx;
 }
 
 __device__ __forceinline__ void stackPush(int &sp) {
@@ -1507,7 +1511,9 @@ __global__ void gpuLocalTreeWalk(
   VariablePartData *particleVars,
   CudaMultipoleMoments* moments,
   int *ilmarks,
-  int totalNumOfParticles,
+  int firstParticle,
+  int lastParticle,
+  int rootIdx,
   cudatype theta,
   cudatype thetaMono) {
 
@@ -1540,13 +1546,13 @@ __global__ void gpuLocalTreeWalk(
   int critical = stackDepth;
   int cond = 1;
 
-  for(int pidx = blockIdx.x*blockDim.x + threadIdx.x; 
-      pidx < totalNumOfParticles; pidx += gridDim.x*blockDim.x) {
+  for(int pidx = blockIdx.x*blockDim.x + threadIdx.x + firstParticle; 
+      pidx <= lastParticle; pidx += gridDim.x*blockDim.x) {
     // initialize the variables belonging to current thread
     ldgParticle(myParticle, &particleCores[pidx]);
     ldgBucketNode(myNode, &particleCores[pidx]);
 
-    stackInit(SP, stk[WARP_INDEX]);
+    stackInit(SP, stk[WARP_INDEX], rootIdx);
 
     while(SP >= 0) {
       if (flag == 0 && critical >= SP) {

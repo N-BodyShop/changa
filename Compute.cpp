@@ -1534,7 +1534,10 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   request->node = true;
   request->remote = false;
   request->callDummy = false;
-  request->totalNumOfParticles = tp->getDMNumParticles();
+  request->firstParticle = tp->FirstGPUParticleIndex;
+  request->lastParticle = tp->LastGPUParticleIndex;
+//  request->rootIdx = tp->root->nodeArrayIndex;
+  request->rootIdx = 0;
   request->theta = theta;
   request->thetaMono = thetaMono;
   request->cb = new CkCallback(cudaCallbackForAllBuckets, request);
