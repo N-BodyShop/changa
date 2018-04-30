@@ -26,6 +26,9 @@
 
 #include "wr.h"
 
+#ifdef GPU_LOCAL_TREE_WALK
+#include "codes.h"
+#endif //GPU_LOCAL_TREE_WALK
 
 #ifdef CUDA_TRACE
 #  define CUDA_TRACE_BEGIN()   double trace_start_time = CmiWallTimer() 
@@ -398,19 +401,34 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       );
 #endif
   if( wr->bufferInfo[ILCELL_IDX].transferToDevice ){
-#ifndef CUDA_NO_KERNELS
-    nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
-       (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
-       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
-       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
-       (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
-       ptr->fperiod
-      );
-#endif
+#ifdef GPU_LOCAL_TREE_WALK
+    cudaDeviceSetSharedMemConfig(cudaSharedMemBankSizeEightByte);
+    gpuLocalTreeWalk<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
+      (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+      (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+      (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
+      (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
+      ptr->firstParticle,
+      ptr->lastParticle,
+      ptr->rootIdx,
+      ptr->theta,
+      ptr->thetaMono
+    );
+#else
+  #ifndef CUDA_NO_KERNELS
+      nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
+        (
+         (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
+         (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+         (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
+         (ILCell *)devBuffers[wr->bufferInfo[ILCELL_IDX].bufferID],
+         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].bufferID],
+         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_START_MARKERS_IDX].bufferID],
+         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
+         ptr->fperiod
+        );
+  #endif
+#endif //GPU_LOCAL_TREE_WALK
     CUDA_TRACE_BEGIN();
     hapi_hostFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
     hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
@@ -741,6 +759,13 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 #else
 	gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
 #endif
+
+#ifdef GPU_LOCAL_TREE_WALK
+  // +1 to avoid dimGrid = 0 when we run test with extremely small input.
+  gravityKernel.dimGrid = (data->lastParticle - data->firstParticle + 1) / THREADS_PER_BLOCK + 1;
+  gravityKernel.dimBlock = dim3(THREADS_PER_BLOCK);
+#endif //GPU_LOCAL_TREE_WALK
+
 	gravityKernel.smemSize = 0;
 
 	gravityKernel.nBuffers = TP_GRAVITY_LOCAL_NBUFFERS;
@@ -903,6 +928,13 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityK
         ptr->numBucketsPlusOne = numBucketsPlusOne;
         ptr->fperiod = data->fperiod;
 
+#ifdef GPU_LOCAL_TREE_WALK
+        ptr->firstParticle  = data->firstParticle;
+        ptr->lastParticle   = data->lastParticle;
+        ptr->rootIdx        = data->rootIdx;
+        ptr->theta          = data->theta;
+        ptr->thetaMono      = data->thetaMono;
+#endif //GPU_LOCAL_TREE_WALK
         gravityKernel->userData = ptr;
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
@@ -1419,6 +1451,242 @@ void DummyKernel(void *cb){
 /*
  * Kernels
  */
+
+/****
+ * GPU Local tree walk (computation integrated)
+****/
+#ifdef GPU_LOCAL_TREE_WALK
+__device__ __forceinline__ void 
+ldgTreeNode(CUDATreeNode &m, CudaMultipoleMoments *ptr) {
+  m.radius        = __ldg(&(ptr->radius));
+  m.soft          = __ldg(&(ptr->soft));
+  m.totalMass     = __ldg(&(ptr->totalMass));
+  m.cm.x          = __ldg(&(ptr->cm.x));
+  m.cm.y          = __ldg(&(ptr->cm.y));
+  m.cm.z          = __ldg(&(ptr->cm.z));
+  m.bucketStart   = __ldg(&(ptr->bucketStart));
+  m.bucketSize    = __ldg(&(ptr->bucketSize));
+  m.particleCount = __ldg(&(ptr->particleCount));
+  m.children[0]   = __ldg(&(ptr->children[0]));
+  m.children[1]   = __ldg(&(ptr->children[1]));
+  m.type          = __ldg(&(ptr->type));
+};
+
+__device__ __forceinline__ void 
+ldgBucketNode(CUDABucketNode &m, CompactPartData *ptr) {
+  m.soft      = __ldg(&(ptr->soft));
+  m.totalMass = __ldg(&(ptr->mass));
+  m.cm.x      = __ldg(&(ptr->position.x));
+  m.cm.y      = __ldg(&(ptr->position.y));
+  m.cm.z      = __ldg(&(ptr->position.z));
+};
+
+__device__ __forceinline__ void 
+ldgParticle(CompactPartData &m, CompactPartData *ptr) {
+  m.mass       = __ldg(&(ptr->mass));
+  m.soft       = __ldg(&(ptr->soft));
+  m.position.x = __ldg(&(ptr->position.x));
+  m.position.y = __ldg(&(ptr->position.y));
+  m.position.z = __ldg(&(ptr->position.z));
+}
+
+__device__ __forceinline__ void stackInit(int &sp, int* stk, int rootIdx) {
+  sp = 0;
+  stk[sp] = rootIdx;
+}
+
+__device__ __forceinline__ void stackPush(int &sp) {
+  ++sp;
+}
+
+__device__ __forceinline__ void stackPop(int &sp) {
+  --sp;
+}
+
+const int stackDepth = 64;
+
+__launch_bounds__(1024,1)
+__global__ void gpuLocalTreeWalk(
+  CompactPartData *particleCores,
+  VariablePartData *particleVars,
+  CudaMultipoleMoments* moments,
+  int *ilmarks,
+  int firstParticle,
+  int lastParticle,
+  int rootIdx,
+  cudatype theta,
+  cudatype thetaMono) {
+
+  CUDABucketNode  myNode;
+  CompactPartData myParticle;
+
+  __shared__ int sp[WARPS_PER_BLOCK];
+  __shared__ int stk[WARPS_PER_BLOCK][stackDepth];
+  __shared__ CUDATreeNode targetNode[WARPS_PER_BLOCK];
+
+#define SP sp[WARP_INDEX]
+#define STACK_TOP_INDEX stk[WARP_INDEX][SP]
+#define TARGET_NODE targetNode[WARP_INDEX]
+
+  // variable for current particle
+  CompactPartData p;
+  CudaVector3D acc = {0,0,0};
+  cudatype pot = 0;
+  cudatype idt2 = 0;
+
+  int targetIndex = -1;
+  cudatype dsq = 0;
+
+  // variables for CUDA_momEvalFmomrcm
+  CudaVector3D r;
+  cudatype rsq = 0;
+  cudatype twoh = 0;
+
+  int flag = 1;
+  int critical = stackDepth;
+  int cond = 1;
+
+  for(int pidx = blockIdx.x*blockDim.x + threadIdx.x + firstParticle; 
+      pidx <= lastParticle; pidx += gridDim.x*blockDim.x) {
+    // initialize the variables belonging to current thread
+    ldgParticle(myParticle, &particleCores[pidx]);
+    ldgBucketNode(myNode, &particleCores[pidx]);
+
+    stackInit(SP, stk[WARP_INDEX], rootIdx);
+
+    while(SP >= 0) {
+      if (flag == 0 && critical >= SP) {
+        flag = 1;
+      }
+
+      targetIndex = STACK_TOP_INDEX;
+      stackPop(SP);
+
+      if (flag) {
+        ldgTreeNode(TARGET_NODE, &moments[targetIndex]);
+
+        int open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, 
+                                          thetaMono);
+        int action = CUDA_OptAction(open, TARGET_NODE.type);
+        
+        critical = SP;
+//        cond = (open == CONTAIN || open == INTERSECT);
+        cond = (action == KEEP);
+
+        if (action == COMPUTE) {        
+          if (CUDA_openSoftening(TARGET_NODE, myNode)) {
+            r.x = TARGET_NODE.cm.x - myParticle.position.x;
+            r.y = TARGET_NODE.cm.y - myParticle.position.y;
+            r.z = TARGET_NODE.cm.z - myParticle.position.z;
+
+            rsq = r.x*r.x + r.y*r.y + r.z*r.z; 
+            twoh = TARGET_NODE.soft + myParticle.soft;
+            cudatype a, b;
+            if (rsq != 0) {
+              CUDA_SPLINE(rsq, twoh, a, b);
+              idt2 = fmax(idt2, (myParticle.mass + TARGET_NODE.totalMass) * b);
+
+              pot -= TARGET_NODE.totalMass * a;
+
+              acc.x += r.x*b*TARGET_NODE.totalMass;
+              acc.y += r.y*b*TARGET_NODE.totalMass;
+              acc.z += r.z*b*TARGET_NODE.totalMass;
+            }
+          } else {
+            // compute with the node targetnode
+            r.x = myParticle.position.x - TARGET_NODE.cm.x;
+            r.y = myParticle.position.y - TARGET_NODE.cm.y;
+            r.z = myParticle.position.z - TARGET_NODE.cm.z;
+
+            rsq = r.x*r.x + r.y*r.y + r.z*r.z;   
+            if (rsq != 0) {
+              cudatype dir = rsqrt(rsq);     
+#if defined (HEXADECAPOLE)
+              CUDA_momEvalFmomrcm(&moments[targetIndex], &r, dir, &acc, &pot);
+              idt2 = fmax(idt2, (myParticle.mass + 
+                                 moments[targetIndex].totalMass)*dir*dir*dir);
+#else
+              cudatype a, b, c, d;
+              twoh = moments[targetIndex].soft + myParticle.soft;
+              CUDA_SPLINEQ(dir, rsq, twoh, a, b, c, d);
+
+              cudatype qirx = moments[targetIndex].xx*r.x + 
+                              moments[targetIndex].xy*r.y + 
+                              moments[targetIndex].xz*r.z;
+              cudatype qiry = moments[targetIndex].xy*r.x + 
+                              moments[targetIndex].yy*r.y + 
+                              moments[targetIndex].yz*r.z;
+              cudatype qirz = moments[targetIndex].xz*r.x + 
+                              moments[targetIndex].yz*r.y + 
+                              moments[targetIndex].zz*r.z;
+              cudatype qir = 0.5 * (qirx*r.x + qiry*r.y + qirz*r.z);
+              cudatype tr = 0.5 * (moments[targetIndex].xx + 
+                                   moments[targetIndex].yy + 
+                                   moments[targetIndex].zz);
+              cudatype qir3 = b*moments[targetIndex].totalMass + d*qir - c*tr;
+
+              pot -= moments[targetIndex].totalMass * a + c*qir - b*tr;
+              acc.x -= qir3*r.x - c*qirx;
+              acc.y -= qir3*r.y - c*qiry;
+              acc.z -= qir3*r.z - c*qirz;
+              idt2 = fmax(idt2, (myParticle.mass + 
+                                 moments[targetIndex].totalMass) * b);    
+#endif //HEXADECAPOLE
+            }
+          }
+        } else if (action == KEEP_LOCAL_BUCKET) {
+          // compute with each particle contained by node targetnode
+          int target_firstparticle = TARGET_NODE.bucketStart;
+          int target_lastparticle = TARGET_NODE.bucketStart + 
+                                    TARGET_NODE.bucketSize;
+          cudatype a, b;
+          for (int i = target_firstparticle; i < target_lastparticle; ++i) {
+            CompactPartData& targetParticle = particleCores[i];
+            r.x = targetParticle.position.x - myParticle.position.x;
+            r.y = targetParticle.position.y - myParticle.position.y;
+            r.z = targetParticle.position.z - myParticle.position.z;
+
+            rsq = r.x*r.x + r.y*r.y + r.z*r.z;       
+            twoh = targetParticle.soft + myParticle.soft;
+            if (rsq != 0) {
+              CUDA_SPLINE(rsq, twoh, a, b);
+              pot -= targetParticle.mass * a;
+
+              acc.x += r.x*b*targetParticle.mass;
+              acc.y += r.y*b*targetParticle.mass;
+              acc.z += r.z*b*targetParticle.mass;
+              idt2 = fmax(idt2, (myParticle.mass + targetParticle.mass) * b);
+            }
+          }
+        } 
+
+        if (!__any(cond)) {
+          continue;
+        }
+
+        if (!cond) {
+          flag = 0;
+        } else {
+          if (TARGET_NODE.children[1] != -1) {
+            stackPush(SP);
+            STACK_TOP_INDEX = TARGET_NODE.children[1];
+          }
+          if (TARGET_NODE.children[0] != -1) {
+            stackPush(SP);
+            STACK_TOP_INDEX = TARGET_NODE.children[0];
+          }
+        }
+      }
+    }
+
+    particleVars[pidx].a.x += acc.x;
+    particleVars[pidx].a.y += acc.y;
+    particleVars[pidx].a.z += acc.z;
+    particleVars[pidx].potential += pot;
+    particleVars[pidx].dtGrav = fmax(idt2,  particleVars[pidx].dtGrav);
+  }
+}
+#endif //GPU_LOCAL_TREE_WALK
 
 /**
  * @brief interaction between multipole moments and buckets of particles.
