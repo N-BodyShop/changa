@@ -1536,7 +1536,8 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   request->callDummy = false;
   request->firstParticle = tp->FirstGPUParticleIndex;
   request->lastParticle = tp->LastGPUParticleIndex;
-//  request->rootIdx = tp->root->nodeArrayIndex;
+  // In DataManager serializes the local tree so that the root of the local tree
+  // will always be the No.0 element in the moments array.
   request->rootIdx = 0;
   request->theta = theta;
   request->thetaMono = thetaMono;
