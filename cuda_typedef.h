@@ -67,6 +67,29 @@ typedef struct CudaVector3D{
 #endif
 }CudaVector3D;
 
+#ifdef GPU_LOCAL_TREE_WALK
+typedef struct CudaSphere {
+  /// The origin of this sphere
+  CudaVector3D origin;
+  /// The radius of this sphere
+  cudatype radius;
+}CudaSphere;
+
+enum CudaNodeType {
+    CudaInvalid = 1,
+    CudaBucket = 2,
+    CudaInternal = 3,
+    CudaBoundary = 4,
+    CudaNonLocal = 5,
+    CudaEmpty = 6,
+    CudaTop = 7,
+    CudaNonLocalBucket = 8,
+    CudaCached = 9,
+    CudaCachedBucket = 10,
+    CudaCachedEmpty = 11
+};
+#endif //GPU_LOCAL_TREE_WALK
+
 /** @brief Version of MultipoleMoments using cudatype
  */
 typedef struct CudaMultipoleMoments{
@@ -74,6 +97,20 @@ typedef struct CudaMultipoleMoments{
   cudatype soft;
   cudatype totalMass;
   CudaVector3D cm;
+
+#ifdef GPU_LOCAL_TREE_WALK
+  // We need tree node's spatial and tree structural information to do GPU
+  // tree walk. The spatial info is used for force computation, and the
+  // structural data is needed in tree traversal.
+  CudaVector3D lesser_corner;
+  CudaVector3D greater_corner;
+  int bucketStart;
+  int bucketSize;
+  int particleCount;
+  int nodeArrayIndex;
+  int children[2];
+  int type;
+#endif //GPU_LOCAL_TREE_WALK
 
 #ifdef HEXADECAPOLE
   cudatype xx, xy, xz, yy, yz;
@@ -129,6 +166,29 @@ typedef struct CudaMultipoleMoments{
   }
 #endif
 }CudaMultipoleMoments;
+
+#ifdef GPU_LOCAL_TREE_WALK
+struct CUDATreeNode
+{
+  cudatype radius;
+  cudatype soft;
+  cudatype totalMass;
+  CudaVector3D cm;
+
+  int bucketStart;
+  int bucketSize;
+  int particleCount;
+  int children[2];
+  int type;
+};
+
+struct CUDABucketNode
+{
+  cudatype soft;
+  cudatype totalMass;
+  CudaVector3D cm;
+};
+#endif //GPU_LOCAL_TREE_WALK
 
 /** @brief Bucket of particles on the interaction list for the GPU.
  */
@@ -192,6 +252,11 @@ typedef struct VariablePartData{
   CudaVector3D a;
   cudatype potential;
   cudatype dtGrav;
+
+#ifdef GPU_LOCAL_TREE_WALK
+  int numOfNodesTraversed;
+  int numOfParticlesTraversed;
+#endif //GPU_LOCAL_TREE_WALK
 }VariablePartData;
 
 
