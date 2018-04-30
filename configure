@@ -639,6 +639,7 @@ FLAG_DIFFHARMONIC
 FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFUSION
 HEXADECAPOLE
+GPU_LOCAL_TREE_WALK
 OBJECTS_COOLING
 FLAG_COOLING
 FLAG_DAMPING
@@ -717,6 +718,7 @@ enable_m6kernel
 enable_damping
 enable_cooling
 enable_hexadecapole
+enable_gpu_local_tree_walk
 enable_diffusion
 enable_feedbacklimit
 enable_cullenalpha
@@ -4264,7 +4266,15 @@ else
 fi
 
 
-
+###################### GPU local tree walk ###################
+# Check whether --enable_gpu_local_tree_walk was given.
+GPU_LOCAL_TREE_WALK=""
+if test "${enable_gpu_local_tree_walk+set}" = set; then
+    echo "DGPU_LOCAL_TREE_WALK selected"
+    GPU_LOCAL_TREE_WALK="-DGPU_LOCAL_TREE_WALK"
+else
+    GPU_LOCAL_TREE_WALK=""
+fi
 
 
 # diffusion (thermal and metal)
