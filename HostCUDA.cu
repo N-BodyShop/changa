@@ -2,10 +2,10 @@
 #define NOMINMAX
 #endif
 
-#ifdef CUDA_MEMPOOL
+#ifdef HAPI_MEMPOOL
 #define GPU_MEMPOOL
 #endif
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 #define GPU_INSTRUMENT_WRS
 #endif
 
@@ -61,7 +61,7 @@ void allocatePinnedHostMemory(void **ptr, int size){
     exit(-1);
     return;
   }
-#ifdef CUDA_MEMPOOL
+#ifdef HAPI_MEMPOOL
   *ptr = hapiPoolMalloc(size);
 #else
   cudaMallocHost(ptr, size);
@@ -158,7 +158,7 @@ void run_DM_TRANSFER_FREE_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void
 /// @param compactParts  Array of particles
 /// @param nCompactParts
 /// @param mype Only used for debugging
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                         CompactPartData *compactParts, int nCompactParts,
                         int mype, char phase, void *wrCallback) {
@@ -181,8 +181,8 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
         printf("(%d) DMLocal 0000: %s\n", mype, cudaGetErrorString( cudaGetLastError() ));
 #endif
         if(size > 0){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
+#ifdef HAPI_USE_CUDAMALLOCHOST
+#ifdef HAPI_MEMPOOL
           bufHostBuffer = hapiPoolMalloc(size);
 #else
           cudaMallocHost(&bufHostBuffer, size);
@@ -206,8 +206,8 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
         size = (nCompactParts)*sizeof(CompactPartData);
 
         if(size > 0){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
+#ifdef HAPI_USE_CUDAMALLOCHOST
+#ifdef HAPI_MEMPOOL
           bufHostBuffer = hapiPoolMalloc(size);
 #else
           cudaMallocHost(&bufHostBuffer, size);
@@ -232,8 +232,8 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
         size = (nCompactParts)*sizeof(VariablePartData);
 
         if(size > 0){
-#ifdef CUDA_USE_CUDAMALLOCHOST
-#ifdef CUDA_MEMPOOL
+#ifdef HAPI_USE_CUDAMALLOCHOST
+#ifdef HAPI_MEMPOOL
           bufHostBuffer = hapiPoolMalloc(size);
 #else
           cudaMallocHost(&bufHostBuffer, size);
@@ -273,7 +273,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                   transferKernel->buffers[LOCAL_PARTICLE_VARS_IDX].transfer_to_device
                   );
 #endif
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         transferKernel->chareIndex = mype;
         transferKernel->compType = DM_TRANSFER_LOCAL;
         transferKernel->compPhase = phase;
@@ -282,7 +282,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
 
 }
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase, void *wrCallback) {
 #else
     void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, void *wrCallback) {
@@ -335,7 +335,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
   transferKernel->setDeviceToHostCallback(wrCallback);
   transferKernel->setTraceName("xferRemote");
   transferKernel->setRunKernel(run_DM_TRANSFER_REMOTE_CHUNK);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   transferKernel->chareIndex = mype;
   transferKernel->compType = DM_TRANSFER_REMOTE_CHUNK;
   transferKernel->compPhase = phase;
@@ -701,7 +701,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 	gravityKernel->setDeviceToHostCallback(data->cb);
 	gravityKernel->setTraceName("gravityLocal");
 	gravityKernel->setRunKernel(run_TP_GRAVITY_LOCAL);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         gravityKernel->chareIndex = data->tpIndex;
         gravityKernel->compType = TP_GRAVITY_LOCAL;
         gravityKernel->compPhase = data->phase;
@@ -728,7 +728,7 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 	gravityKernel->setDeviceToHostCallback(data->cb);
 	gravityKernel->setTraceName("gravityRemote");
 	gravityKernel->setRunKernel(run_TP_GRAVITY_REMOTE);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         gravityKernel->chareIndex = data->tpIndex;
         gravityKernel->compType = TP_GRAVITY_REMOTE;
         gravityKernel->compPhase = data->phase;
@@ -775,7 +775,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
   gravityKernel->setDeviceToHostCallback(data->cb);
   gravityKernel->setTraceName("remoteResume");
   gravityKernel->setRunKernel(run_TP_GRAVITY_REMOTE_RESUME);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         gravityKernel->chareIndex = data->tpIndex;
         gravityKernel->compType = TP_GRAVITY_REMOTE_RESUME;
         gravityKernel->compPhase = data->phase;
@@ -867,7 +867,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 	gravityKernel->setDeviceToHostCallback(data->cb);
 	gravityKernel->setTraceName("partGravityLocal");
 	gravityKernel->setRunKernel(run_TP_PART_GRAVITY_LOCAL_SMALLPHASE);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         gravityKernel->chareIndex = data->tpIndex;
         gravityKernel->compType = TP_PART_GRAVITY_LOCAL_SMALLPHASE;
         gravityKernel->compPhase = data->phase;
@@ -894,7 +894,7 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) TRANSFER LOCAL LARGEPHASE PART\n", CmiMyPe());
 #endif
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         gravityKernel->chareIndex = data->tpIndex;
         gravityKernel->compType = TP_PART_GRAVITY_LOCAL;
         gravityKernel->compPhase = data->phase;
@@ -921,7 +921,7 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) TRANSFER REMOTE PART\n", CmiMyPe());
 #endif
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         gravityKernel->chareIndex = data->tpIndex;
         gravityKernel->compType = TP_PART_GRAVITY_REMOTE;
         gravityKernel->compPhase = data->phase;
@@ -972,7 +972,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
 	gravityKernel->setDeviceToHostCallback(data->cb);
 	gravityKernel->setTraceName("partGravityRemote");
 	gravityKernel->setRunKernel(run_TP_PART_GRAVITY_REMOTE_RESUME);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         gravityKernel->chareIndex = data->tpIndex;
         gravityKernel->compType = TP_PART_GRAVITY_REMOTE_RESUME;
         gravityKernel->compPhase = data->phase;
@@ -1035,7 +1035,7 @@ TP_PART_GRAVITY_REMOTE_RESUME
 
  */
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int index, char phase){
 #else
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart){
@@ -1049,7 +1049,7 @@ void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart){
   gravityKernel->setTraceName("freeLocal");
   gravityKernel->setRunKernel(run_DM_TRANSFER_FREE_LOCAL);
   //printf("DM TRANSFER FREE LOCAL\n");
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   gravityKernel->chareIndex = index;
   gravityKernel->compType = DM_TRANSFER_FREE_LOCAL;
   gravityKernel->compPhase = phase;
@@ -1073,7 +1073,7 @@ void run_DM_TRANSFER_FREE_REMOTE_CHUNK(workRequest *wr, cudaStream_t kernel_stre
 }
 
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool freepart, int index, char phase){
 #else
 void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool freepart){
@@ -1092,7 +1092,7 @@ void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool fr
   // the memory for this chunk has been freed
   gravityKernel->user_data = static_cast<char*>(dm);
   //printf("DM TRANSFER FREE REMOTE CHUNK\n");
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   gravityKernel->chareIndex = index;
   gravityKernel->compType = DM_TRANSFER_FREE_REMOTE_CHUNK;
   gravityKernel->compPhase = phase;
@@ -1112,7 +1112,7 @@ void run_DM_TRANSFER_BACK(workRequest *wr, cudaStream_t kernel_stream,void** dev
  * This also schedules the freeing of the device buffers used for the
  * force calculation.
  */
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
      bool freemom, bool freepart, bool freeRemoteMom, bool, freeRemotePart,
      int index, char phase){
@@ -1149,7 +1149,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) DM TRANSFER BACK\n", CmiMyPe());
 #endif
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   gravityKernel->chareIndex = index;
   gravityKernel->compType = DM_TRANSFER_BACK;
   gravityKernel->compPhase = phase;
@@ -2146,7 +2146,7 @@ void run_EWALD_KERNEL_Small(workRequest *wr, cudaStream_t kernel_stream,void** d
 extern unsigned int timerHandle; 
 
 void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop, int largephase) {
-#ifdef CUDA_MEMPOOL
+#ifdef HAPI_MEMPOOL
   if(largephase)
     h_idata->EwaldMarkers = (int *) hapiPoolMalloc((nParticles)*sizeof(int));
   else
@@ -2164,7 +2164,7 @@ void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop, int 
 }
 
 void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
-#ifdef CUDA_MEMPOOL
+#ifdef HAPI_MEMPOOL
   if(largephase)
     hapiPoolFree(h_idata->EwaldMarkers); 
   hapiPoolFree(h_idata->ewt); 
@@ -2187,7 +2187,7 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
  *    "bottom" for the k-space loop.
  *  
  */
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase)
 #else
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
@@ -2239,7 +2239,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
     EwaldKernel->setRunKernel(run_EWALD_KERNEL_Small);
     EwaldKernel->setTraceName("EwaldSmall");
   }
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   EwaldKernel->chareIndex = myIndex;
   EwaldKernel->compType = EWALD_KERNEL;
   EwaldKernel->compPhase = phase;
