@@ -4,6 +4,10 @@
 # include "cuda_typedef.h"
 #endif
 
+#ifdef GPU_LOCAL_TREE_WALK
+#include "codes.h"
+#endif //GPU_LOCAL_TREE_WALK
+
 #ifdef CUDA_UNIT_TEST
 __global__ void
 #else
@@ -105,3 +109,223 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
   out->y += dir*(xy + xxy + ty - y*g0);
   out->z += dir*(xz + xxz + tz - z*g0);
 }
+
+#ifdef GPU_LOCAL_TREE_WALK
+
+#define OPENING_GEOMETRY_FACTOR (2.0 / sqrt(3.0))
+
+__device__ inline void __attribute__(( always_inline ))
+addCudaVector3D(const CudaVector3D &a, const CudaVector3D &b, CudaVector3D &c) {
+  c.x = a.x + b.x;
+  c.y = a.y + b.y;
+  c.z = a.z + b.z;
+}
+__device__ inline void __attribute__(( always_inline ))
+minusCudaVector3D(const CudaVector3D &a, const CudaVector3D &b, CudaVector3D &c) {
+  c.x = a.x - b.x;
+  c.y = a.y - b.y;
+  c.z = a.z - b.z;
+}
+__device__ inline void __attribute__(( always_inline ))
+assignCudaVector3D(const CudaVector3D &a, CudaVector3D &b) {
+  b.x = a.x;
+  b.y = a.y;
+  b.z = a.z;
+}
+
+__device__ inline bool __attribute__(( always_inline ))
+CUDA_intersect(CudaSphere &s1, CudaSphere &s2) {
+  CudaVector3D diff;
+  cudatype dist;
+  minusCudaVector3D(s1.origin, s2.origin, diff);
+  dist = sqrt(diff.x*diff.x + diff.y*diff.y + diff.z*diff.z);
+  return (dist <= s1.radius + s2.radius);
+}
+
+
+__device__ inline bool __attribute__(( always_inline ))
+CUDA_contains(const CudaSphere &s, const CudaVector3D &v) {
+  CudaVector3D diff;
+  cudatype dist;
+  minusCudaVector3D(s.origin, v, diff);
+  dist = sqrt(diff.x*diff.x + diff.y*diff.y + diff.z*diff.z);
+  return (dist <= s.radius);
+}
+
+__device__ inline int __attribute__(( always_inline ))
+CUDA_openSoftening(CUDATreeNode &node, CUDABucketNode &myNode) {
+  CudaSphere s;
+  s.origin = node.cm;
+  s.radius = 2.0 * node.soft;
+
+  CudaSphere myS;
+  myS.origin = myNode.cm;
+  myS.radius = 2.0 * myNode.soft;
+
+  if(CUDA_intersect(myS, s)) {
+    return true;
+  }
+  return CUDA_contains(s, myNode.cm);
+}
+
+__device__ inline int __attribute__(( always_inline ))
+CUDA_openCriterionNode(CUDATreeNode &node,
+                    CUDABucketNode &myNode,
+                    int localIndex,
+                    cudatype theta,
+                    cudatype thetaMono) {
+  const int nMinParticleNode = 6;
+  if(node.particleCount <= nMinParticleNode) {
+    return 1;
+  }
+
+  // Note that some of this could be pre-calculated into an "opening radius"
+  cudatype radius = OPENING_GEOMETRY_FACTOR * node.radius / theta;
+
+  if(radius < node.radius) {
+    radius = node.radius;
+  }
+
+  CudaSphere s;
+  s.origin = node.cm;
+  s.radius = radius;
+
+  if(CUDA_contains(s, myNode.cm)) {
+    return 1;
+  } else {
+#ifdef HEXADECAPOLE
+    // Well separated, now check softening
+    if(!CUDA_openSoftening(node, myNode)) {
+      return 0;   // passed both tests: will be a Hex interaction
+    } else {      // Open as monopole?
+      radius = OPENING_GEOMETRY_FACTOR * node.radius / thetaMono;
+      CudaSphere sM;
+      sM.origin = node.cm;
+      sM.radius = radius;
+      if(CUDA_contains(sM, myNode.cm)) {
+        return 1;
+      }
+      else {
+        return 0;
+      }
+    }
+#else
+    return 0;
+#endif //HEXADECAPOLE
+  }
+}
+
+__device__ inline void __attribute__(( always_inline ))
+CUDA_SPLINEQ(cudatype invr, cudatype r2, cudatype twoh, cudatype& a,
+       cudatype& b,cudatype& c,cudatype& d) {
+  cudatype u,dih,dir=(invr);
+  if ((r2) < (twoh)*(twoh)) {
+    dih = cudatype(2.0)/(twoh);
+    u = dih/dir;
+    if (u < cudatype(1.0)) {
+      a = dih*(cudatype(7.0)/cudatype(5.0) 
+         - cudatype(2.0)/cudatype(3.0)*u*u 
+         + cudatype(3.0)/cudatype(10.0)*u*u*u*u
+         - cudatype(1.0)/cudatype(10.0)*u*u*u*u*u);
+      b = dih*dih*dih*(cudatype(4.0)/cudatype(3.0) 
+           - cudatype(6.0)/cudatype(5.0)*u*u 
+           + cudatype(1.0)/cudatype(2.0)*u*u*u);
+      c = dih*dih*dih*dih*dih*(cudatype(12.0)/cudatype(5.0) 
+             - cudatype(3.0)/cudatype(2.0)*u);
+      d = cudatype(3.0)/cudatype(2.0)*dih*dih*dih*dih*dih*dih*dir;
+    }
+    else {
+      a = cudatype(-1.0)/cudatype(15.0)*dir 
+  + dih*(cudatype(8.0)/cudatype(5.0) 
+         - cudatype(4.0)/cudatype(3.0)*u*u + u*u*u
+         - cudatype(3.0)/cudatype(10.0)*u*u*u*u 
+         + cudatype(1.0)/cudatype(30.0)*u*u*u*u*u);
+      b = cudatype(-1.0)/cudatype(15.0)*dir*dir*dir 
+  + dih*dih*dih*(cudatype(8.0)/cudatype(3.0) - cudatype(3.0)*u 
+           + cudatype(6.0)/cudatype(5.0)*u*u 
+           - cudatype(1.0)/cudatype(6.0)*u*u*u);
+      c = cudatype(-1.0)/cudatype(5.0)*dir*dir*dir*dir*dir 
+  + cudatype(3.0)*dih*dih*dih*dih*dir
+  + dih*dih*dih*dih*dih*(cudatype(-12.0)/cudatype(5.0) 
+             + cudatype(1.0)/cudatype(2.0)*u);
+      d = -dir*dir*dir*dir*dir*dir*dir
+  + cudatype(3.0)*dih*dih*dih*dih*dir*dir*dir
+  - cudatype(1.0)/cudatype(2.0)*dih*dih*dih*dih*dih*dih*dir;
+    }
+  }
+  else {
+    a = dir;
+    b = a*a*a;
+    c = cudatype(3.0)*b*a*a;
+    d = cudatype(5.0)*c*a*a;
+  }
+}
+
+__device__ inline void __attribute__(( always_inline ))
+CUDA_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b) {
+  cudatype r, u,dih,dir;
+  r = sqrt(r2);
+
+  if (r < (twoh)) {
+    dih = (2.0)/(twoh);
+    u = r*dih;
+    if (u < (1.0)) {
+      a = dih*((7.0)/(5.0) 
+         - (2.0)/(3.0)*u*u 
+         + (3.0)/(10.0)*u*u*u*u
+         - (1.0)/(10.0)*u*u*u*u*u);
+      b = dih*dih*dih*((4.0)/(3.0) 
+           - (6.0)/(5.0)*u*u 
+           + (1.0)/(2.0)*u*u*u);
+    }
+    else {
+      dir = (1.0)/r;
+      a = (-1.0)/(15.0)*dir 
+  + dih*((8.0)/(5.0) 
+         - (4.0)/(3.0)*u*u + u*u*u
+         - (3.0)/(10.0)*u*u*u*u 
+         + (1.0)/(30.0)*u*u*u*u*u);
+      b = (-1.0)/(15.0)*dir*dir*dir 
+  + dih*dih*dih*((8.0)/(3.0) - (3.0)*u 
+           + (6.0)/(5.0)*u*u 
+           - (1.0)/(6.0)*u*u*u);
+    }
+  }
+  else {
+    a = (1.0)/r;
+    b = a*a*a;
+  }
+}
+
+// This function will to be simplified soon.
+__device__ inline int __attribute__(( always_inline ))
+CUDA_OptAction(int fakeOpen, int nodetype) {
+  if (fakeOpen == 0) {
+    if (nodetype == CudaInternal || nodetype == CudaBucket || nodetype == CudaBoundary || nodetype == CudaNonLocalBucket) {
+      return COMPUTE;
+    } else if (nodetype == CudaNonLocal || nodetype == CudaCached || nodetype == CudaCachedBucket || nodetype == CudaEmpty || nodetype == CudaCachedEmpty) {
+      return DUMP;
+    } else if (nodetype == CudaTop || nodetype == CudaInvalid) {
+      return ERROR;
+    } else {
+      printf("ERROR in CUDA_OptAction\n");
+      return -1;
+    }
+  } else {
+    if (nodetype == CudaInternal || nodetype == CudaBoundary) {
+      return KEEP;
+    } else if (nodetype == CudaBucket) {
+      return KEEP_LOCAL_BUCKET;
+    } else if (nodetype == CudaNonLocal || nodetype == CudaNonLocalBucket || nodetype == CudaCachedBucket || nodetype == CudaCached || nodetype == CudaEmpty ||
+              nodetype == CudaCachedEmpty) {
+      return DUMP;
+    } else if (nodetype == CudaTop || nodetype == CudaInvalid) {
+      return ERROR;
+    } else {
+      printf("ERROR in CUDA_OptAction\n");
+      return -1;
+    }
+  }
+}
+
+#endif //GPU_LOCAL_TREE_WALK
