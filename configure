@@ -638,6 +638,7 @@ FLAG_CULLENALPHA
 FLAG_DIFFHARMONIC
 FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFUSION
+GPU_LOCAL_TREE_WALK
 HEXADECAPOLE
 OBJECTS_COOLING
 FLAG_COOLING
@@ -717,6 +718,7 @@ enable_m6kernel
 enable_damping
 enable_cooling
 enable_hexadecapole
+enable_gpu_local_tree_walk
 enable_diffusion
 enable_feedbacklimit
 enable_cullenalpha
@@ -1362,6 +1364,8 @@ Optional Features:
   --enable-damping        enable velocity damping for glasses
   --enable-cooling        enable gas cooling (planet, cosmo, grackle)
   --disable-hexadecapole  disable use of hexadecapole expansions
+  --enable-gpu_local_tree_walk
+                          Enable gpu_local_tree_walk (yes, no)
   --enable-diffusion      enable diffusion
   --enable-feedbacklimit  limit diffusion of feedback energy
   --enable-cullenalpha    enable Cullen Dehnen artificial viscosity
@@ -4264,6 +4268,24 @@ else
 fi
 
 
+
+
+
+# GPU local tree walk
+# Check whether --enable-gpu_local_tree_walk was given.
+if test "${enable_gpu_local_tree_walk+set}" = set; then :
+  enableval=$enable_gpu_local_tree_walk; gpu_local_tree_walk=$enableval
+else
+  gpu_local_tree_walk=no
+fi
+
+GPU_LOCAL_TREE_WALK=""
+if test "$gpu_local_tree_walk" = "yes" ; then
+  echo "DGPU_LOCAL_TREE_WALK selected"
+  GPU_LOCAL_TREE_WALK="-DGPU_LOCAL_TREE_WALK"
+else
+  GPU_LOCAL_TREE_WALK=""
+fi
 
 
 
