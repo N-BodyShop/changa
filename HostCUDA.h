@@ -17,6 +17,12 @@
 
 #define THREADS_PER_BLOCK 128
 
+#ifdef GPU_LOCAL_TREE_WALK
+#define THREADS_PER_WARP 32
+#define WARPS_PER_BLOCK (THREADS_PER_BLOCK / THREADS_PER_WARP)
+#define WARP_INDEX (threadIdx.x >> 5)
+#endif //GPU_LOCAL_TREE_WALK
+
 #ifdef CUDA_2D_TB_KERNEL
 #define PARTS_PER_BLOCK 16
 #define NODES_PER_BLOCK (THREADS_PER_BLOCK/PARTS_PER_BLOCK)
@@ -133,6 +139,16 @@ typedef struct _CudaRequest{
         int tpIndex;
         char phase;
 #endif
+#ifdef GPU_LOCAL_TREE_WALK
+  int firstParticle;
+  int lastParticle;
+  int rootIdx;
+  cosmoType theta;
+  cosmoType thetaMono;
+  int nReplicas;
+  cudatype fperiodY;  // Support periodic boundary condition in more dimensions
+  cudatype fperiodZ;  // Support periodic boundary condition in more dimensions
+#endif //GPU_LOCAL_TREE_WALK
 }CudaRequest;
 
 typedef struct _ParameterStruct{
@@ -141,6 +157,16 @@ typedef struct _ParameterStruct{
   int numMissedCores;
   int numEntities;// TODO: can be removed later on
   cudatype fperiod;
+#ifdef GPU_LOCAL_TREE_WALK
+  int firstParticle;
+  int lastParticle;
+  int rootIdx;
+  cudatype theta;
+  cudatype thetaMono;
+  int nReplicas;
+  cudatype fperiodY;  // Support periodic boundary condition in more dimensions
+  cudatype fperiodZ;  // Support periodic boundary condition in more dimensions
+#endif //GPU_LOCAL_TREE_WALK
 }ParameterStruct;
 
 #ifdef CUDA_INSTRUMENT_WRS
