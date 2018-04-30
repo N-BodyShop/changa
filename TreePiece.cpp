@@ -3814,7 +3814,32 @@ void TreePiece::doAllBuckets(){
   *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
+#ifdef GPU_LOCAL_TREE_WALK 
+  ListCompute *listcompute = (ListCompute *) sGravity;
+  DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
+
+  listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+
+  // Set up the book keeping flags
+  bool useckloop = false;
+  for (int i = 0; i < numBuckets; i ++) {
+    sLocalGravityState->currentBucket = i;
+    GenericTreeNode *target = bucketList[i];
+    if(target->rungs >= activeRung){
+      doBookKeepingForTargetActive(i, i+1, -1, !useckloop, sLocalGravityState);
+    } else {
+      i += doBookKeepingForTargetInactive(-1, !useckloop, sLocalGravityState) - 1;
+    }
+  }
+  listcompute->resetCudaNodeState(state);
+  listcompute->resetCudaPartState(state);
+
+// Completely bypass CPU local tree walk
+//  thisProxy[thisIndex].nextBucket(msg);
+#else
   thisProxy[thisIndex].nextBucket(msg);
+#endif //GPU_LOCAL_TREE_WALK
+
 #ifdef CUDA_INSTRUMENT_WRS
   ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
   ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
@@ -4480,14 +4505,7 @@ int TreePiece::doBookKeepingForTargetActive(int curbucket, int end,
 #if COSMO_PRINT_BK > 1
       CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, j, sRemoteGravityState->counterArrays[0][j], sLocalGravityState->counterArrays[0][j]);
 #endif
-
-#ifdef CUDA
-      if(bucketList[j]->rungs < activeRung){
-#endif
-        finishBucket(j);
-#ifdef CUDA
-      }
-#endif
+      finishBucket(j);
     }
 
     if(bucketList[j]->rungs >= activeRung){
