@@ -623,6 +623,18 @@ typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 
 #endif
 
+#ifdef GPU_LOCAL_TREE_WALK
+#define addTreeNodeToList(nd, list, index) \
+      { \
+        nd->nodeArrayIndex = index; \
+        CudaMultipoleMoments cmm(nd->moments);\
+        cmm.lesser_corner = nd->boundingBox.lesser_corner;\
+        cmm.greater_corner = nd->boundingBox.greater_corner;\
+        list.push_back(cmm);\
+        index++;\
+      }
+#endif //GPU_LOCAL_TREE_WALK
+
 
 const char *typeString(NodeType type);
 
@@ -807,10 +819,18 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     }
     else if(type == Bucket || type == NonLocalBucket){ // NLB
       // don't need the particles, only the moments
+#ifdef GPU_LOCAL_TREE_WALK
+      addTreeNodeToList(node,localMoments,nodeIndex)
+#else
       addNodeToList(node,localMoments,nodeIndex)
+#endif //GPU_LOCAL_TREE_WALK
     }
     else if(type == Boundary || type == Internal){ // B,I 
+#ifdef GPU_LOCAL_TREE_WALK
+      addTreeNodeToList(node,localMoments,nodeIndex)
+#else
       addNodeToList(node,localMoments,nodeIndex)
+#endif //GPU_LOCAL_TREE_WALK
       for(int i = 0; i < node->numChildren(); i++){
         GenericTreeNode *child = node->getChildren(i);
         queue.enq(child);
@@ -826,6 +846,32 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     TreePiece *tp = registeredTreePieces[i].treePiece;
     tp->getDMParticles(localParticles.getVec(), partIndex);
   }
+
+#ifdef GPU_LOCAL_TREE_WALK
+  double startTimer = CmiWallTimer();
+  // set proper active bucketStart and bucketSize for each bucketNode
+  for(int i = 0; i < numTreePieces; i++){
+    TreePiece *tp = registeredTreePieces[i].treePiece;
+    // set the bucketStart and bucketSize for each bucket Node
+    if (tp->largePhase()) {
+      for (int j = 0; j < tp->numBuckets; ++j) {
+          GenericTreeNode *bucketNode = tp->bucketList[j];
+          int id = bucketNode->nodeArrayIndex;
+          localMoments[id].bucketStart = bucketNode->bucketArrayIndex;
+          localMoments[id].bucketSize = bucketNode->lastParticle - bucketNode->firstParticle + 1;
+      }
+    } else {
+      for (int j = 0; j < tp->numBuckets; ++j) {
+          GenericTreeNode *bucketNode = tp->bucketList[j];
+          int id = bucketNode->nodeArrayIndex;
+          localMoments[id].bucketStart = tp->bucketActiveInfo[id].start;
+          localMoments[id].bucketSize =  tp->bucketActiveInfo[id].size;
+      }
+    }
+  }
+  transformLocalTreeRecursive(node, localMoments);
+#endif //GPU_LOCAL_TREE_WALK
+
 #ifdef CUDA_DM_PRINT_TREES
   CkPrintf("*************\n");
 #endif
@@ -844,6 +890,99 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe(), localTransferCallback);
 #endif
 }// end serializeLocal
+
+#ifdef GPU_LOCAL_TREE_WALK
+// Add more information to each Moment, basically transform moment to a computable tree node
+void DataManager::transformLocalTree(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments) {
+  CkQ<GenericTreeNode *> queue;
+  queue.enq(node);
+  while(!queue.isEmpty()){
+    GenericTreeNode *node = queue.deq();
+    NodeType type = node->getType();
+    int node_index = node->nodeArrayIndex;
+
+    if(type == Empty || type == CachedEmpty){ // skip
+      continue;
+    }
+    else if(type == Bucket || type == NonLocalBucket){ // NLB
+      localMoments[node_index].type = (int)type;
+      localMoments[node_index].nodeArrayIndex = node_index;
+      localMoments[node_index].particleCount = node->particleCount;
+      for (int i = 0; i < 2; i ++) {
+        localMoments[node_index].children[i] = -1;
+      }
+    }
+    else if(type == Boundary || type == Internal){ // B,I 
+      localMoments[node_index].type = (int)type;
+      localMoments[node_index].nodeArrayIndex = node_index;
+      localMoments[node_index].particleCount = node->particleCount;
+      for (int i = 0; i < 2; i ++) {
+        localMoments[node_index].children[i] = -1;
+      }
+      for(int i = 0; i < node->numChildren(); i++){
+        GenericTreeNode *child = node->getChildren(i);
+        int child_index = child->nodeArrayIndex;
+        localMoments[node_index].children[i] = child_index;
+        queue.enq(child);
+      }
+    }
+  }// end while queue not empty
+}
+
+void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments) {
+  NodeType type = node->getType();
+  int node_index = node->nodeArrayIndex;
+  
+  if(type == Empty || type == CachedEmpty){ // skip
+    return;
+  } else if(type == Bucket || type == NonLocalBucket) {
+    localMoments[node_index].type = (int)type;
+    localMoments[node_index].nodeArrayIndex = node_index;
+    localMoments[node_index].particleCount = node->particleCount;
+    for (int i = 0; i < 2; i ++) {
+      localMoments[node_index].children[i] = -1;
+    }
+  } else if(type == Boundary || type == Internal){ // B,I     
+    localMoments[node_index].type = (int)type;
+    localMoments[node_index].nodeArrayIndex = node_index;
+    localMoments[node_index].particleCount = node->particleCount;
+
+    localMoments[node_index].bucketStart = INT_MAX;
+    localMoments[node_index].bucketSize = 0;
+
+    for (int i = 0; i < 2; i ++) {
+      localMoments[node_index].children[i] = -1;
+    }
+    for(int i = 0; i < node->numChildren(); i++){
+      GenericTreeNode *child = node->getChildren(i);
+      int child_index = child->nodeArrayIndex;
+      localMoments[node_index].children[i] = child_index;
+      transformLocalTreeRecursive(child, localMoments);
+
+      // Here, it's very strange that child_index could be -1 when I run on a single machine
+      // I'm not sure why, probably that child could be the boundary?
+      // Another note: check whether the child is a local node by its size (nonLocalBucket node has zero content)
+      if (child_index != -1 && localMoments[child_index].bucketSize > 0) {
+        localMoments[node_index].bucketStart = std::min(localMoments[node_index].bucketStart, localMoments[child_index].bucketStart);
+        localMoments[node_index].bucketSize += localMoments[child_index].bucketSize;
+      }
+    } 
+  }
+}
+
+void DataManager::printTreeRecursive(GenericTreeNode *node, int indent) {
+    if (node == NULL) {
+        return;
+    }
+    for (int i = 0; i < indent; i ++) {
+        printf("  ");
+    }
+    printf("nodeArrayIndex = %d, startBucket = %d, bucketArrayIndex = %d, firstParticle = %d, lastParticle = %d, type = %d\n", 
+            node->nodeArrayIndex, node->startBucket, node->bucketArrayIndex, node->firstParticle, node->lastParticle, node->getType());
+    printTreeRecursive((GenericTreeNode*) node->getChildren(0), indent + 1);
+    printTreeRecursive((GenericTreeNode*) node->getChildren(1), indent + 1);
+}
+#endif //GPU_LOCAL_TREE_WALK
 
 void DataManager::freeLocalTreeMemory(){
   CmiLock(__nodelock);
