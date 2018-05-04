@@ -547,6 +547,7 @@ public:
         void buildTree(int iPhase);
         void startGravity(const CkCallback& cbGravity, int iActiveRung,
             double *startTime) ;
+        void externalGravity(int iActiveRung);
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
