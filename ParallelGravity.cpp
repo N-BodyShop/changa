@@ -1655,6 +1655,22 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
         }
 }
 
+/// @brief Apply external gravitational field.
+/// @param iActiveRung Rung on which to apply forces.
+void Main::externalGravity(int iActiveRung)
+{
+    CkReductionMsg *msgFrameAcc;
+    treeProxy.externalGravity(iActiveRung, param.externalGravity,
+                              CkCallbackResumeThread((void*&)msgFrameAcc));
+    // External gravity may accelerate the coordinate frame
+    // (e.g. heliocentric coordinates.)  Retrieve any such acceleration
+    // and apply it to the coordinate frame.
+    double *frameAcc = (double *)msgFrameAcc->getData();
+    Vector3D<double> frameAccVec(frameAcc[0], frameAcc[1], frameAcc[2]);
+    treeProxy.applyFrameAcc(iActiveRung, frameAccVec, CkCallbackResumeThread());
+    delete msgFrameAcc;
+}
+
 ///
 /// @brief Take one base timestep of the simulation.
 /// @param iStep The current step number.
@@ -1864,16 +1880,9 @@ void Main::advanceBigStep(int iStep) {
 	memoryStats();
     double gravStartTime;
     startGravity(cbGravity, activeRung, &gravStartTime);
-    if(param.bDoExternalGravity) {
-        CkReductionMsg *msgFrameAcc;
-        treeProxy.externalGravity(activeRung, param.externalGravity,
-                                  CkCallbackResumeThread((void*&)msgFrameAcc));
-        double *frameAcc = (double *)msgFrameAcc->getData();
-        Vector3D<double> frameAccVec(frameAcc[0], frameAcc[1], frameAcc[2]);
-        treeProxy.applyFrameAcc(activeRung, frameAccVec, CkCallbackResumeThread());
-        delete msgFrameAcc;
-        }
-    
+    if(param.bDoExternalGravity)
+        externalGravity(activeRung);
+
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGas) {
@@ -2519,15 +2528,8 @@ Main::initialForces()
 
   double gravStartTime;
   startGravity(cbGravity, 0, &gravStartTime);
-  if(param.bDoExternalGravity) {
-      CkReductionMsg *msgFrameAcc;
-      treeProxy.externalGravity(0, param.externalGravity,
-                                CkCallbackResumeThread((void*&)msgFrameAcc));
-        double *frameAcc = (double *)msgFrameAcc->getData();
-        Vector3D<double> frameAccVec(frameAcc[0], frameAcc[1], frameAcc[2]);
-        treeProxy.applyFrameAcc(0, frameAccVec, CkCallbackResumeThread());
-        delete msgFrameAcc;
-      }
+  if(param.bDoExternalGravity)
+      externalGravity(0);
   if(param.bDoGas) {
       // Get star center of mass
       starCenterOfMass();
