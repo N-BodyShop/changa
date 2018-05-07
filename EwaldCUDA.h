@@ -75,7 +75,7 @@ typedef struct {
 
 void EwaldHostMemorySetup(EwaldData *h_idata, int size, int nEwhLoop, int largephase); 
 void EwaldHostMemoryFree(EwaldData *h_idata, int largephase); 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase); 
 #else
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase); 

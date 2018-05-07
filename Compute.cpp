@@ -1101,7 +1101,7 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     int *affectedBuckets = NULL;
 
     if(totalNumInteractions > 0){
-#ifdef CUDA_USE_CUDAMALLOCHOST
+#ifdef HAPI_USE_CUDAMALLOCHOST
       allocatePinnedHostMemory((void **)&flatlists, totalNumInteractions*sizeof(T));
       allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
       allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
@@ -1193,7 +1193,7 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
     int *affectedBuckets = NULL;
 
     if(totalNumInteractions > 0){
-#ifdef CUDA_USE_CUDAMALLOCHOST
+#ifdef HAPI_USE_CUDAMALLOCHOST
       allocatePinnedHostMemory((void **)&flatlists, numParticleInteractions*sizeof(ILCell));
       allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
       allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
@@ -1989,7 +1989,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
   data->remote = (getOptType() == Remote);
   data->callDummy = callDummy;
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   data->tpIndex = tp->getInstrumentId();
   data->phase = tp->getActiveRung();
 #endif
@@ -2029,7 +2029,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 
   OptType type = getOptType();
   data->cb = new CkCallback(cudaCallback, data);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   double time = state->nodeListConstructionTimeStop();
 #endif
   if(type == Local){
@@ -2037,7 +2037,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     tp->localNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferLocal(data);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
     tp->localNodeListConstructionTime += time;
     tp->nLocalNodeReqs++;
 #endif
@@ -2047,7 +2047,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     tp->remoteNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferRemote(data);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
     tp->remoteNodeListConstructionTime += time;
     tp->nRemoteNodeReqs++;
 #endif
@@ -2060,7 +2060,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     tp->remoteResumeNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferRemoteResume(data, missedNodes, len);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
     tp->remoteResumeNodeListConstructionTime += time;
     tp->nRemoteResumeNodeReqs++;
 #endif
@@ -2069,7 +2069,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
   CkPrintf("memcheck after sendNodeInteractionsToGpu\n");
   CmiMemoryCheck();
 #endif
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   state->nodeListConstructionTimeStart();
 #endif
 }
@@ -2090,7 +2090,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
   data->remote = (getOptType() == Remote);
   data->callDummy = callDummy;
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   data->tpIndex = tp->getInstrumentId();
   data->phase = tp->getActiveRung();
 #endif
@@ -2129,7 +2129,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 
   OptType type = getOptType();
   data->cb = new CkCallback(cudaCallback, data);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   double time = state->partListConstructionTimeStop();
 #endif
 
@@ -2146,7 +2146,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
       TreePiecePartListDataTransferLocalSmallPhase(data, parts, leng);
       tp->clearMarkedBuckets(state->markedBuckets);
     }
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
     tp->localPartListConstructionTime += time;
     tp->nLocalPartReqs++;
 #endif
@@ -2156,7 +2156,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     tp->remotePartInteractions += state->particleLists.totalNumInteractions;
 #endif
     TreePiecePartListDataTransferRemote(data);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
     tp->remotePartListConstructionTime += time;
     tp->nRemotePartReqs++;
 #endif
@@ -2169,7 +2169,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     tp->remoteResumePartInteractions += state->particleLists.totalNumInteractions;
 #endif
     TreePiecePartListDataTransferRemoteResume(data, missedParts, len);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
     tp->remoteResumePartListConstructionTime += time;
     tp->nRemoteResumePartReqs++;
 #endif
@@ -2178,7 +2178,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
   CkPrintf("memcheck after sendPartInteractionsToGpu\n");
   CmiMemoryCheck();
 #endif
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   state->partListConstructionTimeStart();
 #endif
 }

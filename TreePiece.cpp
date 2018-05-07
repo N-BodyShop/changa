@@ -39,7 +39,7 @@
 #endif
 
 #ifdef CUDA
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 #define GPU_INSTRUMENT_WRS
 #include "wr.h"
 #endif
@@ -3813,7 +3813,7 @@ void TreePiece::doAllBuckets(){
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
   thisProxy[thisIndex].nextBucket(msg);
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
   ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
 #endif
@@ -4150,7 +4150,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   CmiMemoryCheck();
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   ((DoubleWalkState *)sRemoteGravityState)->nodeListConstructionTimeStart();
   ((DoubleWalkState *)sRemoteGravityState)->partListConstructionTimeStart();
   ((DoubleWalkState *)sInterListStateRemoteResume)->nodeListConstructionTimeStart();
@@ -5051,7 +5051,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   // (i.e. all buckets have finished their RNR/Local walks)
 #ifdef CUDA
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   instrumentId = dm->initInstrumentation();
 
   localNodeListConstructionTime = 0.0;
@@ -6312,7 +6312,7 @@ void TreePiece::finishWalk()
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   RequestTimeInfo *rti1 = hapi_queryInstrument(instrumentId, DM_TRANSFER_LOCAL, activeRung);
   RequestTimeInfo *rti2 = hapi_queryInstrument(instrumentId, DM_TRANSFER_REMOTE_CHUNK, activeRung);
   RequestTimeInfo *rti3 = hapi_queryInstrument(instrumentId, DM_TRANSFER_BACK, activeRung);
@@ -6332,45 +6332,45 @@ void TreePiece::finishWalk()
   RequestTimeInfo *rti14 = hapi_queryInstrument(instrumentId, BOTTOM_EWALD_KERNEL, activeRung);
 
   if(rti6 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localnode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS localnode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
         rti6->transferTime/rti6->n,
         rti6->kernelTime/rti6->n,
         rti6->cleanupTime/rti6->n, rti6->n);
   }
   if(rti7 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remotenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
         rti7->transferTime/rti7->n,
         rti7->kernelTime/rti7->n,
         rti7->cleanupTime/rti7->n, rti7->n);
   }
   if(rti8 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remoteresumenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
         rti8->transferTime/rti8->n,
         rti8->kernelTime/rti8->n,
         rti8->cleanupTime/rti8->n, rti8->n);
   }
 
   if(rti10 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localpart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS localpart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
         rti10->transferTime/rti10->n,
         rti10->kernelTime/rti10->n,
         rti10->cleanupTime/rti10->n, rti10->n);
   }
   if(rti11 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remotepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
         rti11->transferTime/rti11->n,
         rti11->kernelTime/rti11->n,
         rti11->cleanupTime/rti11->n, rti11->n);
   }
   if(rti12 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remoteresumepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
         rti12->transferTime/rti12->n,
         rti12->kernelTime/rti12->n,
         rti12->cleanupTime/rti12->n, rti12->n);
   }
 
   if(nLocalNodeReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction local node reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction local node reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nLocalNodeReqs,
@@ -6378,7 +6378,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemoteNodeReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote node reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote node reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemoteNodeReqs,
@@ -6386,7 +6386,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemoteResumeNodeReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote resume node reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote resume node reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemoteResumeNodeReqs,
@@ -6394,7 +6394,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nLocalPartReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction local part reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction local part reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nLocalPartReqs,
@@ -6402,7 +6402,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemotePartReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote part reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote part reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemotePartReqs,
@@ -6410,7 +6410,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemoteResumePartReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote resume part reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote resume part reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemoteResumePartReqs,

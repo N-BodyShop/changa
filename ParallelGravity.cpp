@@ -1784,7 +1784,7 @@ void Main::advanceBigStep(int iStep) {
 #endif
 
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	    }
@@ -1801,7 +1801,7 @@ void Main::advanceBigStep(int iStep) {
             }
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
             double tGrav = CkWallTimer()-startTime;
@@ -2519,14 +2519,14 @@ Main::initialForces()
 
 	  treeProxy.startGravity(0, theta, cbGravity);
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
             dMProxy.clearInstrument(cbGravity);
 #endif
 	  }
       else {
 	  treeProxy.startGravity(0, theta, CkCallbackResumeThread());
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
           CkPrintf("took %g seconds.\n", CkWallTimer()-startTime);

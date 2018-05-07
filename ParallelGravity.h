@@ -870,7 +870,7 @@ class TreePiece : public CBase_TreePiece {
         void callFreeRemoteChunkMemory(int chunk);
 
         int getActiveRung(){ return activeRung; }
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int getInstrumentId(){ return instrumentId; }
 #endif
         // returns either all particles or only active particles,
@@ -969,7 +969,7 @@ class TreePiece : public CBase_TreePiece {
         long long remoteResumePartInteractions;
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int instrumentId;
 
         double localNodeListConstructionTime;
