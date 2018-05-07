@@ -146,7 +146,8 @@ typedef struct _ParameterStruct{
 #ifdef HAPI_INSTRUMENT_WRS
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                         CompactPartData *compactParts, int nCompactParts,
-                        int mype, char phase, void *wrCallback);
+                        int mype, char phase, void *wrCallback,
+                        cudaStream_t stream);
 void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int pe, char phase);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart, int pe, char phase);
@@ -154,7 +155,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, 
 #else
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                         CompactPartData *compactParts, int nCompactParts,
-                        int mype, void *wrCallback);
+                        int mype, void *wrCallback, cudaStream_t stream);
 void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, void *wrCallback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);

@@ -17,6 +17,10 @@
 #include "ckBIconfig.h"
 #endif
 
+#ifdef CUDA
+#include <cuda_runtime.h>
+#define DM_TRANSFER_LOCAL_NBUFFERS 3
+#endif
 
 /// @brief Information about TreePieces on an SMP node.
 struct TreePieceDescriptor{
@@ -83,6 +87,9 @@ protected:
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
 #ifdef CUDA
+  cudaStream_t stream;
+  void* devBuffers[DM_TRANSFER_LOCAL_NBUFFERS];
+
 	//CkVec<int> registeredTreePieceIndices;
         int cumNumReplicatedNodes;
         int treePiecesDone;
@@ -193,6 +200,9 @@ private:
 public:
 
 	~DataManager() {
+#ifdef CUDA
+    cudaStreamDestroy(stream);
+#endif
 	    for (unsigned int i = 0; i < nodeTable.length(); i++) {
       		delete nodeTable[i];
     		}

@@ -39,6 +39,7 @@ void DataManager::init() {
   oldNumChunks = 0;
   chunkRoots = NULL;
 #ifdef CUDA
+  cudaStreamCreate(&stream);
   treePiecesDone = 0;
   treePiecesDonePrefetch = 0;
   treePiecesDoneLocalComputation = 0;
@@ -839,9 +840,9 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
   // Transfer moments and particle cores to gpu
 #ifdef HAPI_INSTRUMENT_WRS
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung, localTransferCallback);
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung, localTransferCallback, stream);
 #else
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe(), localTransferCallback);
+  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe(), localTransferCallback, stream);
 #endif
 }// end serializeLocal
 

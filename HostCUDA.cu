@@ -165,12 +165,45 @@ void run_DM_TRANSFER_FREE_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void
 #ifdef HAPI_INSTRUMENT_WRS
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                         CompactPartData *compactParts, int nCompactParts,
-                        int mype, char phase, void *wrCallback) {
+                        int mype, char phase, void *wrCallback
+                        cudaStream_t stream) {
 #else
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                         CompactPartData *compactParts, int nCompactParts,
-                        int mype, void *wrCallback) {
+                        int mype, void *wrCallback, cudaStream_t stream) {
 #endif
+
+#ifdef CUDA_PRINT_ERRORS
+        printf("(%d) DMLocal 0000: %s\n", mype, cudaGetErrorString( cudaGetLastError() ));
+#endif
+
+  void* hostBuffer;
+  int size = (nMoments) * sizeof(CudaMultipoleMoments);
+  if (size > 0) {
+    // allocate host side memory
+#ifdef HAPI_USE_CUDAMALLOCHOST
+#ifdef HAPI_MEMPOOL
+    hostBuffer = hapiPoolMalloc(size);
+#else
+    cudaMallocHost(&hostBuffer, size);
+#endif
+#else
+    hostBuffer = malloc(size);
+#endif
+
+#ifdef CUDA_PRINT_ERRORS
+    printf("(%d) DMLocal 0: %s hostBuf: 0x%x, size: %d\n", mype, cudaGetErrorString( cudaGetLastError() ), buf->hostBuffer, size );
+#endif
+
+    // memcpy into the host buffer
+    // TODO should be avoided
+    memcpy(hostBuffer, moments, size);
+
+    if (
+
+    // request to be moved to the GPU
+    cudaMemcpyAsync(
+  }
 
 	workRequest transferKernel;
 	dataInfo *buf;
