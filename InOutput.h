@@ -63,10 +63,13 @@ class OutputParams : public PUP::able
 class uHotOutputParams : public OutputParams
 {
  public:
-    virtual double dValue(GravityParticle *p) {return (TYPETest(p, TYPE_GAS) ? p->uHot() : 0);}
+    virtual double dValue(GravityParticle *p) {return (p->isGas() ? p->uHot() : 0);}
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
-    virtual void setDValue(GravityParticle *p, double val) {p->uHot() = val;}
+    virtual void setDValue(GravityParticle *p, double val) {
+        if(p->isGas())
+            p->uHot() = val;
+    }
     virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     uHotOutputParams() {}
@@ -85,10 +88,13 @@ class uHotOutputParams : public OutputParams
 class uOutputParams : public OutputParams
 {
  public:
-    virtual double dValue(GravityParticle *p) {return (TYPETest(p, TYPE_GAS) ? p->u() : 0);}
+    virtual double dValue(GravityParticle *p) {return (p->isGas() ? p->u() : 0);}
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
-    virtual void setDValue(GravityParticle *p, double val) {p->u() = val;}
+    virtual void setDValue(GravityParticle *p, double val) {
+        if(p->isGas())
+            p->u() = val;
+    }
     virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     uOutputParams() {}
@@ -108,10 +114,13 @@ class uOutputParams : public OutputParams
 class MassHotOutputParams : public OutputParams
 {
  public:
-    virtual double dValue(GravityParticle *p) {return (TYPETest(p, TYPE_GAS) ? p->massHot() : 0);}
+    virtual double dValue(GravityParticle *p) {return (p->isGas() ? p->massHot() : 0);}
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
-    virtual void setDValue(GravityParticle *p, double val) {p->massHot() = val;}
+    virtual void setDValue(GravityParticle *p, double val) {
+        if (p->isGas())
+            p->massHot() = val;
+    }
     virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     MassHotOutputParams() {}
