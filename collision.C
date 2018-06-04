@@ -178,11 +178,13 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
         delete msgChk;
         } while (bHasCollision);
         endTime1 = CkWallTimer();
-        CkPrintf("Resolved %d collisions\n", nColl);
-        CkPrintf("Collider search took %g seconds\n", tSmooth);
-        CkPrintf("Collider retrieval took %g seconds\n", tRetrieve);
-        CkPrintf("Collision resolution took %g seconds\n", tResolve);
-        CkPrintf("doCollision took %g seconds\n", endTime1-startTime1);
+        if (activeRung == 0) {
+            CkPrintf("Resolved %d collisions\n", nColl);
+            CkPrintf("Collider search took %g seconds\n", tSmooth);
+            CkPrintf("Collider retrieval took %g seconds\n", tRetrieve);
+            CkPrintf("Collision resolution took %g seconds\n", tResolve);
+            CkPrintf("doCollision took %g seconds\n", endTime1-startTime1);
+            }
         addDelParticles();
 
     }
@@ -384,7 +386,6 @@ void TreePiece::unKickCollStep(int iKickRung, double dDeltaBase, const CkCallbac
       GravityParticle *p = &myParticles[i];
       if(p->rung >= iKickRung) {
           p->velocity -= dDeltaBase*p->treeAcceleration;
-          CkPrintf("UnKick %d by timestep size %g, new velocity: (%g %g %g)\n", p->iOrder, dDeltaBase, p->velocity[0], p->velocity[1], p->velocity[2]);
           }
       }
     contribute(cb);

@@ -1622,7 +1622,7 @@ inline void Main::waitForGravity(const CkCallback &cb, double startTime,
     }
         double tGrav = CkWallTimer()-startTime;
         timings[activeRung].tGrav += tGrav;
-        CkPrintf("Calculating gravity and SPH took %g seconds.\n", tGrav);
+        if (!param.collision.bCollStep || (param.collision.bCollStep && activeRung == 0)) CkPrintf("Calculating gravity and SPH took %g seconds.\n", tGrav);
 #ifdef SELECTIVE_TRACING
         turnProjectionsOff();
 #endif
@@ -1927,26 +1927,26 @@ void Main::advanceBigCollStep(int iStep) {
         double tKick = CkWallTimer() - startTime;
         timings[0].tKick += tKick;
 
-        if (iSub == 1) {
-            // Collision search
-            CkPrintf("Collision detection and response\n");
-            if (bParticlesShuffled) {
-                CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
-                // The following call is to get the particles in key order
-                    // before the sort.
-                treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-                startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
-                }
-            startTime = CkWallTimer();
-            treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-            double tTB = CkWallTimer() - startTime;
-            timings[0].tTBuild += tTB;
+        // Collision search
+        if (bParticlesShuffled) {
+            CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
+            // The following call is to get the particles in key order
+            // before the sort.
+            treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                        CkCallbackResumeThread());
+            startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
+            }
+        startTime = CkWallTimer();
+        treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+        double tTB = CkWallTimer() - startTime;
+        timings[0].tTBuild += tTB;
 
-            startTime = CkWallTimer();
-            doCollisions(dTime, param.dDelta, activeRung);
-            double tColl = CkWallTimer() - startTime;
-            timings[0].tColl += tColl;
+        startTime = CkWallTimer();
+        doCollisions(dTime, param.dDelta, activeRung);
+        double tColl = CkWallTimer() - startTime;
+        timings[0].tColl += tColl;
     
+        if (iSub == 1) {
             int iNeedSubsteps = 0;
             if (param.collision.bCollStep) {
                 CkPrintf("Checking if collision stepping is necessary this big step...\n");
@@ -1956,7 +1956,8 @@ void Main::advanceBigCollStep(int iStep) {
                 }
     
             if (iNeedSubsteps) {
-                CkPrintf("%d particles are on a near collision course\n", iNeedSubsteps);
+                CkPrintf("%d particles are on a near collision course and will be stepped on rung %d\n",
+                         iNeedSubsteps, param.collision.iCollStepRung);
                 activeRung = param.collision.iCollStepRung;
                 nSubsteps = pow(2, activeRung);
                 dKickFac[activeRung] = 0.5*RungToDt(param.dDelta, activeRung);
@@ -1974,17 +1975,21 @@ void Main::advanceBigCollStep(int iStep) {
             }
 
         startTime = CkWallTimer();
-        treeProxy.drift(dDriftFac[activeRung], 0, 0, dKickFac[activeRung], param.dDelta,
-                        0, 0, CkCallbackResumeThread());
+        treeProxy.drift(dDriftFac[activeRung], param.bDoGas, param.bGasIsothermal,
+                  dKickFac[activeRung], param.dDelta, 0, 0, param.dMaxEnergy,
+                  CkCallbackResumeThread());
         double tDrift = CkWallTimer() - startTime;
         timings[0].tDrift += tDrift;
 
         dTime += RungToDt(param.dDelta, activeRung);
 
-        ckout << "\nStep: " << (iStep + ((double) iSub)/nSubsteps) << " Time: " << dTime << ".";
-        countActive(0);
-
         if (iSub == nSubsteps) activeRung = 0;
+
+        if (activeRung == 0) {
+            ckout << "\nStep: " << (iStep + ((double) iSub)/nSubsteps) << " Time: "
+                  << dTime << ". " << " Rung: " << activeRung << ". ";
+            countActive(activeRung);
+            }
 
         // Force calculation
 
@@ -2012,11 +2017,11 @@ void Main::advanceBigCollStep(int iStep) {
         // Tree build
         startTime = CkWallTimer();
         treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-        double tTB = CkWallTimer() - startTime;
+        tTB = CkWallTimer() - startTime;
         timings[0].tTBuild += tTB;
 
         CkCallback cbGravity(CkCallback::resumeThread);
-        ckout << "Calculating forces on rung " << activeRung << "\n";
+        if (activeRung == 0) ckout << "Calculating forces on rung " << activeRung << "\n";
         if (param.bDoGravity) {
             updateSoft();
             startTime = CkWallTimer();
