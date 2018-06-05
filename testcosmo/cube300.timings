@@ -1,0 +1,1056 @@
+# Timings for step 1
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.845098 0.000000 0.013497 0.000099 0.024745 0.001804 0.000000 0.002681 0.031097 0.000007
+Totals:     0.845098 0.000000 0.013497 0.000099 0.024745 0.001804 0.000000 0.002681 0.031097 0.000007
+# Timings for step 2
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.812607 0.000000 0.013434 0.000047 0.023795 0.001658 0.000000 0.002673 0.030324 0.000008
+Totals:     0.812607 0.000000 0.013434 0.000047 0.023795 0.001658 0.000000 0.002673 0.030324 0.000008
+# Timings for step 3
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.832267 0.000000 0.013029 0.000057 0.023457 0.001634 0.000000 0.002582 0.030186 0.000008
+Totals:     0.832267 0.000000 0.013029 0.000057 0.023457 0.001634 0.000000 0.002582 0.030186 0.000008
+# Timings for step 4
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.810494 0.000000 0.013457 0.000032 0.024274 0.001760 0.000000 0.002605 0.030472 0.000008
+Totals:     0.810494 0.000000 0.013457 0.000032 0.024274 0.001760 0.000000 0.002605 0.030472 0.000008
+# Timings for step 5
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.802929 0.000000 0.013239 0.000054 0.023445 0.001835 0.000000 0.002619 0.030179 0.000007
+Totals:     0.802929 0.000000 0.013239 0.000054 0.023445 0.001835 0.000000 0.002619 0.030179 0.000007
+# Timings for step 6
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.798132 0.000000 0.012968 0.000035 0.023360 0.001844 0.000000 0.002627 0.030282 0.000007
+Totals:     0.798132 0.000000 0.012968 0.000035 0.023360 0.001844 0.000000 0.002627 0.030282 0.000007
+# Timings for step 7
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.802433 0.000000 0.013393 0.000050 0.023282 0.001588 0.000000 0.002624 0.030270 0.000007
+Totals:     0.802433 0.000000 0.013393 0.000050 0.023282 0.001588 0.000000 0.002624 0.030270 0.000007
+# Timings for step 8
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.803329 0.000000 0.013074 0.000048 0.023406 0.001828 0.000000 0.002637 0.029745 0.000008
+Totals:     0.803329 0.000000 0.013074 0.000048 0.023406 0.001828 0.000000 0.002637 0.029745 0.000008
+# Timings for step 9
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.813326 0.000000 0.013018 0.000050 0.023498 0.001548 0.000000 0.002690 0.030114 0.000008
+Totals:     0.813326 0.000000 0.013018 0.000050 0.023498 0.001548 0.000000 0.002690 0.030114 0.000008
+# Timings for step 10
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.801275 0.000000 0.013152 0.000037 0.023624 0.001671 0.000000 0.002777 0.030273 0.000008
+Totals:     0.801275 0.000000 0.013152 0.000037 0.023624 0.001671 0.000000 0.002777 0.030273 0.000008
+# Timings for step 11
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.838273 0.000000 0.013390 0.000054 0.024685 0.003286 0.000000 0.002674 0.028523 0.000009
+Totals:     0.838273 0.000000 0.013390 0.000054 0.024685 0.003286 0.000000 0.002674 0.028523 0.000009
+# Timings for step 12
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.841873 0.000000 0.013089 0.000046 0.023333 0.001689 0.000000 0.002539 0.030275 0.000007
+Totals:     0.841873 0.000000 0.013089 0.000046 0.023333 0.001689 0.000000 0.002539 0.030275 0.000007
+# Timings for step 13
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.808572 0.000000 0.014468 0.000063 0.024328 0.001556 0.000000 0.002936 0.031571 0.000008
+Totals:     0.808572 0.000000 0.014468 0.000063 0.024328 0.001556 0.000000 0.002936 0.031571 0.000008
+# Timings for step 14
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.802710 0.000000 0.013090 0.000054 0.023624 0.001631 0.000000 0.003006 0.029805 0.000009
+Totals:     0.802710 0.000000 0.013090 0.000054 0.023624 0.001631 0.000000 0.003006 0.029805 0.000009
+# Timings for step 15
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.802011 0.000000 0.013049 0.000054 0.023564 0.001597 0.000000 0.002542 0.029878 0.000009
+Totals:     0.802011 0.000000 0.013049 0.000054 0.023564 0.001597 0.000000 0.002542 0.029878 0.000009
+# Timings for step 16
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.801295 0.000000 0.012664 0.000036 0.023873 0.001645 0.000000 0.002579 0.030203 0.000007
+Totals:     0.801295 0.000000 0.012664 0.000036 0.023873 0.001645 0.000000 0.002579 0.030203 0.000007
+# Timings for step 17
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.803817 0.000000 0.012756 0.000032 0.023649 0.001654 0.000000 0.002399 0.029921 0.000007
+Totals:     0.803817 0.000000 0.012756 0.000032 0.023649 0.001654 0.000000 0.002399 0.029921 0.000007
+# Timings for step 18
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.804100 0.000000 0.012897 0.000055 0.023464 0.001737 0.000000 0.002572 0.030057 0.000008
+Totals:     0.804100 0.000000 0.012897 0.000055 0.023464 0.001737 0.000000 0.002572 0.030057 0.000008
+# Timings for step 19
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.803335 0.000000 0.012822 0.000057 0.023869 0.001858 0.000000 0.002642 0.030004 0.000006
+Totals:     0.803335 0.000000 0.012822 0.000057 0.023869 0.001858 0.000000 0.002642 0.030004 0.000006
+# Timings for step 20
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.803741 0.000000 0.012746 0.000056 0.023470 0.001666 0.000000 0.002596 0.029947 0.000007
+Totals:     0.803741 0.000000 0.012746 0.000056 0.023470 0.001666 0.000000 0.002596 0.029947 0.000007
+# Timings for step 21
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.841304 0.000000 0.012638 0.000070 0.024161 0.001680 0.000000 0.002998 0.028395 0.000008
+Totals:     0.841304 0.000000 0.012638 0.000070 0.024161 0.001680 0.000000 0.002998 0.028395 0.000008
+# Timings for step 22
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.805722 0.000000 0.013138 0.000035 0.024741 0.001816 0.000000 0.002632 0.030348 0.000007
+Totals:     0.805722 0.000000 0.013138 0.000035 0.024741 0.001816 0.000000 0.002632 0.030348 0.000007
+# Timings for step 23
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.804203 0.000000 0.012772 0.000035 0.023485 0.001640 0.000000 0.002647 0.030059 0.000007
+Totals:     0.804203 0.000000 0.012772 0.000035 0.023485 0.001640 0.000000 0.002647 0.030059 0.000007
+# Timings for step 24
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.807674 0.000000 0.012873 0.000035 0.023278 0.001694 0.000000 0.002552 0.030257 0.000007
+Totals:     0.807674 0.000000 0.012873 0.000035 0.023278 0.001694 0.000000 0.002552 0.030257 0.000007
+# Timings for step 25
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.794045 0.000000 0.012458 0.000050 0.023267 0.001659 0.000000 0.002542 0.029518 0.000008
+Totals:     0.794045 0.000000 0.012458 0.000050 0.023267 0.001659 0.000000 0.002542 0.029518 0.000008
+# Timings for step 26
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.794841 0.000000 0.013015 0.000050 0.023216 0.001783 0.000000 0.002579 0.030019 0.000007
+Totals:     0.794841 0.000000 0.013015 0.000050 0.023216 0.001783 0.000000 0.002579 0.030019 0.000007
+# Timings for step 27
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.802394 0.000000 0.013490 0.000072 0.023371 0.001768 0.000000 0.002608 0.029962 0.000007
+Totals:     0.802394 0.000000 0.013490 0.000072 0.023371 0.001768 0.000000 0.002608 0.029962 0.000007
+# Timings for step 28
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.801416 0.000000 0.013148 0.000046 0.023530 0.001778 0.000000 0.002638 0.030274 0.000008
+Totals:     0.801416 0.000000 0.013148 0.000046 0.023530 0.001778 0.000000 0.002638 0.030274 0.000008
+# Timings for step 29
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.799419 0.000000 0.012727 0.000038 0.023751 0.001792 0.000000 0.002631 0.030122 0.000008
+Totals:     0.799419 0.000000 0.012727 0.000038 0.023751 0.001792 0.000000 0.002631 0.030122 0.000008
+# Timings for step 30
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420411 0.000000 0.013007 0.000050 0.023321 0.002023 0.000000 0.002371 0.030055 0.000008
+Totals:     0.420411 0.000000 0.013007 0.000050 0.023321 0.002023 0.000000 0.002371 0.030055 0.000008
+# Timings for step 31
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420463 0.000000 0.013180 0.000067 0.023802 0.001702 0.000000 0.002365 0.028197 0.000007
+Totals:     0.420463 0.000000 0.013180 0.000067 0.023802 0.001702 0.000000 0.002365 0.028197 0.000007
+# Timings for step 32
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.418957 0.000000 0.012658 0.000047 0.023973 0.002013 0.000000 0.002334 0.030335 0.000006
+Totals:     0.418957 0.000000 0.012658 0.000047 0.023973 0.002013 0.000000 0.002334 0.030335 0.000006
+# Timings for step 33
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.419883 0.000000 0.012785 0.000051 0.023302 0.001770 0.000000 0.002384 0.030257 0.000007
+Totals:     0.419883 0.000000 0.012785 0.000051 0.023302 0.001770 0.000000 0.002384 0.030257 0.000007
+# Timings for step 34
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420398 0.000000 0.013113 0.000061 0.023490 0.001810 0.000000 0.002442 0.030279 0.000007
+Totals:     0.420398 0.000000 0.013113 0.000061 0.023490 0.001810 0.000000 0.002442 0.030279 0.000007
+# Timings for step 35
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420156 0.000000 0.012441 0.000049 0.023523 0.001995 0.000000 0.002404 0.029925 0.000007
+Totals:     0.420156 0.000000 0.012441 0.000049 0.023523 0.001995 0.000000 0.002404 0.029925 0.000007
+# Timings for step 36
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420021 0.000000 0.012832 0.000043 0.023600 0.001885 0.000000 0.002396 0.029932 0.000005
+Totals:     0.420021 0.000000 0.012832 0.000043 0.023600 0.001885 0.000000 0.002396 0.029932 0.000005
+# Timings for step 37
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.419221 0.000000 0.012836 0.000050 0.023503 0.001756 0.000000 0.002406 0.030314 0.000006
+Totals:     0.419221 0.000000 0.012836 0.000050 0.023503 0.001756 0.000000 0.002406 0.030314 0.000006
+# Timings for step 38
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423183 0.000000 0.012726 0.000050 0.023509 0.001906 0.000000 0.002416 0.030075 0.000007
+Totals:     0.423183 0.000000 0.012726 0.000050 0.023509 0.001906 0.000000 0.002416 0.030075 0.000007
+# Timings for step 39
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420802 0.000000 0.012587 0.000065 0.023670 0.002009 0.000000 0.002368 0.030580 0.000007
+Totals:     0.420802 0.000000 0.012587 0.000065 0.023670 0.002009 0.000000 0.002368 0.030580 0.000007
+# Timings for step 40
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421965 0.000000 0.012573 0.000032 0.023756 0.001999 0.000000 0.002403 0.030254 0.000007
+Totals:     0.421965 0.000000 0.012573 0.000032 0.023756 0.001999 0.000000 0.002403 0.030254 0.000007
+# Timings for step 41
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420467 0.000000 0.012476 0.000049 0.024009 0.002070 0.000000 0.002413 0.028818 0.000007
+Totals:     0.420467 0.000000 0.012476 0.000049 0.024009 0.002070 0.000000 0.002413 0.028818 0.000007
+# Timings for step 42
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.419816 0.000000 0.012649 0.000051 0.023695 0.001707 0.000000 0.002415 0.030159 0.000008
+Totals:     0.419816 0.000000 0.012649 0.000051 0.023695 0.001707 0.000000 0.002415 0.030159 0.000008
+# Timings for step 43
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420322 0.000000 0.012483 0.000050 0.023617 0.001745 0.000000 0.002456 0.030113 0.000007
+Totals:     0.420322 0.000000 0.012483 0.000050 0.023617 0.001745 0.000000 0.002456 0.030113 0.000007
+# Timings for step 44
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422869 0.000000 0.012489 0.000050 0.024304 0.001661 0.000000 0.002412 0.030316 0.000009
+Totals:     0.422869 0.000000 0.012489 0.000050 0.024304 0.001661 0.000000 0.002412 0.030316 0.000009
+# Timings for step 45
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.456915 0.000000 0.012965 0.000049 0.023344 0.001800 0.000000 0.002827 0.030763 0.000011
+Totals:     0.456915 0.000000 0.012965 0.000049 0.023344 0.001800 0.000000 0.002827 0.030763 0.000011
+# Timings for step 46
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    2.540811 0.000000 0.019858 0.000044 0.040935 0.002166 0.000000 0.002774 0.046794 0.000009
+Totals:     2.540811 0.000000 0.019858 0.000044 0.040935 0.002166 0.000000 0.002774 0.046794 0.000009
+# Timings for step 47
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.454703 0.000000 0.015571 0.000034 0.025760 0.002276 0.000000 0.002544 0.032572 0.000008
+Totals:     0.454703 0.000000 0.015571 0.000034 0.025760 0.002276 0.000000 0.002544 0.032572 0.000008
+# Timings for step 48
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.475332 0.000000 0.014066 0.000066 0.026850 0.001548 0.000000 0.003118 0.030444 0.000010
+Totals:     0.475332 0.000000 0.014066 0.000066 0.026850 0.001548 0.000000 0.003118 0.030444 0.000010
+# Timings for step 49
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.474863 0.000000 0.014378 0.000034 0.024802 0.001805 0.000000 0.002754 0.032818 0.000007
+Totals:     0.474863 0.000000 0.014378 0.000034 0.024802 0.001805 0.000000 0.002754 0.032818 0.000007
+# Timings for step 50
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.461067 0.000000 0.014035 0.000053 0.025230 0.001961 0.000000 0.002963 0.030601 0.000010
+Totals:     0.461067 0.000000 0.014035 0.000053 0.025230 0.001961 0.000000 0.002963 0.030601 0.000010
+# Timings for step 51
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.425986 0.000000 0.012559 0.000035 0.023812 0.001676 0.000000 0.002387 0.028305 0.000009
+Totals:     0.425986 0.000000 0.012559 0.000035 0.023812 0.001676 0.000000 0.002387 0.028305 0.000009
+# Timings for step 52
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.452771 0.000000 0.012335 0.000050 0.023957 0.001981 0.000000 0.002716 0.030467 0.000013
+Totals:     0.452771 0.000000 0.012335 0.000050 0.023957 0.001981 0.000000 0.002716 0.030467 0.000013
+# Timings for step 53
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.429233 0.000000 0.012968 0.000041 0.023134 0.001872 0.000000 0.002532 0.030841 0.000009
+Totals:     0.429233 0.000000 0.012968 0.000041 0.023134 0.001872 0.000000 0.002532 0.030841 0.000009
+# Timings for step 54
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.471414 0.000000 0.017326 0.000046 0.026896 0.002266 0.000000 0.002612 0.033002 0.000007
+Totals:     0.471414 0.000000 0.017326 0.000046 0.026896 0.002266 0.000000 0.002612 0.033002 0.000007
+# Timings for step 55
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.434058 0.000000 0.013164 0.000036 0.024480 0.001556 0.000000 0.003234 0.030858 0.000009
+Totals:     0.434058 0.000000 0.013164 0.000036 0.024480 0.001556 0.000000 0.003234 0.030858 0.000009
+# Timings for step 56
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.439699 0.000000 0.016210 0.000053 0.028026 0.001842 0.000000 0.002963 0.033427 0.000022
+Totals:     0.439699 0.000000 0.016210 0.000053 0.028026 0.001842 0.000000 0.002963 0.033427 0.000022
+# Timings for step 57
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.437081 0.000000 0.015125 0.000071 0.024315 0.001748 0.000000 0.002921 0.033477 0.000010
+Totals:     0.437081 0.000000 0.015125 0.000071 0.024315 0.001748 0.000000 0.002921 0.033477 0.000010
+# Timings for step 58
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.443650 0.000000 0.017519 0.000036 0.026414 0.001724 0.000000 0.002646 0.032438 0.000012
+Totals:     0.443650 0.000000 0.017519 0.000036 0.026414 0.001724 0.000000 0.002646 0.032438 0.000012
+# Timings for step 59
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.429524 0.000000 0.014973 0.000059 0.026252 0.001849 0.000000 0.002826 0.032627 0.000010
+Totals:     0.429524 0.000000 0.014973 0.000059 0.026252 0.001849 0.000000 0.002826 0.032627 0.000010
+# Timings for step 60
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.456014 0.000000 0.013151 0.000055 0.023495 0.001620 0.000000 0.003055 0.030722 0.000011
+Totals:     0.456014 0.000000 0.013151 0.000055 0.023495 0.001620 0.000000 0.003055 0.030722 0.000011
+# Timings for step 61
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.470256 0.000000 0.013018 0.000051 0.025140 0.002653 0.000000 0.002587 0.031056 0.000009
+Totals:     0.470256 0.000000 0.013018 0.000051 0.025140 0.002653 0.000000 0.002587 0.031056 0.000009
+# Timings for step 62
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.455598 0.000000 0.015338 0.000068 0.026915 0.001660 0.000000 0.003827 0.033777 0.000011
+Totals:     0.455598 0.000000 0.015338 0.000068 0.026915 0.001660 0.000000 0.003827 0.033777 0.000011
+# Timings for step 63
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.454210 0.000000 0.016122 0.000047 0.029509 0.001652 0.000000 0.002727 0.032027 0.000006
+Totals:     0.454210 0.000000 0.016122 0.000047 0.029509 0.001652 0.000000 0.002727 0.032027 0.000006
+# Timings for step 64
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.440812 0.000000 0.014240 0.000054 0.024186 0.001858 0.000000 0.002511 0.030909 0.000006
+Totals:     0.440812 0.000000 0.014240 0.000054 0.024186 0.001858 0.000000 0.002511 0.030909 0.000006
+# Timings for step 65
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.488159 0.000000 0.013086 0.000050 0.023932 0.001840 0.000000 0.002510 0.030379 0.000008
+Totals:     0.488159 0.000000 0.013086 0.000050 0.023932 0.001840 0.000000 0.002510 0.030379 0.000008
+# Timings for step 66
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.470498 0.000000 0.016483 0.000037 0.029269 0.001855 0.000000 0.002771 0.033324 0.000007
+Totals:     0.470498 0.000000 0.016483 0.000037 0.029269 0.001855 0.000000 0.002771 0.033324 0.000007
+# Timings for step 67
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.440324 0.000000 0.014144 0.000051 0.028086 0.002156 0.000000 0.002789 0.031872 0.000009
+Totals:     0.440324 0.000000 0.014144 0.000051 0.028086 0.002156 0.000000 0.002789 0.031872 0.000009
+# Timings for step 68
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.427194 0.000000 0.012597 0.000049 0.023845 0.001819 0.000000 0.002519 0.030541 0.000008
+Totals:     0.427194 0.000000 0.012597 0.000049 0.023845 0.001819 0.000000 0.002519 0.030541 0.000008
+# Timings for step 69
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.447591 0.000000 0.015340 0.000046 0.026010 0.001777 0.000000 0.002413 0.031664 0.000006
+Totals:     0.447591 0.000000 0.015340 0.000046 0.026010 0.001777 0.000000 0.002413 0.031664 0.000006
+# Timings for step 70
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424287 0.000000 0.013752 0.000052 0.023911 0.001884 0.000000 0.002553 0.030374 0.000007
+Totals:     0.424287 0.000000 0.013752 0.000052 0.023911 0.001884 0.000000 0.002553 0.030374 0.000007
+# Timings for step 71
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.458180 0.000000 0.012097 0.000244 0.024269 0.001750 0.000000 0.002376 0.029692 0.000007
+Totals:     0.458180 0.000000 0.012097 0.000244 0.024269 0.001750 0.000000 0.002376 0.029692 0.000007
+# Timings for step 72
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.428721 0.000000 0.012811 0.000052 0.024106 0.001935 0.000000 0.002368 0.030579 0.000007
+Totals:     0.428721 0.000000 0.012811 0.000052 0.024106 0.001935 0.000000 0.002368 0.030579 0.000007
+# Timings for step 73
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.427242 0.000000 0.012456 0.000058 0.023856 0.002150 0.000000 0.002720 0.030437 0.000007
+Totals:     0.427242 0.000000 0.012456 0.000058 0.023856 0.002150 0.000000 0.002720 0.030437 0.000007
+# Timings for step 74
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.430106 0.000000 0.012366 0.000038 0.024210 0.002176 0.000000 0.002526 0.030099 0.000006
+Totals:     0.430106 0.000000 0.012366 0.000038 0.024210 0.002176 0.000000 0.002526 0.030099 0.000006
+# Timings for step 75
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.430184 0.000000 0.012598 0.000049 0.024133 0.002185 0.000000 0.002629 0.030772 0.000009
+Totals:     0.430184 0.000000 0.012598 0.000049 0.024133 0.002185 0.000000 0.002629 0.030772 0.000009
+# Timings for step 76
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.431997 0.000000 0.013222 0.000052 0.023566 0.001794 0.000000 0.002407 0.031657 0.000007
+Totals:     0.431997 0.000000 0.013222 0.000052 0.023566 0.001794 0.000000 0.002407 0.031657 0.000007
+# Timings for step 77
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.430179 0.000000 0.012475 0.000038 0.023632 0.001954 0.000000 0.002436 0.030607 0.000008
+Totals:     0.430179 0.000000 0.012475 0.000038 0.023632 0.001954 0.000000 0.002436 0.030607 0.000008
+# Timings for step 78
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.427007 0.000000 0.012694 0.000067 0.023790 0.001902 0.000000 0.002367 0.030597 0.000008
+Totals:     0.427007 0.000000 0.012694 0.000067 0.023790 0.001902 0.000000 0.002367 0.030597 0.000008
+# Timings for step 79
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.430418 0.000000 0.013057 0.000057 0.023672 0.001912 0.000000 0.002606 0.030962 0.000010
+Totals:     0.430418 0.000000 0.013057 0.000057 0.023672 0.001912 0.000000 0.002606 0.030962 0.000010
+# Timings for step 80
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.433624 0.000000 0.013799 0.000054 0.022896 0.002907 0.000000 0.002477 0.030566 0.000007
+Totals:     0.433624 0.000000 0.013799 0.000054 0.022896 0.002907 0.000000 0.002477 0.030566 0.000007
+# Timings for step 81
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.425881 0.000000 0.012352 0.000053 0.024154 0.002134 0.000000 0.002431 0.028792 0.000006
+Totals:     0.425881 0.000000 0.012352 0.000053 0.024154 0.002134 0.000000 0.002431 0.028792 0.000006
+# Timings for step 82
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.425444 0.000000 0.012619 0.000032 0.023545 0.001982 0.000000 0.002362 0.030186 0.000007
+Totals:     0.425444 0.000000 0.012619 0.000032 0.023545 0.001982 0.000000 0.002362 0.030186 0.000007
+# Timings for step 83
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.452498 0.000000 0.012526 0.000058 0.024100 0.001869 0.000000 0.002532 0.030522 0.000010
+Totals:     0.452498 0.000000 0.012526 0.000058 0.024100 0.001869 0.000000 0.002532 0.030522 0.000010
+# Timings for step 84
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.458386 0.000000 0.014979 0.000067 0.025993 0.001841 0.000000 0.003027 0.033329 0.000010
+Totals:     0.458386 0.000000 0.014979 0.000067 0.025993 0.001841 0.000000 0.003027 0.033329 0.000010
+# Timings for step 85
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.433522 0.000000 0.012934 0.000046 0.023456 0.001664 0.000000 0.002420 0.030551 0.000011
+Totals:     0.433522 0.000000 0.012934 0.000046 0.023456 0.001664 0.000000 0.002420 0.030551 0.000011
+# Timings for step 86
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.438318 0.000000 0.012873 0.000038 0.024299 0.001690 0.000000 0.002923 0.030796 0.000041
+Totals:     0.438318 0.000000 0.012873 0.000038 0.024299 0.001690 0.000000 0.002923 0.030796 0.000041
+# Timings for step 87
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423879 0.000000 0.012998 0.000050 0.023707 0.002280 0.000000 0.002404 0.030403 0.000007
+Totals:     0.423879 0.000000 0.012998 0.000050 0.023707 0.002280 0.000000 0.002404 0.030403 0.000007
+# Timings for step 88
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.428501 0.000000 0.012640 0.000050 0.023676 0.001762 0.000000 0.002451 0.030527 0.000007
+Totals:     0.428501 0.000000 0.012640 0.000050 0.023676 0.001762 0.000000 0.002451 0.030527 0.000007
+# Timings for step 89
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.425239 0.000000 0.014506 0.000036 0.023935 0.001706 0.000000 0.002405 0.030245 0.000007
+Totals:     0.425239 0.000000 0.014506 0.000036 0.023935 0.001706 0.000000 0.002405 0.030245 0.000007
+# Timings for step 90
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.438504 0.000000 0.012487 0.000049 0.023681 0.001751 0.000000 0.002417 0.030594 0.000008
+Totals:     0.438504 0.000000 0.012487 0.000049 0.023681 0.001751 0.000000 0.002417 0.030594 0.000008
+# Timings for step 91
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.776600 0.000000 0.017981 0.000040 0.037091 0.003321 0.000000 0.003530 0.049824 0.000012
+Totals:     0.776600 0.000000 0.017981 0.000040 0.037091 0.003321 0.000000 0.003530 0.049824 0.000012
+# Timings for step 92
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.565677 0.000000 0.023194 0.000057 0.046387 0.003056 0.000000 0.003150 0.058649 0.000007
+Totals:     0.565677 0.000000 0.023194 0.000057 0.046387 0.003056 0.000000 0.003150 0.058649 0.000007
+# Timings for step 93
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.486007 0.000000 0.013640 0.000037 0.024533 0.001765 0.000000 0.002900 0.033098 0.000012
+Totals:     0.486007 0.000000 0.013640 0.000037 0.024533 0.001765 0.000000 0.002900 0.033098 0.000012
+# Timings for step 94
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.441648 0.000000 0.015237 0.000033 0.025399 0.001998 0.000000 0.002585 0.031793 0.000007
+Totals:     0.441648 0.000000 0.015237 0.000033 0.025399 0.001998 0.000000 0.002585 0.031793 0.000007
+# Timings for step 95
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.429849 0.000000 0.012672 0.000033 0.024960 0.001883 0.000000 0.002886 0.030241 0.000009
+Totals:     0.429849 0.000000 0.012672 0.000033 0.024960 0.001883 0.000000 0.002886 0.030241 0.000009
+# Timings for step 96
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.455724 0.000000 0.012774 0.000055 0.025549 0.001673 0.000000 0.002801 0.030502 0.000013
+Totals:     0.455724 0.000000 0.012774 0.000055 0.025549 0.001673 0.000000 0.002801 0.030502 0.000013
+# Timings for step 97
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.472827 0.000000 0.014858 0.000042 0.026967 0.001808 0.000000 0.003614 0.033675 0.000016
+Totals:     0.472827 0.000000 0.014858 0.000042 0.026967 0.001808 0.000000 0.003614 0.033675 0.000016
+# Timings for step 98
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.475863 0.000000 0.015842 0.000039 0.025717 0.001856 0.000000 0.003346 0.033975 0.000010
+Totals:     0.475863 0.000000 0.015842 0.000039 0.025717 0.001856 0.000000 0.003346 0.033975 0.000010
+# Timings for step 99
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.435706 0.000000 0.014937 0.000059 0.023889 0.001529 0.000000 0.002653 0.030833 0.000008
+Totals:     0.435706 0.000000 0.014937 0.000059 0.023889 0.001529 0.000000 0.002653 0.030833 0.000008
+# Timings for step 100
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.431657 0.000000 0.013448 0.000035 0.023443 0.001988 0.000000 0.002473 0.031284 0.000007
+Totals:     0.431657 0.000000 0.013448 0.000035 0.023443 0.001988 0.000000 0.002473 0.031284 0.000007
+# Timings for step 101
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.427206 0.000000 0.012216 0.000038 0.024032 0.001603 0.000000 0.002409 0.028478 0.000007
+Totals:     0.427206 0.000000 0.012216 0.000038 0.024032 0.001603 0.000000 0.002409 0.028478 0.000007
+# Timings for step 102
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.429491 0.000000 0.012375 0.000050 0.023605 0.001930 0.000000 0.002401 0.030127 0.000007
+Totals:     0.429491 0.000000 0.012375 0.000050 0.023605 0.001930 0.000000 0.002401 0.030127 0.000007
+# Timings for step 103
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.427297 0.000000 0.012594 0.000038 0.023582 0.001783 0.000000 0.002473 0.030163 0.000010
+Totals:     0.427297 0.000000 0.012594 0.000038 0.023582 0.001783 0.000000 0.002473 0.030163 0.000010
+# Timings for step 104
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.450849 0.000000 0.012751 0.000038 0.023716 0.001707 0.000000 0.002658 0.030607 0.000009
+Totals:     0.450849 0.000000 0.012751 0.000038 0.023716 0.001707 0.000000 0.002658 0.030607 0.000009
+# Timings for step 105
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.456197 0.000000 0.012953 0.000067 0.023975 0.001925 0.000000 0.002384 0.031244 0.000008
+Totals:     0.456197 0.000000 0.012953 0.000067 0.023975 0.001925 0.000000 0.002384 0.031244 0.000008
+# Timings for step 106
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.468331 0.000000 0.015492 0.000042 0.027366 0.001815 0.000000 0.002425 0.031229 0.000006
+Totals:     0.468331 0.000000 0.015492 0.000042 0.027366 0.001815 0.000000 0.002425 0.031229 0.000006
+# Timings for step 107
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.448113 0.000000 0.014916 0.000052 0.025991 0.001530 0.000000 0.003002 0.030908 0.000008
+Totals:     0.448113 0.000000 0.014916 0.000052 0.025991 0.001530 0.000000 0.003002 0.030908 0.000008
+# Timings for step 108
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.429123 0.000000 0.012958 0.000062 0.023836 0.001953 0.000000 0.002392 0.030569 0.000006
+Totals:     0.429123 0.000000 0.012958 0.000062 0.023836 0.001953 0.000000 0.002392 0.030569 0.000006
+# Timings for step 109
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.428572 0.000000 0.013530 0.000054 0.023734 0.001722 0.000000 0.003480 0.030916 0.000006
+Totals:     0.428572 0.000000 0.013530 0.000054 0.023734 0.001722 0.000000 0.003480 0.030916 0.000006
+# Timings for step 110
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.426637 0.000000 0.012481 0.000049 0.023623 0.002075 0.000000 0.002580 0.030111 0.000007
+Totals:     0.426637 0.000000 0.012481 0.000049 0.023623 0.002075 0.000000 0.002580 0.030111 0.000007
+# Timings for step 111
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.439270 0.000000 0.019142 0.000086 0.033739 0.002555 0.000000 0.002844 0.040525 0.000007
+Totals:     0.439270 0.000000 0.019142 0.000086 0.033739 0.002555 0.000000 0.002844 0.040525 0.000007
+# Timings for step 112
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.431273 0.000000 0.015454 0.000052 0.024564 0.001897 0.000000 0.002385 0.030747 0.000007
+Totals:     0.431273 0.000000 0.015454 0.000052 0.024564 0.001897 0.000000 0.002385 0.030747 0.000007
+# Timings for step 113
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.430044 0.000000 0.012966 0.000046 0.023636 0.001968 0.000000 0.002361 0.030933 0.000008
+Totals:     0.430044 0.000000 0.012966 0.000046 0.023636 0.001968 0.000000 0.002361 0.030933 0.000008
+# Timings for step 114
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.429968 0.000000 0.013324 0.000051 0.023908 0.002032 0.000000 0.002357 0.031000 0.000007
+Totals:     0.429968 0.000000 0.013324 0.000051 0.023908 0.002032 0.000000 0.002357 0.031000 0.000007
+# Timings for step 115
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.441921 0.000000 0.012702 0.000062 0.023848 0.002181 0.000000 0.002380 0.030568 0.000006
+Totals:     0.441921 0.000000 0.012702 0.000062 0.023848 0.002181 0.000000 0.002380 0.030568 0.000006
+# Timings for step 116
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.432232 0.000000 0.012692 0.000034 0.024778 0.002062 0.000000 0.002361 0.030726 0.000007
+Totals:     0.432232 0.000000 0.012692 0.000034 0.024778 0.002062 0.000000 0.002361 0.030726 0.000007
+# Timings for step 117
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.429959 0.000000 0.012757 0.000035 0.023844 0.002038 0.000000 0.002945 0.030471 0.000007
+Totals:     0.429959 0.000000 0.012757 0.000035 0.023844 0.002038 0.000000 0.002945 0.030471 0.000007
+# Timings for step 118
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.433309 0.000000 0.013916 0.000040 0.024129 0.002087 0.000000 0.002374 0.031217 0.000006
+Totals:     0.433309 0.000000 0.013916 0.000040 0.024129 0.002087 0.000000 0.002374 0.031217 0.000006
+# Timings for step 119
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.432273 0.000000 0.012911 0.000066 0.023594 0.002096 0.000000 0.002352 0.030961 0.000006
+Totals:     0.432273 0.000000 0.012911 0.000066 0.023594 0.002096 0.000000 0.002352 0.030961 0.000006
+# Timings for step 120
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.437039 0.000000 0.014364 0.000036 0.024656 0.002207 0.000000 0.002609 0.030817 0.000006
+Totals:     0.437039 0.000000 0.014364 0.000036 0.024656 0.002207 0.000000 0.002609 0.030817 0.000006
+# Timings for step 121
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422805 0.000000 0.012407 0.000049 0.024405 0.001868 0.000000 0.002445 0.028435 0.000007
+Totals:     0.422805 0.000000 0.012407 0.000049 0.024405 0.001868 0.000000 0.002445 0.028435 0.000007
+# Timings for step 122
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.429916 0.000000 0.012505 0.000048 0.024019 0.001973 0.000000 0.002553 0.030419 0.000006
+Totals:     0.429916 0.000000 0.012505 0.000048 0.024019 0.001973 0.000000 0.002553 0.030419 0.000006
+# Timings for step 123
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424898 0.000000 0.012807 0.000050 0.023977 0.001769 0.000000 0.002414 0.030412 0.000007
+Totals:     0.424898 0.000000 0.012807 0.000050 0.023977 0.001769 0.000000 0.002414 0.030412 0.000007
+# Timings for step 124
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.427767 0.000000 0.012559 0.000049 0.024176 0.001831 0.000000 0.002831 0.030115 0.000008
+Totals:     0.427767 0.000000 0.012559 0.000049 0.024176 0.001831 0.000000 0.002831 0.030115 0.000008
+# Timings for step 125
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423752 0.000000 0.012563 0.000030 0.024190 0.001860 0.000000 0.002347 0.030084 0.000006
+Totals:     0.423752 0.000000 0.012563 0.000030 0.024190 0.001860 0.000000 0.002347 0.030084 0.000006
+# Timings for step 126
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423657 0.000000 0.012486 0.000028 0.024198 0.001852 0.000000 0.002427 0.030183 0.000007
+Totals:     0.423657 0.000000 0.012486 0.000028 0.024198 0.001852 0.000000 0.002427 0.030183 0.000007
+# Timings for step 127
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.428809 0.000000 0.012663 0.000038 0.024149 0.001970 0.000000 0.002394 0.030252 0.000009
+Totals:     0.428809 0.000000 0.012663 0.000038 0.024149 0.001970 0.000000 0.002394 0.030252 0.000009
+# Timings for step 128
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.434650 0.000000 0.013293 0.000036 0.024643 0.002071 0.000000 0.002388 0.030902 0.000008
+Totals:     0.434650 0.000000 0.013293 0.000036 0.024643 0.002071 0.000000 0.002388 0.030902 0.000008
+# Timings for step 1
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.839890 0.000000 0.014436 0.000035 0.024119 0.001719 0.000000 0.002538 0.031290 0.000008
+Totals:     0.839890 0.000000 0.014436 0.000035 0.024119 0.001719 0.000000 0.002538 0.031290 0.000008
+# Timings for step 2
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.807529 0.000000 0.013693 0.000053 0.023507 0.001637 0.000000 0.002533 0.029964 0.000008
+Totals:     0.807529 0.000000 0.013693 0.000053 0.023507 0.001637 0.000000 0.002533 0.029964 0.000008
+# Timings for step 3
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.803321 0.000000 0.013589 0.000050 0.023421 0.001613 0.000000 0.002680 0.029933 0.000007
+Totals:     0.803321 0.000000 0.013589 0.000050 0.023421 0.001613 0.000000 0.002680 0.029933 0.000007
+# Timings for step 4
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.800107 0.000000 0.013973 0.000054 0.023599 0.001674 0.000000 0.002656 0.030139 0.000007
+Totals:     0.800107 0.000000 0.013973 0.000054 0.023599 0.001674 0.000000 0.002656 0.030139 0.000007
+# Timings for step 5
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.800719 0.000000 0.013914 0.000031 0.023259 0.001660 0.000000 0.002580 0.030282 0.000007
+Totals:     0.800719 0.000000 0.013914 0.000031 0.023259 0.001660 0.000000 0.002580 0.030282 0.000007
+# Timings for step 6
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.799936 0.000000 0.013567 0.000053 0.023357 0.001606 0.000000 0.002566 0.029861 0.000008
+Totals:     0.799936 0.000000 0.013567 0.000053 0.023357 0.001606 0.000000 0.002566 0.029861 0.000008
+# Timings for step 7
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.805941 0.000000 0.013497 0.000050 0.023311 0.001631 0.000000 0.002567 0.029882 0.000008
+Totals:     0.805941 0.000000 0.013497 0.000050 0.023311 0.001631 0.000000 0.002567 0.029882 0.000008
+# Timings for step 8
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.802222 0.000000 0.013129 0.000038 0.023662 0.001702 0.000000 0.002582 0.030030 0.000007
+Totals:     0.802222 0.000000 0.013129 0.000038 0.023662 0.001702 0.000000 0.002582 0.030030 0.000007
+# Timings for step 9
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.801895 0.000000 0.014067 0.000037 0.023407 0.001641 0.000000 0.002658 0.030246 0.000007
+Totals:     0.801895 0.000000 0.014067 0.000037 0.023407 0.001641 0.000000 0.002658 0.030246 0.000007
+# Timings for step 10
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.800394 0.000000 0.013640 0.000035 0.023573 0.001647 0.000000 0.002585 0.029738 0.000008
+Totals:     0.800394 0.000000 0.013640 0.000035 0.023573 0.001647 0.000000 0.002585 0.029738 0.000008
+# Timings for step 11
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.835793 0.000000 0.013485 0.000048 0.024079 0.003163 0.000000 0.002404 0.028242 0.000006
+Totals:     0.835793 0.000000 0.013485 0.000048 0.024079 0.003163 0.000000 0.002404 0.028242 0.000006
+# Timings for step 12
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.824746 0.000000 0.015070 0.000057 0.024596 0.001568 0.000000 0.002752 0.031196 0.000007
+Totals:     0.824746 0.000000 0.015070 0.000057 0.024596 0.001568 0.000000 0.002752 0.031196 0.000007
+# Timings for step 13
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.802123 0.000000 0.014026 0.000039 0.023721 0.001591 0.000000 0.002529 0.029898 0.000008
+Totals:     0.802123 0.000000 0.014026 0.000039 0.023721 0.001591 0.000000 0.002529 0.029898 0.000008
+# Timings for step 14
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.803204 0.000000 0.014050 0.000071 0.023538 0.001608 0.000000 0.002521 0.030108 0.000007
+Totals:     0.803204 0.000000 0.014050 0.000071 0.023538 0.001608 0.000000 0.002521 0.030108 0.000007
+# Timings for step 15
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.802502 0.000000 0.013159 0.000070 0.023487 0.001584 0.000000 0.002550 0.029932 0.000007
+Totals:     0.802502 0.000000 0.013159 0.000070 0.023487 0.001584 0.000000 0.002550 0.029932 0.000007
+# Timings for step 16
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.808663 0.000000 0.013465 0.000066 0.023512 0.001622 0.000000 0.002616 0.030611 0.000008
+Totals:     0.808663 0.000000 0.013465 0.000066 0.023512 0.001622 0.000000 0.002616 0.030611 0.000008
+# Timings for step 17
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.804371 0.000000 0.013081 0.000032 0.023635 0.001680 0.000000 0.002429 0.030389 0.000006
+Totals:     0.804371 0.000000 0.013081 0.000032 0.023635 0.001680 0.000000 0.002429 0.030389 0.000006
+# Timings for step 18
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.803986 0.000000 0.013320 0.000051 0.023695 0.001559 0.000000 0.002604 0.029958 0.000006
+Totals:     0.803986 0.000000 0.013320 0.000051 0.023695 0.001559 0.000000 0.002604 0.029958 0.000006
+# Timings for step 19
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.801395 0.000000 0.013195 0.000035 0.023471 0.001653 0.000000 0.002594 0.030197 0.000007
+Totals:     0.801395 0.000000 0.013195 0.000035 0.023471 0.001653 0.000000 0.002594 0.030197 0.000007
+# Timings for step 20
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.803398 0.000000 0.013419 0.000044 0.023516 0.001610 0.000000 0.002667 0.029918 0.000007
+Totals:     0.803398 0.000000 0.013419 0.000044 0.023516 0.001610 0.000000 0.002667 0.029918 0.000007
+# Timings for step 21
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.813623 0.000000 0.012895 0.000034 0.024171 0.001570 0.000000 0.002633 0.028127 0.000010
+Totals:     0.813623 0.000000 0.012895 0.000034 0.024171 0.001570 0.000000 0.002633 0.028127 0.000010
+# Timings for step 22
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.826999 0.000000 0.013732 0.000033 0.024040 0.001547 0.000000 0.002488 0.030908 0.000008
+Totals:     0.826999 0.000000 0.013732 0.000033 0.024040 0.001547 0.000000 0.002488 0.030908 0.000008
+# Timings for step 23
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.797802 0.000000 0.013036 0.000040 0.023292 0.001577 0.000000 0.002604 0.029998 0.000008
+Totals:     0.797802 0.000000 0.013036 0.000040 0.023292 0.001577 0.000000 0.002604 0.029998 0.000008
+# Timings for step 24
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.797130 0.000000 0.013301 0.000068 0.023327 0.001616 0.000000 0.002736 0.029930 0.000006
+Totals:     0.797130 0.000000 0.013301 0.000068 0.023327 0.001616 0.000000 0.002736 0.029930 0.000006
+# Timings for step 25
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.799495 0.000000 0.013328 0.000062 0.023302 0.001642 0.000000 0.002601 0.030190 0.000007
+Totals:     0.799495 0.000000 0.013328 0.000062 0.023302 0.001642 0.000000 0.002601 0.030190 0.000007
+# Timings for step 26
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.801092 0.000000 0.013267 0.000058 0.023467 0.001598 0.000000 0.002647 0.030099 0.000007
+Totals:     0.801092 0.000000 0.013267 0.000058 0.023467 0.001598 0.000000 0.002647 0.030099 0.000007
+# Timings for step 27
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.799385 0.000000 0.013268 0.000038 0.023435 0.001593 0.000000 0.002567 0.030268 0.000009
+Totals:     0.799385 0.000000 0.013268 0.000038 0.023435 0.001593 0.000000 0.002567 0.030268 0.000009
+# Timings for step 28
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.797000 0.000000 0.013144 0.000035 0.023267 0.001702 0.000000 0.002619 0.030055 0.000006
+Totals:     0.797000 0.000000 0.013144 0.000035 0.023267 0.001702 0.000000 0.002619 0.030055 0.000006
+# Timings for step 29
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.797243 0.000000 0.013443 0.000034 0.023284 0.001661 0.000000 0.002580 0.030416 0.000006
+Totals:     0.797243 0.000000 0.013443 0.000034 0.023284 0.001661 0.000000 0.002580 0.030416 0.000006
+# Timings for step 30
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421664 0.000000 0.013166 0.000048 0.023351 0.001811 0.000000 0.002354 0.029959 0.000006
+Totals:     0.421664 0.000000 0.013166 0.000048 0.023351 0.001811 0.000000 0.002354 0.029959 0.000006
+# Timings for step 31
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420996 0.000000 0.012929 0.000051 0.024062 0.001882 0.000000 0.002388 0.028328 0.000006
+Totals:     0.420996 0.000000 0.012929 0.000051 0.024062 0.001882 0.000000 0.002388 0.028328 0.000006
+# Timings for step 32
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420817 0.000000 0.012770 0.000052 0.023944 0.001808 0.000000 0.002385 0.030060 0.000007
+Totals:     0.420817 0.000000 0.012770 0.000052 0.023944 0.001808 0.000000 0.002385 0.030060 0.000007
+# Timings for step 33
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.418231 0.000000 0.012700 0.000053 0.023467 0.001718 0.000000 0.002383 0.029801 0.000007
+Totals:     0.418231 0.000000 0.012700 0.000053 0.023467 0.001718 0.000000 0.002383 0.029801 0.000007
+# Timings for step 34
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424339 0.000000 0.012778 0.000030 0.023565 0.001724 0.000000 0.002640 0.030199 0.000008
+Totals:     0.424339 0.000000 0.012778 0.000030 0.023565 0.001724 0.000000 0.002640 0.030199 0.000008
+# Timings for step 35
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.419420 0.000000 0.012919 0.000037 0.023541 0.001753 0.000000 0.002407 0.030448 0.000008
+Totals:     0.419420 0.000000 0.012919 0.000037 0.023541 0.001753 0.000000 0.002407 0.030448 0.000008
+# Timings for step 36
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420337 0.000000 0.012812 0.000034 0.023603 0.001705 0.000000 0.002391 0.030531 0.000007
+Totals:     0.420337 0.000000 0.012812 0.000034 0.023603 0.001705 0.000000 0.002391 0.030531 0.000007
+# Timings for step 37
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.419452 0.000000 0.012879 0.000033 0.023883 0.001691 0.000000 0.002353 0.030233 0.000007
+Totals:     0.419452 0.000000 0.012879 0.000033 0.023883 0.001691 0.000000 0.002353 0.030233 0.000007
+# Timings for step 38
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.419828 0.000000 0.012820 0.000034 0.023917 0.001981 0.000000 0.002374 0.030335 0.000009
+Totals:     0.419828 0.000000 0.012820 0.000034 0.023917 0.001981 0.000000 0.002374 0.030335 0.000009
+# Timings for step 39
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.419747 0.000000 0.012946 0.000053 0.023569 0.001753 0.000000 0.002697 0.030131 0.000007
+Totals:     0.419747 0.000000 0.012946 0.000053 0.023569 0.001753 0.000000 0.002697 0.030131 0.000007
+# Timings for step 40
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.419411 0.000000 0.012783 0.000049 0.023561 0.001807 0.000000 0.002401 0.030159 0.000007
+Totals:     0.419411 0.000000 0.012783 0.000049 0.023561 0.001807 0.000000 0.002401 0.030159 0.000007
+# Timings for step 41
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422203 0.000000 0.012832 0.000036 0.024050 0.001726 0.000000 0.002322 0.028504 0.000007
+Totals:     0.422203 0.000000 0.012832 0.000036 0.024050 0.001726 0.000000 0.002322 0.028504 0.000007
+# Timings for step 42
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.419389 0.000000 0.012925 0.000032 0.023541 0.001719 0.000000 0.002494 0.030284 0.000006
+Totals:     0.419389 0.000000 0.012925 0.000032 0.023541 0.001719 0.000000 0.002494 0.030284 0.000006
+# Timings for step 43
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421257 0.000000 0.012955 0.000040 0.023988 0.001877 0.000000 0.002389 0.030800 0.000007
+Totals:     0.421257 0.000000 0.012955 0.000040 0.023988 0.001877 0.000000 0.002389 0.030800 0.000007
+# Timings for step 44
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420806 0.000000 0.013497 0.000041 0.023491 0.001772 0.000000 0.002359 0.030081 0.000008
+Totals:     0.420806 0.000000 0.013497 0.000041 0.023491 0.001772 0.000000 0.002359 0.030081 0.000008
+# Timings for step 45
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420917 0.000000 0.012938 0.000050 0.023481 0.001773 0.000000 0.002410 0.030606 0.000007
+Totals:     0.420917 0.000000 0.012938 0.000050 0.023481 0.001773 0.000000 0.002410 0.030606 0.000007
+# Timings for step 46
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421235 0.000000 0.013268 0.000067 0.023790 0.001717 0.000000 0.002390 0.030125 0.000005
+Totals:     0.421235 0.000000 0.013268 0.000067 0.023790 0.001717 0.000000 0.002390 0.030125 0.000005
+# Timings for step 47
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422239 0.000000 0.013471 0.000069 0.023391 0.001548 0.000000 0.002316 0.030466 0.000007
+Totals:     0.422239 0.000000 0.013471 0.000069 0.023391 0.001548 0.000000 0.002316 0.030466 0.000007
+# Timings for step 48
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421279 0.000000 0.012830 0.000053 0.023685 0.001849 0.000000 0.002384 0.030668 0.000006
+Totals:     0.421279 0.000000 0.012830 0.000053 0.023685 0.001849 0.000000 0.002384 0.030668 0.000006
+# Timings for step 49
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420936 0.000000 0.012788 0.000049 0.023567 0.001770 0.000000 0.002468 0.030461 0.000007
+Totals:     0.420936 0.000000 0.012788 0.000049 0.023567 0.001770 0.000000 0.002468 0.030461 0.000007
+# Timings for step 50
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422348 0.000000 0.012693 0.000050 0.024085 0.001718 0.000000 0.002361 0.030148 0.000007
+Totals:     0.422348 0.000000 0.012693 0.000050 0.024085 0.001718 0.000000 0.002361 0.030148 0.000007
+# Timings for step 51
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.425014 0.000000 0.012491 0.000049 0.023782 0.001601 0.000000 0.002342 0.028243 0.000008
+Totals:     0.425014 0.000000 0.012491 0.000049 0.023782 0.001601 0.000000 0.002342 0.028243 0.000008
+# Timings for step 52
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420398 0.000000 0.012979 0.000067 0.023676 0.001744 0.000000 0.002384 0.030110 0.000008
+Totals:     0.420398 0.000000 0.012979 0.000067 0.023676 0.001744 0.000000 0.002384 0.030110 0.000008
+# Timings for step 53
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421590 0.000000 0.012843 0.000032 0.023554 0.001730 0.000000 0.002357 0.030394 0.000006
+Totals:     0.421590 0.000000 0.012843 0.000032 0.023554 0.001730 0.000000 0.002357 0.030394 0.000006
+# Timings for step 54
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421483 0.000000 0.012927 0.000032 0.023481 0.001756 0.000000 0.002351 0.030419 0.000007
+Totals:     0.421483 0.000000 0.012927 0.000032 0.023481 0.001756 0.000000 0.002351 0.030419 0.000007
+# Timings for step 55
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421940 0.000000 0.012924 0.000049 0.023877 0.001871 0.000000 0.002368 0.030591 0.000007
+Totals:     0.421940 0.000000 0.012924 0.000049 0.023877 0.001871 0.000000 0.002368 0.030591 0.000007
+# Timings for step 56
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421702 0.000000 0.013040 0.000051 0.023507 0.001790 0.000000 0.002334 0.030231 0.000007
+Totals:     0.421702 0.000000 0.013040 0.000051 0.023507 0.001790 0.000000 0.002334 0.030231 0.000007
+# Timings for step 57
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421083 0.000000 0.012994 0.000033 0.024060 0.001807 0.000000 0.002619 0.030399 0.000008
+Totals:     0.421083 0.000000 0.012994 0.000033 0.024060 0.001807 0.000000 0.002619 0.030399 0.000008
+# Timings for step 58
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420801 0.000000 0.012853 0.000054 0.023556 0.001614 0.000000 0.002371 0.030078 0.000007
+Totals:     0.420801 0.000000 0.012853 0.000054 0.023556 0.001614 0.000000 0.002371 0.030078 0.000007
+# Timings for step 59
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420894 0.000000 0.012708 0.000051 0.023690 0.001904 0.000000 0.002551 0.030251 0.000009
+Totals:     0.420894 0.000000 0.012708 0.000051 0.023690 0.001904 0.000000 0.002551 0.030251 0.000009
+# Timings for step 60
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421366 0.000000 0.013000 0.000054 0.023623 0.001769 0.000000 0.002390 0.030578 0.000007
+Totals:     0.421366 0.000000 0.013000 0.000054 0.023623 0.001769 0.000000 0.002390 0.030578 0.000007
+# Timings for step 61
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422731 0.000000 0.012783 0.000049 0.024241 0.001623 0.000000 0.002402 0.028840 0.000007
+Totals:     0.422731 0.000000 0.012783 0.000049 0.024241 0.001623 0.000000 0.002402 0.028840 0.000007
+# Timings for step 62
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421941 0.000000 0.013106 0.000059 0.023461 0.001796 0.000000 0.002369 0.030594 0.000007
+Totals:     0.421941 0.000000 0.013106 0.000059 0.023461 0.001796 0.000000 0.002369 0.030594 0.000007
+# Timings for step 63
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420643 0.000000 0.013053 0.000049 0.023711 0.001804 0.000000 0.002419 0.030537 0.000007
+Totals:     0.420643 0.000000 0.013053 0.000049 0.023711 0.001804 0.000000 0.002419 0.030537 0.000007
+# Timings for step 64
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420926 0.000000 0.012837 0.000051 0.024366 0.001692 0.000000 0.003166 0.030160 0.000015
+Totals:     0.420926 0.000000 0.012837 0.000051 0.024366 0.001692 0.000000 0.003166 0.030160 0.000015
+# Timings for step 65
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421383 0.000000 0.013489 0.000047 0.023662 0.001704 0.000000 0.002542 0.030706 0.000007
+Totals:     0.421383 0.000000 0.013489 0.000047 0.023662 0.001704 0.000000 0.002542 0.030706 0.000007
+# Timings for step 66
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420304 0.000000 0.012838 0.000052 0.023831 0.001679 0.000000 0.002330 0.030204 0.000006
+Totals:     0.420304 0.000000 0.012838 0.000052 0.023831 0.001679 0.000000 0.002330 0.030204 0.000006
+# Timings for step 67
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423302 0.000000 0.012949 0.000060 0.023798 0.001940 0.000000 0.002381 0.030372 0.000007
+Totals:     0.423302 0.000000 0.012949 0.000060 0.023798 0.001940 0.000000 0.002381 0.030372 0.000007
+# Timings for step 68
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420351 0.000000 0.013361 0.000051 0.023361 0.001744 0.000000 0.002422 0.030203 0.000007
+Totals:     0.420351 0.000000 0.013361 0.000051 0.023361 0.001744 0.000000 0.002422 0.030203 0.000007
+# Timings for step 69
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.493222 0.000000 0.012889 0.000048 0.023537 0.001887 0.000000 0.003066 0.029797 0.000010
+Totals:     0.493222 0.000000 0.012889 0.000048 0.023537 0.001887 0.000000 0.003066 0.029797 0.000010
+# Timings for step 70
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    1.668439 0.000000 0.021811 0.000050 0.043983 0.002791 0.000000 0.003119 0.051003 0.000008
+Totals:     1.668439 0.000000 0.021811 0.000050 0.043983 0.002791 0.000000 0.003119 0.051003 0.000008
+# Timings for step 71
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422358 0.000000 0.012721 0.000050 0.023794 0.001612 0.000000 0.002393 0.028444 0.000007
+Totals:     0.422358 0.000000 0.012721 0.000050 0.023794 0.001612 0.000000 0.002393 0.028444 0.000007
+# Timings for step 72
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422388 0.000000 0.013009 0.000050 0.023512 0.001655 0.000000 0.002596 0.030266 0.000008
+Totals:     0.422388 0.000000 0.013009 0.000050 0.023512 0.001655 0.000000 0.002596 0.030266 0.000008
+# Timings for step 73
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420300 0.000000 0.013397 0.000033 0.023292 0.001590 0.000000 0.002434 0.029853 0.000007
+Totals:     0.420300 0.000000 0.013397 0.000033 0.023292 0.001590 0.000000 0.002434 0.029853 0.000007
+# Timings for step 74
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420707 0.000000 0.012851 0.000049 0.023512 0.001688 0.000000 0.002417 0.030115 0.000007
+Totals:     0.420707 0.000000 0.012851 0.000049 0.023512 0.001688 0.000000 0.002417 0.030115 0.000007
+# Timings for step 75
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422601 0.000000 0.013087 0.000057 0.023532 0.001744 0.000000 0.002421 0.030098 0.000007
+Totals:     0.422601 0.000000 0.013087 0.000057 0.023532 0.001744 0.000000 0.002421 0.030098 0.000007
+# Timings for step 76
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422231 0.000000 0.012813 0.000050 0.023741 0.001760 0.000000 0.002452 0.030185 0.000007
+Totals:     0.422231 0.000000 0.012813 0.000050 0.023741 0.001760 0.000000 0.002452 0.030185 0.000007
+# Timings for step 77
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424113 0.000000 0.012942 0.000049 0.023741 0.001865 0.000000 0.002408 0.029993 0.000006
+Totals:     0.424113 0.000000 0.012942 0.000049 0.023741 0.001865 0.000000 0.002408 0.029993 0.000006
+# Timings for step 78
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421462 0.000000 0.012891 0.000051 0.023788 0.001997 0.000000 0.002431 0.030021 0.000008
+Totals:     0.421462 0.000000 0.012891 0.000051 0.023788 0.001997 0.000000 0.002431 0.030021 0.000008
+# Timings for step 79
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.426080 0.000000 0.013067 0.000038 0.023530 0.002130 0.000000 0.002405 0.030231 0.000006
+Totals:     0.426080 0.000000 0.013067 0.000038 0.023530 0.002130 0.000000 0.002405 0.030231 0.000006
+# Timings for step 80
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422404 0.000000 0.013089 0.000052 0.023765 0.001708 0.000000 0.002407 0.030442 0.000007
+Totals:     0.422404 0.000000 0.013089 0.000052 0.023765 0.001708 0.000000 0.002407 0.030442 0.000007
+# Timings for step 81
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422137 0.000000 0.012718 0.000051 0.024044 0.001679 0.000000 0.002427 0.028473 0.000007
+Totals:     0.422137 0.000000 0.012718 0.000051 0.024044 0.001679 0.000000 0.002427 0.028473 0.000007
+# Timings for step 82
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423004 0.000000 0.013056 0.000050 0.023640 0.001759 0.000000 0.002422 0.030412 0.000007
+Totals:     0.423004 0.000000 0.013056 0.000050 0.023640 0.001759 0.000000 0.002422 0.030412 0.000007
+# Timings for step 83
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423378 0.000000 0.013409 0.000035 0.023472 0.001792 0.000000 0.002411 0.030414 0.000007
+Totals:     0.423378 0.000000 0.013409 0.000035 0.023472 0.001792 0.000000 0.002411 0.030414 0.000007
+# Timings for step 84
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423909 0.000000 0.012981 0.000050 0.023639 0.001699 0.000000 0.002377 0.030411 0.000007
+Totals:     0.423909 0.000000 0.012981 0.000050 0.023639 0.001699 0.000000 0.002377 0.030411 0.000007
+# Timings for step 85
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421907 0.000000 0.013050 0.000064 0.023672 0.001808 0.000000 0.002405 0.030524 0.000007
+Totals:     0.421907 0.000000 0.013050 0.000064 0.023672 0.001808 0.000000 0.002405 0.030524 0.000007
+# Timings for step 86
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423022 0.000000 0.013077 0.000059 0.023657 0.001753 0.000000 0.002733 0.030382 0.000007
+Totals:     0.423022 0.000000 0.013077 0.000059 0.023657 0.001753 0.000000 0.002733 0.030382 0.000007
+# Timings for step 87
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.420304 0.000000 0.013326 0.000069 0.023837 0.001604 0.000000 0.002692 0.030432 0.000008
+Totals:     0.420304 0.000000 0.013326 0.000069 0.023837 0.001604 0.000000 0.002692 0.030432 0.000008
+# Timings for step 88
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423399 0.000000 0.013529 0.000069 0.023712 0.001648 0.000000 0.002375 0.030522 0.000007
+Totals:     0.423399 0.000000 0.013529 0.000069 0.023712 0.001648 0.000000 0.002375 0.030522 0.000007
+# Timings for step 89
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423089 0.000000 0.012952 0.000040 0.023928 0.002006 0.000000 0.002445 0.030403 0.000006
+Totals:     0.423089 0.000000 0.012952 0.000040 0.023928 0.002006 0.000000 0.002445 0.030403 0.000006
+# Timings for step 90
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423786 0.000000 0.012947 0.000031 0.024043 0.001987 0.000000 0.002424 0.030618 0.000006
+Totals:     0.423786 0.000000 0.012947 0.000031 0.024043 0.001987 0.000000 0.002424 0.030618 0.000006
+# Timings for step 91
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423035 0.000000 0.013027 0.000030 0.023945 0.001719 0.000000 0.002632 0.028718 0.000007
+Totals:     0.423035 0.000000 0.013027 0.000030 0.023945 0.001719 0.000000 0.002632 0.028718 0.000007
+# Timings for step 92
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422023 0.000000 0.013101 0.000047 0.023474 0.001629 0.000000 0.002378 0.030381 0.000008
+Totals:     0.422023 0.000000 0.013101 0.000047 0.023474 0.001629 0.000000 0.002378 0.030381 0.000008
+# Timings for step 93
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423888 0.000000 0.013246 0.000040 0.023842 0.001747 0.000000 0.002596 0.030119 0.000007
+Totals:     0.423888 0.000000 0.013246 0.000040 0.023842 0.001747 0.000000 0.002596 0.030119 0.000007
+# Timings for step 94
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.421563 0.000000 0.013076 0.000034 0.023755 0.001641 0.000000 0.002399 0.030099 0.000006
+Totals:     0.421563 0.000000 0.013076 0.000034 0.023755 0.001641 0.000000 0.002399 0.030099 0.000006
+# Timings for step 95
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423218 0.000000 0.013378 0.000038 0.023750 0.002044 0.000000 0.002410 0.030685 0.000008
+Totals:     0.423218 0.000000 0.013378 0.000038 0.023750 0.002044 0.000000 0.002410 0.030685 0.000008
+# Timings for step 96
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422039 0.000000 0.012834 0.000039 0.023509 0.001740 0.000000 0.002368 0.030187 0.000009
+Totals:     0.422039 0.000000 0.012834 0.000039 0.023509 0.001740 0.000000 0.002368 0.030187 0.000009
+# Timings for step 97
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.425689 0.000000 0.012955 0.000049 0.024030 0.001746 0.000000 0.002501 0.030258 0.000007
+Totals:     0.425689 0.000000 0.012955 0.000049 0.024030 0.001746 0.000000 0.002501 0.030258 0.000007
+# Timings for step 98
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.432862 0.000000 0.013137 0.000051 0.023921 0.001814 0.000000 0.002389 0.030424 0.000008
+Totals:     0.432862 0.000000 0.013137 0.000051 0.023921 0.001814 0.000000 0.002389 0.030424 0.000008
+# Timings for step 99
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424046 0.000000 0.013018 0.000046 0.023864 0.001704 0.000000 0.002663 0.030335 0.000006
+Totals:     0.424046 0.000000 0.013018 0.000046 0.023864 0.001704 0.000000 0.002663 0.030335 0.000006
+# Timings for step 100
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422632 0.000000 0.013027 0.000034 0.023605 0.001847 0.000000 0.002371 0.030369 0.000006
+Totals:     0.422632 0.000000 0.013027 0.000034 0.023605 0.001847 0.000000 0.002371 0.030369 0.000006
+# Timings for step 101
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424414 0.000000 0.012903 0.000051 0.024099 0.001935 0.000000 0.002567 0.028792 0.000007
+Totals:     0.424414 0.000000 0.012903 0.000051 0.024099 0.001935 0.000000 0.002567 0.028792 0.000007
+# Timings for step 102
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424314 0.000000 0.013384 0.000055 0.023580 0.001624 0.000000 0.002433 0.030294 0.000008
+Totals:     0.424314 0.000000 0.013384 0.000055 0.023580 0.001624 0.000000 0.002433 0.030294 0.000008
+# Timings for step 103
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423881 0.000000 0.013192 0.000063 0.023986 0.001950 0.000000 0.002412 0.030307 0.000007
+Totals:     0.423881 0.000000 0.013192 0.000063 0.023986 0.001950 0.000000 0.002412 0.030307 0.000007
+# Timings for step 104
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424981 0.000000 0.012829 0.000051 0.023843 0.001706 0.000000 0.002407 0.030376 0.000007
+Totals:     0.424981 0.000000 0.012829 0.000051 0.023843 0.001706 0.000000 0.002407 0.030376 0.000007
+# Timings for step 105
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423305 0.000000 0.013335 0.000069 0.023840 0.001835 0.000000 0.002792 0.030652 0.000007
+Totals:     0.423305 0.000000 0.013335 0.000069 0.023840 0.001835 0.000000 0.002792 0.030652 0.000007
+# Timings for step 106
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423622 0.000000 0.013569 0.000069 0.023791 0.001637 0.000000 0.002409 0.030706 0.000008
+Totals:     0.423622 0.000000 0.013569 0.000069 0.023791 0.001637 0.000000 0.002409 0.030706 0.000008
+# Timings for step 107
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423142 0.000000 0.012918 0.000050 0.023829 0.001710 0.000000 0.002616 0.030456 0.000007
+Totals:     0.423142 0.000000 0.012918 0.000050 0.023829 0.001710 0.000000 0.002616 0.030456 0.000007
+# Timings for step 108
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424028 0.000000 0.013622 0.000050 0.023736 0.001584 0.000000 0.002646 0.030593 0.000008
+Totals:     0.424028 0.000000 0.013622 0.000050 0.023736 0.001584 0.000000 0.002646 0.030593 0.000008
+# Timings for step 109
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423432 0.000000 0.013780 0.000043 0.023544 0.001589 0.000000 0.002379 0.030753 0.000006
+Totals:     0.423432 0.000000 0.013780 0.000043 0.023544 0.001589 0.000000 0.002379 0.030753 0.000006
+# Timings for step 110
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424118 0.000000 0.012968 0.000034 0.023987 0.001844 0.000000 0.002382 0.030644 0.000007
+Totals:     0.424118 0.000000 0.012968 0.000034 0.023987 0.001844 0.000000 0.002382 0.030644 0.000007
+# Timings for step 111
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424404 0.000000 0.012998 0.000051 0.024240 0.001746 0.000000 0.002354 0.028862 0.000007
+Totals:     0.424404 0.000000 0.012998 0.000051 0.024240 0.001746 0.000000 0.002354 0.028862 0.000007
+# Timings for step 112
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.425954 0.000000 0.013632 0.000045 0.023678 0.001787 0.000000 0.002413 0.030573 0.000009
+Totals:     0.425954 0.000000 0.013632 0.000045 0.023678 0.001787 0.000000 0.002413 0.030573 0.000009
+# Timings for step 113
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424168 0.000000 0.013249 0.000058 0.023918 0.001755 0.000000 0.002716 0.030814 0.000008
+Totals:     0.424168 0.000000 0.013249 0.000058 0.023918 0.001755 0.000000 0.002716 0.030814 0.000008
+# Timings for step 114
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.425275 0.000000 0.014188 0.000069 0.023508 0.001895 0.000000 0.002835 0.030871 0.000007
+Totals:     0.425275 0.000000 0.014188 0.000069 0.023508 0.001895 0.000000 0.002835 0.030871 0.000007
+# Timings for step 115
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422932 0.000000 0.013549 0.000055 0.023946 0.001631 0.000000 0.002757 0.030535 0.000008
+Totals:     0.422932 0.000000 0.013549 0.000055 0.023946 0.001631 0.000000 0.002757 0.030535 0.000008
+# Timings for step 116
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424425 0.000000 0.015073 0.000069 0.023561 0.001622 0.000000 0.002429 0.030465 0.000007
+Totals:     0.424425 0.000000 0.015073 0.000069 0.023561 0.001622 0.000000 0.002429 0.030465 0.000007
+# Timings for step 117
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424057 0.000000 0.013154 0.000041 0.024022 0.001818 0.000000 0.002670 0.030548 0.000007
+Totals:     0.424057 0.000000 0.013154 0.000041 0.024022 0.001818 0.000000 0.002670 0.030548 0.000007
+# Timings for step 118
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424847 0.000000 0.015472 0.000065 0.023423 0.001601 0.000000 0.002397 0.030164 0.000008
+Totals:     0.424847 0.000000 0.015472 0.000065 0.023423 0.001601 0.000000 0.002397 0.030164 0.000008
+# Timings for step 119
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422500 0.000000 0.013039 0.000053 0.023626 0.001765 0.000000 0.002575 0.030360 0.000008
+Totals:     0.422500 0.000000 0.013039 0.000053 0.023626 0.001765 0.000000 0.002575 0.030360 0.000008
+# Timings for step 120
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423653 0.000000 0.013461 0.000052 0.023712 0.001656 0.000000 0.002385 0.030506 0.000007
+Totals:     0.423653 0.000000 0.013461 0.000052 0.023712 0.001656 0.000000 0.002385 0.030506 0.000007
+# Timings for step 121
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423461 0.000000 0.013029 0.000049 0.023743 0.001647 0.000000 0.002385 0.028564 0.000007
+Totals:     0.423461 0.000000 0.013029 0.000049 0.023743 0.001647 0.000000 0.002385 0.028564 0.000007
+# Timings for step 122
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.424762 0.000000 0.013279 0.000057 0.023814 0.001857 0.000000 0.002392 0.030427 0.000009
+Totals:     0.424762 0.000000 0.013279 0.000057 0.023814 0.001857 0.000000 0.002392 0.030427 0.000009
+# Timings for step 123
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422787 0.000000 0.013143 0.000059 0.024126 0.001647 0.000000 0.002620 0.030806 0.000009
+Totals:     0.422787 0.000000 0.013143 0.000059 0.024126 0.001647 0.000000 0.002620 0.030806 0.000009
+# Timings for step 124
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.423692 0.000000 0.013639 0.000035 0.023604 0.001737 0.000000 0.002354 0.030586 0.000008
+Totals:     0.423692 0.000000 0.013639 0.000035 0.023604 0.001737 0.000000 0.002354 0.030586 0.000008
+# Timings for step 125
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.425954 0.000000 0.013404 0.000057 0.023722 0.001713 0.000000 0.002407 0.030512 0.000008
+Totals:     0.425954 0.000000 0.013404 0.000057 0.023722 0.001713 0.000000 0.002407 0.030512 0.000008
+# Timings for step 126
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.638902 0.000000 0.015077 0.000039 0.027981 0.001749 0.000000 0.003026 0.033281 0.000011
+Totals:     0.638902 0.000000 0.015077 0.000039 0.027981 0.001749 0.000000 0.003026 0.033281 0.000011
+# Timings for step 127
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.527853 0.000000 0.021754 0.000049 0.041778 0.002490 0.000000 0.003314 0.052679 0.000008
+Totals:     0.527853 0.000000 0.021754 0.000049 0.041778 0.002490 0.000000 0.003314 0.052679 0.000008
+# Timings for step 128
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.422682 0.000000 0.013505 0.000051 0.023605 0.001681 0.000000 0.002380 0.030313 0.000008
+Totals:     0.422682 0.000000 0.013505 0.000051 0.023605 0.001681 0.000000 0.002380 0.030313 0.000008
+# Timings for step 1
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.889817 0.000000 0.013094 0.000053 0.024065 0.001709 0.000000 0.002426 0.029667 0.000006
+Totals:     0.889817 0.000000 0.013094 0.000053 0.024065 0.001709 0.000000 0.002426 0.029667 0.000006
+# Timings for step 2
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.885562 0.000000 0.013421 0.000038 0.023935 0.001669 0.000000 0.002532 0.029775 0.000006
+Totals:     0.885562 0.000000 0.013421 0.000038 0.023935 0.001669 0.000000 0.002532 0.029775 0.000006
+# Timings for step 3
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.879200 0.000000 0.013256 0.000060 0.023408 0.001546 0.000000 0.002482 0.029608 0.000007
+Totals:     0.879200 0.000000 0.013256 0.000060 0.023408 0.001546 0.000000 0.002482 0.029608 0.000007
+# Timings for step 4
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.880112 0.000000 0.012918 0.000034 0.023256 0.001788 0.000000 0.002503 0.029693 0.000007
+Totals:     0.880112 0.000000 0.012918 0.000034 0.023256 0.001788 0.000000 0.002503 0.029693 0.000007
+# Timings for step 5
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.872228 0.000000 0.012837 0.000034 0.023744 0.001544 0.000000 0.002390 0.029738 0.000007
+Totals:     0.872228 0.000000 0.012837 0.000034 0.023744 0.001544 0.000000 0.002390 0.029738 0.000007
+# Timings for step 6
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.876774 0.000000 0.013010 0.000052 0.023786 0.001813 0.000000 0.002495 0.029825 0.000006
+Totals:     0.876774 0.000000 0.013010 0.000052 0.023786 0.001813 0.000000 0.002495 0.029825 0.000006
+# Timings for step 7
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.876396 0.000000 0.013131 0.000033 0.024030 0.002356 0.000000 0.002421 0.030034 0.000007
+Totals:     0.876396 0.000000 0.013131 0.000033 0.024030 0.002356 0.000000 0.002421 0.030034 0.000007
+# Timings for step 8
+# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache
+    0  1    0.880538 0.000000 0.013404 0.000055 0.023748 0.001571 0.000000 0.002656 0.029615 0.000006
+Totals:     0.880538 0.000000 0.013404 0.000055 0.023748 0.001571 0.000000 0.002656 0.029615 0.000006

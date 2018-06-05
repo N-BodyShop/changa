@@ -4082,7 +4082,7 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
     thisProxy[thisIndex].calculateEwald(msg);
     return;
   }
-  bool lp = (1.0*myNumActiveParticles/myNumParticles) >= 0.6;
+  bool lp = largePhase();//(1.0*myNumActiveParticles/myNumParticles) >= 0.6;
   if(lp){
     CkPrintf("TreePiece[%d]: EwaldGPU\n",thisIndex);
     // cout << "EwaldGPU" << endl;
