@@ -3813,29 +3813,33 @@ void TreePiece::doAllBuckets(){
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
 #ifdef GPU_LOCAL_TREE_WALK 
-  ListCompute *listcompute = (ListCompute *) sGravity;
-  DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
+  if(largePhase()){
+    ListCompute *listcompute = (ListCompute *) sGravity;
+    DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
-  listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+    listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
 
-  // Set up the book keeping flags
-  bool useckloop = false;
-  for (int i = 0; i < numBuckets; i ++) {
-    sLocalGravityState->currentBucket = i;
-    GenericTreeNode *target = bucketList[i];
-    if(target->rungs >= activeRung){
-      doBookKeepingForTargetActive(i, i+1, -1, !useckloop, sLocalGravityState);
-    } else {
-      doBookKeepingForTargetInactive(-1, !useckloop, sLocalGravityState);
+    // Set up the book keeping flags
+    bool useckloop = false;
+    for (int i = 0; i < numBuckets; i ++) {
+      sLocalGravityState->currentBucket = i;
+      GenericTreeNode *target = bucketList[i];
+      if(target->rungs >= activeRung){
+        doBookKeepingForTargetActive(i, i+1, -1, !useckloop, sLocalGravityState);
+      } else {
+        doBookKeepingForTargetInactive(-1, !useckloop, sLocalGravityState);
+      }
     }
-  }
-  listcompute->resetCudaNodeState(state);
-  listcompute->resetCudaPartState(state);
+    listcompute->resetCudaNodeState(state);
+    listcompute->resetCudaPartState(state);
 
-// Completely bypass CPU local tree walk
-//  thisProxy[thisIndex].nextBucket(msg);
+  // Completely bypass CPU local tree walk
+  //  thisProxy[thisIndex].nextBucket(msg);
+  }else
 #else
-  thisProxy[thisIndex].nextBucket(msg);
+  {
+    thisProxy[thisIndex].nextBucket(msg);
+  }
 #endif //GPU_LOCAL_TREE_WALK
 
 #ifdef CUDA_INSTRUMENT_WRS
@@ -3853,21 +3857,25 @@ void TreePiece::nextBucket(dummyMsg *msg){
 
   bool useckloop = false;
   int yield_num = _yieldPeriod;
-#if INTERLIST_VER > 0
-#if !defined(CUDA)
   LoopParData* lpdata;
-  int tmpBucketBegin;
-  if (bUseCkLoopPar && otherIdlePesAvail()) {
-    useckloop = true;
-    // This value was chosen to be 2*Nodesize so that we have enough buckets for
-    // all the PEs in the node and also giving some extra for load balance.
-    yield_num = 2 * CkMyNodeSize();
-    lpdata = new LoopParData();
-    lpdata->tp = this;
-    tmpBucketBegin = currentBucket;
-  }
+  
+#if INTERLIST_VER > 0
+#if defined(CUDA)
+  if(!largePhase())
 #endif
-
+  {
+    int tmpBucketBegin;
+    if (bUseCkLoopPar && otherIdlePesAvail()) {
+      useckloop = true;
+      // This value was chosen to be 2*Nodesize so that we have enough buckets for
+      // all the PEs in the node and also giving some extra for load balance.
+      yield_num = 2 * CkMyNodeSize();
+      lpdata = new LoopParData();
+      lpdata->tp = this;
+      tmpBucketBegin = currentBucket;
+    }
+  }
+  
   sInterListWalk->init(sGravity, this);
 #endif
   while(i<yield_num && currentBucket<numBuckets) {
@@ -3887,27 +3895,33 @@ void TreePiece::nextBucket(dummyMsg *msg){
 
       CkAssert(currentBucket >= startBucket);
 
-#if !defined(CUDA)
-      if (useckloop) {
-        lpdata->lowNodes.insertAtEnd(lowestNode);
-        lpdata->bucketids.insertAtEnd(currentBucket);
-
-        CkVec<OffsetNode> cl;
-        CkVec<RemotePartInfo> rp;
-        CkVec<LocalPartInfo> lp;
-        // Populate the list with nodes and particles with which the force is
-        // calculated.
-        sGravity->fillLists(sLocalGravityState, this, -1, currentBucket,
-            end, cl, rp, lp);
-        lpdata->chunkids.insertAtEnd(-1);
-        lpdata->clists.insertAtEnd(cl);
-        lpdata->rpilists.insertAtEnd(rp);
-        lpdata->lpilists.insertAtEnd(lp);
-      } else
+#if defined(CUDA)
+      if(!largePhase())
 #endif
-	{
-        sGravity->stateReady(sLocalGravityState, this, -1, currentBucket, end);
+      {
+        if (useckloop) {
+          lpdata->lowNodes.insertAtEnd(lowestNode);
+          lpdata->bucketids.insertAtEnd(currentBucket);
+
+          CkVec<OffsetNode> cl;
+          CkVec<RemotePartInfo> rp;
+          CkVec<LocalPartInfo> lp;
+          // Populate the list with nodes and particles with which the force is
+          // calculated.
+          sGravity->fillLists(sLocalGravityState, this, -1, currentBucket,
+              end, cl, rp, lp);
+          lpdata->chunkids.insertAtEnd(-1);
+          lpdata->clists.insertAtEnd(cl);
+          lpdata->rpilists.insertAtEnd(rp);
+          lpdata->lpilists.insertAtEnd(lp);
+        }else{
+          sGravity->stateReady(sLocalGravityState, this, -1, currentBucket, end);
+        }
       }
+#if defined(CUDA)
+      else{sGravity->stateReady(sLocalGravityState, this, -1, currentBucket, end);}
+#endif
+    
 #ifdef CHANGA_REFACTOR_MEMCHECK
       CkPrintf("active: nextBucket memcheck after stateReady\n");
       CmiMemoryCheck();

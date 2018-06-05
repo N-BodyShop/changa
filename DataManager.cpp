@@ -782,8 +782,10 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
   for(int i = 0; i < numTreePieces; i++){
     TreePiece *tp = registeredTreePieces[i].treePiece;
-    numNodes += tp->getNumNodes();
-    numParticles += tp->getDMNumParticles();
+    if(tp->largePhase()){
+      numNodes += tp->getNumNodes();
+      numParticles += tp->getDMNumParticles();
+    }
   }
   numNodes -= cumNumReplicatedNodes;
 
@@ -844,7 +846,8 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
     TreePiece *tp = registeredTreePieces[i].treePiece;
-    tp->getDMParticles(localParticles.getVec(), partIndex);
+    if(tp->largePhase())
+      tp->getDMParticles(localParticles.getVec(), partIndex);
   }
 
 #ifdef GPU_LOCAL_TREE_WALK
@@ -1106,6 +1109,7 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
     TreePiece *tp = registeredTreePieces[i].treePiece;
+    if(!tp->largePhase()) continue;
     int numParticles = tp->getNumParticles();
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
     CkPrintf("(%d) tp %d, numParticles: %d\n", CkMyPe(), tp->getIndex(), numParticles);

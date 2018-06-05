@@ -905,7 +905,7 @@ class TreePiece : public CBase_TreePiece {
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
           NumberOfGPUParticles = 0;
           FirstGPUParticleIndex = fillIndex;//This is for the GPU Ewald
-          if(largePhase()){
+          if(largePhase()){ // Always large phase
             for(int b = 0; b < numBuckets; b++){
               GenericTreeNode *bucket = bucketList[b];
               int buckstart = bucket->firstParticle;
@@ -918,6 +918,11 @@ class TreePiece : public CBase_TreePiece {
               }
             }
           }
+          /* The following section has been disabled 
+             because small phase calculations happen
+             on the CPU. It is commented out for future 
+             reference */
+          /*
           else{
             for(int b = 0; b < numBuckets; b++){
               GenericTreeNode *bucket = bucketList[b];
@@ -939,7 +944,8 @@ class TreePiece : public CBase_TreePiece {
               }
               binfo->size = fillIndex-binfo->start;
             }
-          }
+          }*/
+
           //This is for the GPU Ewald
           if(FirstGPUParticleIndex == fillIndex){
             //This means no particle is on GPU
