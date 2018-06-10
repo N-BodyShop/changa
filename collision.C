@@ -75,6 +75,21 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
 #endif
     }
 
+void Main::doNearCollisions(double dTime, double dDelta, int activeRung)
+{
+    double tSmooth = 0.0;
+    CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta, 
+       param.collision.bWall, param.collision.dWallPos,
+       param.collision.bAllowMergers, param.collision.dMaxBinaryEcc,
+       param.collision.iMinBinaryRung, 1, param.collision);
+    double startTime = CkWallTimer();
+    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
+    treeProxy.startSmooth(&pCS, 0, param.collision.nSmoothCollision,
+          dfBall2OverSoft2, CkCallbackResumeThread());
+    double endTime = CkWallTimer();
+    tSmooth += endTime-startTime;
+    CkPrintf("Collider search took %g seconds\n", tSmooth);
+    }
 
 /**
  * @brief doCollisions is used to detect and resolve collisions between
@@ -107,7 +122,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
         CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta, 
            param.collision.bWall, param.collision.dWallPos,
            param.collision.bAllowMergers, param.collision.dMaxBinaryEcc,
-           param.collision.iMinBinaryRung, param.collision);
+           param.collision.iMinBinaryRung, 0, param.collision);
         double startTime = CkWallTimer();
         double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
         treeProxy.startSmooth(&pCS, 0, param.collision.nSmoothCollision,
@@ -204,7 +219,7 @@ void TreePiece::getCollInfo(const CkCallback& cb)
     ci[0].dtCol = dtMin;
     for (unsigned int i=1; i <= myNumParticles; i++) {
         GravityParticle *p = &myParticles[i];
-        if (p->dtCol < dtMin) {
+        if (p->dtCol < dtMin && !TYPETest(p, TYPE_DELETED)) {
             dtMin = p->dtCol;
             ci[0].position = p->position;
             ci[0].velocity = p->velocity;
@@ -224,7 +239,7 @@ void TreePiece::getCollInfo(const CkCallback& cb)
     ci[1].dtCol = DBL_MAX;
     for (unsigned int i=1; i <= myNumParticles; i++) {
         GravityParticle *p = &myParticles[i];
-        if (p->dtCol == dtMin && p->dtCol < DBL_MAX) {
+        if (p->dtCol == dtMin && p->dtCol < DBL_MAX && !TYPETest(p, TYPE_DELETED)) {
             if (bFoundC1) {
                 ci[1].position = p->position;
                 ci[1].velocity = p->velocity;
@@ -554,8 +569,10 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
 {
     // If the particles are different sizes, p might not have its dtCol
     // field set. Fix this before going any further.
-    if (p->dtCol != c.dtCol) p->dtCol = c.dtCol;
+    //if (p->dtCol != c.dtCol) p->dtCol = c.dtCol;
 
+    CkPrintf("Resolving collision for %d by %d\n", p->iOrder, c.iOrder);
+    p->dtCol = c.dtCol;
 
     // Advance particle positions to moment of collision
     Vector3D<double> pAdjust = p->velocity*p->dtCol;
@@ -589,6 +606,7 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
         p->position -= pAdjust;
         c.position -= cAdjust;
         }
+    p->dtCol = DBL_MAX;
     }
 
 
@@ -773,39 +791,42 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         Vector3D<double> dx = p->position - q->position;
         Vector3D<double> vRel = p->velocity - q->velocity;
 
-        // Collider search
-        sr = (p->soft*2.) + (q->soft*2.);
-        rdotv = dot(dx, vRel);
-        vRel2 = vRel.lengthSquared();
-        dr2 = dx.lengthSquared() - sr*sr;
-        D = rdotv*rdotv - dr2*vRel2;
-        if (D > 0.) {
-            D = sqrt(D);
-            dt = (-rdotv - D)/vRel2;
-
-            if (dt > 0. && dt < dDelta && dt < p->dtCol) {
-                p->dtCol = dt;
-                p->iOrderCol = q->iOrder;
-                }
-            }
 
        // Near-collision search
-       if (coll.bCollStep && p->iOrderCol == -1) {
-            sr = coll.dCollStepFac*2.*(p->soft + q->soft);
-            rdotv = dot(dx, vRel);
-            vRel2 = vRel.lengthSquared();
-            dr2 = dx.lengthSquared() - sr*sr;
-            D = rdotv*rdotv - dr2*vRel2;
+       if (bNearCollSearch) {
+           if (p->iOrderCol == -1) {
+               sr = coll.dCollStepFac*2.*(p->soft + q->soft);
+               rdotv = dot(dx, vRel);
+               vRel2 = vRel.lengthSquared();
+               dr2 = dx.lengthSquared() - sr*sr;
+               D = rdotv*rdotv - dr2*vRel2;
 
-            if (D > 0.) {
-                D = sqrt(D);
-                dt = (-rdotv - D)/vRel2;
+               if (D > 0.) {
+                   D = sqrt(D);
+                   dt = (-rdotv - D)/vRel2;
 
-                if (dt > 0. && dt < dDelta) {
-                    p->rung = coll.iCollStepRung;
-                    }
-                }
-            }
+                   if (dt > 0. && dt < dDelta) {
+                       p->rung = coll.iCollStepRung;
+                       }
+                   }
+               }
+       } else{
+           // Collider search
+           sr = (p->soft*2.) + (q->soft*2.);
+           rdotv = dot(dx, vRel);
+           vRel2 = vRel.lengthSquared();
+           dr2 = dx.lengthSquared() - sr*sr;
+           D = rdotv*rdotv - dr2*vRel2;
+           if (D > 0.) {
+               D = sqrt(D);
+               dt = (-rdotv - D)/vRel2;
+
+               if (dt > 0. && dt < dDelta && dt < p->dtCol) {
+                   p->dtCol = dt;
+                   p->iOrderCol = q->iOrder;
+                   }
+               }
+           }
 
        // Because there is no gravitational softening, particles can get stuck in
        // binaries. If the particle is not already undergoing a collision, check

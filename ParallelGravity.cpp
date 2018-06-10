@@ -1920,6 +1920,7 @@ void Main::advanceBigCollStep(int iStep) {
 
    int nSubsteps = 1;
    int activeRung = 0;
+   double tTB, tCache;
     for (int iSub=1; iSub<=nSubsteps; iSub++) {
         // Opening kick
         double startTime = CkWallTimer();
@@ -1941,22 +1942,39 @@ void Main::advanceBigCollStep(int iStep) {
         double tTB = CkWallTimer() - startTime;
         timings[0].tTBuild += tTB;
 
-        startTime = CkWallTimer();
-        doCollisions(dTime, param.dDelta, activeRung);
-        double tColl = CkWallTimer() - startTime;
-        timings[0].tColl += tColl;
-    
         if (iSub == 1) {
-            int iNeedSubsteps = 0;
-            if (param.collision.bCollStep) {
-                CkPrintf("Checking if collision stepping is necessary this big step...\n");
-                CkReductionMsg *msgChk;
-                treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
-                iNeedSubsteps = *(int *)msgChk->getData();
+            CkPrintf("Searching for near-collisions\n");
+            // Collision search
+            if (bParticlesShuffled) {
+                CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
+                // The following call is to get the particles in key order
+                // before the sort.
+                treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                            CkCallbackResumeThread());
+                startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
                 }
+            startTime = CkWallTimer();
+            treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+            tTB = CkWallTimer() - startTime;
+            timings[0].tTBuild += tTB;
+            startTime = CkWallTimer();
+            doNearCollisions(dTime, param.dDelta, activeRung);
+            double tColl = CkWallTimer() - startTime;
+            timings[0].tColl += tColl;
+            startTime = CkWallTimer();
+            CkPrintf("Finish node cache\n");
+            treeProxy.finishNodeCache(CkCallbackResumeThread());
+            tCache = CkWallTimer() - startTime;
+            timings[0].tCache += tCache;
+
+            int iNeedSubsteps = 0;
+            CkPrintf("Checking if collision stepping is necessary this big step...");
+            CkReductionMsg *msgChk;
+            treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
+            iNeedSubsteps = *(int *)msgChk->getData();
     
             if (iNeedSubsteps) {
-                CkPrintf("%d particles are on a near collision course and will be stepped on rung %d\n",
+                CkPrintf("\n%d particles are on a near collision course and will be stepped on rung %d\n",
                          iNeedSubsteps, param.collision.iCollStepRung);
                 activeRung = param.collision.iCollStepRung;
                 nSubsteps = pow(2, activeRung);
@@ -1964,15 +1982,39 @@ void Main::advanceBigCollStep(int iStep) {
                 dDriftFac[activeRung] = RungToDt(param.dDelta, activeRung);
                 startTime = CkWallTimer();
                 treeProxy.unKickCollStep(activeRung, 0.5*param.dDelta, CkCallbackResumeThread());
-                treeProxy.kick(activeRung, dKickFac, 0, 0, 0, duKick, CkCallbackResumeThread());
+                treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
+                    param.bGasIsothermal, param.dMaxEnergy, duKick, (param.dConstGamma-1),
+                    param.dThermalCondSatCoeff/a, param.feedback->dMultiPhaseMaxTime, param.feedback->dMultiPhaseMinTemp,
+                    param.dEvapCoeffCode*a, CkCallbackResumeThread());
                 tKick = CkWallTimer() - startTime;
                 timings[0].tKick += tKick;
+            } else {
+                CkPrintf("no\n");
                 }
-            startTime = CkWallTimer();
-            treeProxy.finishNodeCache(CkCallbackResumeThread());
-            double tCache = CkWallTimer() - startTime;
-            timings[0].tCache += tCache;
             }
+
+        if (bParticlesShuffled) {
+            CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
+            // The following call is to get the particles in key order
+            // before the sort.
+            treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                        CkCallbackResumeThread());
+            startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
+            }
+        startTime = CkWallTimer();
+        treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+        tTB = CkWallTimer() - startTime;
+        timings[0].tTBuild += tTB;
+
+        startTime = CkWallTimer();
+        doCollisions(dTime, param.dDelta, activeRung);
+        timings[0].tColl += CkWallTimer() - startTime;
+
+        startTime = CkWallTimer();
+        CkPrintf("Finish node cache\n");
+        treeProxy.finishNodeCache(CkCallbackResumeThread());
+        tCache = CkWallTimer() - startTime;
+        timings[0].tCache += tCache;
 
         startTime = CkWallTimer();
         treeProxy.drift(dDriftFac[activeRung], param.bDoGas, param.bGasIsothermal,

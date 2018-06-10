@@ -602,6 +602,7 @@ public:
         void doCollisions(double dTime, double dDelta);
 #ifdef COLLISION
     void doCollisions(double dTime, double dDelta, int activeRung);
+    void doNearCollisions(double dTime, double dDelta, int activeRung);
 #endif
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);

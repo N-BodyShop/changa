@@ -108,6 +108,7 @@ class CollisionSmoothParams : public SmoothParams
 {
     int bWall;
     int bAllowMergers;
+    int bNearCollSearch;
     int iMinBinaryRung;
     double dMaxBinaryEcc;
     double dWallPos;
@@ -127,7 +128,7 @@ public:
     CollisionSmoothParams(int _iType, int am, double _dTime, double _dDelta,
                           int _bWall, double _dWallPos, int _bAllowMergers,
                           double _dMaxBinaryEcc, int _iMinBinaryRung,
-                          Collision _coll) {
+                          int _bNearCollSearch, Collision _coll) {
         coll = _coll;
         iType = _iType;
         activeRung = am;
@@ -139,6 +140,7 @@ public:
         bAllowMergers = _bAllowMergers;
         dMaxBinaryEcc = _dMaxBinaryEcc;
         iMinBinaryRung = _iMinBinaryRung;
+        bNearCollSearch = _bNearCollSearch;
         }
     PUPable_decl(CollisionSmoothParams);
     CollisionSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
@@ -152,6 +154,7 @@ public:
         p | dMaxBinaryEcc;
         p | iMinBinaryRung;
         p | dWallPos;
+        p | bNearCollSearch;
     }
     };
 
