@@ -88,7 +88,7 @@ void Main::doNearCollisions(double dTime, double dDelta, int activeRung)
           dfBall2OverSoft2, CkCallbackResumeThread());
     double endTime = CkWallTimer();
     tSmooth += endTime-startTime;
-    CkPrintf("Collider search took %g seconds\n", tSmooth);
+    //CkPrintf("Collider search took %g seconds\n", tSmooth);
     }
 
 /**
@@ -136,7 +136,8 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
         ColliderInfo *c = (ColliderInfo *)msgChk->getData();
 
         // If only one particle participating in the collision detected the imminent collision
-        // (due to different search radii), we need to go back and ask for the second collider
+        // (due to different search radii or velocities), we need to go back and ask for the
+        // second collider
         if (c[0].dtCol <= dDelta && c[1].dtCol > dDelta) {
             treeProxy.getCollInfo(c[0].iOrderCol, CkCallbackResumeThread((void*&)msgChk));
             c[1] = *(ColliderInfo *)msgChk->getData();
@@ -193,13 +194,13 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
         delete msgChk;
         } while (bHasCollision);
         endTime1 = CkWallTimer();
-        if (activeRung == 0) {
+        /*if (activeRung == 0) {
             CkPrintf("Resolved %d collisions\n", nColl);
             CkPrintf("Collider search took %g seconds\n", tSmooth);
             CkPrintf("Collider retrieval took %g seconds\n", tRetrieve);
             CkPrintf("Collision resolution took %g seconds\n", tResolve);
             CkPrintf("doCollision took %g seconds\n", endTime1-startTime1);
-            }
+            }*/
         addDelParticles();
 
     }
@@ -384,24 +385,20 @@ void TreePiece::resolveCollision(Collision coll, ColliderInfo &c1,
     }
 
 /**
- * @brief Undo the kick imparted to all particles on a given rung
+ * @brief Undo the kick imparted to all particles
  *
- * This method is meant to be called directly after a 'kick'. Note that when
- * using collision stepping, all particles will receive a kick on rung 0, but
- * particles eligible for collision stepping will now be on a higher rung
+ * This method is meant to be called directly after a opening kick on rung 0. 
+ * When using collision stepping, all particles will receive an opening kick
+ * on rung 0, but particles eligible for collision stepping will now be on a
+ * higher rung and need a smaller kick.
  *
- * @param iKickRung The rung on which particle's kicks need to be modified. When
- *                  using collision stepping, this should be set to the collision
- *                  stepping rung.
  * @param dDeltaBase The timestep size that was used to calculate the previous kick
  */
 void TreePiece::unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb)
 {
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
-      if(p->rung >= iKickRung) {
-          p->velocity -= dDeltaBase*p->treeAcceleration;
-          }
+      if (p->rung >= iKickRung) p->velocity -= dDeltaBase*p->treeAcceleration;
       }
     contribute(cb);
     }
@@ -771,10 +768,11 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     double rq, sr, D, dt, rdotv, vRel2, dr2;
     p->dtCol = DBL_MAX;
     p->iOrderCol = -1;
+    double dTimeSub = RungToDt(dDelta, activeRung);
     if (TYPETest(p, TYPE_DELETED)) return;
     if (bWall) {
         double dt = (dWallPos - p->position[2] - (p->soft*2.))/p->velocity[2];
-        if (dt > 0. && dt < dDelta) {
+        if (dt > 0. && dt < dTimeSub) {
             p->dtCol = dt;
             p->iOrderCol = -2;
             }
@@ -791,7 +789,6 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         Vector3D<double> dx = p->position - q->position;
         Vector3D<double> vRel = p->velocity - q->velocity;
 
-
        // Near-collision search
        if (bNearCollSearch) {
            if (p->iOrderCol == -1) {
@@ -805,8 +802,9 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                    D = sqrt(D);
                    dt = (-rdotv - D)/vRel2;
 
-                   if (dt > 0. && dt < dDelta) {
+                   if (dt > 0. && dt < dTimeSub) {
                        p->rung = coll.iCollStepRung;
+                       p->iOrderCol = q->iOrder;
                        }
                    }
                }
@@ -821,7 +819,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                D = sqrt(D);
                dt = (-rdotv - D)/vRel2;
 
-               if (dt > 0. && dt < dDelta && dt < p->dtCol) {
+               if (dt > 0. && dt < dTimeSub && dt < p->dtCol) {
                    p->dtCol = dt;
                    p->iOrderCol = q->iOrder;
                    }

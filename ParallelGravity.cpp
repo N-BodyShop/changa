@@ -1622,7 +1622,7 @@ inline void Main::waitForGravity(const CkCallback &cb, double startTime,
     }
         double tGrav = CkWallTimer()-startTime;
         timings[activeRung].tGrav += tGrav;
-        if (!param.collision.bCollStep || (param.collision.bCollStep && activeRung == 0)) CkPrintf("Calculating gravity and SPH took %g seconds.\n", tGrav);
+        CkPrintf("Calculating gravity and SPH took %g seconds.\n", tGrav);
 #ifdef SELECTIVE_TRACING
         turnProjectionsOff();
 #endif
@@ -1908,169 +1908,152 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
 void Main::advanceBigCollStep(int iStep) {
     double duKick[MAXRUNG+1];
     double dKickFac[MAXRUNG+1];
-    double dDriftFac[MAXRUNG+1];
     timings[0].count = 1;
     for (int i=0; i<=MAXRUNG; i++) {
         duKick[i] = 0.;
-        dKickFac[i] = 0.;
-        dDriftFac[i] = 0.;
+        dKickFac[i] = 0.5*RungToDt(param.dDelta, i);
         }
-    dKickFac[0] = param.dDelta*0.5;
-    dDriftFac[0] = param.dDelta;
 
-   int nSubsteps = 1;
-   int activeRung = 0;
-   double tTB, tCache;
-    for (int iSub=1; iSub<=nSubsteps; iSub++) {
-        // Opening kick
-        double startTime = CkWallTimer();
-        treeProxy.kick(activeRung, dKickFac, 0, 0, 0, duKick, CkCallbackResumeThread());
-        double tKick = CkWallTimer() - startTime;
-        timings[0].tKick += tKick;
+    CkReductionMsg *msgChk;
 
-        // Collision search
-        if (bParticlesShuffled) {
-            CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
-            // The following call is to get the particles in key order
-            // before the sort.
-            treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                        CkCallbackResumeThread());
-            startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
-            }
-        startTime = CkWallTimer();
-        treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-        double tTB = CkWallTimer() - startTime;
-        timings[0].tTBuild += tTB;
+    // Opening kick
+    int activeRung = 0;
+    ckout << "Kick Open: " << activeRung << "\n";
+    treeProxy.kick(activeRung, dKickFac, 0, 0, 0, 0, duKick, 0, 0, 0, 0, 0, CkCallbackResumeThread());
 
-        if (iSub == 1) {
-            CkPrintf("Searching for near-collisions\n");
-            // Collision search
+    // Check for collision stepping
+    if (bParticlesShuffled) {
+        CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                    CkCallbackResumeThread());
+        startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
+        }
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    doNearCollisions(dTime, param.dDelta, activeRung);
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
+
+    CkPrintf("Checking for near collisions ...");
+    treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
+    int bNeedSubsteps = *(int *)msgChk->getData();
+
+    if (bNeedSubsteps) {
+        CkPrintf(" %d particles are on a near collision course and will be stepped on rung %d\n",
+                         bNeedSubsteps, param.collision.iCollStepRung);
+        activeRung = param.collision.iCollStepRung;
+        ckout << "UnKick: " << activeRung << "\n";
+        treeProxy.unKickCollStep(activeRung, 0.5*param.dDelta, CkCallbackResumeThread());
+        double dtSub = RungToDt(param.dDelta, activeRung);
+
+        int nSubsteps = pow(2, activeRung);
+        for (int iSub=1; iSub<=nSubsteps; iSub++) {
+            ckout << "Kick Open: " << activeRung << "\n";
+            treeProxy.kick(activeRung, dKickFac, 0, 0, 0, 0, duKick, 0, 0, 0, 0, 0, CkCallbackResumeThread());
+            
+            // Collision detection + resolution
             if (bParticlesShuffled) {
                 CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
-                // The following call is to get the particles in key order
-                // before the sort.
                 treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                             CkCallbackResumeThread());
                 startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
                 }
-            startTime = CkWallTimer();
+            ckout << "Collision detection and resolution\n";
             treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-            tTB = CkWallTimer() - startTime;
-            timings[0].tTBuild += tTB;
-            startTime = CkWallTimer();
-            doNearCollisions(dTime, param.dDelta, activeRung);
-            double tColl = CkWallTimer() - startTime;
-            timings[0].tColl += tColl;
-            startTime = CkWallTimer();
-            CkPrintf("Finish node cache\n");
+            doCollisions(dTime, param.dDelta, activeRung);
             treeProxy.finishNodeCache(CkCallbackResumeThread());
-            tCache = CkWallTimer() - startTime;
-            timings[0].tCache += tCache;
 
-            int iNeedSubsteps = 0;
-            CkPrintf("Checking if collision stepping is necessary this big step...");
-            CkReductionMsg *msgChk;
-            treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
-            iNeedSubsteps = *(int *)msgChk->getData();
-    
-            if (iNeedSubsteps) {
-                CkPrintf("\n%d particles are on a near collision course and will be stepped on rung %d\n",
-                         iNeedSubsteps, param.collision.iCollStepRung);
-                activeRung = param.collision.iCollStepRung;
-                nSubsteps = pow(2, activeRung);
-                dKickFac[activeRung] = 0.5*RungToDt(param.dDelta, activeRung);
-                dDriftFac[activeRung] = RungToDt(param.dDelta, activeRung);
-                startTime = CkWallTimer();
-                treeProxy.unKickCollStep(activeRung, 0.5*param.dDelta, CkCallbackResumeThread());
-                treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
-                    param.bGasIsothermal, param.dMaxEnergy, duKick, (param.dConstGamma-1),
-                    param.dThermalCondSatCoeff/a, param.feedback->dMultiPhaseMaxTime, param.feedback->dMultiPhaseMinTemp,
-                    param.dEvapCoeffCode*a, CkCallbackResumeThread());
-                tKick = CkWallTimer() - startTime;
-                timings[0].tKick += tKick;
-            } else {
-                CkPrintf("no\n");
-                }
-            }
+            // Drift
+            ckout << "Drift " << dtSub << "\n";
+            treeProxy.drift(dtSub, 0, 0, dtSub, dtSub, 0, 0, 0, CkCallbackResumeThread());
+            dTime += dtSub;
 
-        if (bParticlesShuffled) {
-            CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
-            // The following call is to get the particles in key order
-            // before the sort.
-            treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                        CkCallbackResumeThread());
-            startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
-            }
-        startTime = CkWallTimer();
-        treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-        tTB = CkWallTimer() - startTime;
-        timings[0].tTBuild += tTB;
+            if (iSub == nSubsteps) break;
 
-        startTime = CkWallTimer();
-        doCollisions(dTime, param.dDelta, activeRung);
-        timings[0].tColl += CkWallTimer() - startTime;
-
-        startTime = CkWallTimer();
-        CkPrintf("Finish node cache\n");
-        treeProxy.finishNodeCache(CkCallbackResumeThread());
-        tCache = CkWallTimer() - startTime;
-        timings[0].tCache += tCache;
-
-        startTime = CkWallTimer();
-        treeProxy.drift(dDriftFac[activeRung], param.bDoGas, param.bGasIsothermal,
-                  dKickFac[activeRung], param.dDelta, 0, 0, param.dMaxEnergy,
-                  CkCallbackResumeThread());
-        double tDrift = CkWallTimer() - startTime;
-        timings[0].tDrift += tDrift;
-
-        dTime += RungToDt(param.dDelta, activeRung);
-
-        if (iSub == nSubsteps) activeRung = 0;
-
-        if (activeRung == 0) {
-            ckout << "\nStep: " << (iStep + ((double) iSub)/nSubsteps) << " Time: "
-                  << dTime << ". " << " Rung: " << activeRung << ". ";
+            ckout << "\nStep: " << (iStep + ((double) iSub)/nSubsteps)
+                  << " Time: " << dTime
+                  << " Rung: " << activeRung << " ";
             countActive(activeRung);
+
+            // Domain decomposition
+            bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
+            if (bDoDD) startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), bDoDD);
+            else {
+                CkReductionMsg *isTPEmpty;
+                treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread((void*&)isTPEmpty));
+
+                if (*((int*)isTPEmpty->getData())) {
+                    startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), bDoDD);
+                    }
+                }
+
+            // Load balancing
+            CkPrintf("Load balancer ... ");
+            treeProxy.startlb(CkCallbackResumeThread(), activeRung);
+
+            // Tree build
+            CkPrintf("Building trees ... \n");
+            treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+
+            // Gravity calculations
+            CkCallback cbGravity(CkCallback::resumeThread);
+            double startTime = 0.;
+            if (param.bDoGravity) {
+                updateSoft();
+                CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
+                startTime = CkWallTimer();
+                treeProxy.startGravity(activeRung, theta, cbGravity);
+                }
+            else treeProxy.initAccel(activeRung, CkCallbackResumeThread());
+
+            if (param.bDoExternalGravity) {
+                treeProxy.externalGravity(activeRung, param.externalGravity, CkCallbackResumeThread());
+                }
+
+            waitForGravity(cbGravity, startTime, activeRung);
+
+            // Closing kick
+            ckout << "Kick Close: " << activeRung << "\n";
+            treeProxy.kick(activeRung, dKickFac, 1, 0, 0, 0, duKick, 0, 0, 0, 0, 0, CkCallbackResumeThread());
+
+            treeProxy.finishNodeCache(CkCallbackResumeThread());
             }
 
-        // Force calculation
+        //Gravity and closing kick for rung 0
+        activeRung = 0;
 
+        ckout << "\nStep: " << (iStep + 1.0)
+              << " Time: " << dTime
+              << " Rung: " << activeRung << " ";
+        countActive(activeRung);
+         
         // Domain decomposition
         bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
-        startTime = CkWallTimer();
         if (bDoDD) startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), bDoDD);
         else {
             CkReductionMsg *isTPEmpty;
             treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread((void*&)isTPEmpty));
 
             if (*((int*)isTPEmpty->getData())) {
-                startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), bDoDD);       
+                startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), bDoDD);
                 }
             }
-        double tDD = CkWallTimer() - startTime;
-        timings[0].tDD += tDD;
 
-        // Load balancer
-        startTime = CkWallTimer();
+        // Load balancing
+        CkPrintf("Load balancer ... ");
         treeProxy.startlb(CkCallbackResumeThread(), activeRung);
-        double tLB = CkWallTimer() - startTime;
-        timings[0].tLoadB += tLB;
-
+  
         // Tree build
-        startTime = CkWallTimer();
+        CkPrintf("Building trees ... \n");
         treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-        tTB = CkWallTimer() - startTime;
-        timings[0].tTBuild += tTB;
 
+        // Gravity calculations
         CkCallback cbGravity(CkCallback::resumeThread);
-        if (activeRung == 0) ckout << "Calculating forces on rung " << activeRung << "\n";
+        double startTime = 0.;
         if (param.bDoGravity) {
             updateSoft();
+            CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
             startTime = CkWallTimer();
             treeProxy.startGravity(activeRung, theta, cbGravity);
-            double tGrav  = CkWallTimer() - startTime;
-            timings[0].tGrav += tGrav;
-            } 
+            }
         else treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 
         if (param.exGravParams.bDoExternalGravity) {
@@ -2078,26 +2061,19 @@ void Main::advanceBigCollStep(int iStep) {
             }
 
         waitForGravity(cbGravity, startTime, activeRung);
-        startTime = CkWallTimer();
-        treeProxy.kick(activeRung, dKickFac, 1, 0, 0, duKick, CkCallbackResumeThread());
-        tKick = CkWallTimer() - startTime;
-        timings[0].tKick += tKick;
-
-        startTime = CkWallTimer();
+        ckout << "Kick Close: " << activeRung << "\n";
+        treeProxy.kick(activeRung, dKickFac, 1, 0, 0, 0, duKick, 0, 0, 0, 0, 0, CkCallbackResumeThread());
         treeProxy.finishNodeCache(CkCallbackResumeThread());
-        double tCache = CkWallTimer() - startTime;
-        timings[0].tCache += tCache;
-#ifdef CHECK_TIME_WITHIN_BIGSTEP
-        if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
-            CkPrintf("wall time %g exceeded limit %g within advancestep\n", CkWallTimer()-wallTimeStart, param.iWallRunTime*60.);
-            CkExit();
+    } else {
+        CkPrintf("Not needed\n");
+        // Drift on base step if there was no collision stepping
+        treeProxy.drift(param.dDelta, 0, 0, param.dDelta, param.dDelta, 0, 0, 0, CkCallbackResumeThread());
+        dTime += param.dDelta;
         }
-#endif
-
-    }
 
     treeProxy.resetRungs(CkCallbackResumeThread());
-}
+
+    }
 
 ///
 /// @brief Take one base timestep of the simulation.
