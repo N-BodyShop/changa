@@ -1922,8 +1922,9 @@ void Main::advanceBigCollStep(int iStep) {
     treeProxy.kick(activeRung, dKickFac, 0, 0, 0, 0, duKick, 0, 0, 0, 0, 0, CkCallbackResumeThread());
 
     // Check for collision stepping
+    ckout << "Checking for near collisions ...";
     if (bParticlesShuffled) {
-        CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
+        ckout << "Particles have been shuffled since last DD, re-sorting\n";
         treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                     CkCallbackResumeThread());
         startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
@@ -1932,13 +1933,11 @@ void Main::advanceBigCollStep(int iStep) {
     doNearCollisions(dTime, param.dDelta, activeRung);
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 
-    CkPrintf("Checking for near collisions ...");
     treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
     int bNeedSubsteps = *(int *)msgChk->getData();
 
     if (bNeedSubsteps) {
-        CkPrintf(" %d particles are on a near collision course and will be stepped on rung %d\n",
-                         bNeedSubsteps, param.collision.iCollStepRung);
+        ckout << " " << bNeedSubsteps <<  " particles are on a near collision course and will be stepped on rung  " << param.collision.iCollStepRung << " \n";
         activeRung = param.collision.iCollStepRung;
         ckout << "UnKick: " << activeRung << "\n";
         treeProxy.unKickCollStep(activeRung, 0.5*param.dDelta, CkCallbackResumeThread());
@@ -1951,7 +1950,7 @@ void Main::advanceBigCollStep(int iStep) {
             
             // Collision detection + resolution
             if (bParticlesShuffled) {
-                CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
+                ckout << "Particles have been shuffled since last DD, re-sorting\n";
                 treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                             CkCallbackResumeThread());
                 startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
@@ -1986,11 +1985,11 @@ void Main::advanceBigCollStep(int iStep) {
                 }
 
             // Load balancing
-            CkPrintf("Load balancer ... ");
+            ckout << "Load balancer ... ";
             treeProxy.startlb(CkCallbackResumeThread(), activeRung);
 
             // Tree build
-            CkPrintf("Building trees ... \n");
+            ckout << "Building trees ... \n";
             treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 
             // Gravity calculations
@@ -1998,7 +1997,7 @@ void Main::advanceBigCollStep(int iStep) {
             double startTime = 0.;
             if (param.bDoGravity) {
                 updateSoft();
-                CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
+                ckout << "Calculating gravity (tree bucket, theta = " << theta << ") ... ";
                 startTime = CkWallTimer();
                 treeProxy.startGravity(activeRung, theta, cbGravity);
                 }
@@ -2038,11 +2037,11 @@ void Main::advanceBigCollStep(int iStep) {
             }
 
         // Load balancing
-        CkPrintf("Load balancer ... ");
+        ckout << "Load balancer ... ";
         treeProxy.startlb(CkCallbackResumeThread(), activeRung);
   
         // Tree build
-        CkPrintf("Building trees ... \n");
+        ckout << "Building trees ... \n";
         treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 
         // Gravity calculations
@@ -2050,7 +2049,7 @@ void Main::advanceBigCollStep(int iStep) {
         double startTime = 0.;
         if (param.bDoGravity) {
             updateSoft();
-            CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
+            ckout << "Calculating gravity (tree bucket, theta = " << theta << ") ... ";
             startTime = CkWallTimer();
             treeProxy.startGravity(activeRung, theta, cbGravity);
             }
@@ -2065,7 +2064,7 @@ void Main::advanceBigCollStep(int iStep) {
         treeProxy.kick(activeRung, dKickFac, 1, 0, 0, 0, duKick, 0, 0, 0, 0, 0, CkCallbackResumeThread());
         treeProxy.finishNodeCache(CkCallbackResumeThread());
     } else {
-        CkPrintf("Not needed\n");
+        ckout << "Not needed\n";
         // Drift on base step if there was no collision stepping
         treeProxy.drift(param.dDelta, 0, 0, param.dDelta, param.dDelta, 0, 0, 0, CkCallbackResumeThread());
         dTime += param.dDelta;

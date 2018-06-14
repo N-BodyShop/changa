@@ -88,7 +88,6 @@ void Main::doNearCollisions(double dTime, double dDelta, int activeRung)
           dfBall2OverSoft2, CkCallbackResumeThread());
     double endTime = CkWallTimer();
     tSmooth += endTime-startTime;
-    //CkPrintf("Collider search took %g seconds\n", tSmooth);
     }
 
 /**
@@ -158,7 +157,6 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
             // Binary merger
             if (c[0].dtCol < 0.) {
                 nColl++;
-                CkPrintf("Particles %d and %d stuck in binary...merging\n", c[0].iOrder, c[1].iOrder);
                 treeProxy.resolveCollision(param.collision, c[0], c[1], 1,
                                            dDelta, dTime, CkCallbackResumeThread());
                 }
@@ -179,6 +177,8 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
                     param.collision.checkMerger(c[0], c[1]);
                     }
                 if (c[0].bMergerDelete || c[1].bMergerDelete) {
+                    if (c[0].bMergerDelete) ckout << "Merge " << c[0].iOrder <<  " into " << c[1].iOrder << "\n";
+                    else ckout << "Merge " << c[1].iOrder <<  " into " << c[0].iOrder << "\n";
                     treeProxy.resolveCollision(param.collision, c[0], c[1], 1,
                                                dDelta, dTime, CkCallbackResumeThread());
                     }
@@ -202,7 +202,6 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
             CkPrintf("doCollision took %g seconds\n", endTime1-startTime1);
             }*/
         addDelParticles();
-
     }
 
 /**
@@ -340,12 +339,10 @@ void TreePiece::resolveCollision(Collision coll, ColliderInfo &c1,
        if (bFoundP1) {
            if (bMerge) {
                if (p->mass >= c2.mass) {
-                   CkPrintf("Merging particle %d into %d\n", c2.iOrder, p->iOrder);
                    coll.doCollision(p, c2, 1);
                    coll.setMergerRung(p, c2, c1, baseStep, timeNow);
                    }
                else {
-                   CkPrintf("Delete particle %d\n", p->iOrder);
                    deleteParticle(p);
                    }
                }
@@ -367,12 +364,10 @@ void TreePiece::resolveCollision(Collision coll, ColliderInfo &c1,
        if (bFoundP2) {
            if (bMerge) {
                if (p->mass > c1.mass) {
-                   CkPrintf("Merging particle %d into %d\n", c1.iOrder, p->iOrder);
                    coll.doCollision(p, c1, 1);
                    coll.setMergerRung(p, c1, c2, baseStep, timeNow);
                    }
                else {
-                   CkPrintf("Delete particle %d\n", p->iOrder);
                    deleteParticle(p);
                    }
                }
@@ -460,15 +455,14 @@ void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
     c2.position += cAdjust;
     mergeCalc(c1.radius, c1.mass, c1.position, c1.velocity, c1.acceleration,
               c1.w, &posNew, &vNew, &wNew, &aNew, &radNew, c2);
-    CkPrintf("Merger info:\n");
-    CkPrintf("m1 m2 r1 r2 x1 x2 v1 v2 w1 w2 wNew\n");
-    CkPrintf("%g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
-            c1.mass, c2.mass, c1.radius, c2.radius,
-            c1.position[0], c1.position[1], c1.position[2],
-            c2.position[0], c2.position[1], c2.position[2],
-            c1.velocity[0], c1.velocity[1], c1.velocity[2],
-            c2.velocity[0], c2.velocity[1], c2.velocity[2],
-            c1.w[0], c1.w[1], c1.w[2], c2.w[0], c2.w[1], c2.w[2], wNew[0], wNew[1], wNew[2]);
+    /*ckout << "Merger info:\n";
+    ckout << "m1 m2 r1 r2 x1 x2 v1 v2 w1 w2 wNew\n";
+    ckout << c1.mass << c2.mass << c1.radius << c2.radius
+            << c1.position[0] << c1.position[1] << c1.position[2] <<
+            c2.position[0] << c2.position[1] << c2.position[2] <<
+            c1.velocity[0] << c1.velocity[1] << c1.velocity[2] <<
+            c2.velocity[0] << c2.velocity[1] << c2.velocity[2] <<
+            c1.w[0] << c1.w[1] << c1.w[2] << c2.w[0] << c2.w[1] << c2.w[2] << wNew[0] << wNew[1] << wNew[2] << "\n";*/
 
     // Revert particle positions back to beginning of step
     c1.position -= pAdjust;
@@ -481,7 +475,7 @@ void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
     double vRel = (c1.velocity - c2.velocity).length();
     if (vRel > vEsc || wNew.length() > wMax) {
         if (!bPerfectAcc) {
-            CkPrintf("Merger rejected\n");
+            ckout << "Merger rejected\n";
             return;
             }
         }
@@ -568,7 +562,6 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
     // field set. Fix this before going any further.
     //if (p->dtCol != c.dtCol) p->dtCol = c.dtCol;
 
-    CkPrintf("Resolving collision for %d by %d\n", p->iOrder, c.iOrder);
     p->dtCol = c.dtCol;
 
     // Advance particle positions to moment of collision
@@ -790,7 +783,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         Vector3D<double> vRel = p->velocity - q->velocity;
 
        // Near-collision search
-       if (bNearCollSearch) {
+       /*if (bNearCollSearch) {
            if (p->iOrderCol == -1) {
                sr = coll.dCollStepFac*2.*(p->soft + q->soft);
                rdotv = dot(dx, vRel);
@@ -806,6 +799,15 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                        p->rung = coll.iCollStepRung;
                        p->iOrderCol = q->iOrder;
                        }
+                   }
+               }*/
+       if (bNearCollSearch) {
+           if (p->iOrderCol == -1) {
+               sr = coll.dCollStepFac*2.*(p->soft + q->soft);
+               Vector3D<double> dxNew = (p->position + p->velocity*dTimeSub) - (q->position + q->velocity*dTimeSub);
+               if (dxNew.length() <= sr) {
+                   p->rung = coll.iCollStepRung;
+                   p->iOrderCol = q->iOrder;
                    }
                }
        } else{
