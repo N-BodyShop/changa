@@ -31,7 +31,7 @@ void Collision::AddParams(PRM prm)
     dCollStepFac = 2.5;
     prmAddParam(prm, "dCollStepFac", paramDouble, &dCollStepFac,
         sizeof(double), "dCollStepFac", "<Factor by which particle radius is inflated\
-                                       when searching to near-collisions> = 2.5");
+                                       when searching for near-collisions> = 2.5");
    
     bWall = 0;
     prmAddParam(prm, "bWall", paramBool, &bWall,
@@ -51,14 +51,6 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "bPerfectAcc", paramBool, &bPerfectAcc,
         sizeof(int), "bPerfectAcc", "<All collisions result in a merger> = 0");
 
-    iMinBinaryRung = 18;
-    prmAddParam(prm, "iMinBinaryRung", paramInt, &iMinBinaryRung,
-        sizeof(int), "iMinBinaryRung", "<Dont merge particles in binaries below this rung> = 18");
-
-    dMaxBinaryEcc = 0.9;
-    prmAddParam(prm, "dMaxBinaryEcc", paramDouble, &dMaxBinaryEcc,
-        sizeof(double), "dMaxBinaryEcc", "<Maximum allowed eccentricty to merge bound particles> = 0.5");
-
     dBallFac = 2.0;
     prmAddParam(prm, "dBallFac", paramDouble, &dBallFac,
         sizeof(double), "dBallFac", "<Scale factor for collision search radius> = 2.0");
@@ -75,24 +67,30 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
 #endif
     }
 
+/**
+ * @brief Predict near approaches between particles
+ *
+ * A near-collision search is done using SmoothParams, where the  'rung' 
+ * field of all particles which will undergo a near collision in the next
+ * time step is set.
+ *
+ * @param dTime The current time in the simulation (in simulation units)
+ * @param dDelta The size of the next timestep (in simulation units)
+ * @param activeRung The currently active rung
+ */
 void Main::doNearCollisions(double dTime, double dDelta, int activeRung)
 {
-    double tSmooth = 0.0;
     CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta, 
        param.collision.bWall, param.collision.dWallPos,
        param.collision.bAllowMergers, param.collision.dMaxBinaryEcc,
        param.collision.iMinBinaryRung, 1, param.collision);
-    double startTime = CkWallTimer();
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pCS, 0, param.collision.nSmoothCollision,
           dfBall2OverSoft2, CkCallbackResumeThread());
-    double endTime = CkWallTimer();
-    tSmooth += endTime-startTime;
     }
 
 /**
- * @brief doCollisions is used to detect and resolve collisions between
- * particles. 
+ * @brief Detect and resolve collisions between particles. 
  *
  * A collision search is done using SmoothParams, where the  'dtCol' 
  * field of all particles which will undergo a collision in the time step is
@@ -109,34 +107,28 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
 {
     int bHasCollision;
     int nColl = 0;
-    double startTime1, endTime1;
-    double tSmooth = 0.0;
-    double tRetrieve = 0.0;
-    double tResolve = 0.0;
     
-    startTime1 = CkWallTimer();
     do {
         bHasCollision = 0;
 
+        // Use the smooth framework to search for imminent collisions
+        // This sets the 'dtCol' and 'iOrderCol' fields for the particles
         CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta, 
            param.collision.bWall, param.collision.dWallPos,
            param.collision.bAllowMergers, param.collision.dMaxBinaryEcc,
            param.collision.iMinBinaryRung, 0, param.collision);
-        double startTime = CkWallTimer();
         double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
         treeProxy.startSmooth(&pCS, 0, param.collision.nSmoothCollision,
               dfBall2OverSoft2, CkCallbackResumeThread());
-        double endTime = CkWallTimer();
-        tSmooth += endTime-startTime;
 
-        startTime = CkWallTimer();
+        // Once 'dtCol' and 'iOrderCol' are set, we need to determine which
+        // collision is going to happen the soonest
         CkReductionMsg *msgChk;
         treeProxy.getCollInfo(CkCallbackResumeThread((void*&)msgChk));
         ColliderInfo *c = (ColliderInfo *)msgChk->getData();
 
-        // If only one particle participating in the collision detected the imminent collision
-        // (due to different search radii or velocities), we need to go back and ask for the
-        // second collider
+        // If only one particle detected the imminent collision (due to different search
+        // radii or velocities), we need to go back and ask for the second collider
         if (c[0].dtCol <= dDelta && c[1].dtCol > dDelta) {
             treeProxy.getCollInfo(c[0].iOrderCol, CkCallbackResumeThread((void*&)msgChk));
             c[1] = *(ColliderInfo *)msgChk->getData();
@@ -147,21 +139,14 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
             c[0] = *(ColliderInfo *)msgChk->getData();
             c[0].dtCol = c[1].dtCol;
             }
+        delete msgChk;
 
-        endTime = CkWallTimer();
-        tRetrieve += endTime-startTime;
-
+        // If the collision is going to happen during this timestep, resolve it now
         if (c[0].dtCol <= dDelta) {
-            startTime = CkWallTimer();
             bHasCollision = 1;
-            // Binary merger
-            if (c[0].dtCol < 0.) {
-                nColl++;
-                treeProxy.resolveCollision(param.collision, c[0], c[1], 1,
-                                           dDelta, dTime, CkCallbackResumeThread());
-                }
+
             // Collision with wall
-            else if (c[0].iOrderCol == -2 && param.collision.bWall) {
+            if (c[0].iOrderCol == -2 && param.collision.bWall) {
                 nColl++;
                 treeProxy.resolveWallCollision(param.collision, c[0], 
                                                CkCallbackResumeThread());
@@ -177,7 +162,8 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
                     param.collision.checkMerger(c[0], c[1]);
                     }
                 if (c[0].bMergerDelete || c[1].bMergerDelete) {
-                    if (c[0].bMergerDelete) ckout << "Merge " << c[0].iOrder <<  " into " << c[1].iOrder << "\n";
+                    if (c[0].bMergerDelete) ckout << "Merge " << c[0].iOrder
+                                                  << " into " << c[1].iOrder << "\n";
                     else ckout << "Merge " << c[1].iOrder <<  " into " << c[0].iOrder << "\n";
                     treeProxy.resolveCollision(param.collision, c[0], c[1], 1,
                                                dDelta, dTime, CkCallbackResumeThread());
@@ -187,20 +173,12 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
                                                dDelta, dTime, CkCallbackResumeThread());
                     }
                 }
-                endTime = CkWallTimer();
-                tResolve += endTime-startTime;
             }
 
-        delete msgChk;
+        // Keep searching for new collisions every time we resolve one
         } while (bHasCollision);
-        endTime1 = CkWallTimer();
-        /*if (activeRung == 0) {
-            CkPrintf("Resolved %d collisions\n", nColl);
-            CkPrintf("Collider search took %g seconds\n", tSmooth);
-            CkPrintf("Collider retrieval took %g seconds\n", tRetrieve);
-            CkPrintf("Collision resolution took %g seconds\n", tResolve);
-            CkPrintf("doCollision took %g seconds\n", endTime1-startTime1);
-            }*/
+
+        // Clean up any merged particles
         addDelParticles();
     }
 
@@ -398,6 +376,11 @@ void TreePiece::unKickCollStep(int iKickRung, double dDeltaBase, const CkCallbac
     contribute(cb);
     }
 
+/**
+ * @brief Place all particles back on rung 0
+ *
+ * This function is used at the end a collision stepping timestep
+ */
 void TreePiece::resetRungs(const CkCallback& cb)
 {
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -455,14 +438,14 @@ void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
     c2.position += cAdjust;
     mergeCalc(c1.radius, c1.mass, c1.position, c1.velocity, c1.acceleration,
               c1.w, &posNew, &vNew, &wNew, &aNew, &radNew, c2);
-    /*ckout << "Merger info:\n";
-    ckout << "m1 m2 r1 r2 x1 x2 v1 v2 w1 w2 wNew\n";
-    ckout << c1.mass << c2.mass << c1.radius << c2.radius
-            << c1.position[0] << c1.position[1] << c1.position[2] <<
-            c2.position[0] << c2.position[1] << c2.position[2] <<
-            c1.velocity[0] << c1.velocity[1] << c1.velocity[2] <<
-            c2.velocity[0] << c2.velocity[1] << c2.velocity[2] <<
-            c1.w[0] << c1.w[1] << c1.w[2] << c2.w[0] << c2.w[1] << c2.w[2] << wNew[0] << wNew[1] << wNew[2] << "\n";*/
+    CkPrintf("Merger info:\niorder1 iorder2 m1 m2 r1 r2 x1 x2 v1 v2 w1 w2 wNew\n");
+    CkPrintf("%d %d %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
+            c1.iOrder, c2.iOrder, c1.mass, c2.mass, c1.radius, c2.radius,
+            c1.position[0], c1.position[1], c1.position[2],
+            c2.position[0], c2.position[1], c2.position[2],
+            c1.velocity[0], c1.velocity[1], c1.velocity[2],
+            c2.velocity[0], c2.velocity[1], c2.velocity[2],
+            c1.w[0], c1.w[1], c1.w[2], c2.w[0], c2.w[1], c2.w[2], wNew[0], wNew[1], wNew[2]);
 
     // Revert particle positions back to beginning of step
     c1.position -= pAdjust;
@@ -475,7 +458,7 @@ void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
     double vRel = (c1.velocity - c2.velocity).length();
     if (vRel > vEsc || wNew.length() > wMax) {
         if (!bPerfectAcc) {
-            ckout << "Merger rejected\n";
+            CkPrintf("Merger rejected\n");
             return;
             }
         }
@@ -535,8 +518,7 @@ void Collision::setMergerRung(GravityParticle *p, ColliderInfo &c, ColliderInfo 
  * @param p A reference to the particle that is undergoing a collision
  */
 void Collision::doWallCollision(GravityParticle *p) {
-    // TODO: spin
-    // TODO: wall overlap
+    // TODO: update spin field
     p->velocity[2] *= -dEpsN;
 
     Vector3D<double> vPerp = (0., 0., p->velocity[2]);
@@ -560,8 +542,6 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
 {
     // If the particles are different sizes, p might not have its dtCol
     // field set. Fix this before going any further.
-    //if (p->dtCol != c.dtCol) p->dtCol = c.dtCol;
-
     p->dtCol = c.dtCol;
 
     // Advance particle positions to moment of collision
@@ -744,10 +724,10 @@ void CollisionSmoothParams::combSmoothCache(GravityParticle *p1,
  * @brief Do a neighbor search to look for all possible collisions between
  * particles.
  *
- * This function updates the 'dtCol' field for all particles that will undergo
- * a collision in the next time step. A negative value for dtCol indicates that
- * the field was overloaded and represents the total energy of the two particles.
- * In this case, the two particles are stuck in a binary and should be merged.
+ * This function updates the 'dtCol' and 'iOrderCol' field for all particles
+ * that will undergo a collision in the next time step. If we are in the
+ * collision step prediction phase, place any particles that will come close
+ * together on the collision stepping rung.
  *
  * The 'iOrderCol' is normally set to the iOrder of the particle which this
  * particle is going to collide with. If the collision is with a wall,
@@ -783,34 +763,13 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         Vector3D<double> vRel = p->velocity - q->velocity;
 
        // Near-collision search
-       /*if (bNearCollSearch) {
-           if (p->iOrderCol == -1) {
-               sr = coll.dCollStepFac*2.*(p->soft + q->soft);
-               rdotv = dot(dx, vRel);
-               vRel2 = vRel.lengthSquared();
-               dr2 = dx.lengthSquared() - sr*sr;
-               D = rdotv*rdotv - dr2*vRel2;
-
-               if (D > 0.) {
-                   D = sqrt(D);
-                   dt = (-rdotv - D)/vRel2;
-
-                   if (dt > 0. && dt < dTimeSub) {
-                       p->rung = coll.iCollStepRung;
-                       p->iOrderCol = q->iOrder;
-                       }
-                   }
-               }*/
        if (bNearCollSearch) {
            if (p->iOrderCol == -1) {
                sr = coll.dCollStepFac*2.*(p->soft + q->soft);
                Vector3D<double> dxNew = (p->position + p->velocity*dTimeSub) - (q->position + q->velocity*dTimeSub);
-               if (dxNew.length() <= sr) {
-                   p->rung = coll.iCollStepRung;
-                   p->iOrderCol = q->iOrder;
-                   }
+               if (dxNew.length() <= sr) p->rung = coll.iCollStepRung;
                }
-       } else{
+       } else {
            // Collider search
            sr = (p->soft*2.) + (q->soft*2.);
            rdotv = dot(dx, vRel);
@@ -823,29 +782,6 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
                if (dt > 0. && dt < dTimeSub && dt < p->dtCol) {
                    p->dtCol = dt;
-                   p->iOrderCol = q->iOrder;
-                   }
-               }
-           }
-
-       // Because there is no gravitational softening, particles can get stuck in
-       // binaries. If the particle is not already undergoing a collision, check
-       // to see if it is bound to its neighbor. If it is, mark it for a merge
-       if (bAllowMergers && p->iOrderCol == -1 && p->rung >= iMinBinaryRung) {
-           double pe = -q->mass/dx.length();
-           double ke = 0.5*vRel.lengthSquared();
-           if ((ke + pe) < 0.) {
-               /* This is quick, but not optimal. We need to be sure we don't
-               automatically merge any bound particles, as those on highly
-               eccentric orbits may be distrupted at apocenter. Therefore
-               we assume that these particles will only reach this point of
-               the code near pericenter (due to iMinBinaryRung), and we can 
-               safely exclude particles that do not meet the following 
-               criterion. Some fiddling with iMinBinaryRung and dMaxBinaryEcc
-               may be necessary to acheive an appropriate balance of merging.
-               */
-               if (vRel2 < sqrt((1 + dMaxBinaryEcc)/(1 - dMaxBinaryEcc))*(ke - pe)) {
-                   p->dtCol = ke + pe;
                    p->iOrderCol = q->iOrder;
                    }
                }
