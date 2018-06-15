@@ -766,8 +766,15 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
        if (bNearCollSearch) {
            if (p->iOrderCol == -1) {
                sr = coll.dCollStepFac*2.*(p->soft + q->soft);
-               Vector3D<double> dxNew = (p->position + p->velocity*dTimeSub) - (q->position + q->velocity*dTimeSub);
-               if (dxNew.length() <= sr) p->rung = coll.iCollStepRung;
+               rdotv = dot(dx, vRel);
+               vRel2 = vRel.lengthSquared();
+               dr2 = dx.lengthSquared() - sr*sr;
+               D = rdotv*rdotv - dr2*vRel2;
+               if (D > 0.) {
+                   D = sqrt(D);
+                   dt = (-rdotv - D)/vRel2;
+                   if (dt > 0. && dt < dTimeSub) p->rung = coll.iCollStepRung;
+                   }
                }
        } else {
            // Collider search
