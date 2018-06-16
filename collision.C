@@ -702,13 +702,15 @@ int CollisionSmoothParams::isSmoothActive(GravityParticle *p)
 void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
 {
     double v = p->velocity.length();
-    p->fBall = coll.dBallFac*dDelta*v + 4.*p->soft;
+    // Might want to use a fixed fball. This might be a problem for colliding particle not finding their partner
+    p->fBall = coll.dBallFac*dDelta*pow(2., activeRung)*v + 4.*p->soft;
     }
 
 void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)
 {
     p1->dtCol = DBL_MAX;
     p1->iOrderCol = -1;
+    p1->rung = -1;
     }
 
 void CollisionSmoothParams::combSmoothCache(GravityParticle *p1,
@@ -718,6 +720,8 @@ void CollisionSmoothParams::combSmoothCache(GravityParticle *p1,
         p1->dtCol = p2->dtCol;
         p1->iOrderCol = p2->iOrderCol;
         }
+
+    if (p1->rung < p2->rung) p1->rung = p2->rung;
     }
 
 /**
@@ -770,7 +774,8 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                vRel2 = vRel.lengthSquared();
                dr2 = dx.lengthSquared() - sr*sr;
                D = rdotv*rdotv - dr2*vRel2;
-               if (D > 0.) {
+               if (dx.length() < sr) p->rung = coll.iCollStepRung;
+               else if (D > 0.) {
                    D = sqrt(D);
                    dt = (-rdotv - D)/vRel2;
                    if (dt > 0. && dt < dTimeSub) p->rung = coll.iCollStepRung;
