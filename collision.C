@@ -757,7 +757,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     if (TYPETest(p, TYPE_DELETED)) return;
 
     if (bWall) {
-        double dt = (dWallPos - p->position[2] - (p->soft*2.))/p->velocity[2];
+        dt = (dWallPos - p->position[2] - (p->soft*2.))/p->velocity[2];
         if (dt > 0. && dt < dTimeSub) {
             p->dtCol = dt;
             p->iOrderCol = -2;
