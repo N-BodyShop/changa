@@ -38,6 +38,15 @@
 #  define CUDA_TRACE_END(ID) /* */
 #endif
 
+#define cudaChk(code) cudaErrorDie(code, #code, __FILE__, __LINE__)
+inline void cudaErrorDie(cudaError_t retCode, const char* code,
+                                              const char* file, int line) {
+  if (retCode != cudaSuccess) {
+    fprintf(stderr, "Fatal CUDA Error %s at %s:%d.\nReturn value %d from '%s'.",
+        cudaGetErrorString(retCode), file, line, retCode, code);
+    abort();
+  }
+}
 
 #define CmiMyPe() _Cmi_mype
 extern int _Cmi_mype;
@@ -401,7 +410,8 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       );
 #endif
   if( wr->bufferInfo[ILCELL_IDX].transferToDevice ){
-#ifdef GPU_LOCAL_TREE_WALK
+#ifndef CUDA_NO_KERNELS
+  #ifdef GPU_LOCAL_TREE_WALK
     gpuLocalTreeWalk<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
@@ -416,8 +426,7 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
       ptr->fperiodY,
       ptr->fperiodZ
     );
-#else
-  #ifndef CUDA_NO_KERNELS
+  #else
     nodeGravityComputation<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
       (
         (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
@@ -429,8 +438,9 @@ void run_TP_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void** dev
         (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
         ptr->fperiod
       );
-  #endif
-#endif //GPU_LOCAL_TREE_WALK
+  #endif //GPU_LOCAL_TREE_WALK
+    cudaChk(cudaPeekAtLastError());
+#endif
     CUDA_TRACE_BEGIN();
     hapi_hostFree((ILCell *)wr->bufferInfo[ILCELL_IDX].hostBuffer);
     hapi_hostFree((int *)wr->bufferInfo[NODE_BUCKET_MARKERS_IDX].hostBuffer);
@@ -483,6 +493,7 @@ void run_TP_PART_GRAVITY_LOCAL_SMALLPHASE(workRequest *wr, cudaStream_t kernel_s
        ptr->fperiod 
       );
 #endif
+    cudaChk(cudaPeekAtLastError());
 #endif
 
 
@@ -538,6 +549,7 @@ void run_TP_PART_GRAVITY_LOCAL(workRequest *wr, cudaStream_t kernel_stream,void*
        ptr->fperiod
       );
 #endif
+    cudaChk(cudaPeekAtLastError());
 #endif
 
     CUDA_TRACE_BEGIN();
@@ -578,6 +590,7 @@ void run_TP_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void** de
        (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
        ptr->fperiod
       );
+    cudaChk(cudaPeekAtLastError());
 #endif
 
 
@@ -631,6 +644,7 @@ void run_TP_PART_GRAVITY_REMOTE(workRequest *wr, cudaStream_t kernel_stream,void
        ptr->fperiod
       );
 #endif
+    cudaChk(cudaPeekAtLastError());
 #endif
 
 
@@ -673,6 +687,7 @@ void run_TP_GRAVITY_REMOTE_RESUME(workRequest *wr, cudaStream_t kernel_stream,vo
        (int *)devBuffers[wr->bufferInfo[NODE_BUCKET_SIZES_IDX].bufferID],
        ptr->fperiod
       );
+    cudaChk(cudaPeekAtLastError());
 #endif
 
 
@@ -729,6 +744,7 @@ void run_TP_PART_GRAVITY_REMOTE_RESUME(workRequest *wr, cudaStream_t kernel_stre
        ptr->fperiod
       );
 #endif
+    cudaChk(cudaPeekAtLastError());
 #endif
 
 
@@ -2676,13 +2692,14 @@ __global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *pa
 
 void run_EWALD_KERNEL_Large(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
   int *Ewaldptr = (int*)wr->userData;
-  cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA_IDX].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice);
-  cudaMemcpyToSymbol(ewt, wr->bufferInfo[EWALD_TABLE_IDX].hostBuffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice);
+  cudaChk(cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA_IDX].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice));
+  cudaChk(cudaMemcpyToSymbol(ewt, wr->bufferInfo[EWALD_TABLE_IDX].hostBuffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice));
   EwaldKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
     ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
      (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
      (int *)devBuffers[wr->bufferInfo[PARTICLE_TABLE_IDX].bufferID], 1, 
      Ewaldptr[0], Ewaldptr[1]);
+    cudaChk(cudaPeekAtLastError());
 #ifdef CUDA_PRINT_ERRORS
   printf("EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -2690,13 +2707,14 @@ void run_EWALD_KERNEL_Large(workRequest *wr, cudaStream_t kernel_stream,void** d
 
 void run_EWALD_KERNEL_Small(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
   int *Ewaldptr = (int*)wr->userData;
-  cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA_IDX].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice);
-  cudaMemcpyToSymbol(ewt, wr->bufferInfo[EWALD_TABLE_IDX].hostBuffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice);  
+  cudaChk(cudaMemcpyToSymbol(cachedData, wr->bufferInfo[EWALD_READ_ONLY_DATA_IDX].hostBuffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice));
+  cudaChk(cudaMemcpyToSymbol(ewt, wr->bufferInfo[EWALD_TABLE_IDX].hostBuffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice));
   EwaldKernel<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>>
     ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
      (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
      (int *)NULL, 0,
      Ewaldptr[0], Ewaldptr[1]);
+    cudaChk(cudaPeekAtLastError());
 #ifdef CUDA_PRINT_ERRORS
   printf("EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
