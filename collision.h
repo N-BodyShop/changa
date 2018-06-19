@@ -47,12 +47,10 @@ public:
     int nSmoothCollision; /* number of particles to search for collisions over */
     int bCollStep;        /* timestepping set by near-collisions */
     int iCollStepRung;    /* Rung to place nearly-colliding particles on*/
-    double dCollStepFac;     /* Inflate particle radius when searching for near-collisions*/
+    double dCollStepFac;  /* Inflation factor for particle radius when searching for near-collisions*/
     int bWall;            /* particles will bounce off a wall in the z plane */
     int bAllowMergers;    /* allow particles to merge if they collide at a slow speed */
     int bPerfectAcc;      /* all collisions result in a merger */
-    int iMinBinaryRung;   /* don't merge particles in binaries below this rung */
-    double dMaxBinaryEcc; /* only merge bound particles with e less than this value */
     double dBallFac;      /* scale factor for collision search radius */
     double dWallPos;      /* location of wall along z axis */
     double dEpsN, dEpsT;  /* normal and transverse coefficients of restitution */
@@ -74,11 +72,7 @@ public:
                     Vector3D<double> vel, Vector3D<double> w,
                     Vector3D<double> *velNew, Vector3D<double> *wNew,
                     ColliderInfo &c);
-    Collision() {
-        dEpsN = 1.0;//dEpsN = 0.8;
-        dEpsT = 1.0;//dEpsT = 1.0;
-        }
-   
+    Collision() {}
     inline void pup(PUP::er &p);
     };
 
@@ -90,8 +84,6 @@ inline void Collision::pup(PUP::er &p) {
     p | bWall;
     p | bAllowMergers;
     p | bPerfectAcc;
-    p | iMinBinaryRung;
-    p | dMaxBinaryEcc;
     p | dBallFac;
     p | dWallPos;
     p | dEpsN;
@@ -109,8 +101,6 @@ class CollisionSmoothParams : public SmoothParams
     int bWall;
     int bAllowMergers;
     int bNearCollSearch;
-    int iMinBinaryRung;
-    double dMaxBinaryEcc;
     double dWallPos;
     double dTime, dDelta;
     Collision coll;
@@ -127,7 +117,6 @@ public:
     CollisionSmoothParams() {}
     CollisionSmoothParams(int _iType, int am, double _dTime, double _dDelta,
                           int _bWall, double _dWallPos, int _bAllowMergers,
-                          double _dMaxBinaryEcc, int _iMinBinaryRung,
                           int _bNearCollSearch, Collision _coll) {
         coll = _coll;
         iType = _iType;
@@ -138,8 +127,6 @@ public:
         bWall = _bWall;
         dWallPos = _dWallPos;
         bAllowMergers = _bAllowMergers;
-        dMaxBinaryEcc = _dMaxBinaryEcc;
-        iMinBinaryRung = _iMinBinaryRung;
         bNearCollSearch = _bNearCollSearch;
         }
     PUPable_decl(CollisionSmoothParams);
@@ -151,8 +138,6 @@ public:
         p | dTime;
         p | bWall;
         p | bAllowMergers;
-        p | dMaxBinaryEcc;
-        p | iMinBinaryRung;
         p | dWallPos;
         p | bNearCollSearch;
     }

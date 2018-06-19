@@ -33,15 +33,14 @@ void Collision::AddParams(PRM prm)
         sizeof(double), "dCollStepFac", "<Factor by which particle radius is inflated\
                                        when searching for near-collisions> = 2.5");
    
-    bWall = 0;
-    prmAddParam(prm, "bWall", paramBool, &bWall,
-        sizeof(int), "bWall", "<Particles bounce off of a plane pointed in\
-                                 the z direction> = 0");
-
     bAllowMergers = 0;
     prmAddParam(prm, "bAllowMergers", paramBool, &bAllowMergers,
         sizeof(int), "bAllowMergers", "<Particles merge on collision if their\
                                         approach speed is small enough> = 0");
+    bWall = 0;
+    prmAddParam(prm, "bWall", paramBool, &bWall,
+        sizeof(int), "bWall", "<Particles bounce off of a plane pointed in\
+                                 the z direction> = 0");
 
     dWallPos = 0.0;
     prmAddParam(prm, "dWallPos", paramDouble, &dWallPos,
@@ -55,22 +54,32 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "dBallFac", paramDouble, &dBallFac,
         sizeof(double), "dBallFac", "<Scale factor for collision search radius> = 2.0");
 
+    dEpsN = 1.0;
+    prmAddParam(prm, "dEpsN", paramDouble, &dEpsN,
+        sizeof(double), "dEpsN", "<Normal coefficient of restituion for bouncing collisions> = 1.0");
+
+    dEpsT = 1.0;
+    prmAddParam(prm, "dEpsT", paramDouble, &dEpsT,
+        sizeof(double), "dEpsT", "<Tangential coefficient of restituion for bouncing collisions> = 1.0");
+
     }
 
 void Collision::CheckParams(PRM prm, struct parameters &param)
 {
-    if (!prmSpecified(prm, "nSmoothCollision"))
-        nSmoothCollision = param.nSmooth;
+    if (bPerfectAcc && !bAllowMergers)
+        CkAbort("Perfect accretion will not occur if mergers are disabled\n");
+    if (bWall && bAllowMergers)
+        CkAbort("Mergers cannot occur while bWall is enabled\n");
 #ifndef COLLISION
     if (param.bCollision)
-        CkAbort("COLLISION must be enabled to use collisions\n");
+        CkAbort("ChaNGa must be compiled with the COLLISION flag in order to use collision detection\n");
 #endif
     }
 
 /**
  * @brief Predict near approaches between particles
  *
- * A near-collision search is done using SmoothParams, where the  'rung' 
+ * A near-collision search is done using SmoothParams, where the 'rung' 
  * field of all particles which will undergo a near collision in the next
  * time step is set.
  *
@@ -82,8 +91,7 @@ void Main::doNearCollisions(double dTime, double dDelta, int activeRung)
 {
     CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta, 
        param.collision.bWall, param.collision.dWallPos,
-       param.collision.bAllowMergers, param.collision.dMaxBinaryEcc,
-       param.collision.iMinBinaryRung, 1, param.collision);
+       param.collision.bAllowMergers, 1, param.collision);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pCS, 0, param.collision.nSmoothCollision,
           dfBall2OverSoft2, CkCallbackResumeThread());
@@ -115,8 +123,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
         // This sets the 'dtCol' and 'iOrderCol' fields for the particles
         CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta, 
            param.collision.bWall, param.collision.dWallPos,
-           param.collision.bAllowMergers, param.collision.dMaxBinaryEcc,
-           param.collision.iMinBinaryRung, 0, param.collision);
+           param.collision.bAllowMergers, 0, param.collision);
         double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
         treeProxy.startSmooth(&pCS, 0, param.collision.nSmoothCollision,
               dfBall2OverSoft2, CkCallbackResumeThread());
@@ -175,7 +182,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
                 }
             }
 
-        // Keep searching for new collisions every time we resolve one
+        // Velocities and positions may have changed, keep looking for collisions
         } while (bHasCollision);
 
         // Clean up any merged particles
@@ -379,7 +386,7 @@ void TreePiece::unKickCollStep(int iKickRung, double dDeltaBase, const CkCallbac
 /**
  * @brief Place all particles back on rung 0
  *
- * This function is used at the end a collision stepping timestep
+ * This function is used at the end a collision stepping big step
  */
 void TreePiece::resetRungs(const CkCallback& cb)
 {
@@ -393,7 +400,7 @@ void TreePiece::resetRungs(const CkCallback& cb)
 
 /**
  * @brief Determine whether there are any particles in the simulation that
- * are undergoing a near miss
+ * will undergo a near miss in the next step
  *
  * The way to tell if a particle is undergoing a near miss is to see if it sits
  * on the collision stepping rung.
@@ -702,7 +709,8 @@ int CollisionSmoothParams::isSmoothActive(GravityParticle *p)
 void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
 {
     double v = p->velocity.length();
-    // Might want to use a fixed fball. This might be a problem for colliding particle not finding their partner
+    // Different particles can have different fBall sizes. This can potentially
+    // cause problems where only 1 of 2 colliding particles detects the collision.
     p->fBall = coll.dBallFac*dDelta*pow(2., activeRung)*v + 4.*p->soft;
     }
 
@@ -747,6 +755,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     p->iOrderCol = -1;
     double dTimeSub = RungToDt(dDelta, activeRung);
     if (TYPETest(p, TYPE_DELETED)) return;
+
     if (bWall) {
         double dt = (dWallPos - p->position[2] - (p->soft*2.))/p->velocity[2];
         if (dt > 0. && dt < dTimeSub) {

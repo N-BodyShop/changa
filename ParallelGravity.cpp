@@ -1905,6 +1905,20 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
             updateuDot(iActiveRung-1, duKick, dStartTime, 0, 0);
         }
     }
+
+///
+/// @brief Alternative version of 'advanceBigStep' which is used when
+//         collision stepping is enabled
+/// @param iStep The current step number.
+///
+/// This method also implements the "Kick Drift Kick" hierarchial
+/// timestepping algorithm. Particles can step on either the base
+/// rung or the collision rung. After the initial 'kick', the
+/// updated velocities are used to determine which particles need to
+/// be placed on the collision step rung. These particles are then
+/// unkicked and rekicked with the smaller timestep.
+///
+///
 void Main::advanceBigCollStep(int iStep)
 {
     double startTime;
@@ -1945,14 +1959,15 @@ void Main::advanceBigCollStep(int iStep)
     timings[activeRung].tCache += CkWallTimer() - startTime;
 
     treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
-    int bNeedSubsteps = *(int *)msgChk->getData();
+    int iNeedSubsteps = *(int *)msgChk->getData();
 
-    if (bNeedSubsteps) {
-        ckout << " " << bNeedSubsteps <<  " particles are on a near collision course and will be stepped on rung "
+    if (iNeedSubsteps > 0) {
+        ckout << " " << iNeedSubsteps <<  " particles are on a near collision course and will be stepped on rung "
               << param.collision.iCollStepRung << " \n";
         activeRung = param.collision.iCollStepRung;
     } else ckout << "Not needed\n";
 
+    // Undo the opening kick
     treeProxy.unKickCollStep(activeRung, 0.5*param.dDelta, CkCallbackResumeThread());
 
     double dtSub = RungToDt(param.dDelta, activeRung);
@@ -1961,6 +1976,8 @@ void Main::advanceBigCollStep(int iStep)
     for (int iSub=1; iSub<=nSubsteps; iSub++) {
         timings[activeRung].count++;
         startTime = CkWallTimer();
+
+        // Opening kick
         treeProxy.kick(activeRung, dKickFac, 0, 0, 0, 0, duKick, 0, 0, 0, 0, 0, CkCallbackResumeThread());
         timings[activeRung].tKick += CkWallTimer() - startTime;
             
