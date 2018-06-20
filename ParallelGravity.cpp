@@ -1666,6 +1666,94 @@ void Main::externalGravity(int iActiveRung)
     delete msgFrameAcc;
 }
 
+/// @brief Update time derivative of thermal energy
+/// @param iActiveRung Rung (and higher) which to update
+/// @param duKick Array of timesteps per rung
+/// @param dStartTime Array of beginning times (simulation units) per rung
+/// @param bUpdateState Whether to update the ionization fractions
+/// @param bAll Whether to update all rungs below iActiveRung
+void Main::updateuDot(int iActiveRung, const double duKick[],
+                      const double dStartTime[], int bUpdateState, int bAll)
+{
+    double startTime = CkWallTimer();
+    if(verbosity)
+        CkPrintf("uDot update: Rung %d ... ", iActiveRung);
+    double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+    if(param.bGasCooling)
+        dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+    treeProxy.updateuDot(iActiveRung, duKick, dStartTime,
+                         param.bGasCooling, bUpdateState, bAll,
+                         CkCallbackResumeThread());
+    double tuDot = CkWallTimer() - startTime;
+    timings[iActiveRung].tuDot += tuDot;
+    if(verbosity)
+        CkPrintf("took %g seconds.\n", tuDot);
+}
+
+/// @brief Update velocities
+/// @param bOpen Is this an openning kick?
+/// @param iActiveRung Rung (and higher) which to update
+/// @param nextMaxRung Rung of smallest timestep to be taken
+/// @param cbGravity Callback to wait for gravity (close only)
+/// @param gravStartTime Timing start for gravity
+///
+/// Based on bOpen the velocities of particles on rung iActiveRung
+/// through nextMaxRung are either moved to a 1/2 step based
+/// on their rung (open) or moved from the 1/2 step to the end of the
+/// step (close).
+///
+void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
+                const CkCallback &cbGravity, double gravStartTime) 
+{
+    if(verbosity) {
+        if(bClosing)
+            CkPrintf("Kick Close:\n");
+        else
+            CkPrintf("Kick Open:\n");
+    }
+    double dKickFac[MAXRUNG+1];
+    double duKick[MAXRUNG+1];
+    double dStartTime[MAXRUNG+1];
+    for (int iRung=0; iRung<=MAXRUNG; iRung++) {
+        duKick[iRung]=dKickFac[iRung]=0;
+    }
+    for(int iRung = iActiveRung; iRung <= nextMaxRung; iRung++) {
+        double dTimeSub = RungToDt(param.dDelta, iRung);
+        if(verbosity) {
+            CkPrintf(" Rung %d: %g\n", iRung, 0.5*dTimeSub);
+        }
+        duKick[iRung] = 0.5*dTimeSub;
+        if(bClosing) {
+            dStartTime[iRung] = dTime - 0.5*dTimeSub;
+            dKickFac[iRung] = csmComoveKickFac(param.csm, dTime - 0.5*dTimeSub,
+                                               0.5*dTimeSub);
+        } else {
+            dStartTime[iRung] = dTime;
+            dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
+        }
+    }
+    if(param.bDoGas) {
+        updateuDot(iActiveRung, duKick, dStartTime, 1, 1);
+    }
+    if(bClosing) // For a closing kick, gravity may not have finished
+        waitForGravity(cbGravity, gravStartTime, iActiveRung);
+    double startTime = CkWallTimer();
+    treeProxy.kick(iActiveRung, dKickFac, bClosing, param.bDoGas,
+                   param.bGasIsothermal, duKick, CkCallbackResumeThread());
+    double tKick = CkWallTimer() - startTime;
+    timings[iActiveRung].tKick += tKick;
+    if(verbosity)
+        CkPrintf("Kick took %g seconds.\n", tKick);
+    if(bClosing) {
+        // 1/2 step uDot update to end of step
+        if(iActiveRung > 0 && param.bDoGas) {
+            duKick[iActiveRung-1] = 0.5*RungToDt(param.dDelta, iActiveRung-1);
+            dStartTime[iActiveRung-1] = dTime;
+            updateuDot(iActiveRung-1, duKick, dStartTime, 0, 0);
+        }
+    }
+}
+
 ///
 /// @brief Take one base timestep of the simulation.
 /// @param iStep The current step number.
@@ -1701,47 +1789,9 @@ void Main::advanceBigStep(int iStep) {
       if(verbosity)
 	  memoryStats();
       // Opening Kick
-      if(verbosity)
-	  ckout << "Kick Open:" << endl;
-      double dKickFac[MAXRUNG+1];
-      double duKick[MAXRUNG+1];
-      double dStartTime[MAXRUNG+1];
-      for (int iRung=0; iRung<=MAXRUNG; iRung++) {
-        duKick[iRung]=dKickFac[iRung]=0;
-      }
-      for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
-        double dTimeSub = RungToDt(param.dDelta, iRung);
-	if(verbosity) {
-	    CkPrintf(" Rung %d: %g\n", iRung, 0.5*dTimeSub);
-	    }
-        duKick[iRung] = 0.5*dTimeSub;
-        dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
-	dStartTime[iRung] = dTime;
-        }
-      if(verbosity > 1)
-	  memoryStats();
-      if(param.bDoGas) {
-	  double startTime = CkWallTimer();
-	  if(verbosity)
-	      CkPrintf("uDot update: Rung %d ... ", activeRung);
-	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
-	  if(param.bGasCooling)
-	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	  treeProxy.updateuDot(activeRung, duKick, dStartTime,
-			       param.bGasCooling, 1, 1,
-			       CkCallbackResumeThread());
-          double tuDot = CkWallTimer() - startTime;
-          timings[activeRung].tuDot += tuDot;
-	  if(verbosity)
-	      CkPrintf("took %g seconds.\n", tuDot);
-	  }
-      double startTime = CkWallTimer();
-      treeProxy.kick(activeRung, dKickFac, 0, param.bDoGas,
-		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
-      double tKick = CkWallTimer() - startTime;
-      timings[activeRung].tKick += tKick;
-      if(verbosity)
-          CkPrintf("Kick took %g seconds.\n", tKick);
+      CkCallback cbNull(CkCallback::invalid); // Nothing to wait for
+                                              // in opening Kick
+      kick(false, activeRung, nextMaxRung, cbNull, 0.0);
 
       if(verbosity > 1)
 	  memoryStats();
@@ -1797,21 +1847,12 @@ void Main::advanceBigStep(int iStep) {
 		  DumpFrame(dTime, dStep );
 	      // Update uDot at the 1/2 way point.
 	      if(param.bDoGas && (iSub+1 == driftSteps >> 1)) {
-		  double startTime = CkWallTimer();
-		  if(verbosity)
-		      CkPrintf("uDot' update: Rung %d ... ", nextMaxRung);
-		  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
-		  if(param.bGasCooling)
-		      dMProxy.CoolingSetTime(z, dTime,
-					     CkCallbackResumeThread());
+                  double duKick[MAXRUNG+1] = {};
+                  double dStartTime[MAXRUNG+1] = {};
+
+                  duKick[nextMaxRung] = 0.5*RungToDt(param.dDelta, nextMaxRung);
 		  dStartTime[nextMaxRung] = dTime; // only updating this rung
-		  treeProxy.updateuDot(nextMaxRung, duKick, dStartTime,
-				       param.bGasCooling, 0, 0,
-				       CkCallbackResumeThread());
-                  double tuDot = CkWallTimer() - startTime;
-                  timings[nextMaxRung].tuDot += tuDot;
-		  if(verbosity)
-		      CkPrintf("took %g seconds.\n", tuDot);
+		  updateuDot(nextMaxRung, duKick, dStartTime, 0, 0);
 		  }
 	      }
     }
@@ -1887,66 +1928,10 @@ void Main::advanceBigStep(int iStep) {
         }
     
     if(!param.bStaticTest) {
-      // Closing Kick
-      double dKickFac[MAXRUNG+1];
-      double duKick[MAXRUNG+1];
-      double dStartTime[MAXRUNG+1];
-      for (int iRung=0; iRung<=MAXRUNG; iRung++) {
-        duKick[iRung]=dKickFac[iRung]=0;
-      }
-      if(verbosity > 1)
-	  memoryStats();
-      if(verbosity)
-	  ckout << "Kick Close:" << endl;
-      for(int iRung = activeRung; iRung <= nextMaxRung; iRung++) {
-        double dTimeSub = RungToDt(param.dDelta, iRung);
-	if(verbosity) {
-	    CkPrintf(" Rung %d: %g\n", iRung, 0.5*dTimeSub);
-	    }
-        duKick[iRung] = 0.5*dTimeSub;
-	dStartTime[iRung] = dTime - 0.5*dTimeSub;
-        dKickFac[iRung] = csmComoveKickFac(param.csm,
-                                           dTime - 0.5*dTimeSub,
-                                           0.5*dTimeSub);
-      }
-      if(param.bDoGas) {
-	  double startTime = CkWallTimer();
-	  if(verbosity)
-	      CkPrintf("uDot update: Rung %d ... ", activeRung);
-	  double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
-	  if(param.bGasCooling)
-	      dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-	  treeProxy.updateuDot(activeRung, duKick, dStartTime,
-			       param.bGasCooling, 1, 1,
-			       CkCallbackResumeThread());
-	  if(verbosity)
-	      CkPrintf("took %g seconds.\n", CkWallTimer() - startTime);
-	  }
-      waitForGravity(cbGravity, gravStartTime, activeRung);
-      double startTime = CkWallTimer();
-      treeProxy.kick(activeRung, dKickFac, 1, param.bDoGas,
-		     param.bGasIsothermal, duKick, CkCallbackResumeThread());
-      double tKick = CkWallTimer() - startTime;
-      timings[activeRung].tKick += tKick;
-      if(verbosity)
-          CkPrintf("Kick took %g seconds.\n", tKick);
-      // 1/2 step uDot update
-      if(activeRung > 0 && param.bDoGas) {
-	  double startTime = CkWallTimer();
-	  if(verbosity)
-	      CkPrintf("uDot' update: Rung %d ... ", activeRung-1);
-	  duKick[activeRung-1] = 0.5*RungToDt(param.dDelta, activeRung-1);
-	  dStartTime[activeRung-1] = dTime;
-	  treeProxy.updateuDot(activeRung-1, duKick, dStartTime,
-			       param.bGasCooling, 0, 0,
-			       CkCallbackResumeThread());
-          double tuDot = CkWallTimer() - startTime;
-          timings[activeRung].tuDot += tuDot;
-	  if(verbosity)
-	      CkPrintf("took %g seconds.\n", tuDot);
-	  }
-      doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
-      }
+        // Closing Kick
+        kick(true, activeRung, nextMaxRung, cbGravity, gravStartTime);
+        doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
+    }
     else
         waitForGravity(cbGravity, gravStartTime, activeRung);
 
