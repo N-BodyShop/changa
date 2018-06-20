@@ -548,6 +548,10 @@ public:
         void startGravity(const CkCallback& cbGravity, int iActiveRung,
             double *startTime) ;
         void externalGravity(int iActiveRung);
+        void updateuDot(int iActiveRung, const double duKick[],
+            const double dStartTime[], int bUpdateState, int bAll);
+        void kick(bool bClosing, int iActiveRung, int nextMaxRung,
+            const CkCallback &cbGravity, double gravStartTime);
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
