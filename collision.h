@@ -24,10 +24,7 @@ public:
         iOrderCol = -1;
         bMergerDelete = 0;
         }
-    inline void pup(PUP::er &p);
-};
-  
-inline void ColliderInfo::pup(PUP::er &p) {
+    void pup(PUP::er &p) {
         p | position;
         p | velocity;
         p | acceleration;
@@ -39,8 +36,9 @@ inline void ColliderInfo::pup(PUP::er &p) {
         p | iOrderCol;
         p | rung;
         p | bMergerDelete;
-        }
-
+    }
+};
+  
 /// @brief Collision parameters and routines
 class Collision {
 public:

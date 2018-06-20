@@ -1935,15 +1935,14 @@ void Main::advanceBigCollStep(int iStep)
 
     // Opening kick
     startTime = CkWallTimer();
-    treeProxy.kick(activeRung, dKickFac, 0, 0, 0, 0, duKick, 0, 0, 0, 0, 0, CkCallbackResumeThread());
+    treeProxy.kick(activeRung, dKickFac, 0, 0, 0, duKick, CkCallbackResumeThread());
     timings[activeRung].tKick += CkWallTimer() - startTime;
 
     // Check for collision stepping
     ckout << "Checking for near collisions ...";
     if (bParticlesShuffled) {
         ckout << "Particles have been shuffled since last DD, re-sorting\n";
-        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                    CkCallbackResumeThread());
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
         startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
         }
      
@@ -1978,14 +1977,13 @@ void Main::advanceBigCollStep(int iStep)
         startTime = CkWallTimer();
 
         // Opening kick
-        treeProxy.kick(activeRung, dKickFac, 0, 0, 0, 0, duKick, 0, 0, 0, 0, 0, CkCallbackResumeThread());
+        treeProxy.kick(activeRung, dKickFac, 0, 0, 0, duKick, CkCallbackResumeThread());
         timings[activeRung].tKick += CkWallTimer() - startTime;
             
         // Collision detection + resolution
         if (bParticlesShuffled) {
             ckout << "Particles have been shuffled since last DD, re-sorting\n";
-            treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                        CkCallbackResumeThread());
+            treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
             startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
             }
         startTime = CkWallTimer();
@@ -2003,7 +2001,7 @@ void Main::advanceBigCollStep(int iStep)
 
         // Drift
         startTime = CkWallTimer();
-        treeProxy.drift(dtSub, 0, 0, dtSub, dtSub, 0, 0, 0, CkCallbackResumeThread());
+        treeProxy.drift(dtSub, 0, 0, dtSub, dtSub, 0, 0, CkCallbackResumeThread());
         timings[activeRung].tDrift += CkWallTimer() - startTime;
         dTime += dtSub;
 
@@ -2051,8 +2049,14 @@ void Main::advanceBigCollStep(int iStep)
         }
         else treeProxy.initAccel(activeRung, CkCallbackResumeThread());
 
-        if (param.exGravParams.bDoExternalGravity) {
-            treeProxy.externalGravity(activeRung, param.exGravParams, CkCallbackResumeThread());
+        if (param.bDoExternalGravity) {
+            CkReductionMsg *msgFrameAcc;
+            treeProxy.externalGravity(0, param.externalGravity,
+                                CkCallbackResumeThread((void*&)msgFrameAcc));
+            double *frameAcc = (double *)msgFrameAcc->getData();
+            Vector3D<double> frameAccVec(frameAcc[0], frameAcc[1], frameAcc[2]);
+            treeProxy.applyFrameAcc(0, frameAccVec, CkCallbackResumeThread());
+            delete msgFrameAcc;
             }
         timings[activeRung].tGrav += CkWallTimer() - startTime;
 
@@ -2060,7 +2064,7 @@ void Main::advanceBigCollStep(int iStep)
 
         // Closing kick
         startTime = CkWallTimer();
-        treeProxy.kick(activeRung, dKickFac, 1, 0, 0, 0, duKick, 0, 0, 0, 0, 0, CkCallbackResumeThread());
+        treeProxy.kick(activeRung, dKickFac, 1, 0, 0, duKick, CkCallbackResumeThread());
 
         startTime = CkWallTimer();
         treeProxy.finishNodeCache(CkCallbackResumeThread());

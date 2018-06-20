@@ -190,8 +190,8 @@ void registerReductions() {
 	callbackReduction = CkReduction::addReducer(same<CkCallback>);
 	boxReduction = CkReduction::addReducer(same<OrientedBox<float> >);
 	dfImageReduction = CkReduction::addReducer(dfImageReducer);
-    soonestCollReduction = CkReduction::addReducer(soonestCollInfo);
-    findCollReduction = CkReduction::addReducer(singleCollInfo);
+        soonestCollReduction = CkReduction::addReducer(soonestCollInfo);
+        findCollReduction = CkReduction::addReducer(singleCollInfo);
 	
 }
 

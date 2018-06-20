@@ -125,7 +125,6 @@ mainmodule ParallelGravity {
   PUPable SinkAccreteTestSmoothParams;
   PUPable SinkingAverageSmoothParams;
   PUPable SinkAccreteSmoothParams;
-  PUPable CollisionSmoothParams;
   PUPable Fdbk;
   PUPable StarLog;
   PUPable Chabrier;
