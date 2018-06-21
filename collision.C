@@ -165,11 +165,12 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
                     }
                 nColl++;
                 
+                int bMerger = 0;
                 if (param.collision.bAllowMergers) {
-                    param.collision.checkMerger(c[0], c[1]);
+                    bMerger = param.collision.checkMerger(c[0], c[1]);
                     }
-                if (c[0].bMergerDelete || c[1].bMergerDelete) {
-                    if (c[0].bMergerDelete) ckout << "Merge " << c[0].iOrder
+                if (bMerger != 0) {
+                    if (bMerger < 0) ckout << "Merge " << c[0].iOrder
                                                   << " into " << c[1].iOrder << "\n";
                     else ckout << "Merge " << c[1].iOrder <<  " into " << c[0].iOrder << "\n";
                     treeProxy.resolveCollision(param.collision, c[0], c[1], 1,
@@ -282,7 +283,7 @@ void TreePiece::getCollInfo(int iOrder, const CkCallback& cb)
  * @param coll A reference to the collision class that handles collision physics
  * @param c1 Information about the particle that is undergoing a collision
  */
-void TreePiece::resolveWallCollision(Collision coll, ColliderInfo &c1, 
+void TreePiece::resolveWallCollision(Collision coll, const ColliderInfo &c1, 
                                      const CkCallback& cb) {
     GravityParticle *p;
     for (unsigned int i=1; i <= myNumParticles; i++) {
@@ -307,8 +308,8 @@ void TreePiece::resolveWallCollision(Collision coll, ColliderInfo &c1,
  * @param baseStep The size of the current step on this rung
  * @param timeNow The current simulation time
  */
-void TreePiece::resolveCollision(Collision coll, ColliderInfo &c1,
-                                 ColliderInfo &c2, int bMerge, double baseStep,
+void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
+                                 const ColliderInfo &c2, int bMerge, double baseStep,
                                  double timeNow, const CkCallback& cb) {
         GravityParticle *p;
         // Look for the first collider particle on this tree piece
@@ -424,39 +425,25 @@ void TreePiece::getNeedCollStep(int collStepRung, const CkCallback& cb)
 /**
  * @brief Check for a merger between two colliders
  *
- * If they are to merge, set the bMergerDelete flag to True for the less
- * massive collider. A merger will occur if the relative velocity between
- * particles is < vEsc and both particles post collision angular speed is
+ * A merger will occur if the relative velocity between particles
+ * is < vEsc and both particles post collision angular speed is
  * < wMax.
  *
  * @param c1 The first collider participating in the event
  * @param c2 The second collider participating in the event
+ *
+ * @returns 0 if no merger, -1 or 1 if c1 or c2 are to be consumed
  */
-void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
+int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
 {
 
-    // Calculate the post collision spin of the merged particle
-    Vector3D<double> posNew, vNew, wNew, aNew;
-    // Advance particle positions to moment of collision
-    Vector3D<double> pAdjust = c1.velocity*c1.dtCol;
-    Vector3D<double> cAdjust = c2.velocity*c2.dtCol;
+    // Calculate the post collision spin and velocity of the merged particle
+    Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
     double radNew;
-    c1.position += pAdjust;
-    c2.position += cAdjust;
-    mergeCalc(c1.radius, c1.mass, c1.position, c1.velocity, c1.acceleration,
+    // Advance particle positions to moment of collision
+    pAdjust = c1.position + c1.velocity*c1.dtCol;
+    mergeCalc(c1.radius, c1.mass, pAdjust, c1.velocity, c1.acceleration,
               c1.w, &posNew, &vNew, &wNew, &aNew, &radNew, c2);
-    CkPrintf("Merger info:\niorder1 iorder2 m1 m2 r1 r2 x1 x2 v1 v2 w1 w2 wNew\n");
-    CkPrintf("%d %d %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
-            c1.iOrder, c2.iOrder, c1.mass, c2.mass, c1.radius, c2.radius,
-            c1.position[0], c1.position[1], c1.position[2],
-            c2.position[0], c2.position[1], c2.position[2],
-            c1.velocity[0], c1.velocity[1], c1.velocity[2],
-            c2.velocity[0], c2.velocity[1], c2.velocity[2],
-            c1.w[0], c1.w[1], c1.w[2], c2.w[0], c2.w[1], c2.w[2], wNew[0], wNew[1], wNew[2]);
-
-    // Revert particle positions back to beginning of step
-    c1.position -= pAdjust;
-    c2.position -= cAdjust;
 
     double Mtot = c1.mass + c2.mass;
     double vEsc = sqrt(2.*Mtot/(c1.radius + c2.radius));
@@ -466,13 +453,13 @@ void Collision::checkMerger(ColliderInfo &c1, ColliderInfo &c2)
     if (vRel > vEsc || wNew.length() > wMax) {
         if (!bPerfectAcc) {
             CkPrintf("Merger rejected\n");
-            return;
+            return 0;
             }
         }
 
     // Mark the less massive particle to be consumed and deleted
-    if (c1.mass < c2.mass) c1.bMergerDelete = 1;
-    else c2.bMergerDelete = 1;
+    if (c1.mass < c2.mass) return -1;
+    else return 1;
     }
 
 /**
@@ -499,7 +486,7 @@ double Collision::LastKickTime(int rung, double baseTime, double timeNow)
  * @param baseStep The timestep size on the lowest rung
  * @param timeNow The current time in the simulation
  */
-void Collision::setMergerRung(GravityParticle *p, ColliderInfo &c, ColliderInfo &cMerge,
+void Collision::setMergerRung(GravityParticle *p, const ColliderInfo &c, const ColliderInfo &cMerge,
                               double baseStep, double timeNow)
 {
     double m1 = c.mass;
@@ -545,18 +532,15 @@ void Collision::doWallCollision(GravityParticle *p) {
  * @param c Contains information about the particle that p is colliding with
  * @param bMerge If true, merge the particles together
  */
-void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
+void Collision::doCollision(GravityParticle *p, const ColliderInfo &c, int bMerge)
 {
     // If the particles are different sizes, p might not have its dtCol
     // field set. Fix this before going any further.
     p->dtCol = c.dtCol;
 
     // Advance particle positions to moment of collision
-    Vector3D<double> pAdjust = p->velocity*p->dtCol;
-    Vector3D<double> cAdjust = c.velocity*c.dtCol;
-    Vector3D<double> pAdv = p->position + pAdjust;
-    p->position += pAdjust;
-    c.position += cAdjust;    
+    Vector3D<double> pAdjust, pAdv;
+    pAdjust = p->position + p->velocity*p->dtCol;
 
     Vector3D<double> vNew, wNew;
     double radNew;
@@ -564,10 +548,17 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
         Vector3D<double> posNew, aNew;
         mergeCalc(p->soft*2., p->mass, pAdv, p->velocity, p->treeAcceleration,
                   p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
+        CkPrintf("Merger info:\niorder1 iorder2 m1 m2 xNew vNew wNew\n");
+        CkPrintf("%d %d %g %g %g %g %g %g %g %g %g %g %g\n",
+                  p->iOrder, c.iOrder, p->mass, c.mass,
+                  posNew[0], posNew[1], posNew[2],
+                  vNew[0], vNew[1], vNew[2],
+                  wNew[0], wNew[1], wNew[2]);
         p->position = posNew;
         p->treeAcceleration = aNew;
         p->soft = radNew/2.;
         p->mass += c.mass;
+                  
         }
     else {
         bounceCalc(p->soft*2., p->mass, pAdv, p->velocity, p->w, &vNew, &wNew, c);
@@ -581,7 +572,6 @@ void Collision::doCollision(GravityParticle *p, ColliderInfo &c, int bMerge)
         }
     else {
         p->position -= pAdjust;
-        c.position -= cAdjust;
         }
     p->dtCol = DBL_MAX;
     }
@@ -611,7 +601,7 @@ void Collision::mergeCalc(double r, double m, Vector3D<double> pos,
                           Vector3D<double> vel, Vector3D<double> acc,
                           Vector3D<double> w, Vector3D<double> *posNew,
                           Vector3D<double> *velNew, Vector3D<double> *wNew,
-                          Vector3D<double> *aNew,  double *radNew, ColliderInfo &c)
+                          Vector3D<double> *aNew,  double *radNew, const ColliderInfo &c)
 {
     double r1 = r;
     double r2 = c.radius;
@@ -623,18 +613,20 @@ void Collision::mergeCalc(double r, double m, Vector3D<double> pos,
     double rho1 = m1/(dDenFac*pow(r1, 3.));
     double rho2 = m2/(dDenFac*pow(r2, 3.));
 
+    Vector3D<double> cPosNew = c.position + c.velocity*c.dtCol;
+
     *radNew = pow(M/(dDenFac*rho1), 1./3.); // Conserves density
 
     double i1 = 0.4*m1*r1*r1;
     double i2 = 0.4*m2*r2*r2;
     double i = 0.4*M*(* radNew)*(* radNew);
 
-    Vector3D<double> comPos = (m1*pos + m2*c.position)/M;
+    Vector3D<double> comPos = (m1*pos + m2*cPosNew)/M;
     Vector3D<double> comVel = (m1*vel + m2*c.velocity)/M;
     Vector3D<double> comAcc = (m1*acc + m2*c.acceleration)/M;
 
     Vector3D<double> rc1 = pos - comPos;
-    Vector3D<double> rc2 = c.position - comPos;
+    Vector3D<double> rc2 = cPosNew - comPos;
     Vector3D<double> vc1 = vel - comVel;
     Vector3D<double> vc2 = c.velocity - comVel;
 
@@ -665,7 +657,7 @@ void Collision::mergeCalc(double r, double m, Vector3D<double> pos,
 void Collision::bounceCalc(double r, double m, Vector3D<double> pos,
                            Vector3D<double> vel, Vector3D<double> w,
                            Vector3D<double> *velNew, Vector3D<double> *wNew,
-                           ColliderInfo &c)
+                           const ColliderInfo &c)
 {
     // Equations come from Richardson 1994
     double r1 = r;

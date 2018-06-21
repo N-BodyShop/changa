@@ -55,21 +55,21 @@ public:
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
-    void doCollision(GravityParticle* p, ColliderInfo &c, int bMerge);
-    void checkMerger(ColliderInfo &c1, ColliderInfo &c2);
+    void doCollision(GravityParticle* p, const ColliderInfo &c, int bMerge);
+    int checkMerger(const ColliderInfo &c1, const ColliderInfo &c2);
     double LastKickTime(int rung, double baseTime, double timeNow);
-    void setMergerRung(GravityParticle *p, ColliderInfo &c, ColliderInfo &cMerge,
+    void setMergerRung(GravityParticle *p, const ColliderInfo &c, const ColliderInfo &cMerge,
                               double baseStep, double timeNow);
     void doWallCollision(GravityParticle *p);
     void mergeCalc(double r, double m, Vector3D<double> pos,
                    Vector3D<double> vel, Vector3D<double> acc,
                    Vector3D<double> w, Vector3D<double> *posNew,
                    Vector3D<double> *velNew, Vector3D<double> *wNew,
-                   Vector3D<double> *aNew, double *radNew, ColliderInfo &c);
+                   Vector3D<double> *aNew, double *radNew, const ColliderInfo &c);
     void bounceCalc(double r, double m, Vector3D<double> pos,
                     Vector3D<double> vel, Vector3D<double> w,
                     Vector3D<double> *velNew, Vector3D<double> *wNew,
-                    ColliderInfo &c);
+                    const ColliderInfo &c);
     Collision() {}
     inline void pup(PUP::er &p);
     };
