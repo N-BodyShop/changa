@@ -360,6 +360,10 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, d
         DI_density, DII_density, HDI_density,
         e_density, metal_density;
 
+    /* Negative dt indicates cooling shutoff, we still need to
+       calculate the abundances */
+    if(dt < 0.0) dt = -dt;
+    
     metal_density = ZMetal*density;
 
     if (cl->pgrackle_data->primordial_chemistry==0) {
