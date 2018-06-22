@@ -185,14 +185,14 @@ void ListCompute::initState(State *state){
   myUndlist.length() = 0;
   // interaction lists:
   s->clists[level].length() = 0;
-  s->clists[level].reserve(1000);
+  // s->clists[level].reserve(1000);
   if(getOptType() == Local){
     s->lplists[level].length() = 0;
-    s->lplists[level].reserve(100);
+  //   s->lplists[level].reserve(100);
   }
   else if(getOptType() == Remote){
     s->rplists[level].length() = 0;
-    s->rplists[level].reserve(100);
+  //   s->rplists[level].reserve(100);
   }
   else{
     CkAbort("Invalid Opt type for ListCompute");
