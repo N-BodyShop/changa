@@ -212,7 +212,8 @@ VERSION: VERSION.new
 	$(SOURCE_DIR)/commitid.sh
 
 cha_commitid.c: VERSION
-	echo "const char * const Cha_CommitID = \"`cat $<`\";" > $@
+	echo "extern const char * const Cha_CommitID;" > $@
+	echo "const char * const Cha_CommitID = \"`cat $<`\";" >> $@
 cha_commitid.o: CC=$(CHARMC)
 
 $(STRUCTURES_PATH)/libTipsy.a:

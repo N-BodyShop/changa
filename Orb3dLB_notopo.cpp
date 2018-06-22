@@ -8,9 +8,9 @@
 
 extern CProxy_TreePiece treeProxy;
 
-extern bool doDumpLB;
+extern int doDumpLB;
 extern int lbDumpIteration;
-extern bool doSimulateLB;
+extern int doSimulateLB;
 
 CkpvExtern(int, _lb_obj_index);
 
