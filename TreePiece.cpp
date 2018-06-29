@@ -146,7 +146,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 		     << boundingBox << endl;
 	//give particles keys, using bounding box to scale
 	if((domainDecomposition!=ORB_dec)
-	   && (domainDecomposition!=ORB_space_dec) && myNumParticles > 0){
+            && (domainDecomposition!=ORB_space_dec)){
 	      // get longest axis
 	      Vector3D<float> bsize = boundingBox.size();
 	      float max = (bsize.x > bsize.y) ? bsize.x : bsize.y;
@@ -163,13 +163,15 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 		      ckout << "TreePiece: Bounding box now: "
 			   << boundingBox << endl;
 
-              myParticles[0].key = firstPossibleKey;
-              myParticles[myNumParticles+1].key = lastPossibleKey;
-	      for(unsigned int i = 0; i < myNumParticles; ++i) {
-		myParticles[i+1].key = generateKey(myParticles[i+1].position,
-						   boundingBox);
-	      }
-	      sort(&myParticles[1], &myParticles[myNumParticles+1]);
+              if(myNumParticles > 0) {
+                  myParticles[0].key = firstPossibleKey;
+                  myParticles[myNumParticles+1].key = lastPossibleKey;
+                  for(unsigned int i = 0; i < myNumParticles; ++i) {
+                    myParticles[i+1].key = generateKey(myParticles[i+1].position,
+                                                       boundingBox);
+                  }
+                  sort(&myParticles[1], &myParticles[myNumParticles+1]);
+              }
 	}
 
 #if COSMO_DEBUG > 1
