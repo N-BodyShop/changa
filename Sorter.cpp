@@ -30,7 +30,7 @@ void Sorter::doORBDecomposition(CkReductionMsg* m){
   char dim;
   double pos;
  	
-  OrientedBox<float> box = *static_cast<OrientedBox<float> *>(m->getData());
+  OrientedBox<cosmoType> box = *static_cast<OrientedBox<cosmoType> *>(m->getData());
   delete m;
 
   if(numChares == 1) { // No decomposition to do
@@ -101,8 +101,8 @@ void Sorter::finishPhase(CkReductionMsg *m){
     second.boundingBox.greater_corner = (*iter).boundingBox.greater_corner;
 
     //Find which is the longest dimension
-    OrientedBox<float> box1 = first.boundingBox;
-    OrientedBox<float> box2 = second.boundingBox;
+    OrientedBox<cosmoType> box1 = first.boundingBox;
+    OrientedBox<cosmoType> box2 = second.boundingBox;
 
     len=box1.greater_corner.x-box1.lesser_corner.x;
     dim=0;

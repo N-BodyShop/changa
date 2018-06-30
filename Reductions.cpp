@@ -9,6 +9,7 @@
 
 CkReduction::reducerType growOrientedBox_float;
 CkReduction::reducerType growOrientedBox_double;
+CkReduction::reducerType growOrientedBox_cosmoType;
 
 CkReduction::reducerType minmax_int;
 CkReduction::reducerType minmax_long;
@@ -114,6 +115,7 @@ CkReductionMsg* dfImageReducer(int nMsg, CkReductionMsg** msgs) {
 void registerReductions() {
 	growOrientedBox_float = CkReduction::addReducer(boxGrowth<float>);
 	growOrientedBox_double = CkReduction::addReducer(boxGrowth<double>);
+	growOrientedBox_cosmoType = CkReduction::addReducer(boxGrowth<cosmoType>);
 	
 	minmax_int = CkReduction::addReducer(minmax<int>);
 	minmax_long = CkReduction::addReducer(minmax<int64_t>);
@@ -121,7 +123,7 @@ void registerReductions() {
 	minmax_double = CkReduction::addReducer(minmax<double>);
 	max_count = CkReduction::addReducer(max_count_reduce);
 	callbackReduction = CkReduction::addReducer(same<CkCallback>);
-	boxReduction = CkReduction::addReducer(same<OrientedBox<float> >);
+	boxReduction = CkReduction::addReducer(same<OrientedBox<cosmoType> >);
 	dfImageReduction = CkReduction::addReducer(dfImageReducer);
 	
 }

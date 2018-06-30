@@ -123,7 +123,7 @@ class Sorter : public CBase_Sorter {
 	
   ///Variables added for ORB decomposition
   typedef struct DivData{
-    OrientedBox<float> boundingBox;
+    OrientedBox<cosmoType> boundingBox;
     double curLow;
     double curHigh;
     double curDivision;

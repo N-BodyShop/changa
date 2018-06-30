@@ -5,6 +5,7 @@
  
 extern CkReduction::reducerType growOrientedBox_float;
 extern CkReduction::reducerType growOrientedBox_double;
+extern CkReduction::reducerType growOrientedBox_cosmoType;
 
 extern CkReduction::reducerType minmax_int;
 extern CkReduction::reducerType minmax_long;

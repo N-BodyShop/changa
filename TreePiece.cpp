@@ -131,7 +131,7 @@ void TreePiece::velScale(double dScale, const CkCallback& cb)
 
 /// After the bounding box has been found, we can assign keys to the particles
 void TreePiece::assignKeys(CkReductionMsg* m) {
-	if(m->getSize() != sizeof(OrientedBox<float>)) {
+	if(m->getSize() != sizeof(OrientedBox<cosmoType>)) {
 		ckerr << thisIndex << ": TreePiece: Fatal: Wrong size reduction message received!" << endl;
 		CkAssert(0);
 		callback.send(0);
@@ -139,7 +139,7 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 		return;
 	}
 
-	boundingBox = *static_cast<OrientedBox<float> *>(m->getData());
+	boundingBox = *static_cast<OrientedBox<cosmoType> *>(m->getData());
 	delete m;
 	if(thisIndex == 0 && verbosity > 1)
 		ckout << "TreePiece: Bounding box originally: "
@@ -148,17 +148,17 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	if((domainDecomposition!=ORB_dec)
             && (domainDecomposition!=ORB_space_dec)){
 	      // get longest axis
-	      Vector3D<float> bsize = boundingBox.size();
+	      Vector3D<cosmoType> bsize = boundingBox.size();
 	      float max = (bsize.x > bsize.y) ? bsize.x : bsize.y;
 	      max = (max > bsize.z) ? max : bsize.z;
 	      //
 	      // Make the bounding box cubical.
 	      //
-	      Vector3D<float> bcenter = boundingBox.center();
+	      Vector3D<cosmoType> bcenter = boundingBox.center();
 	      const float fEps = 1.0 + 9.5e-7;  // slop to ensure keys fall
 						// between 0 and 1.
-	      bsize = Vector3D<float>(fEps*0.5*max);
-	      boundingBox = OrientedBox<float>(bcenter-bsize, bcenter+bsize);
+	      bsize = Vector3D<cosmoType>(fEps*0.5*max);
+	      boundingBox = OrientedBox<cosmoType>(bcenter-bsize, bcenter+bsize);
 	      if(thisIndex == 0 && verbosity > 1)
 		      ckout << "TreePiece: Bounding box now: "
 			   << boundingBox << endl;
@@ -210,7 +210,7 @@ bool comp_dim2(GravityParticle p1, GravityParticle p2) {
 ///Initialize stuff before doing ORB decomposition
 void TreePiece::initORBPieces(const CkCallback& cb){
 
-  OrientedBox<float> box = boundingBox;
+  OrientedBox<cosmoType> box = boundingBox;
   orbBoundaries.clear();
   orbBoundaries.push_back(myParticles+1);
   orbBoundaries.push_back(myParticles+myNumParticles+1);
@@ -236,12 +236,12 @@ void TreePiece::initORBPieces(const CkCallback& cb){
   }
   chunkRootLevel--;
 
-  boxes = new OrientedBox<float>[chunkRootLevel+1];
+  boxes = new OrientedBox<cosmoType>[chunkRootLevel+1];
   splitDims = new char[chunkRootLevel+1];
 
   boxes[0] = boundingBox;
 
-  contribute(sizeof(OrientedBox<float>), &box, boxReduction, cb);
+  contribute(sizeof(OrientedBox<cosmoType>), &box, boxReduction, cb);
 }
 
 /// Allocate memory for sorted particles.
@@ -1912,8 +1912,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
     CkAbort("binbox2 failed\n");
   }
   if(buildTree)
-    contribute(sizeof(OrientedBox<float>), &boundingBox,
-      	       growOrientedBox_float,
+    contribute(sizeof(OrientedBox<cosmoType>), &boundingBox,
+      	       growOrientedBox_cosmoType,
       	       CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
   else
     contribute(cb);
@@ -2107,8 +2107,8 @@ void TreePiece::newOrder(const NewMaxOrder *nStarts, const int n,
     iSeTab.clear();
     callback = cb;		// called by assignKeys()
     // get the new particles into key order
-    contribute(sizeof(OrientedBox<float>), &boundingBox,
-	       growOrientedBox_float,
+    contribute(sizeof(OrientedBox<cosmoType>), &boundingBox,
+	       growOrientedBox_cosmoType,
 	       CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
     }
     
@@ -2638,9 +2638,9 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
 
 }
 
-OrientedBox<float> TreePiece::constructBoundingBox(GenericTreeNode* node,int level, int numChild){
+OrientedBox<cosmoType> TreePiece::constructBoundingBox(GenericTreeNode* node,int level, int numChild){
 
-  OrientedBox<float> tmpBox;
+  OrientedBox<cosmoType> tmpBox;
   if(node->getType()==NonLocal){
     if(numChild==0){
       tmpBox = boxes[level];

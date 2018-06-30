@@ -1150,7 +1150,7 @@ private:
 
 	std::string basefilename;
 	// Bounding box of the entire simulation
-	OrientedBox<float> boundingBox;
+	OrientedBox<cosmoType> boundingBox;
 	unsigned iterationNo;
 	/// The root of the global tree, always local to any chare
 	GenericTreeNode* root;
@@ -1285,7 +1285,7 @@ private:
 
   ///Keeps track of the bounding boxes and dimensions along which they are splitted, starting from
   ///root to chunkRootLevel
-  OrientedBox<float>* boxes;
+  OrientedBox<cosmoType>* boxes;
   char* splitDims;
 
   ///Phase of ORB decomposition: the number of boxes double in each phase till they are equal to the number
@@ -1813,7 +1813,7 @@ public:
   /********ORB Tree**********/
   //void receiveBoundingBoxes(BoundingBoxes *msg);
   void startORBTreeBuild(CkReductionMsg* m);
-  OrientedBox<float> constructBoundingBox(GenericTreeNode *node,int level, int numChild);
+  OrientedBox<cosmoType> constructBoundingBox(GenericTreeNode *node,int level, int numChild);
   void buildORBTree(GenericTreeNode * node, int level);
   /**************************/
 
