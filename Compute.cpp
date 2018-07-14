@@ -2026,6 +2026,12 @@ void ListCompute::resetCudaPartState(DoubleWalkState *state){
 
 void cudaCallback(void *param, void *msg){
   CudaRequest *data = (CudaRequest *)param;
+  // Paranoid about data corruption here.
+  CkAssert(((CkCallback *)data->cb)->type == CkCallback::callbackType::callCFn);
+  CkAssert(((CkCallback *)data->cb)->d.cfn.fn == cudaCallback);
+  CkAssert(data->numBucketsPlusOne > 0);
+  CkAssert(data->numInteractions >= 0);
+  
   int *affectedBuckets = data->affectedBuckets;
   TreePiece *tp = (TreePiece*)data->tp;
   DoubleWalkState *state = (DoubleWalkState *)data->state;
@@ -2154,6 +2160,12 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 
   OptType type = getOptType();
   data->cb = new CkCallback(cudaCallback, data);
+
+  if(data->numBucketsPlusOne == 1) { // Nothing for the GPU to do
+      cudaCallback(data, NULL);     // Clean up
+      return;
+  }
+
 #ifdef CUDA_INSTRUMENT_WRS
   double time = state->nodeListConstructionTimeStop();
 #endif
@@ -2190,6 +2202,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     tp->nRemoteResumeNodeReqs++;
 #endif
   }
+  else {assert(0);}
 #ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("memcheck after sendNodeInteractionsToGpu\n");
   CmiMemoryCheck();
@@ -2254,6 +2267,12 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
 
   OptType type = getOptType();
   data->cb = new CkCallback(cudaCallback, data);
+
+  if(data->numBucketsPlusOne == 1) { // Nothing for the GPU to do
+      cudaCallback(data, NULL);     // Clean up
+      return;
+  }
+
 #ifdef CUDA_INSTRUMENT_WRS
   double time = state->partListConstructionTimeStop();
 #endif
@@ -2299,6 +2318,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *t
     tp->nRemoteResumePartReqs++;
 #endif
   }
+  else {CkAssert(0);}
 #ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("memcheck after sendPartInteractionsToGpu\n");
   CmiMemoryCheck();
