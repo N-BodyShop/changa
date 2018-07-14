@@ -74,7 +74,7 @@ void allocatePinnedHostMemory(void **ptr, int size){
 #ifdef CUDA_PRINT_ERRORS
     printf("allocatePinnedHostMemory: 0 size!\n");
 #endif
-    exit(-1);
+    assert(0);
     return;
   }
 #ifdef CUDA_MEMPOOL
@@ -92,7 +92,7 @@ void freePinnedHostMemory(void *ptr){
 #ifdef CUDA_PRINT_ERRORS
     printf("freePinnedHostMemory: NULL ptr!\n");
 #endif
-    exit(-1);
+    assert(0);
     return;
   }
   hapi_hostFree(ptr);
