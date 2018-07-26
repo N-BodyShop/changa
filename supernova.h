@@ -73,13 +73,13 @@ class SN
 				   et al 2004) */
 	}
     void CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta,
-              FBEffects *fbEffects);
+                           FBEffects *fbEffects) const;
     void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
-			  FBEffects *fbEffects);
+                          FBEffects *fbEffects) const;
     void CalcSNIaFeedback(SFEvent *sfEvent,double dTime, 
-			  double dDelta, FBEffects *fbEffects);
-    double NSNIa (double dMassT1, double dMassT2);
-    friend double dMSIMFSec(SN *sn, double dMass2);
+                          double dDelta, FBEffects *fbEffects) const;
+    double NSNIa (double dMassT1, double dMassT2) const;
+    friend double dMSIMFSec(const SN *sn, double dMass2);
     void pup(PUP::er& p) {
 	p|dESN;
 	p|dMSNrem;

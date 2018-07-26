@@ -20,7 +20,7 @@ public:
     
 /// Integrand for secondary mass function: probability of a binary
 /// of mass dMassB having a secondary of MSBinary->dMass2
-double dMSIMFSecInt(MSBinary *msb, double dMassB) 
+double dMSIMFSecInt(const MSBinary *msb, double dMassB)
 {
     // A factor of 1/(dMassB*log(10)) is from the definition of IMF as
     // number per log10(M).  Another factor of 1/dMassB is to
@@ -33,7 +33,7 @@ double dMSIMFSecInt(MSBinary *msb, double dMassB)
  * The distribution of secondary mass ratios is assumed to be a power
  * law, mu^dGamma as in Matteucci & Greggio (1986)
  */
-double dMSIMFSec(SN *sn, double dMass2)
+double dMSIMFSec(const SN *sn, double dMass2)
 {
     double dIMFSec;
     double dMass2_2, Msup, Minf;
@@ -49,7 +49,7 @@ double dMSIMFSec(SN *sn, double dMass2)
     // comparing NSNIa with the number of stars in the 3.0-16.0 mass interval.
     dMass2_2 = 2.*dMass2;  // Minimum mass of binary
     Minf = (dMass2_2 > sn->dMBmin)?dMass2_2:sn->dMBmin;
-    dIMFSec = dRombergO(&msb, (double (*)(void *, double))dMSIMFSecInt, Minf, Msup, EPSSNIA);
+    dIMFSec = dRombergO(&msb, (double (*)(const void *, double))dMSIMFSecInt, Minf, Msup, EPSSNIA);
     dIMFSec *= sn->dFracBinSNIa * dNorm_2nd;
     return dIMFSec;
     }
@@ -59,7 +59,7 @@ double dMSIMFSec(SN *sn, double dMass2)
   * timestep in which dMassT1 and dMassT2 are masses of stars that end
   * their lives at the end and beginning of timestep, respectively
   */
-double SN::NSNIa (double dMassT1, double dMassT2)
+double SN::NSNIa (double dMassT1, double dMassT2) const
 {
     CkAssert (dMassT1 < dMassT2);
     // Exclude primaries that go SNII
@@ -67,7 +67,7 @@ double SN::NSNIa (double dMassT1, double dMassT2)
 	return 0.0;
     if(dMassT2 > 0.5*dMBmax)
 	dMassT2 = 0.5*dMBmax;
-    return dRombergO(this, (double (*)(void *, double))dMSIMFSec, dMassT1, dMassT2, EPSSNIA);
+    return dRombergO(this, (double (*)(const void *, double))dMSIMFSec, dMassT1, dMassT2, EPSSNIA);
     }
 
 #ifdef SNIA_TST

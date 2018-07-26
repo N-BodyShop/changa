@@ -147,9 +147,6 @@ extern CProxy_TreePiece treeProxy;
 #ifdef REDUCTION_HELPER
 extern CProxy_ReductionHelper reductionHelperProxy;
 #endif
-#ifdef CUDA
-extern CProxy_DataManagerHelper dmHelperProxy;
-#endif
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
@@ -446,6 +443,8 @@ class Main : public CBase_Main {
 	int64_t nTotalSPH;
 	int64_t nTotalDark;
 	int64_t nTotalStar;
+	/// Total Sink Particles
+	int64_t nSink;
 	int64_t nMaxOrderGas;  /* Maximum iOrders */
 	int64_t nMaxOrderDark;
 	int64_t nMaxOrder;
@@ -571,6 +570,10 @@ public:
 	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
+	void outputBlackHoles(double dTime);
+	void SetSink();
+	void FormSinks(double dTime, double dDelta, int iKickRung);
+	void doSinks(double dTime, double dDelta, int iKickRung);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -911,10 +914,6 @@ class TreePiece : public CBase_TreePiece {
               bucket->bucketArrayIndex = fillIndex;
               for(int i = buckstart; i <= buckend; i++){
                 fillArray[fillIndex] = buckparts[i-buckstart];
-#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
-                fillArray[fillIndex].tp = thisIndex;
-                fillArray[fillIndex].id = i;
-#endif
                 fillIndex++;
               }
             }
@@ -935,10 +934,6 @@ class TreePiece : public CBase_TreePiece {
               for(int i = buckstart; i <= buckend; i++){
                 if(buckparts[i-buckstart].rung >= activeRung){
                   fillArray[fillIndex] = buckparts[i-buckstart];
-#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
-                  fillArray[fillIndex].tp = thisIndex;
-                  fillArray[fillIndex].id = i;
-#endif
                   fillIndex++;
                 }
               }
@@ -996,6 +991,9 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
         void continueStartRemoteChunk(int chunk);
+#ifdef CUDA
+        void updateParticles(intptr_t data, int partIndex);
+#endif
         void continueWrapUp();
 
 #if INTERLIST_VER > 0
@@ -1033,14 +1031,9 @@ private:
 	// liveViz 
 	liveVizRequestMsg * savedLiveVizMsg;
 
-        // jetley - proxy for load balancer
-        CkGroupID proxy;
         LBStrategy foundLB;
-        // jetley - whether proxy is valid or not
-        bool proxyValid;
         // jetley - saved first internal node
         Vector3D<float> savedCentroid;
-        bool proxySet;
         // jetley - multistep load balancing
         int prevLARung;
         int lbActiveRung;
@@ -1401,8 +1394,8 @@ private:
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
 public:
- TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
-	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
+ TreePiece() : pieces(thisArrayID), root(0),
+            prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
     treePieceActivePartsTmp(0) {
@@ -1489,9 +1482,6 @@ public:
 
 	TreePiece(CkMigrateMessage* m) {
 	  treePieceLoadTmp = 0.0;
-          // jetley
-          proxyValid = false;
-          proxySet = false;
 
 	  usesAtSync = true;
 	  //localCache = NULL;
@@ -1605,7 +1595,7 @@ public:
         void resetMetals(const CkCallback& cb);
         void getMaxIOrds(const CkCallback& cb);
         void RestartEnergy(double dTuFac, const CkCallback& cb);
-        void findTotalMass(CkCallback &cb);
+        void findTotalMass(const CkCallback &cb);
         void recvTotalMass(CkReductionMsg *msg);
 
 	// Write a Tipsy file
@@ -1659,7 +1649,7 @@ public:
 			  const int bCool,
 			  const CkCallback &cb);
 	// Reorder for output
-	void reOrder(int64_t nMaxOrder, CkCallback& cb);
+        void reOrder(int64_t nMaxOrder, const CkCallback& cb);
 	// move particles around for output
 	void ioShuffle(CkReductionMsg *msg);
 	void ioAcceptSortedParticles(ParticleShuffleMsg *);
@@ -1745,6 +1735,17 @@ public:
   void truncateRung(int iCurrMaxRung, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
+  /// @brief count total number of particles of given type
+  void countType(int iType, const CkCallback& cb);
+  void outputBlackHoles(const std::string& pszFileName, double dvFac,
+                        long lFPos, const CkCallback &cb);
+  /// @brief set sink type based on formation time.
+  void SetSink(double dSinkMassMin, const CkCallback &cb);
+  /// @brief set sink timesteps.
+  void SinkStep(int iCurrSinkRung, int iKickRung, const CkCallback &cb);
+  void formSinks(int bJeans, double dJConst2, int bDensity,
+		 double dDensityCut, double dTime, int iKickRung, int bSimple,
+		 const CkCallback &cb);
   void emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
 		       const CkCallback &cb);
   void assignDomain(const CkCallback& cb);
@@ -1785,8 +1786,8 @@ public:
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void flushStarLog(const CkCallback& cb);
-	void Feedback(Fdbk &fb, double dTime, double dDelta,
-		       const CkCallback& cb);
+        void Feedback(const Fdbk &fb, double dTime, double dDelta,
+                      const CkCallback& cb);
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
@@ -1933,9 +1934,8 @@ public:
 	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
 	void processReqSmoothParticles();
 
-	//void startlb(CkCallback &cb);
 	void getParticleInfoForLB(int64_t active_part, int64_t total_part);
-	void startlb(CkCallback &cb, int activeRung);
+        void startlb(const CkCallback &cb, int activeRung);
   void setTreePieceLoad(int activeRung);
   void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
   bool havePhaseData(int phase);
@@ -1948,12 +1948,12 @@ public:
 			 const CkCallback& cb);
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
 			   int nPart, int iIndex, int bDone,
-			   CkCallback& cb) ;
+			   const CkCallback& cb) ;
 	void oneNodeOutArr(OutputParams& params, double* adOut,
 			   int nPart, int iIndex, int bDone,
-			   CkCallback& cb) ;
+			   const CkCallback& cb) ;
 	void oneNodeOutIntArr(OutputParams& params, int *aiOut,
-			      int nPart, int iIndex, CkCallback& cb);
+                              int nPart, int iIndex, const CkCallback& cb);
         void outputBinaryStart(OutputParams& params, int64_t nStart,
                                const CkCallback& cb);
 	void outputBinary(Ck::IO::Session, OutputParams& params);
@@ -1961,7 +1961,7 @@ public:
 
 	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
-	void collectStatistics(CkCallback &cb);
+        void collectStatistics(const CkCallback &cb);
 
         /** @brief Entry method used to split the processing of all the buckets
          * in small pieces. It calls startNextBucket() _yieldPeriod number of
@@ -2000,11 +2000,10 @@ public:
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
         void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
-        void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
         void doAtSync();
 
-        void balanceBeforeInitialForces(CkCallback &cb);
-        
+        void balanceBeforeInitialForces(const CkCallback &cb);
+
         // For merging of remote moment requests
         // before sending messages during tree building
         public:

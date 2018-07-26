@@ -16,7 +16,7 @@
  */
 
 double
-dRombergO(void *CTX,double (*func)(void *, double),double a,double b,
+dRombergO(const void *CTX,double (*func)(const void *, double),double a,double b,
 		  double eps)
 {
     double tllnew;
@@ -71,7 +71,7 @@ dRombergO(void *CTX,double (*func)(void *, double),double a,double b,
     }
 
 double
-dRombergC(void *CTX,double (*func)(void *, double),double a,double b,
+dRombergC(const void *CTX,double (*func)(const void *, double),double a,double b,
 		  double eps)
 {
     double tllnew;
