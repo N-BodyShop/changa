@@ -112,25 +112,36 @@ enum kernels {
 };
 
 
+/** @brief Data and parameters for requesting gravity calculations on
+ * the GPU. */
 typedef struct _CudaRequest{
-        // can either be a ILCell* or an ILPart*
+        /// can either be a ILCell* or an ILPart*
 	void *list;
-	int *bucketMarkers;
-	int *bucketStarts;
-	int *bucketSizes;
-	int numInteractions;
-	int numBucketsPlusOne;
-        void *tp;
+	int *bucketMarkers;     /**< index in the cell or particle
+                                 * list for the cells/particles for a
+                                 * given bucket */
+	int *bucketStarts;      /**< index in the particle array on
+                                 * the GPU of the bucket */
+	int *bucketSizes;       /**< number of particles in a bucket
+                                 * on the GPU  */
+	int numInteractions;    /**< Total number of interactions in
+                                 * this request  */
+	int numBucketsPlusOne;  /**< Number of buckets affected by
+                                 *  this request */
+        void *tp;               /**< Pointer to TreePiece that made
+                                 * this request */
 
-	// these buckets were finished in this work request
+	/// these buckets were finished in this work request
 	int *affectedBuckets;
-        void *cb;
-        void *state;
-        cudatype fperiod;
+        void *cb;               /**< Callback  */
+        void *state;            /**< Pointer to state of walk that
+                                 * created this request  */
+        cudatype fperiod;       /**< Size of periodic volume  */
 
-        // TODO: remove these later. is this a node or particle computation request?
+        // TODO: remove these later if we don't use COSMO_PRINT_BK.
+        /// is this a node or particle computation request?
         bool node;
-        // is this a remote or local computation 
+        /// is this a remote or local computation?
         bool remote;
 #ifdef CUDA_INSTRUMENT_WRS
         int tpIndex;
@@ -148,12 +159,12 @@ typedef struct _CudaRequest{
 #endif //GPU_LOCAL_TREE_WALK
 }CudaRequest;
 
+/** @brief Parameters for the GPU gravity calculations */
 typedef struct _ParameterStruct{
-  int numInteractions;
-  int numBucketsPlusOne;
-  int numMissedCores;
-  int numEntities;// TODO: can be removed later on
-  cudatype fperiod;
+  int numInteractions;          /**< Size of the interaction list  */
+  int numBucketsPlusOne;        /**< Number of buckets affected (+1
+                                 * for fencepost)  */
+  cudatype fperiod;             /**< Period of the volume  */
 #ifdef GPU_LOCAL_TREE_WALK
   int firstParticle;
   int lastParticle;
