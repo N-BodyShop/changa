@@ -887,7 +887,6 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
 #endif
 
   ParameterStruct *ptr = (ParameterStruct *)gravityKernel.userData;
-  ptr->numEntities = numMissedMoments;
 
   gravityKernel.callbackFn = data->cb;
   gravityKernel.traceName = "remoteResume";
@@ -1024,7 +1023,6 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
         }
 
         ptr = (ParameterStruct *)gravityKernel.userData;
-        ptr->numMissedCores = len;
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.traceName = "partGravityLocal";
@@ -1155,7 +1153,6 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
         }
 
         ptr = (ParameterStruct *)gravityKernel.userData;
-        ptr->numMissedCores = numMissedParts;
 
 	gravityKernel.callbackFn = data->cb;
 	gravityKernel.traceName = "partGravityRemote";
