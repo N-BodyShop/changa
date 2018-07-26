@@ -305,10 +305,6 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
   computeTimePart += CmiWallTimer() - startTime;
 #endif
   tp->particleInterRemote[chunk] += computed * num;
-#if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK
-  tp->bucketcheckList[reqIDlist].insert(remoteBucketID);
-  tp->combineKeys(remoteBucketID,reqIDlist);
-#endif
   tp->finishBucket(reqIDlist);
   CkAssert(state->counterArrays[1][chunk] >= 0);
   if (state->counterArrays[1][chunk] == 0) {
@@ -1411,6 +1407,131 @@ template<class type> int calcParticleForces(TreePiece *tp, int b, int activeRung
   return computed;
 }
 
+#ifdef GPU_LOCAL_TREE_WALK
+
+void cudaCallbackForAllBuckets(void *param, void *msg) {
+  CudaRequest *data = (CudaRequest *)param;
+  int *affectedBuckets = data->affectedBuckets;
+  TreePiece *tp = (TreePiece*)data->tp;
+  DoubleWalkState *state = (DoubleWalkState *)data->state;
+  int bucket;
+
+  int numBucketsDone = data->numBucketsPlusOne-1;
+
+  // bucket computations finished
+  //
+  for(int i = 0; i < numBucketsDone; i++){
+    bucket = affectedBuckets[i];
+    state->counterArrays[0][bucket]--;
+    tp->finishBucket(bucket);
+  }
+
+  if(data->callDummy){
+    // doesn't matter what argument is passed in
+    tp->callFreeRemoteChunkMemory(-1);
+  }
+
+  // free data structures
+  if(numBucketsDone > 0){
+    delete [] data->affectedBuckets;
+  }
+  delete ((CkCallback *)data->cb);
+  delete data;
+}
+
+/**
+ * This function is designed to send an ignition signal to the GPU manager.
+ * To make minor change to existing ChaNGa code, we mimic a nodeGravityCompute
+ * request. This request will eventually call our GPU local tree walk kernel.
+ */
+void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
+  int activeRung, int startBucket, int endBucket) {
+  int numFilledBuckets = 0;
+  for (int i = startBucket; i < endBucket; ++i) {
+    if (tp->bucketList[i]->rungs >= activeRung) {
+      ++numFilledBuckets;
+    }
+  }
+
+  // No necessary to call GPU kernel if there is no active bucket in
+  // current tree piece
+  if (numFilledBuckets == 0) {
+    return;
+  }
+
+  int *affectedBuckets = new int[numFilledBuckets];
+
+  // Set up a series of dummy parameters to match existing function interfaces
+  int dummyTotalNumInteractions = 1;
+  int dummyCurBucket = 0;
+  ILCell *dummyFlatlists = NULL;
+  int *dummyNodeMarkers = NULL;
+  int *dummyStarts = NULL;
+  int *dummySizes = NULL;
+
+#ifdef CUDA_USE_CUDAMALLOCHOST
+  allocatePinnedHostMemory((void **)&dummyFlatlists, dummyTotalNumInteractions *
+                                                    sizeof(ILCell));
+  allocatePinnedHostMemory((void **)&dummyNodeMarkers, (numFilledBuckets+1) *
+                                                      sizeof(int));
+  allocatePinnedHostMemory((void **)&dummyStarts, numFilledBuckets *
+                                                  sizeof(int));
+  allocatePinnedHostMemory((void **)&dummySizes, numFilledBuckets * sizeof(int));
+#else
+  dummyFlatlists = (ILCell *) malloc(dummy_totalNumInteractions*sizeof(ILCell));
+  dummyNodeMarkers = (int *) malloc((numFilledBuckets+1)*sizeof(int));
+  dummyStarts = (int *) malloc(numFilledBuckets*sizeof(int));
+  dummySizes = (int *) malloc(numFilledBuckets*sizeof(int));
+#endif
+
+//  No need to memset the interaction list array since we're not using it at all
+//  And, we can't directly memset it.
+  ILCell temp_ilc;
+  memcpy(&dummyFlatlists[0], &temp_ilc, dummyTotalNumInteractions *
+                                        sizeof(ILCell));
+  for (int i = startBucket; i < endBucket; ++i) {
+    if (tp->bucketList[i]->rungs >= activeRung) {
+      ((DoubleWalkState *)state)->counterArrays[0][i] ++;
+      dummyNodeMarkers[dummyCurBucket] = tp->bucketList[i]->nodeArrayIndex;
+      int tempNum = 0;
+      memcpy(&dummyStarts[dummyCurBucket], &tempNum, sizeof(int));
+      memcpy(&dummySizes[dummyCurBucket], &tempNum, sizeof(int));
+      affectedBuckets[dummyCurBucket] = i;
+      dummyCurBucket++;
+    }
+  }
+
+  CudaRequest *request = new CudaRequest;
+
+  request->numBucketsPlusOne = numFilledBuckets+1;
+  request->affectedBuckets = affectedBuckets;
+  request->tp = (void *)tp;
+  request->state = (void *)state;
+  request->node = true;
+  request->remote = false;
+  request->callDummy = false;
+  request->firstParticle = tp->FirstGPUParticleIndex;
+  request->lastParticle = tp->LastGPUParticleIndex;
+  // In DataManager serializes the local tree so that the root of the local tree
+  // will always be the 0th element in the moments array.
+  request->rootIdx = 0;
+  request->theta = theta;
+  request->thetaMono = thetaMono;
+  request->nReplicas = tp->nReplicas;
+  request->fperiod = tp->fPeriod.x;
+  request->fperiodY = tp->fPeriod.y;
+  request->fperiodZ = tp->fPeriod.z;
+  request->cb = new CkCallback(cudaCallbackForAllBuckets, request);
+
+  request->list = (void *)dummyFlatlists;
+  request->bucketMarkers = dummyNodeMarkers;
+  request->bucketStarts = dummyStarts;
+  request->bucketSizes = dummySizes;
+  request->numInteractions = dummyTotalNumInteractions;
+
+  TreePieceCellListDataTransferLocal(request);
+}
+#endif //GPU_LOCAL_TREE_WALK
 
 /// @brief Check for computation
 /// Computation can be done on buckets indexed from start to end
@@ -1875,6 +1996,12 @@ void ListCompute::resetCudaPartState(DoubleWalkState *state){
 
 void cudaCallback(void *param, void *msg){
   CudaRequest *data = (CudaRequest *)param;
+  // Paranoid about data corruption here.
+  CkAssert(((CkCallback *)data->cb)->type == CkCallback::callbackType::callCFn);
+  CkAssert(((CkCallback *)data->cb)->d.cfn.fn == cudaCallback);
+  CkAssert(data->numBucketsPlusOne > 0);
+  CkAssert(data->numInteractions >= 0);
+
   int *affectedBuckets = data->affectedBuckets;
   TreePiece *tp = (TreePiece*)data->tp;
   DoubleWalkState *state = (DoubleWalkState *)data->state;
@@ -1977,6 +2104,12 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
 
   OptType type = getOptType();
   data->cb = new CkCallback(cudaCallback, data);
+
+  if(data->numBucketsPlusOne == 1) { // Nothing for the GPU to do
+      cudaCallback(data, NULL);     // Clean up
+      return;
+  }
+
 #ifdef CUDA_INSTRUMENT_WRS
   double time = state->nodeListConstructionTimeStop();
 #endif
@@ -2013,6 +2146,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
     tp->nRemoteResumeNodeReqs++;
 #endif
   }
+  else {CkAssert(0);}
 #ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("memcheck after sendNodeInteractionsToGpu\n");
   CmiMemoryCheck();
@@ -2077,6 +2211,12 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 
   OptType type = getOptType();
   data->cb = new CkCallback(cudaCallback, data);
+
+  if(data->numBucketsPlusOne == 1) { // Nothing for the GPU to do
+      cudaCallback(data, NULL);     // Clean up
+      return;
+  }
+
 #ifdef CUDA_INSTRUMENT_WRS
   double time = state->partListConstructionTimeStop();
 #endif
@@ -2122,6 +2262,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
     tp->nRemoteResumePartReqs++;
 #endif
   }
+  else {CkAssert(0);}
 #ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("memcheck after sendPartInteractionsToGpu\n");
   CmiMemoryCheck();

@@ -27,6 +27,9 @@ class Stfm {
     double dMinSpawnStarMass;   /* Minimum Initial Star Mass */
     double dMaxStarMass;	/* maximum mass star particle to form */
     int bGasCooling;		/* Can we call cooling for temperature */
+    int bBHForm;		/* Form Black Holes */
+    double dBHFormProb;		/* Probability of Black Hole forming */
+    double dInitBHMass;		/* Initial mass of Black Holes */
  public:
     int iStarFormRung;		/* rung for star formation */
     int iRandomSeed;		/* seed for probability */
@@ -60,6 +63,9 @@ inline void Stfm::pup(PUP::er &p) {
     p|dMinGasMass;
     p|dMaxStarMass;
     p|bGasCooling;
+    p|bBHForm;
+    p|dBHFormProb;
+    p|dInitBHMass;
     }
 
 /** @brief Holds statistics of the star formation event */

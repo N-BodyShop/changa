@@ -5,6 +5,8 @@
 #include "cooling.h"
 #include "starform.h"
 #include "feedback.h"
+#include "sinks.h"
+
 #include "externalGravity.h"
 
 /** @brief Hold parameters of the run.
@@ -105,6 +107,12 @@ typedef struct parameters {
     int bDoExternalGravity;
     ExternalGravity externalGravity;
     int iRandomSeed;
+    
+    Sinks sinks;
+    
+    //
+    // Output parameters
+    //
     int bStandard;
     int bDoublePos;
     int bDoubleVel;
@@ -120,6 +128,7 @@ typedef struct parameters {
     int iOutInterval;
     int iCheckInterval;
     int iLogInterval;
+    int iOrbitOutInterval;
     int bDoIOrderOutput;
     int bDoSoftOutput;
     int bDohOutput;
@@ -225,6 +234,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bDoExternalGravity;
     p|param.externalGravity;
     p|param.iRandomSeed;
+    p|param.sinks;
     p|param.bStandard;
     p|param.bDoublePos;
     p|param.bDoubleVel;
@@ -240,6 +250,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iOutInterval;
     p|param.iCheckInterval;
     p|param.iLogInterval;
+    p|param.iOrbitOutInterval;
     p|param.bDoIOrderOutput;
     p|param.bDoSoftOutput;
     p|param.bDohOutput;

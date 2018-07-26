@@ -35,6 +35,9 @@ FLAG_VSIGVISC = @FLAG_VSIGVISC@
 FLAG_DAMPING = @FLAG_DAMPING@
 OPTS = @OPTS@ # compiler options
 
+### GPU_LOCAL_TREE_WALK
+GPU_LOCAL_TREE_WALK = @GPU_LOCAL_TREE_WALK@
+
 # optional CUDA flags: 
 # memory:
 # -DCUDA_USE_CUDAMALLOCHOST
@@ -48,10 +51,6 @@ OPTS = @OPTS@ # compiler options
 # -DCUDA_VERBOSE_KERNEL_ENQUEUE
 # -DCUDA_NO_KERNELS
 # -DCUDA_NO_ACC_UPDATES
-#
-# emulation mode:
-# -DCUDA_EMU_KERNEL_PART_PRINTS
-# -DCUDA_EMU_KERNEL_NODE_PRINTS
 #
 # print errors returned by CUDA calls:
 # -DCUDA_PRINT_ERRORS
@@ -101,7 +100,7 @@ DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) \
                $(FLAG_DIFFHARMONIC) $(FLAG_FEEDBACKDIFFLIMIT) \
                $(FLAG_SSE) $(FLAG_AVX) @FLAG_FLOAT@ \
 	       $(FLAG_CHANGESOFT) $(FLAG_DAMPING) \
-	       $(KERNEL_FLAGS)
+	       $(KERNEL_FLAGS) $(GPU_LOCAL_TREE_WALK)
 
 CHARM_PATH = @CHARM_PATH@
 STRUCTURES_PATH = $(SOURCE_DIR)/../utility/structures
@@ -134,7 +133,7 @@ NVCC_LIBS = -lcuda -lcudart -lGL
 endif
 
 # add -module Orb3dLB here for load balancing during singlestepped runs
-INCLUDE_FLAGS += -I$(STRUCTURES_PATH) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR)
+INCLUDE_FLAGS += -I$(STRUCTURES_PATH) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR) -I$(CHARM_UTIL_PATH)
 CPPFLAGS += $(INCLUDE_FLAGS) $(DEFINE_FLAGS) @CPPFLAGS@
 CXXFLAGS += $(OPTS) $(CPPFLAGS)
 LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache \
@@ -166,16 +165,18 @@ OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
 	  MultistepLB_notopo.o MultistepNodeLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
 	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
 	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
+	  sinks.o \
 	  cha_commitid.o externalGravity.o \
 	  @OBJECTS_COOLING@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
-	param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C \
-	InOutput.C cosmo.c romberg.c runge.c dumpframe.C dffuncs.C \
-	moments.c MultistepLB.C Orb3dLB.C Orb3dLB_notopo.C HierarchOrbLB.C starform.C \
-	MultistepLB_notopo.C MultistepNodeLB_notopo.C MultistepOrbLB.C PETreeMerger.cpp \
-	TreeWalk.C Compute.C CacheInterface.C smooth.C Sph.C externalGravity.C \
-	imf.C feedback.C supernova.C supernovaia.C starlifetime.C
+	param.c GenericTreeNode.cpp ParallelGravity.cpp Ewald.cpp \
+	InOutput.cpp cosmo.c romberg.c runge.c dumpframe.cpp dffuncs.cpp \
+	moments.c MultistepLB.cpp Orb3dLB.cpp Orb3dLB_notopo.cpp HierarchOrbLB.cpp starform.cpp \
+	MultistepLB_notopo.cpp MultistepNodeLB_notopo.cpp MultistepOrbLB.cpp PETreeMerger.cpp \
+	TreeWalk.cpp Compute.cpp CacheInterface.cpp smooth.cpp Sph.cpp externalGravity.cpp \
+	starform.cpp feedback.cpp imf.cpp supernova.cpp supernovaia.cpp starlifetime.cpp \
+	sinks.cpp
 
 ifneq (,$(ENABLE_CUDA))
   CXXFLAGS += $(NVCC_INC)
@@ -192,9 +193,6 @@ all: $(TARGET)
 
 # Make's built-in database doesn't provide pattern rules for out-of-source
 # builds, so we provide them here.
-%.o: $(SOURCE_DIR)/%.C
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
-
 %.o: $(SOURCE_DIR)/%.cpp
 	$(CXX) $(CXXFLAGS) -c -o $@ $<
 
@@ -217,7 +215,8 @@ VERSION: VERSION.new
 	$(SOURCE_DIR)/commitid.sh
 
 cha_commitid.c: VERSION
-	echo "const char * const Cha_CommitID = \"`cat $<`\";" > $@
+	echo "extern const char * const Cha_CommitID;" > $@
+	echo "const char * const Cha_CommitID = \"`cat $<`\";" >> $@
 cha_commitid.o: CC=$(CHARMC)
 
 $(STRUCTURES_PATH)/libTipsy.a:
@@ -244,8 +243,12 @@ libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
 libmoduleHierarchOrbLB.a: HierarchOrbLB.o
 	$(CHARMC) -o libmoduleHierarchOrbLB.a HierarchOrbLB.o
 
-%.decl.h %.def.h : $(SOURCE_DIR)/%.ci
+%.ci.stamp: $(SOURCE_DIR)/%.ci
 	$(CHARMC) -E $(DEFINE_FLAGS) $<
+	touch $@
+
+%.decl.h %.def.h: %.ci.stamp
+	@true
 
 HostCUDA.o: $(SOURCE_DIR)/HostCUDA.cu $(SOURCE_DIR)/HostCUDA.h
 	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) $<
@@ -272,7 +275,7 @@ dist:
 	rm -Rf $(TARGET)-$(VERSION)
 
 clean:
-	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h charmrun conv-host 
+	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h *.ci.stamp charmrun conv-host
 	rm -f *.o *.a
 	cd $(STRUCTURES_PATH); $(MAKE) clean
 
@@ -292,7 +295,7 @@ $(BUILD_DIR)/Makefile.dep:
 
 # The following line is a script usable to regenerate the dependace file,
 # without the inclusion of charm headers.
-# $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.c GenericTreeNode.C ParallelGravity.cpp Ewald.C InOutput.C cosmo.c romberg.c runge.c dumpframe.C dffuncs.C moments.c MultistepLB.C Orb3dLB.C TreeWalk.C Compute.C | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
+# $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.cpp GenericTreeNode.cpp ParallelGravity.cpp Ewald.cpp InOutput.cpp cosmo.cpp romberg.cpp runge.cpp dumpframe.cpp dffuncs.cpp moments.cpp MultistepLB.cpp Orb3dLB.cpp TreeWalk.cpp Compute.cpp | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
 
 .PHONY: all docs dist clean depend test VERSION.new
 

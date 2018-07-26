@@ -65,9 +65,6 @@ CProxy_TreePiece treeProxy; ///< Proxy for the TreePiece chare array
 #ifdef REDUCTION_HELPER
 CProxy_ReductionHelper reductionHelperProxy;
 #endif
-#ifdef CUDA
-CProxy_DataManagerHelper dmHelperProxy;
-#endif
 CProxy_LvArray lvProxy;	    ///< Proxy for the liveViz array
 CProxy_LvArray smoothProxy; ///< Proxy for smooth reductions
 CProxy_LvArray gravityProxy; ///< Proxy for gravity reductions
@@ -176,9 +173,9 @@ enum GasModel {
 	GASMODEL_GLASS
 	}; 
 
-bool doDumpLB;
+int doDumpLB;
 int lbDumpIteration;
-bool doSimulateLB;
+int doSimulateLB;
 
 /// Number of bins to use for the first iteration
 /// of every Oct decomposition step
@@ -320,6 +317,10 @@ Main::Main(CkArgMsg* m) {
 	param.iCheckInterval = 10;
 	prmAddParam(prm, "iCheckInterval", paramInt, &param.iCheckInterval,
 		    sizeof(int),"oc", "Checkpoint Interval");
+	param.iOrbitOutInterval = 1;
+        prmAddParam(prm,"iOrbitOutInterval", paramInt,
+		    &param.iOrbitOutInterval,sizeof(int), "ooi",
+                    "<number of timsteps between orbit outputs> = 1");
 	param.iBinaryOut = 0;
 	prmAddParam(prm, "iBinaryOutput", paramInt, &param.iBinaryOut,
 		    sizeof(int), "binout",
@@ -600,7 +601,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
 		    sizeof(int), "iRand", "<Feedback random Seed> = 1");
 	
-
+	param.sinks.AddParams(prm, param);
 	
 	//
 	// Output parameters
@@ -769,7 +770,7 @@ Main::Main(CkArgMsg* m) {
 
         doDumpLB = false;
         prmAddParam(prm, "bdoDumpLB", paramBool, &doDumpLB,
-              sizeof(bool),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
+              sizeof(int),"doDumpLB", "Should Orb3dLB dump LB database to text file and stop?");
 
         lbDumpIteration = 0;
         prmAddParam(prm, "ilbDumpIteration", paramInt, &lbDumpIteration,
@@ -777,7 +778,7 @@ Main::Main(CkArgMsg* m) {
 
         doSimulateLB = false;
         prmAddParam(prm, "bDoSimulateLB", paramBool, &doSimulateLB,
-              sizeof(bool),"doSimulateLB", "Should Orb3dLB simulate LB decisions from dumped text file and stop?");
+              sizeof(int),"doSimulateLB", "Should Orb3dLB simulate LB decisions from dumped text file and stop?");
 
         CkAssert(!(doDumpLB && doSimulateLB));
 
@@ -1205,9 +1206,6 @@ Main::Main(CkArgMsg* m) {
 #ifdef REDUCTION_HELPER
         reductionHelperProxy = CProxy_ReductionHelper::ckNew();
 #endif
-#ifdef CUDA
-        dmHelperProxy = CProxy_DataManagerHelper::ckNew();
-#endif
 	opts.bindTo(treeProxy);
 	lvProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the smooth reductions
@@ -1361,6 +1359,11 @@ void Main::getStartTime()
 		ckout << "Simulation to Time:" << tTo << endl;
 		}
 	    }
+        if(param.nSteps == 0 && !isfinite(1.0/param.dDelta)) {
+            /* set dDelta to a non-zero value so timestep
+             * adjustment works. */
+            param.dDelta = 1.0;
+        }
     }
 
 /// @brief Return true if we need to write an output
@@ -1668,6 +1671,15 @@ void Main::advanceBigStep(int iStep) {
         if(param.bFeedback) 
             StellarFeedback(dTime, param.stfm->dDeltaStarForm);
         }
+    if(param.sinks.bDoSinks) {
+	CkReductionMsg *msgCnt;
+	treeProxy.countType(TYPE_SINK,
+			    CkCallbackResumeThread((void *&)msgCnt));
+	nSink = *(int *) msgCnt->getData();
+	delete msgCnt;
+	if(nSink != 0)
+	    CkPrintf("Sink number of Sinks: nSink = %d\n", nSink);
+	}
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
           << " Time: " << dTime
@@ -1700,6 +1712,7 @@ void Main::advanceBigStep(int iStep) {
         sorter.startSorting(dataManagerID, ddTolerance,
             CkCallbackResumeThread(), bDoDD);
       }
+      delete isTPEmpty;
     }
     double tDD = CkWallTimer()-startTime;
     timings[activeRung].tDD += tDD;
@@ -1886,7 +1899,8 @@ void Main::advanceBigStep(int iStep) {
 	  if(verbosity)
 	      CkPrintf("took %g seconds.\n", tuDot);
 	  }
-    }
+      doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
+      }
     else
 	waitForGravity(cbGravity, startTime, activeRung);
 
@@ -1942,7 +1956,6 @@ void Main::advanceBigStep(int iStep) {
     }
 #endif
 
-		
   }
 }
     
@@ -2061,6 +2074,8 @@ void Main::setupICs() {
 
   if(param.bStarForm || param.bFeedback) {
       param.stfm->CheckParams(prm, param);
+      if(param.sinks.bBHSink)
+	  param.sinks.dDeltaStarForm = param.stfm->dDeltaStarForm;
       treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
       }
 
@@ -2072,6 +2087,9 @@ void Main::setupICs() {
   else
       param.feedback->NullFeedback();
 
+  param.sinks.CheckParams(prm, param);
+  SetSink();
+  
   param.externalGravity.CheckParams(prm, param);
 
   string achLogFileName = string(param.achOutName) + ".log";
@@ -2237,6 +2255,10 @@ void Main::setupICs() {
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
     treeProxy.setSoft(param.dSoft, CkCallbackResumeThread());
+    if(param.dSoft <= 0.0 && param.bEpsAccStep) {
+        ckerr << "WARNING: bEpsAccStep does not work with dSoft == 0; disabling\n";
+        param.bEpsAccStep = 0;
+    }
   }
 	
 // for periodic, puts all particles within the boundary
@@ -2541,14 +2563,14 @@ Main::initialForces()
   
   if(param.bConcurrentSph && param.bDoGravity) {
       CkFreeMsg(cbGravity.thread_delay());
-	//ckout << "Calculating gravity and SPH took "
-	//      << (CkWallTimer() - startTime) << " seconds." << endl;
-        CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
+      CkPrintf("Calculating gravity and SPH took %f seconds.\n", CkWallTimer()-startTime);
 #ifdef SELECTIVE_TRACING
         turnProjectionsOff();
 #endif
       }
   
+  if (param.sinks.bDoSinksAtStart) doSinks(dTime, 0.0, 0);
+
   treeProxy.finishNodeCache(CkCallbackResumeThread());
 
   // Initial Log entry
@@ -2633,6 +2655,9 @@ Main::doSimulation()
 	  << endl;
     writeTimings(iStep);
 
+    if(iStep%param.iOrbitOutInterval == 0) {
+	outputBlackHoles(dTime);
+	}
     if(iStep%param.iLogInterval == 0) {
 	calcEnergy(dTime, stepTime, achLogFileName.c_str());
     }
@@ -3446,13 +3471,20 @@ int Main::adjust(int iKickRung)
 
     int iCurrMaxRung = ((int64_t *)msg->getData())[0];
     int64_t nMaxRung = ((int64_t *)msg->getData())[1];
-    delete msg;
     if(nMaxRung <= param.nTruncateRung && iCurrMaxRung > iKickRung) {
 	if(verbosity)
 	    CkPrintf("n_CurrMaxRung = %ld, iCurrMaxRung = %d: promoting particles\n", nMaxRung, iCurrMaxRung);
 	iCurrMaxRung--;
 	treeProxy.truncateRung(iCurrMaxRung, CkCallbackResumeThread());
 	}
+    if(param.sinks.bDoSinks) {
+        int iCurrMaxRungGas = ((int64_t *)msg->getData())[2];
+        int iCurrSinkRung = param.sinks.iSinkRung;
+        if(iCurrMaxRungGas > iCurrSinkRung)
+            iCurrSinkRung = iCurrMaxRungGas;
+        treeProxy.SinkStep(iCurrSinkRung, iKickRung, CkCallbackResumeThread());
+        }
+    delete msg;
     double tAdjust = CkWallTimer() - startTime;
     timings[iKickRung].tAdjust += tAdjust;
     if(verbosity)
@@ -3831,6 +3863,7 @@ void Main::pup(PUP::er& p)
     p | nTotalSPH;
     p | nTotalDark;
     p | nTotalStar;
+    p | nSink;
     p | nMaxOrderGas;
     p | nMaxOrderDark;
     p | nMaxOrder;

@@ -95,6 +95,9 @@ protected:
         // at a given time
         int treePiecesDoneRemoteChunkComputation;
         int treePiecesWantParticlesBack;
+        /// Reference count for Pieces that have finished updating
+        /// their acclerations.
+        int treePiecesParticlesUpdated;
         int savedNumTotalParticles;
         int savedNumTotalNodes;
         // keeps track of buckets of particles that were
@@ -168,6 +171,10 @@ public:
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
 
+#ifdef GPU_LOCAL_TREE_WALK
+        void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
+#endif //GPU_LOCAL_TREE_WALK
+        
         // actual serialization methods
         PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
@@ -175,13 +182,14 @@ public:
         void freeRemoteChunkMemory(int chunk);
         void transferParticleVarsBack();
         void updateParticles(UpdateParticlesStruct *data);
+        void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
 #ifdef CUDA_INSTRUMENT_WRS
         int initInstrumentation();
 #endif
         DataManager(){} 
 #endif
-        void clearInstrument(CkCallback &cb);
+        void clearInstrument(CkCallback const& cb);
 
 private:
         void init();
@@ -314,30 +322,5 @@ class ProjectionsControl : public CBase_ProjectionsControl {
     CBase_ProjectionsControl::pup(p);
   }
 }; 
-
-#ifdef CUDA
-class DataManagerHelper : public CBase_DataManagerHelper {
-  private:
-    int countLocalPes;
-    int countSyncRemoteChunk;
-  public:
-
-  DataManagerHelper() { countLocalPes = 0; countSyncRemoteChunk = 0;}
-  DataManagerHelper(CkMigrateMessage *m) : CBase_DataManagerHelper(m) {
-    countLocalPes = 0;
-    countSyncRemoteChunk = 0;
-  }
-
-  void transferLocalTreeCallback();
-  void transferRemoteChunkCallback();
-
-  void pup(PUP::er &p){
-    CBase_DataManagerHelper::pup(p);
-    countLocalPes = 0;
-    countSyncRemoteChunk = 0;
-  }
-
-};
-#endif
 
 #endif //DATAMANAGER_H

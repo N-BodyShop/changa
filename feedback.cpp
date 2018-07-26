@@ -288,7 +288,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
 ///
 /// processor specific method for stellar feedback
 /// 
-void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback& cb)
+void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCallback& cb)
 {
     FBEffects fbTotals[NFEEDBACKS];
     double dDeltaYr;
@@ -334,7 +334,7 @@ void TreePiece::Feedback(Fdbk &fb, double dTime, double dDelta, const CkCallback
 /// @param fbTotals pointer to total effects for bookkeeping
 
 void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
-		      FBEffects *fbTotals)
+                      FBEffects *fbTotals) const
 {
     double dTotMassLoss, dTotMetals, dTotMOxygen, dTotMIron, dDelta;
     dTotMassLoss = dTotMetals = dTotMOxygen = dTotMIron = 0.0;
@@ -430,7 +430,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 
 void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
 			    double dDelta, /* length of timestep (years) */
-			    FBEffects *fbEffects)
+			    FBEffects *fbEffects) const
 {
     double dMDying;
 
@@ -483,7 +483,7 @@ void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 
 void Fdbk::CalcUVFeedback(double dTime, /* current time in years */
 			  double dDelta, /* length of timestep (years) */
-			  FBEffects *fbEffects)
+			  FBEffects *fbEffects) const
 {
     fbEffects->dMassLoss = 0.0;
     fbEffects->dEnergy = 0.0;
@@ -560,6 +560,7 @@ void DistStellarFeedbackSmoothParams::combSmoothCache(GravityParticle *p1,
     p1->fMFracIron() += p2->fMFracIron;
     p1->fTimeCoolIsOffUntil() = max( p1->fTimeCoolIsOffUntil(),
 				     p2->fTimeCoolIsOffUntil );
+    p1->dTimeFB() = max( p1->dTimeFB(), p2->dTimeFB );
     if (fb.bAGORAFeedback) {
      p1->u() += p2->u;
      p1->uPred() += p2->uPred;
@@ -659,7 +660,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     DistFBMME(p,nSmooth,nList);
     
     if (p->fNSN() == 0) {return;}
-    if ( p->fTimeForm() < 0.0 ) {return;}
+    if ( p->fTimeForm() < 0.0) {return;}
     
     /* The following ONLY deals with SNII Energy distribution */
     CkAssert(TYPETest(p, TYPE_STAR));
@@ -776,6 +777,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 		    (fBlastRadius*fBlastRadius >= fDist2)) {
 		    q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 						   dTime + fShutoffTime);
+		    q->dTimeFB() = dTime;
 		    }
 		
 		counter++;  
@@ -811,6 +813,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 		 (fBlastRadius*fBlastRadius >= fDist2)){
 		q->fTimeCoolIsOffUntil() = max(q->fTimeCoolIsOffUntil(),
 					       dTime + fShutoffTime);       
+		q->dTimeFB() = dTime; /* store SN FB time here JMB 2/24/10 */
 		counter++;
 		}
 	    /*	update mass after everything else so that distribution

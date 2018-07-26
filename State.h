@@ -41,6 +41,7 @@ class State {
 #if defined CUDA
 #include "HostCUDA.h"
 #include "DataManager.h"
+#include "ck128bitHash.h"
 
 class DoubleWalkState;
 
@@ -199,8 +200,11 @@ class DoubleWalkState : public State {
   GenericTreeNode *lowestNode;
   int level;
 
-  DoubleWalkState() : chklists(0), lowestNode(0), level(-1)
-  {}
+  DoubleWalkState() : chklists(0), lowestNode(0), level(-1) {
+#ifdef CUDA
+      partMap.reserve(100);
+#endif
+  }
 
 #ifdef CUDA_INSTRUMENT_WRS
   void nodeListConstructionTimeStart(){

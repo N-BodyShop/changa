@@ -3,6 +3,7 @@
 
 #include "codes.h"
 #include "ParallelGravity.h"
+
 class State;
 class DoubleWalkState;
 
@@ -186,6 +187,9 @@ class ListCompute : public Compute{
   void freeDoubleWalkState(DoubleWalkState *state);
 
 #ifdef CUDA
+#ifdef GPU_LOCAL_TREE_WALK
+  void sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int startBucket, int endBucket);
+#endif //GPU_LOCAL_TREE_WALK
   void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
   void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
 #endif
