@@ -953,7 +953,7 @@ void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, do
 
   xnHlog = (nHlog - cl->MetalnHlogMin)*cl->rDeltanHlog; 
   inHlog = xnHlog;
-  if(inHlog > 115) inHlog = 115;  /*Slipshod method until the table can be extended */
+  if (inHlog == cl->nnHMetalTable - 1) inHlog = cl->nnHMetalTable - 2; /*CC; To prevent running over the table.  Should not be used*/
   
   Cool000 = cl->MetalCoolln[iz][inHlog][iTlog];
   Cool001 = cl->MetalCoolln[iz][inHlog][iTlog+1];
