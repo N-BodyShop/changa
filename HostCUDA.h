@@ -126,9 +126,6 @@ typedef struct _CudaRequest{
 	int *affectedBuckets;
         void *cb;
         void *state;
-        // call dummy kernel and initiate freeing of remote chunk
-        // memory on GPU
-        bool callDummy;
         cudatype fperiod;
 
         // TODO: remove these later. is this a node or particle computation request?

@@ -4444,28 +4444,12 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
 
       if(lc && ds){
-        bool nodeDummy = false;
-        bool partDummy = true;
-
         if(ds->nodeLists.totalNumInteractions > 0){
-          nodeDummy = true;
-        }
-        else if(ds->particleLists.totalNumInteractions > 0){
-          partDummy = true;
-        }
-
-        if(nodeDummy && partDummy){
           lc->sendNodeInteractionsToGpu(ds, this);
-          lc->sendPartInteractionsToGpu(ds, this, true);
-          lc->resetCudaNodeState(ds);
-          lc->resetCudaPartState(ds);
-        }
-        else if(nodeDummy){
-          lc->sendNodeInteractionsToGpu(ds, this,true);
           lc->resetCudaNodeState(ds);
         }
-        else if(partDummy){
-          lc->sendPartInteractionsToGpu(ds, this, true);
+        if(ds->particleLists.totalNumInteractions > 0){
+          lc->sendPartInteractionsToGpu(ds, this);
           lc->resetCudaPartState(ds);
         }
       }
@@ -5221,9 +5205,12 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #endif
 }
 
-// Starts the prefetching of the specified chunk; once the 
-// given chunk has been completely prefetched, the prefetch
-// compute invokes startRemoteChunk() 
+/// Starts the prefetching of the specified chunk; once the 
+/// given chunk has been completely prefetched, the prefetch
+/// compute invokes startRemoteChunk().  Chunks in this context is a
+/// division of the remote walk so that remote computation can start
+/// before all remote prefetches are finished.  By default there is
+/// only one chunk: the prefetch is done all at once.
 void TreePiece::initiatePrefetch(int chunk){
 #ifdef DISABLE_NODE_TREE
   GenericTreeNode *child = keyToNode(prefetchRoots[chunk]);

@@ -84,6 +84,8 @@ protected:
 	CkVec<TreePieceDescriptor> registeredTreePieces;
 #ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
+        /// @brief counter for the number of tree nodes that are
+        /// replicated by TreePieces that share the same address space.
         int cumNumReplicatedNodes;
         int treePiecesDone;
         int savedChunk;
@@ -166,8 +168,6 @@ public:
         void startLocalWalk();
         void resumeRemoteChunk();
 #ifdef CUDA
-        //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
-		//void serializeNodes(GenericTreeNode *start);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
 
