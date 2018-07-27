@@ -187,11 +187,16 @@ class ListCompute : public Compute{
   void freeDoubleWalkState(DoubleWalkState *state);
 
 #ifdef CUDA
+<<<<<<< HEAD   (5538f7 sendNodeInteractionsToGpu(): don't send empty list.)
 #ifdef GPU_LOCAL_TREE_WALK
   void sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int startBucket, int endBucket);
 #endif //GPU_LOCAL_TREE_WALK
   void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
   void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
+=======
+  void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
+  void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
+>>>>>>> BRANCH (c3f947 Clean up calls to sendXXXXInteractionsToGpu().)
 #endif
 
   private:
