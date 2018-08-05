@@ -877,8 +877,6 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       int end = start + localMoments[id].bucketSize;
       for (int k = start; k < end; k ++) {
         localParicalsVec[k].nodeId = id;
-        // here we don't initialize the "numOfNodesTraversed" or "numOfParticlesTraversed"
-        // because their value will be directly overwriten by GPU kernel
       }
     }
   }
