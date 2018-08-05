@@ -260,11 +260,6 @@ typedef struct VariablePartData{
   CudaVector3D a;
   cudatype potential;
   cudatype dtGrav;
-
-#ifdef GPU_LOCAL_TREE_WALK
-  int numOfNodesTraversed;
-  int numOfParticlesTraversed;
-#endif //GPU_LOCAL_TREE_WALK
 }VariablePartData;
 
 
