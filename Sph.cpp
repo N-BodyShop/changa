@@ -1038,6 +1038,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double dvxdx, dvxdy, dvxdz, dvydx, dvydy, dvydz, dvzdx, dvzdy, dvzdz;
 	double dvx,dvy,dvz,dx,dy,dz,trace,grx,gry,grz;
 #ifdef SUPERBUBBLE
+    double rgux=0,rguy=0,rguz=0;
     double fDensityU = 0;
 #endif
 #ifdef CULLENALPHA
@@ -1102,6 +1103,11 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                 grx += (q->uPred())*dx*rs1;
                 gry += (q->uPred())*dy*rs1;
                 grz += (q->uPred())*dz*rs1;
+#ifdef SUPERBUBBLE
+                rgux += (q->uPred()-p->uPred())*dx*rs1;
+                rguy += (q->uPred()-p->uPred())*dy*rs1;
+                rguz += (q->uPred()-p->uPred())*dz*rs1;
+#endif
 
 #ifdef CULLENALPHA
                 // Special weighting function to reduce noise in R
@@ -1137,8 +1143,8 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     {
         p->fDensityU() = fDensityU;
     }
-    double ih = sqrt(ih2);
-    double rhogradu=sqrt(grx*grx+gry*gry+grz*grz)*fNorm*ih2;
+    double rhogradu=sqrt(rgux*rgux+rguy*rguy+rguz*rguz)*fNorm*ih2;
+    //double rhogradu=sqrt(grx*grx+gry*gry+grz*grz)*fNorm*ih2;
     p->fThermalLength() = (rhogradu != 0 ? fDensityU/rhogradu : FLT_MAX);
     if (p->fThermalLength()*ih < 1) p->fThermalLength() = 1/ih;
 #endif
