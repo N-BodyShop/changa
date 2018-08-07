@@ -169,6 +169,9 @@ typedef struct _ParameterStruct{
 #endif //GPU_LOCAL_TREE_WALK
 }ParameterStruct;
 
+void allocatePinnedHostMemory(void **ptr, size_t size);
+void freePinnedHostMemory(void *ptr);
+
 #ifdef CUDA_INSTRUMENT_WRS
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                         CompactPartData *compactParts, int nCompactParts,
@@ -176,7 +179,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
 void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int pe, char phase);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart, int pe, char phase);
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool, bool, bool, bool, int pe, char phase);
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb, bool, bool, bool, bool, int pe, char phase);
 #else
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                         CompactPartData *compactParts, int nCompactParts,
@@ -195,7 +198,7 @@ void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart)
  *  @param freeRemotePart Boolean: free device buffer with remote
  *  particle data.
  */
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart);
 #endif
 
