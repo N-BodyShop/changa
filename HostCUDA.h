@@ -169,6 +169,9 @@ typedef struct _ParameterStruct{
 #endif //GPU_LOCAL_TREE_WALK
 }ParameterStruct;
 
+void allocatePinnedHostMemory(void **ptr, size_t size);
+void freePinnedHostMemory(void *ptr);
+
 #ifdef CUDA_INSTRUMENT_WRS
 void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                         CompactPartData *compactParts, int nCompactParts,
