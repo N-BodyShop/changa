@@ -989,9 +989,8 @@ void DataManager::initiateNextChunkTransfer(){
 }
 
 void updateParticlesCallback(void *, void *);
-
-void allocatePinnedHostMemory(void **ptr, int size);
-void freePinnedHostMemory(void *ptr);
+void allocatePinnedHostMemory(void **, size_t);
+void freePinnedHostMemory(void *);
 
 void DataManager::transferParticleVarsBack(){
   UpdateParticlesStruct *data;
