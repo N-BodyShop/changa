@@ -1043,7 +1043,6 @@ void ListCompute::addNodeToInt(GenericTreeNode *node, int offsetID, DoubleWalkSt
 #endif
 
 #ifdef CUDA
-void allocatePinnedHostMemory(void **ptr, int size);
 
 template<typename T>
 CudaRequest *GenericList<T>::serialize(TreePiece *tp){
