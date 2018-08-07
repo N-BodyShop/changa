@@ -68,7 +68,7 @@ extern "C" double CmiWallTimer();
 #endif
 
 
-void allocatePinnedHostMemory(void **ptr, int size){
+void allocatePinnedHostMemory(void **ptr, size_t size){
   if(size <= 0){
     *((char **)ptr) = NULL;
 #ifdef CUDA_PRINT_ERRORS
@@ -83,7 +83,7 @@ void allocatePinnedHostMemory(void **ptr, int size){
   cudaMallocHost(ptr, size);
 #endif
 #ifdef CUDA_PRINT_ERRORS
-  printf("allocatePinnedHostMemory: %s size: %d\n", cudaGetErrorString( cudaGetLastError() ), size);
+  printf("allocatePinnedHostMemory: %s size: %zd\n", cudaGetErrorString( cudaGetLastError() ), size);
 #endif
 }
 
