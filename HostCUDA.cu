@@ -62,7 +62,7 @@ extern "C" double CmiWallTimer();
 #endif
 
 
-void allocatePinnedHostMemory(void **ptr, int size){
+void allocatePinnedHostMemory(void **ptr, size_t size){
   if(size <= 0){
     *((char **)ptr) = NULL;
 #ifdef CUDA_PRINT_ERRORS
@@ -77,7 +77,7 @@ void allocatePinnedHostMemory(void **ptr, int size){
   cudaMallocHost(ptr, size);
 #endif
 #ifdef CUDA_PRINT_ERRORS
-  printf("allocatePinnedHostMemory: %s size: %d\n", cudaGetErrorString( cudaGetLastError() ), size);
+  printf("allocatePinnedHostMemory: %s size: %zu\n", cudaGetErrorString( cudaGetLastError() ), size);
 #endif
 }
 
@@ -180,12 +180,9 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
 
 	hapiWorkRequest* transferKernel = hapiCreateWorkRequest();
 	void* bufHostBuffer;
-        int size;
+        size_t size;
 
         size = (nMoments) * sizeof(CudaMultipoleMoments);
-
-        //double mill = 1e6;
-        //printf("(%d) DM local moments: %f mbytes\n", mype, 1.0*size/mill);
 
 #ifdef CUDA_PRINT_ERRORS
         printf("(%d) DMLocal 0000: %s\n", mype, cudaGetErrorString( cudaGetLastError() ));
@@ -206,7 +203,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
         }
 
 #ifdef CUDA_PRINT_ERRORS
-        printf("(%d) DMLocal 0: %s hostBuf: 0x%x, size: %d\n", mype, cudaGetErrorString( cudaGetLastError() ), bufHostBuffer, size );
+        printf("(%d) DMLocal 0: %s hostBuf: 0x%x, size: %zu\n", mype, cudaGetErrorString( cudaGetLastError() ), bufHostBuffer, size );
 #endif
         memcpy(bufHostBuffer, moments, size);
 
@@ -275,7 +272,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
 #endif
 	transferKernel->setRunKernel(run_DM_TRANSFER_LOCAL);
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) DM LOCAL TREE moments %d (%d) partcores %d (%d) partvars %d (%d)\n",
+        printf("(%d) DM LOCAL TREE moments %zu (%d) partcores %zu (%d) partvars %zu (%d)\n",
                   CmiMyPe(),
                   transferKernel->buffers[LOCAL_MOMENTS_IDX].size,
                   transferKernel->buffers[LOCAL_MOMENTS_IDX].transfer_to_device,
@@ -302,12 +299,9 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
 
   hapiWorkRequest* transferKernel = hapiCreateWorkRequest();
   void* bufHostBuffer;
-  int size;
+  size_t size;
 
   size = (nMoments) * sizeof(CudaMultipoleMoments);
-  
-  //double mill = 1e6;
-  //printf("DM remote moments: %f mbytes\n", 1.0*size/mill);
   
   if(size > 0){
     CUDA_MALLOC(bufHostBuffer, size);
@@ -335,7 +329,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                                 REMOTE_PARTICLE_CORES);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("(%d) DM REMOTE CHUNK moments %d (%d) partcores %d (%d)\n",
+  printf("(%d) DM REMOTE CHUNK moments %zu (%d) partcores %zu (%d)\n",
             CmiMyPe(),
             transferKernel->buffers[REMOTE_MOMENTS_IDX].size,
             transferKernel->buffers[REMOTE_MOMENTS_IDX].transfer_to_device,
@@ -786,7 +780,7 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 
 void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleMoments *missedMoments, int numMissedMoments){
   int numBlocks = data->numBucketsPlusOne-1;
-  int size;
+  size_t size;
 
   hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
   void* bufferHostBuffer;
@@ -835,7 +829,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
 void TreePieceCellListDataTransferBasic(CudaRequest *data, hapiWorkRequest *gravityKernel){
 	int numBucketsPlusOne = data->numBucketsPlusOne;
         int numBuckets = numBucketsPlusOne-1;
-        int size = (data->numInteractions) * sizeof(ILCell);
+        size_t size = (data->numInteractions) * sizeof(ILCell);
         bool transfer = size > 0;
 
 	gravityKernel->addBuffer(data->list, size, transfer, false, transfer);
@@ -868,7 +862,7 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, hapiWorkRequest *grav
         gravityKernel->setUserData(ptr, true);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER BASIC cells %d (%d) bucket_markers %d (%d) bucket_starts %d (%d) bucket_sizes %d (%d)\n",
+        printf("(%d) TRANSFER BASIC cells %zu (%d) bucket_markers %zu (%d) bucket_starts %zu (%d) bucket_sizes %zu (%d)\n",
             CmiMyPe(),
             gravityKernel->buffers[ILCELL_IDX].size,
             gravityKernel->buffers[ILCELL_IDX].transfer_to_device,
@@ -887,7 +881,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 
 	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
 	void* bufferHostBuffer;
-        int size;
+        size_t size;
         ParameterStruct *ptr;
         bool transfer;
 
@@ -903,7 +897,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
         size = (len) * sizeof(CompactPartData);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER LOCAL SMALL PHASE  %d (%d)\n",
+        printf("(%d) TRANSFER LOCAL SMALL PHASE  %zu (%d)\n",
             CmiMyPe(),
             size,
             transfer
@@ -994,7 +988,7 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartData *missedParts, int numMissedParts){
 	int numBlocks = data->numBucketsPlusOne-1;
-        int size;
+        size_t size;
         ParameterStruct *ptr;
         bool transfer;
 
@@ -1013,7 +1007,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
         size = (numMissedParts) * sizeof(CompactPartData);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER REMOTE RESUME PART %d (%d)\n",
+        printf("(%d) TRANSFER REMOTE RESUME PART %zu (%d)\n",
             CmiMyPe(),
             size,
             transfer
@@ -1048,7 +1042,7 @@ void TreePiecePartListDataTransferBasic(CudaRequest *data, hapiWorkRequest *grav
 	int numInteractions = data->numInteractions;
 	int numBucketsPlusOne = data->numBucketsPlusOne;
         int numBuckets = numBucketsPlusOne-1;
-        int size;
+        size_t size;
         bool transfer;
 
 	size = (numInteractions) * sizeof(ILCell);
@@ -1071,7 +1065,7 @@ void TreePiecePartListDataTransferBasic(CudaRequest *data, hapiWorkRequest *grav
         gravityKernel->setUserData(ptr, true);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER BASIC PART parts %d (%d) bucket_markers %d (%d) bucket_starts %d (%d) bucket_sizes %d (%d)\n",
+        printf("(%d) TRANSFER BASIC PART parts %zu (%d) bucket_markers %zu (%d) bucket_starts %zu (%d) bucket_sizes %zu (%d)\n",
             CmiMyPe(),
             gravityKernel->buffers[ILPART_IDX].size,
             gravityKernel->buffers[ILPART_IDX].transfer_to_device,
@@ -1179,11 +1173,11 @@ void run_DM_TRANSFER_BACK(hapiWorkRequest *wr, cudaStream_t kernel_stream,void**
  * force calculation.
  */
 #ifdef HAPI_INSTRUMENT_WRS
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
      bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart,
      int index, char phase){
 #else
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
      bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
 #endif
   hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
