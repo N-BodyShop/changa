@@ -1010,9 +1010,6 @@ void DataManager::initiateNextChunkTransfer(){
 
 void updateParticlesCallback(void *, void *);
 
-void allocatePinnedHostMemory(void **ptr, int size);
-void freePinnedHostMemory(void *ptr);
-
 void DataManager::transferParticleVarsBack(){
   UpdateParticlesStruct *data;
   CmiLock(__nodelock);

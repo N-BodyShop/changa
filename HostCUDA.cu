@@ -68,7 +68,7 @@ extern "C" double CmiWallTimer();
 #endif
 
 
-void allocatePinnedHostMemory(void **ptr, int size){
+void allocatePinnedHostMemory(void **ptr, size_t size){
   if(size <= 0){
     *((char **)ptr) = NULL;
 #ifdef CUDA_PRINT_ERRORS
@@ -83,7 +83,7 @@ void allocatePinnedHostMemory(void **ptr, int size){
   cudaMallocHost(ptr, size);
 #endif
 #ifdef CUDA_PRINT_ERRORS
-  printf("allocatePinnedHostMemory: %s size: %d\n", cudaGetErrorString( cudaGetLastError() ), size);
+  printf("allocatePinnedHostMemory: %s size: %zd\n", cudaGetErrorString( cudaGetLastError() ), size);
 #endif
 }
 
@@ -186,7 +186,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
 
 	workRequest transferKernel;
 	dataInfo *buf;
-        int size;
+        size_t size;
 
         // operation will not invoke a kernel
 	transferKernel.dimGrid = dim3(0);
@@ -326,7 +326,7 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
 
   workRequest transferKernel;
   dataInfo *buf;
-  int size;
+  size_t size;
 
   // operation will not invoke a kernel
   transferKernel.dimGrid = dim3(0);
@@ -844,7 +844,7 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 
 void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleMoments *missedMoments, int numMissedMoments){
   int numBlocks = data->numBucketsPlusOne-1;
-  int size;
+  size_t size;
 
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -904,7 +904,7 @@ void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *gravityK
 	dataInfo *buffer;
 	int numBucketsPlusOne = data->numBucketsPlusOne;
         int numBuckets = numBucketsPlusOne-1;
-        int size = (data->numInteractions) * sizeof(ILCell);
+        size_t size = (data->numInteractions) * sizeof(ILCell);
         bool transfer = size > 0;
 
 	buffer = &(gravityKernel->bufferInfo[ILCELL_IDX]);
@@ -979,7 +979,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 
 	workRequest gravityKernel;
         dataInfo *buffer;
-        int size;
+        size_t size;
         ParameterStruct *ptr;
         bool transfer;
 
@@ -1174,7 +1174,7 @@ void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *gravityK
 	int numInteractions = data->numInteractions;
 	int numBucketsPlusOne = data->numBucketsPlusOne;
         int numBuckets = numBucketsPlusOne-1;
-        int size;
+        size_t size;
         bool transfer;
 
 	buffer = &(gravityKernel->bufferInfo[ILPART_IDX]);
@@ -1370,11 +1370,11 @@ void run_DM_TRANSFER_BACK(workRequest *wr, cudaStream_t kernel_stream,void** dev
  * force calculation.
  */
 #ifdef CUDA_INSTRUMENT_WRS
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
      bool freemom, bool freepart, bool freeRemoteMom, bool, freeRemotePart,
      int index, char phase){
 #else
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
      bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
 #endif
   workRequest gravityKernel;
