@@ -883,6 +883,10 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     }
   }
   transformLocalTreeRecursive(node, localMoments);
+  if ((registeredTreePieces[0].treePiece)->getIndex() == 1) {
+    printf("================The structure of treepiece 1 is:================\n");
+    printTreeRecursive(node, 0);
+  }
 #endif //GPU_LOCAL_TREE_WALK
 
 #ifdef CUDA_DM_PRINT_TREES
@@ -946,6 +950,20 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
     }
   }
 }
+
+void DataManager::printTreeRecursive(GenericTreeNode *node, int indent) {
+ if (node == NULL || indent > 5) {
+      return;
+  }
+  for (int i = 0; i < indent; i ++) {
+       printf("  ");
+  }
+  printf("nodeArrayIndex = %d, startBucket = %d, bucketArrayIndex = %d, firstParticle = %d, lastParticle = %d, type = %d, mass = %f\n", 
+          node->nodeArrayIndex, node->startBucket, node->bucketArrayIndex, node->firstParticle, node->lastParticle, node->getType(), node->moments.totalMass);
+  printTreeRecursive((GenericTreeNode*) node->getChildren(0), indent + 1);
+  printTreeRecursive((GenericTreeNode*) node->getChildren(1), indent + 1);
+}
+
 #endif //GPU_LOCAL_TREE_WALK
 
 void DataManager::freeLocalTreeMemory(){

@@ -173,6 +173,7 @@ public:
 
 #ifdef GPU_LOCAL_TREE_WALK
         void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
+        void printTreeRecursive(GenericTreeNode *node, int indent);
 #endif //GPU_LOCAL_TREE_WALK
         
         // actual serialization methods
