@@ -873,6 +873,14 @@ class TreePiece : public CBase_TreePiece {
         int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
 
+#ifdef GPU_REMOTE_TREE_WALK
+        int numCacheNodeRequest;
+        int numCacheParticleRequest;
+
+        int numRemoteNodeRequest;
+        int numRemoteParticleRequest;
+#endif
+
         int getNumBuckets(){
         	return numBuckets;
         }
@@ -1448,6 +1456,15 @@ public:
 #endif
 #ifdef CUDA
           numActiveBuckets = -1;
+
+#ifdef GPU_REMOTE_TREE_WALK
+          numCacheNodeRequest = 0;
+          numCacheParticleRequest = 0;
+
+          numRemoteNodeRequest = 0;
+          numRemoteParticleRequest = 0;
+#endif
+
 #ifdef CUDA_STATS
           localNodeInteractions = 0;
           localPartInteractions = 0;
