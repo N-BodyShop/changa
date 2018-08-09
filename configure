@@ -719,6 +719,7 @@ enable_damping
 enable_cooling
 enable_hexadecapole
 enable_gpu_local_tree_walk
+enable_gpu_remote_tree_walk
 enable_diffusion
 enable_feedbacklimit
 enable_cullenalpha
@@ -1366,6 +1367,8 @@ Optional Features:
   --disable-hexadecapole  disable use of hexadecapole expansions
   --enable-gpu_local_tree_walk
                           Enable gpu_local_tree_walk (yes, no)
+  --enable-gpu_remote_tree_walk
+                          Enable gpu_remote_tree_walk (yes, no)
   --enable-diffusion      enable diffusion
   --enable-feedbacklimit  limit diffusion of feedback energy
   --enable-cullenalpha    enable Cullen Dehnen artificial viscosity
@@ -4289,6 +4292,21 @@ else
   GPU_LOCAL_TREE_WALK=""
 fi
 
+# GPU remote tree walk
+# Check whether --enable-gpu_remote_tree_walk was given.
+if test "${enable_gpu_remote_tree_walk+set}" = set; then :
+  enableval=$enable_gpu_remote_tree_walk; gpu_remote_tree_walk=$enableval
+else
+  gpu_remote_tree_walk=no
+fi
+
+GPU_REMOTE_TREE_WALK=""
+if test "$gpu_remote_tree_walk" = "yes" ; then
+  echo "DGPU_REMOTE_TREE_WALK selected"
+  GPU_REMOTE_TREE_WALK="-DGPU_REMOTE_TREE_WALK"
+else
+  GPU_REMOTE_TREE_WALK=""
+fi
 
 
 # diffusion (thermal and metal)

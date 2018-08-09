@@ -268,6 +268,20 @@ else
 fi
 
 AC_SUBST([GPU_LOCAL_TREE_WALK])
+
+# GPU remote tree walk
+AC_ARG_ENABLE([gpu_remote_tree_walk],
+  [AS_HELP_STRING([--enable-gpu_remote_tree_walk], [Enable gpu_remote_tree_walk (yes, no)])],
+  [gpu_remote_tree_walk=$enableval], [gpu_remote_tree_walk=no])
+GPU_REMOTE_TREE_WALK=""
+if test "$gpu_remote_tree_walk" = "yes" ; then
+  echo "DGPU_REMOTE_TREE_WALK selected"
+  GPU_REMOTE_TREE_WALK="-DGPU_REMOTE_TREE_WALK"
+else
+  GPU_REMOTE_TREE_WALK=""
+fi
+
+AC_SUBST([GPU_REMOTE_TREE_WALK])
  
 # diffusion (thermal and metal)
 AC_ARG_ENABLE([diffusion],
