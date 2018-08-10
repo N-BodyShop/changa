@@ -43,6 +43,8 @@ public:
 class Collision {
 public:
     int nSmoothCollision; /* number of particles to search for collisions over */
+    int bDelEjected;      /* delete particles if they travel too far from the origin */
+    double dDelDist;      /* distance from origin before particles are deleted */
     int bCollStep;        /* timestepping set by near-collisions */
     int iCollStepRung;    /* Rung to place nearly-colliding particles on*/
     double dCollStepFac;  /* Inflation factor for particle radius when searching for near-collisions*/

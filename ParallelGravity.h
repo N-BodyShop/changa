@@ -1828,6 +1828,7 @@ public:
                       const CkCallback& cb);
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
 #ifdef COLLISION
+    void delEjected(double dDelDist, const CkCallback& cb);
     void getCollInfo(const CkCallback& cb);
     void getCollInfo(int iOrder, const CkCallback& cb);
     void resolveCollision(Collision coll, const ColliderInfo &c1, const ColliderInfo &c2,

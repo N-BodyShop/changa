@@ -14,6 +14,15 @@
 
 void Collision::AddParams(PRM prm)
 {
+    bDelEjected = 0;
+    prmAddParam(prm, "bDelEjected", paramBool, &bDelEjected,
+        sizeof(int), "bDelEjected", "<Delete particles which travel a distance dDelDist\
+                                      from the origin> = 0");
+    dDelDist = 1000.0;
+    prmAddParam(prm, "dDelDist", paramDouble, &dDelDist,
+        sizeof(double), "dDelDist", "<Distance away from the origin before particles are\
+                                      deleted> = 1000.0");
+
     bCollStep = 0;
     prmAddParam(prm, "bCollStep", paramBool, &bCollStep,
         sizeof(int), "bCollStep", "<Place particles on a near-collision trajectory\
@@ -74,6 +83,30 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
     if (param.bCollision)
         CkAbort("ChaNGa must be compiled with the COLLISION flag in order to use collision detection\n");
 #endif
+    }
+
+/**
+ * @brief Remove particles that are too far from the origin
+ *
+ * Because we are not using gravitational softening when resolving collisions,
+ * scattering events can occasionally be very strong and throw particles to
+ * very large distances, which causes ChaNGa to hang. Since these particles
+ * are usually no longer important, we just delete them once they get far enough
+ * away.
+ *
+ * @param dDelDist Distance from the origin beyond which a particle is deleted
+ */
+void TreePiece::delEjected(double dDelDist, const CkCallback& cb)
+{
+    for (unsigned int i=1; i <= myNumParticles; i++) {
+        GravityParticle *p = &myParticles[i];
+        double dist = p->position.length();
+        if (dist > dDelDist) {
+            CkPrintf("%d ejected, deleting\n", p->iOrder);
+            deleteParticle(p);
+            }
+        }
+    contribute(cb);
     }
 
 /**
