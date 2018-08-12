@@ -619,7 +619,11 @@ void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
 	    double T;
 	    T = p->u() / dTuFac;
             PERBARYON Y;
+#ifdef COOLING_METAL
+            CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle(), p->fMetals());
+#else
             CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle());
+#endif
             
 	    p->u() = clThermalEnergy(Y.Total,T)*cl->diErgPerGmUnit;
 #endif
