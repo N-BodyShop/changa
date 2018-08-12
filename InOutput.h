@@ -630,6 +630,7 @@ class Cool0OutputParams : public OutputParams
     virtual double dValue(GravityParticle *p)
     {
 #ifndef COOLING_NONE
+	CkAssert(dm != NULL);
 	if (TYPETest(p, TYPE_GAS))
 	    return COOL_ARRAY0(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else
@@ -669,6 +670,7 @@ class Cool1OutputParams : public OutputParams
     virtual double dValue(GravityParticle *p)
     {
 #ifndef COOLING_NONE
+	CkAssert(dm != NULL);
 	if (TYPETest(p, TYPE_GAS))
 	    return COOL_ARRAY1(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else
@@ -709,6 +711,7 @@ class Cool2OutputParams : public OutputParams
     virtual double dValue(GravityParticle *p)
     {
 #ifndef COOLING_NONE
+	CkAssert(dm != NULL);
 	if (TYPETest(p, TYPE_GAS))
 	    return COOL_ARRAY2(dm->Cool, &p->CoolParticle(), p->fMetals());
 	else
