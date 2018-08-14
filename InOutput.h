@@ -21,7 +21,11 @@ class OutputParams : public PUP::able
     /// Output data as a Vector3D of doubles
     virtual Vector3D<double> vValue(GravityParticle *p) = 0;
     /// Input data as a double.
-    virtual void setDValue(GravityParticle *p, double) = 0;
+    virtual void setDValue(GravityParticle *p, double d) = 0;
+    /// Input data as a Vector3D of doubles.
+    virtual void setVValue(GravityParticle *p, Vector3D<double> v) {
+        CkAbort("Undefined read of vector");
+    }
     /// Output data as an int.
     virtual int64_t iValue(GravityParticle *p) = 0;
     /// Input data as an int.
@@ -86,6 +90,8 @@ class PosOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 				{return p->position;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual void setVValue(GravityParticle *p, Vector3D<double> val)
+        {p->position = val;}
     virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     PosOutputParams() {}
@@ -111,6 +117,8 @@ class VelOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 				{return dVFac*p->velocity;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual void setVValue(GravityParticle *p, Vector3D<double> val)
+        {p->velocity = val/dVFac;}
     virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     VelOutputParams() {}
@@ -230,6 +238,8 @@ class AccOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 				{return p->treeAcceleration;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual void setVValue(GravityParticle *p, Vector3D<double> val)
+        {p->treeAcceleration = val;}
     virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     AccOutputParams() {}
