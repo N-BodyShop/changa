@@ -1646,6 +1646,7 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
         }
     }
     else {
+        *startTime = CkWallTimer();
         treeProxy.initAccel(iActiveRung, CkCallbackResumeThread());
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
