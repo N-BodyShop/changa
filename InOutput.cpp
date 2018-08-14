@@ -355,15 +355,25 @@ void TreePiece::readTipsyArray(OutputParams& params, const CkCallback& cb)
     xdr_destroy(&xdrs);
     if(iDum == nTotalParticles) { // We've got a binary file; read it
         int64_t seek_pos;
-        seek_pos = sizeof(iDum) + nStartRead*(int64_t)sizeof(float);
+        if(params.bVector)
+            seek_pos = sizeof(iDum) + nStartRead*(int64_t)sizeof(float)*3;
+        else
+            seek_pos = sizeof(iDum) + nStartRead*(int64_t)sizeof(float);
         fseek(infile, seek_pos, SEEK_SET);
         xdrstdio_create(&xdrs, infile, XDR_DECODE);
         for(unsigned int i = 0; i < myNumParticles; ++i) {
             if(params.bFloat) {
-                float dValue;
-                xdr_float(&xdrs, &dValue);
-                params.setDValue(&myParticles[i+1], dValue);
+                if(params.bVector) {
+                    Vector3D<float> vValue;
+                    xdr_template(&xdrs, &vValue);
+                    params.setVValue(&myParticles[i+1], vValue);
                 }
+                else {
+                    float dValue;
+                    xdr_float(&xdrs, &dValue);
+                    params.setDValue(&myParticles[i+1], dValue);
+                }
+            }
             else {
                 int iValue;
                 xdr_template(&xdrs, &iValue);
@@ -378,26 +388,40 @@ void TreePiece::readTipsyArray(OutputParams& params, const CkCallback& cb)
         int nread;
         nread = fscanf(infile, "%ld\n", &nTot);
         CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(infile, "%lf\n", &dummy);
-            CkAssert(nread == 1);
+        int nDim = 1;           // Dimensions to read
+        if(params.bVector) {
+            nDim = 3;
+            CkAssert(packed == 0);
+        }
+        for(int iDim = 0; iDim < nDim; iDim++) {
+            for(int i = 0; i < nStartRead; i++) {
+                double dummy;
+                nread = fscanf(infile, "%lf\n", &dummy);
+                CkAssert(nread == 1);
             }
-        for(int i = 0; i < myNumParticles; i++) {
-            if(params.bFloat) {
-                double dDummy;
-                nread = fscanf(infile, "%lf\n", &dDummy);
-                CkAssert(nread == 1);
-                params.setDValue(&myParticles[i+1], dDummy);
+            for(int i = 0; i < myNumParticles; i++) {
+                if(params.bFloat) {
+                    double dDummy;
+                    nread = fscanf(infile, "%lf\n", &dDummy);
+                    CkAssert(nread == 1);
+                    if(params.bVector) {
+                        Vector3D<double> vDummy
+                            = params.vValue(&myParticles[i+1]);
+                        vDummy[iDim] = dDummy;
+                        params.setVValue(&myParticles[i+1], vDummy);
+                    }
+                    else
+                        params.setDValue(&myParticles[i+1], dDummy);
                 }
-            else {
-                int64_t iDummy;
-                nread = fscanf(infile, "%ld\n", &iDummy);
-                CkAssert(nread == 1);
-                params.setIValue(&myParticles[i+1], iDummy);
+                else {
+                    int64_t iDummy;
+                    nread = fscanf(infile, "%ld\n", &iDummy);
+                    CkAssert(nread == 1);
+                    params.setIValue(&myParticles[i+1], iDummy);
                 }
             }
         }
+    }
         
     CmiFclose(infile);
     contribute(cb);
