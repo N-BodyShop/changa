@@ -585,6 +585,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
       else
 	  pqNew.fKey = dSearchMax;
 #ifdef NSMOOTHINNER
+#error NSMOOTHINNER is not fully implemented
       if (nInner < 0.2828*nSmooth)
       {
           isort.quickSort();
