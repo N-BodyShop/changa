@@ -71,6 +71,10 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "dEpsT", paramDouble, &dEpsT,
         sizeof(double), "dEpsT", "<Tangential coefficient of restituion for bouncing collisions> = 1.0");
 
+    bSkipP0 = 0;
+    prmAddParam(prm, "bSkipP0", paramBool, &bSkipP0,
+        sizeof(int), "bSkipP0", "<Don't do collision check for first particle> = 0");
+
     }
 
 void Collision::CheckParams(PRM prm, struct parameters &param)
@@ -773,6 +777,9 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     p->iOrderCol = -1;
     double dTimeSub = RungToDt(dDelta, activeRung);
     if (TYPETest(p, TYPE_DELETED)) return;
+    if (coll.bSkipP0) {
+        if (p->iOrder == 0) return;
+        }
 
     if (bWall) {
         dt = (dWallPos - p->position[2] - (p->soft*2.))/p->velocity[2];

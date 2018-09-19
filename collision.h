@@ -54,6 +54,7 @@ public:
     double dBallFac;      /* scale factor for collision search radius */
     double dWallPos;      /* location of wall along z axis */
     double dEpsN, dEpsT;  /* normal and transverse coefficients of restitution */
+    int bSkipP0;          /* Don't do a collision check for the first particle */
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
@@ -88,6 +89,7 @@ inline void Collision::pup(PUP::er &p) {
     p | dWallPos;
     p | dEpsN;
     p | dEpsT;
+    p | bSkipP0;
     }
 
 #include "smoothparams.h"
