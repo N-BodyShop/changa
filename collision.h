@@ -90,6 +90,7 @@ inline void Collision::pup(PUP::er &p) {
     p | dEpsN;
     p | dEpsT;
     p | bSkipP0;
+    p | bDelEjected;
     }
 
 #include "smoothparams.h"
