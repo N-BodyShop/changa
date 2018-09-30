@@ -56,6 +56,9 @@ nvcc_flags += -arch=compute_@CUDA_LEVEL@ -code=sm_@CUDA_LEVEL@
 # nvcc includes are broken when the host compiler is gcc >= 5.0
 nvcc_flags += -D_FORCE_INLINES
 
+# Do the local treewalk on the GPU
+nvcc_flags += @GPU_LOCAL_TREE_WALK@
+
 ifeq (1,$(CUDA_VERBOSE))
 	nvcc_flags += --ptxas-options=-v
 endif
