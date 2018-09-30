@@ -78,7 +78,7 @@ cuda-show-config:
 	@ echo CUDA_LIBS = $(cuda_libs)"\n"
 
 .PHONY: dist-clean
-dist-clean: cuda_dist-clean
+dist-clean: cuda-dist-clean
 
 .PHONY: cuda-dist-clean
 cuda-dist-clean:
