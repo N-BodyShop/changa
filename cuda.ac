@@ -33,6 +33,9 @@ case x$CUDA_DIR in
 esac
 
 # BUILD_CUDA is exported by $CHARMINC/conv-mach-cuda.sh
+if test x$BUILD_CUDA = x; then
+	BUILD_CUDA=0
+fi
 if test x$ENABLE_CUDA = xno -a x$BUILD_CUDA = x1; then
 	AC_MSG_ERROR([Charm++ ($CHARM_PATH) was built with CUDA support enabled.])
 fi
