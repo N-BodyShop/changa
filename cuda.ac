@@ -22,7 +22,7 @@ AC_ARG_WITH([cuda],
 	[CUDA_DIR="no"])
 
 # GPU local tree walk
-ARG_ENABLE([gpu_local_tree_walk], [Do local tree walk on GPU],
+ARG_ENABLE([gpu-local-tree-walk], [Do local tree walk on GPU],
 			[FLAG_GPU_LOCAL_TREE_WALK], [-DGPU_LOCAL_TREE_WALK], [no])
 
 # We also support using the argument "auto" to mean "yes"
