@@ -18,9 +18,7 @@
 #include <assert.h>
 
 #include "CudaFunctions.h"
-#ifdef HEXADECAPOLE
-# include "CUDAMoments.cu"
-#endif
+#include "CUDAMoments.cu"
 #include "HostCUDA.h"
 #include "EwaldCUDA.h"
 
