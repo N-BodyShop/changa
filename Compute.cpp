@@ -1426,11 +1426,6 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
     tp->finishBucket(bucket);
   }
 
-  if(data->callDummy){
-    // doesn't matter what argument is passed in
-    tp->callFreeRemoteChunkMemory(-1);
-  }
-
   // free data structures
   if(numBucketsDone > 0){
     delete [] data->affectedBuckets;
@@ -1509,7 +1504,6 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   request->state = (void *)state;
   request->node = true;
   request->remote = false;
-  request->callDummy = false;
   request->firstParticle = tp->FirstGPUParticleIndex;
   request->lastParticle = tp->LastGPUParticleIndex;
   // In DataManager serializes the local tree so that the root of the local tree
