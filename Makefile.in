@@ -124,7 +124,8 @@ ld_flags  := $(basic_ldflags) $(LDFLAGS)
 sources := $(filter-out $(source_dir)/cooling%,$(wildcard	\
 			$(addprefix $(source_dir)/,*.c *.cpp)))
 
-ci_headers := $(patsubst %.ci,%.decl.h,$(wildcard $(source_dir)/*.ci))
+ci_files   := $(wildcard $(source_dir)/*.ci)
+ci_headers := $(patsubst %.ci,%.decl.h,$(ci_files))
 
 objects := $(strip $(addprefix 												\
 			$(build_dir)/,$(patsubst %.cpp,%.o,$(filter %.cpp,$(sources)))	\
