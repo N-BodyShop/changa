@@ -181,6 +181,15 @@ $(filter %.cpp,$(sources)): $(ci_headers)
 # Use a conditional include so consecutive cleans work
 -include $(depend_files)
 
+# Force a rebuild if the compiler flags have changed
+.PHONY: force
+settings: force
+	$(quiet) flags="$(cxx_flags) $(c_flags) $(ld_libs) $(ld_flags)" && \
+			 echo "$$flags" | cmp -s - $@ || echo "$$flags" > $@
+
+$(ci_files): settings
+$(objects): settings
+
 $(target): $(objects) $(structures_path)/libTipsy.a $(foreach m,$(changa_modules),libmodule$(m).a)
 	@ echo Building $@...
 	$(quiet) $(charmc) -o $(target) $(ld_flags) $(objects) $(ld_libs)
@@ -209,7 +218,7 @@ docs:
 .PHONY: clean
 clean:
 	@ echo Cleaning...
-	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files)
+	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files) settings
 	$(quiet) $(RM) $(foreach m,$(changa_modules),libmodule$(m).a)
 	$(quiet) cd $(structures_path); $(MAKE) clean
 
