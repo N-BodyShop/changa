@@ -220,13 +220,13 @@ docs:
 .PHONY: clean
 clean:
 	@ echo Cleaning...
-	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files) settings $(build_dir)/cha_commitid.c
+	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files) settings
 	$(quiet) $(RM) $(foreach m,$(changa_modules),libmodule$(m).a)
 	$(quiet) cd $(structures_path); $(MAKE) clean
 
 .PHONY: dist-clean
 dist-clean: clean
-	$(quiet) $(RM) $(target) $(charmrun) ChaNGa.* charmrun.* config.status config.log config.h Makefile
+	$(quiet) $(RM) $(target) $(charmrun) ChaNGa.* charmrun.* config.status config.log config.h Makefile $(build_dir)/cha_commitid.c
 
 .PHONY: full-clean
 full-clean: dist-clean
