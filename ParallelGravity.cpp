@@ -632,10 +632,12 @@ Main::Main(CkArgMsg* m) {
 
        param.externalGravity.AddParams(prm);
 
+#ifdef COLLISION
        param.bCollision = 0;
        prmAddParam(prm, "bCollision", paramBool, &param.bCollision,
            sizeof(int), "bCollision", "<Do collision detection and response on particles> = 0");
        param.collision.AddParams(prm);
+#endif
 
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
@@ -1905,6 +1907,7 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
             updateuDot(iActiveRung-1, duKick, dStartTime, 0, 0);
         }
     }
+#ifdef COLLISION
 
 ///
 /// @brief Alternative version of 'advanceBigStep' which is used when
@@ -2077,6 +2080,8 @@ void Main::advanceBigCollStep(int iStep)
         addDelParticles();
         }
     }
+
+#endif
 
 ///
 /// @brief Take one base timestep of the simulation.
@@ -3017,8 +3022,13 @@ Main::doSimulation()
     for(int iRung = 0; iRung < timings.size(); iRung++) {
         timings[iRung].clear();
         }
+#ifdef COLLISION
     if (param.collision.bCollStep) advanceBigCollStep(iStep-1);
     else advanceBigStep(iStep-1);
+#else
+    advanceBigStep(iStep-1);
+#endif
+
     double stepTime = CkWallTimer() - startTime;
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
 	  << endl;
