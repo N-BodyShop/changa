@@ -65,6 +65,13 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
+# Set up the cha_commitid file
+VOLD=$(test -e VERSION && cat VERSION)
+VNEW=$(git -C $srcdir describe --long --always)
+if test -n "$VNEW" -a "$VOLD" != "$VNEW"; then
+    echo "const char * const Cha_CommitID = \"$VNEW\";" > cha_commitid.c
+fi
+
 # Compiler-specific options
 m4_include([compiler.ac])
 

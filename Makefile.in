@@ -205,13 +205,6 @@ ifneq (charmrun,$(charmrun))
 	$(quiet) mv charmrun $(charmrun)
 endif
 
-.PHONY: $(build_dir)/VERSION.new
-$(build_dir)/VERSION: $(build_dir)/VERSION.new
-	$(quiet) $(source_dir)/commitid.sh
-
-$(source_dir)/cha_commitid.c: VERSION
-	@ echo "const char * const Cha_CommitID = \"`cat $<`\";" > $@
-
 $(structures_path)/libTipsy.a:
 	$(quiet) cd $(structures_path); $(MAKE) DEBUG='$(DEBUG)' libTipsy.a
 
@@ -227,7 +220,7 @@ docs:
 .PHONY: clean
 clean:
 	@ echo Cleaning...
-	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files) settings
+	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files) settings $(build_dir)/cha_commitid.c
 	$(quiet) $(RM) $(foreach m,$(changa_modules),libmodule$(m).a)
 	$(quiet) cd $(structures_path); $(MAKE) clean
 
