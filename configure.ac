@@ -17,6 +17,11 @@ if test "$CHARMC" = "no" ; then
    exit
 fi
 
+MINIMUM_CHARM_VERSION=60800
+if test $($CHARMC -V | awk '{print $3}') -lt $MINIMUM_CHARM_VERSION; then
+	AC_MSG_ERROR([[At least Charm++ $MINIMUM_CHARM_VERSION is required]])
+fi
+
 CHARM_PATH=${CHARMC%/bin/charmc}
 CONV_CONFIG=${CHARM_PATH}/tmp/conv-config.sh
 CHARMINC=${CHARM_PATH}/include
