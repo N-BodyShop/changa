@@ -76,14 +76,11 @@ DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) \
 	       $(FLAG_CHANGESOFT) $(FLAG_DAMPING) \
 	       $(KERNEL_FLAGS) $(GPU_LOCAL_TREE_WALK)
 
-CHARM_PATH = @CHARM_PATH@
-STRUCTURES_PATH = $(SOURCE_DIR)/../utility/structures
-CHARM_LDB_PATH = $(CHARM_PATH)/src/ck-ldb
-CHARM_UTIL_PATH = $(CHARM_PATH)/src/util
-CHARM_LIB_PATH = $(CHARM_PATH)/lib
-METIS_SRC_PATH = $(CHARM_PATH)/src/libs/ck-libs/parmetis/METISLib
-CACHE_LIB_PATH = $(CHARM_PATH)/tmp/libs/ck-libs/cache
-THREADSAFE_HT_PATH = $(CACHE_LIB_PATH)/threadsafe_hashtable
+# ------- Include paths -------------------------------------------------------
+structures_path 	:= $(source_dir)/../utility/structures
+charm_util_path 	:= @CHARM_PATH@/src/util
+cache_lib_path 		:= @CHARM_PATH@/tmp/libs/ck-libs/cache
+threadsafe_ht_path 	:= $(cache_lib_path)/threadsafe_hashtable
 
 # add -module Orb3dLB here for load balancing during singlestepped runs
 INCLUDE_FLAGS += -I$(STRUCTURES_PATH) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR) -I$(CHARM_UTIL_PATH)
