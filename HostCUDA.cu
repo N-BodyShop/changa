@@ -286,9 +286,9 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
                   );
 #endif
 #ifdef HAPI_INSTRUMENT_WRS
-        transferKernel->chareIndex = mype;
-        transferKernel->compType = DM_TRANSFER_LOCAL;
-        transferKernel->compPhase = phase;
+        transferKernel->chare_index = mype;
+        transferKernel->comp_type = DM_TRANSFER_LOCAL;
+        transferKernel->comp_phase = phase;
 #endif
 	hapiEnqueue(transferKernel);
 
@@ -350,9 +350,9 @@ void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
 #endif
   transferKernel->setRunKernel(run_DM_TRANSFER_REMOTE_CHUNK);
 #ifdef HAPI_INSTRUMENT_WRS
-  transferKernel->chareIndex = mype;
-  transferKernel->compType = DM_TRANSFER_REMOTE_CHUNK;
-  transferKernel->compPhase = phase;
+  transferKernel->chare_index = mype;
+  transferKernel->comp_type = DM_TRANSFER_REMOTE_CHUNK;
+  transferKernel->comp_phase = phase;
 #endif
   hapiEnqueue(transferKernel);
 
@@ -748,9 +748,9 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 #endif
 	gravityKernel->setRunKernel(run_TP_GRAVITY_LOCAL);
 #ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chareIndex = data->tpIndex;
-        gravityKernel->compType = TP_GRAVITY_LOCAL;
-        gravityKernel->compPhase = data->phase;
+        gravityKernel->chare_index = data->tpIndex;
+        gravityKernel->comp_type = TP_GRAVITY_LOCAL;
+        gravityKernel->comp_phase = data->phase;
 #endif
 	hapiEnqueue(gravityKernel);
 }
@@ -777,9 +777,9 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 #endif
 	gravityKernel->setRunKernel(run_TP_GRAVITY_REMOTE);
 #ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chareIndex = data->tpIndex;
-        gravityKernel->compType = TP_GRAVITY_REMOTE;
-        gravityKernel->compPhase = data->phase;
+        gravityKernel->chare_index = data->tpIndex;
+        gravityKernel->comp_type = TP_GRAVITY_REMOTE;
+        gravityKernel->comp_phase = data->phase;
 #endif
 	hapiEnqueue(gravityKernel);
 }
@@ -825,9 +825,9 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
 #endif
   gravityKernel->setRunKernel(run_TP_GRAVITY_REMOTE_RESUME);
 #ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chareIndex = data->tpIndex;
-        gravityKernel->compType = TP_GRAVITY_REMOTE_RESUME;
-        gravityKernel->compPhase = data->phase;
+        gravityKernel->chare_index = data->tpIndex;
+        gravityKernel->comp_type = TP_GRAVITY_REMOTE_RESUME;
+        gravityKernel->comp_phase = data->phase;
 #endif
   hapiEnqueue(gravityKernel);
 }
@@ -927,9 +927,9 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 #endif
 	gravityKernel->setRunKernel(run_TP_PART_GRAVITY_LOCAL_SMALLPHASE);
 #ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chareIndex = data->tpIndex;
-        gravityKernel->compType = TP_PART_GRAVITY_LOCAL_SMALLPHASE;
-        gravityKernel->compPhase = data->phase;
+        gravityKernel->chare_index = data->tpIndex;
+        gravityKernel->comp_type = TP_PART_GRAVITY_LOCAL_SMALLPHASE;
+        gravityKernel->comp_phase = data->phase;
 #endif
 	hapiEnqueue(gravityKernel);
 }
@@ -956,9 +956,9 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
         printf("(%d) TRANSFER LOCAL LARGEPHASE PART\n", CmiMyPe());
 #endif
 #ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chareIndex = data->tpIndex;
-        gravityKernel->compType = TP_PART_GRAVITY_LOCAL;
-        gravityKernel->compPhase = data->phase;
+        gravityKernel->chare_index = data->tpIndex;
+        gravityKernel->comp_type = TP_PART_GRAVITY_LOCAL;
+        gravityKernel->comp_phase = data->phase;
 #endif
 	hapiEnqueue(gravityKernel);
 }
@@ -985,9 +985,9 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
         printf("(%d) TRANSFER REMOTE PART\n", CmiMyPe());
 #endif
 #ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chareIndex = data->tpIndex;
-        gravityKernel->compType = TP_PART_GRAVITY_REMOTE;
-        gravityKernel->compPhase = data->phase;
+        gravityKernel->chare_index = data->tpIndex;
+        gravityKernel->comp_type = TP_PART_GRAVITY_REMOTE;
+        gravityKernel->comp_phase = data->phase;
 #endif
 	hapiEnqueue(gravityKernel);
 }
@@ -1037,9 +1037,9 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
 #endif
 	gravityKernel->setRunKernel(run_TP_PART_GRAVITY_REMOTE_RESUME);
 #ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chareIndex = data->tpIndex;
-        gravityKernel->compType = TP_PART_GRAVITY_REMOTE_RESUME;
-        gravityKernel->compPhase = data->phase;
+        gravityKernel->chare_index = data->tpIndex;
+        gravityKernel->comp_type = TP_PART_GRAVITY_REMOTE_RESUME;
+        gravityKernel->comp_phase = data->phase;
 #endif
 	hapiEnqueue(gravityKernel);
 }
@@ -1114,9 +1114,9 @@ void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart){
   gravityKernel->setRunKernel(run_DM_TRANSFER_FREE_LOCAL);
   //printf("DM TRANSFER FREE LOCAL\n");
 #ifdef HAPI_INSTRUMENT_WRS
-  gravityKernel->chareIndex = index;
-  gravityKernel->compType = DM_TRANSFER_FREE_LOCAL;
-  gravityKernel->compPhase = phase;
+  gravityKernel->chare_index = index;
+  gravityKernel->comp_type = DM_TRANSFER_FREE_LOCAL;
+  gravityKernel->comp_phase = phase;
 #endif
   hapiEnqueue(gravityKernel);
 
@@ -1159,9 +1159,9 @@ void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool fr
   gravityKernel->setUserData(dm);
   //printf("DM TRANSFER FREE REMOTE CHUNK\n");
 #ifdef HAPI_INSTRUMENT_WRS
-  gravityKernel->chareIndex = index;
-  gravityKernel->compType = DM_TRANSFER_FREE_REMOTE_CHUNK;
-  gravityKernel->compPhase = phase;
+  gravityKernel->chare_index = index;
+  gravityKernel->comp_type = DM_TRANSFER_FREE_REMOTE_CHUNK;
+  gravityKernel->comp_phase = phase;
 #endif
   hapiEnqueue(gravityKernel);
 
@@ -1180,7 +1180,7 @@ void run_DM_TRANSFER_BACK(hapiWorkRequest *wr, cudaStream_t kernel_stream,void**
  */
 #ifdef HAPI_INSTRUMENT_WRS
 void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
-     bool freemom, bool freepart, bool freeRemoteMom, bool, freeRemotePart,
+     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart,
      int index, char phase){
 #else
 void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
@@ -1218,9 +1218,9 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
   printf("(%d) DM TRANSFER BACK\n", CmiMyPe());
 #endif
 #ifdef HAPI_INSTRUMENT_WRS
-  gravityKernel->chareIndex = index;
-  gravityKernel->compType = DM_TRANSFER_BACK;
-  gravityKernel->compPhase = phase;
+  gravityKernel->chare_index = index;
+  gravityKernel->comp_type = DM_TRANSFER_BACK;
+  gravityKernel->comp_phase = phase;
 #endif
   hapiEnqueue(gravityKernel);
 }
@@ -2592,9 +2592,9 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
 #endif
   }
 #ifdef HAPI_INSTRUMENT_WRS
-  EwaldKernel->chareIndex = myIndex;
-  EwaldKernel->compType = EWALD_KERNEL;
-  EwaldKernel->compPhase = phase;
+  EwaldKernel->chare_index = myIndex;
+  EwaldKernel->comp_type = EWALD_KERNEL;
+  EwaldKernel->comp_phase = phase;
 #endif
   hapiEnqueue(EwaldKernel);
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE

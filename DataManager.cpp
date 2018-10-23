@@ -471,7 +471,7 @@ int DataManager::initInstrumentation(){
   treePiecesDoneInitInstrumentation++;
   if(treePiecesDoneInitInstrumentation == registeredTreePieces.length()){
     activeRung = registeredTreePieces[0].treePiece->getActiveRung();
-    hapi_initInstrument(registeredTreePieces.length(), BOTTOM_EWALD_KERNEL+1);
+    hapi_initInstrument(registeredTreePieces.length(), EWALD_KERNEL+1);
     treePiecesDoneInitInstrumentation = 0;
   }
   CmiUnlock(__nodelock);

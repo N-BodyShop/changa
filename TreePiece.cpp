@@ -40,8 +40,7 @@
 
 #ifdef CUDA
 #ifdef HAPI_INSTRUMENT_WRS
-#define GPU_INSTRUMENT_WRS
-#include "wr.h"
+#include "hapi.h"
 #endif
 #endif
 
@@ -6320,60 +6319,59 @@ void TreePiece::finishWalk()
 #endif
 
 #ifdef HAPI_INSTRUMENT_WRS
-  hapiRequestTimeInfo *rti1 = hapi_queryInstrument(instrumentId, DM_TRANSFER_LOCAL, activeRung);
-  hapiRequestTimeInfo *rti2 = hapi_queryInstrument(instrumentId, DM_TRANSFER_REMOTE_CHUNK, activeRung);
-  hapiRequestTimeInfo *rti3 = hapi_queryInstrument(instrumentId, DM_TRANSFER_BACK, activeRung);
-  hapiRequestTimeInfo *rti4 = hapi_queryInstrument(instrumentId, DM_TRANSFER_FREE_LOCAL, activeRung);
-  hapiRequestTimeInfo *rti5 = hapi_queryInstrument(instrumentId, DM_TRANSFER_FREE_REMOTE_CHUNK, activeRung);
-  
-  hapiRequestTimeInfo *rti6 = hapi_queryInstrument(instrumentId, TP_GRAVITY_LOCAL, activeRung);
-  hapiRequestTimeInfo *rti7 = hapi_queryInstrument(instrumentId, TP_GRAVITY_REMOTE, activeRung);
-  hapiRequestTimeInfo *rti8 = hapi_queryInstrument(instrumentId, TP_GRAVITY_REMOTE_RESUME, activeRung);
-  
-  hapiRequestTimeInfo *rti9 = hapi_queryInstrument(instrumentId,TP_PART_GRAVITY_LOCAL_SMALLPHASE, activeRung);
-  hapiRequestTimeInfo *rti10 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_LOCAL, activeRung);
-  hapiRequestTimeInfo *rti11 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE, activeRung);
-  hapiRequestTimeInfo *rti12 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE_RESUME, activeRung);
+  hapiRequestTimeInfo *rti1 = hapiQueryInstrument(instrumentId, DM_TRANSFER_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti2 = hapiQueryInstrument(instrumentId, DM_TRANSFER_REMOTE_CHUNK, activeRung);
+  hapiRequestTimeInfo *rti3 = hapiQueryInstrument(instrumentId, DM_TRANSFER_BACK, activeRung);
+  hapiRequestTimeInfo *rti4 = hapiQueryInstrument(instrumentId, DM_TRANSFER_FREE_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti5 = hapiQueryInstrument(instrumentId, DM_TRANSFER_FREE_REMOTE_CHUNK, activeRung);
 
-  hapiRequestTimeInfo *rti13 = hapi_queryInstrument(instrumentId, TOP_EWALD_KERNEL, activeRung);
-  hapiRequestTimeInfo *rti14 = hapi_queryInstrument(instrumentId, BOTTOM_EWALD_KERNEL, activeRung);
+  hapiRequestTimeInfo *rti6 = hapiQueryInstrument(instrumentId, TP_GRAVITY_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti7 = hapiQueryInstrument(instrumentId, TP_GRAVITY_REMOTE, activeRung);
+  hapiRequestTimeInfo *rti8 = hapiQueryInstrument(instrumentId, TP_GRAVITY_REMOTE_RESUME, activeRung);
+
+  hapiRequestTimeInfo *rti9 = hapiQueryInstrument(instrumentId,TP_PART_GRAVITY_LOCAL_SMALLPHASE, activeRung);
+  hapiRequestTimeInfo *rti10 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti11 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE, activeRung);
+  hapiRequestTimeInfo *rti12 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE_RESUME, activeRung);
+
+  hapiRequestTimeInfo *rti13 = hapiQueryInstrument(instrumentId, EWALD_KERNEL, activeRung);
 
   if(rti6 != NULL){
     CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS localnode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti6->transferTime/rti6->n,
-        rti6->kernelTime/rti6->n,
-        rti6->cleanupTime/rti6->n, rti6->n);
+        rti6->transfer_time/rti6->n,
+        rti6->kernel_time/rti6->n,
+        rti6->cleanup_time/rti6->n, rti6->n);
   }
   if(rti7 != NULL){
     CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remotenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti7->transferTime/rti7->n,
-        rti7->kernelTime/rti7->n,
-        rti7->cleanupTime/rti7->n, rti7->n);
+        rti7->transfer_time/rti7->n,
+        rti7->kernel_time/rti7->n,
+        rti7->cleanup_time/rti7->n, rti7->n);
   }
   if(rti8 != NULL){
     CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remoteresumenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti8->transferTime/rti8->n,
-        rti8->kernelTime/rti8->n,
-        rti8->cleanupTime/rti8->n, rti8->n);
+        rti8->transfer_time/rti8->n,
+        rti8->kernel_time/rti8->n,
+        rti8->cleanup_time/rti8->n, rti8->n);
   }
 
   if(rti10 != NULL){
     CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS localpart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti10->transferTime/rti10->n,
-        rti10->kernelTime/rti10->n,
-        rti10->cleanupTime/rti10->n, rti10->n);
+        rti10->transfer_time/rti10->n,
+        rti10->kernel_time/rti10->n,
+        rti10->cleanup_time/rti10->n, rti10->n);
   }
   if(rti11 != NULL){
     CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remotepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti11->transferTime/rti11->n,
-        rti11->kernelTime/rti11->n,
-        rti11->cleanupTime/rti11->n, rti11->n);
+        rti11->transfer_time/rti11->n,
+        rti11->kernel_time/rti11->n,
+        rti11->cleanup_time/rti11->n, rti11->n);
   }
   if(rti12 != NULL){
     CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remoteresumepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti12->transferTime/rti12->n,
-        rti12->kernelTime/rti12->n,
-        rti12->cleanupTime/rti12->n, rti12->n);
+        rti12->transfer_time/rti12->n,
+        rti12->kernel_time/rti12->n,
+        rti12->cleanup_time/rti12->n, rti12->n);
   }
 
   if(nLocalNodeReqs > 0){
