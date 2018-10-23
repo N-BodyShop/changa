@@ -2,6 +2,8 @@
 # for variables that are either derived from the environment or are explicitly
 # set by the user during invocation.
 
+.DEFAULT_GOAL := all
+
 # ChaNGa source directory
 source_dir := @srcdir@
 
