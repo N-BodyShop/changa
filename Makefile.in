@@ -19,6 +19,12 @@ quiet	:= $(if $(filter $(VERBOSE),1),,@)
 # ------- Top-level configurations --------------------------------------------
 interlist := -DINTERLIST_VER=2	# enable interaction lists
 
+# ------- Tree building: Use **ONLY ONE** of these ----------------------------
+#	-DMERGE_REMOTE_REQUESTS		# merges remote requests before sending; local trees built after requests sent
+#	-DSPLIT_PHASE_TREE_BUILD	# no merging of remote requests on PE; local trees built after requests sent
+flag_tree_build := -DMERGE_REMOTE_REQUESTS
+
+
 # Flags that can be passed during compilation
 #FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
 #FLAG_PRINT = -DCOSMO_PRINT_BK=2       #enable verbose book-keeping prints
@@ -93,12 +99,6 @@ endif
 # -DCHECK_WALK_COMPLETIONS
 #FLAG_REFACTOR =  
 
-# Flags for tree building. Use one or the other: 
-# -DMERGE_REMOTE_REQUESTS : merges remote requests before sending; local trees built after requests sent
-# -DSPLIT_PHASE_TREE_BUILD : no merging of remote requests on PE; local trees built after requests sent
-# debug with -DPRINT_MERGED_TREE
-FLAG_TREE_BUILD = -DMERGE_REMOTE_REQUESTS
-
 #MULTISTEP_LOADBALANCING_VERBOSE = -DCOSMO_MCLB=2 -DMCLBMSV
 #ORB3DLB_LOADBALANCING_VERBOSE = -DORB3DLBV
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) \
@@ -109,7 +109,7 @@ DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) \
 	       $(FLAG_DTADJUST) $(FLAG_REFACTOR) \
                $(MULTISTEP_LOADBALANCING_VERBOSE) \
                $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) \
-	       -DREDUCTION_HELPER $(FLAG_TREE_BUILD) \
+	       -DREDUCTION_HELPER $(flag_tree_build) \
                $(FLAG_DIFFHARMONIC) $(FLAG_FEEDBACKDIFFLIMIT) \
                $(FLAG_SSE) $(FLAG_AVX) @FLAG_FLOAT@ \
 	       $(FLAG_CHANGESOFT) $(FLAG_DAMPING) \
