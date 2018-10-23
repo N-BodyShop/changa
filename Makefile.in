@@ -33,7 +33,6 @@ FLAG_FEEDBACKDIFFLIMIT = @FLAG_FEEDBACKDIFFLIMIT@
 FLAG_CULLENALPHA = @FLAG_CULLENALPHA@
 FLAG_VSIGVISC = @FLAG_VSIGVISC@
 FLAG_DAMPING = @FLAG_DAMPING@
-OPTS = @OPTS@ # compiler options
 
 ### GPU_LOCAL_TREE_WALK
 GPU_LOCAL_TREE_WALK = @GPU_LOCAL_TREE_WALK@
@@ -135,8 +134,8 @@ endif
 # add -module Orb3dLB here for load balancing during singlestepped runs
 INCLUDE_FLAGS += -I$(STRUCTURES_PATH) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR) -I$(CHARM_UTIL_PATH)
 CPPFLAGS += $(INCLUDE_FLAGS) $(DEFINE_FLAGS) @CPPFLAGS@
-CXXFLAGS += $(OPTS) $(CPPFLAGS)
-LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache \
+CXXFLAGS += $(CPPFLAGS)
+LDFLAGS += -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache \
 	   -module CkIO -module CkMulticast -module RefineLB \
 	   -module RefineCommLB -module GreedyLB -module GreedyCommLB \
 	   -module OrbLB -module RotateLB -module MultistepLB \
@@ -155,7 +154,7 @@ CXX = $(CHARMC)
 CC = $(CXX)
 AR = @AR@ 
 CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
-CFLAGS = $(OPTS) $(DEFINE_FLAGS) -I$(SOURCE_DIR) -I$(BUILD_DIR) @CFLAGS@ @CPPFLAGS@
+CFLAGS = $(DEFINE_FLAGS) -I$(SOURCE_DIR) -I$(BUILD_DIR) @CFLAGS@ @CPPFLAGS@
 
 # Orb3dLB.{o,C} below
 OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
@@ -265,7 +264,7 @@ DIRS = teststep
 
 test: $(TARGET)
 	for d in $(DIRS); do \
-		(cd $$d && $(MAKE) test OPTS='$(OPTS)' || exit 1) || exit 1; \
+		(cd $$d && $(MAKE) test || exit 1) || exit 1; \
 	done
 
 dist:

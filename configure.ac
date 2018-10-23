@@ -343,23 +343,9 @@ fi
 
 AC_SUBST([FLAG_RTFORCE])
 
-# Compiler flags
 AC_ARG_ENABLE([opts],
-	[AS_HELP_STRING([--enable-opts="options"], [Set compiler flags (override defaults)])],
-	[opts=$enableval], [])
-if test "$opts" = "yes" ; then
-    # The user called without arguments.  Assume this is an empty string
-    opts=""
-fi
-# Test if 'opts' is defined
-if test "${opts+x}" != ""  ; then
-    OPTS="$opts"
-else
-    # Default options
-    OPTS="-O3 -lpthread"
-fi
-echo "compiler options: $OPTS"
-AC_SUBST([OPTS])
+	[AS_HELP_STRING([--enable-opts], [DEPRECATED - Do not use])],
+	[], [])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
