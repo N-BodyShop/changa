@@ -623,15 +623,16 @@ ac_includes_default="\
 #endif"
 
 ac_subst_vars='LTLIBOBJS
-CUDA_LEVEL
-HAVE_CUDA_SDK
-HAVE_CUDA
-ENABLE_CUDA
-CUDA_SDK_DIR
-NVCC_PATH
+CUDA_LIBS
 CUDA_DIR
+CUDA_LEVEL
+ENABLE_CUDA
+NVCC_PATH
+FLAG_GPU_LOCAL_TREE_WALK
 LIBOBJS
-OPTS
+FLAG_SANITIZER
+PROJECTIONS
+DEFAULT_LB
 FLAG_SIDMINTERACT
 FLAG_RTFORCE
 FLAG_VSIGVISC
@@ -640,21 +641,27 @@ FLAG_SUPERBUBBLE
 FLAG_DIFFHARMONIC
 FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFUSION
-GPU_LOCAL_TREE_WALK
-HEXADECAPOLE
-OBJECTS_COOLING
-FLAG_COOLING
 FLAG_DAMPING
-KERNEL_FLAGS
-FLAG_KERNEL
+FLAG_COOLING
+FLAG_SPH_KERNEL
+flag_sph_m6kernel_deprecated
+flag_sph_wendland_deprecated
 FLAG_SPLITGAS
 FLAG_NSMOOTHINNER
+FLAG_TREE_BUILD
+FLAG_INTERLIST
 FLAG_DTADJUST
 FLAG_BIGKEYS
 FLAG_CHANGESOFT
-FLAG_AVX
-FLAG_SSE
+HEXADECAPOLE
 FLAG_FLOAT
+FLAG_ARCH
+flag_avx_deprecated
+flag_sse_deprecated
+OPT_DEBUG
+CLANG_COMPILER
+INTEL_COMPILER
+GNU_COMPILER
 EGREP
 GREP
 CPP
@@ -668,9 +675,16 @@ CPPFLAGS
 LDFLAGS
 CXXFLAGS
 CXX
+CMK_SMP
 AR
 CHARM_PATH
+HAVE_GIT
 CHARMC
+STRUCT_DIR
+USER_LDFLAGS
+USER_CXXFLAGS
+USER_CFLAGS
+USER_CPPFLAGS
 target_alias
 host_alias
 build_alias
@@ -690,6 +704,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -712,20 +727,23 @@ SHELL'
 ac_subst_files=''
 ac_user_opts='
 enable_option_checking
-enable_float
 enable_sse2
 enable_avx
+enable_arch
+enable_float
+enable_hexadecapole
 enable_changesoft
 enable_bigkeys
 enable_dtadjust
+enable_interlist
+enable_tree_build
 enable_nsmoothinner
 enable_splitgas
 enable_wendland
 enable_m6kernel
-enable_damping
+enable_sph_kernel
 enable_cooling
-enable_hexadecapole
-enable_gpu_local_tree_walk
+enable_damping
 enable_diffusion
 enable_feedbacklimit
 enable_superbubble
@@ -733,10 +751,14 @@ enable_cullenalpha
 enable_vsigvisc
 enable_rtforce
 enable_sidminter
+enable_default_lb
+enable_projections
 enable_opts
-with_cuda
-with_cuda_sdk
+enable_sanitizer
 with_cuda_level
+with_cuda
+enable_gpu_local_tree_walk
+with_cuda_sdk
 '
       ac_precious_vars='build_alias
 host_alias
@@ -750,9 +772,7 @@ CPPFLAGS
 CCC
 CC
 CFLAGS
-CPP
-CUDA_DIR
-CUDA_SDK_DIR'
+CPP'
 
 
 # Initialize some variables set by options.
@@ -791,6 +811,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
@@ -1043,6 +1064,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1180,7 +1210,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1333,6 +1363,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -1362,37 +1393,44 @@ Optional Features:
   --disable-option-checking  ignore unrecognized --enable/--with options
   --disable-FEATURE       do not include FEATURE (same as --enable-FEATURE=no)
   --enable-FEATURE[=ARG]  include FEATURE [ARG=yes]
-  --enable-float          use single-precision for gravity calculations
-  --enable-sse2           enable sse2 gravity vectorization
-  --enable-avx            enable avx gravity vectorization
-  --enable-changesoft     enable physical softening
-  --enable-bigkeys        enable 128 bit hash keys
-  --enable-dtadjust       enable emergency timestep adjust
-  --enable-nsmoothinner   enable nsmoothinner feedback
-  --enable-splitgas       enable gas particle splitting
-  --enable-wendland       enable Wendland C4 Kernel
-  --enable-m6kernel       enable M6 cubic spline kernel
-  --enable-damping        enable velocity damping for glasses
-  --enable-cooling        enable gas cooling (planet, cosmo, metal, H2,
-                          grackle)
-  --disable-hexadecapole  disable use of hexadecapole expansions
-  --enable-gpu_local_tree_walk
-                          Enable gpu_local_tree_walk (yes, no)
-  --enable-diffusion      enable diffusion
+  --enable-sse2           DEPRECATED. Use --enable-arch=sse2
+  --enable-avx            DEPRECATED. Use --enable-arch=avx
+  --enable-arch           set compiler target architecture
+  --enable-float          use single-precision gravity calculations
+  --enable-hexadecapole   hexadecapole expansions in gravity
+  --enable-changesoft     physical softening
+  --enable-bigkeys        128 bit hash keys
+  --enable-dtadjust       emergency timestep adjust
+  --enable-interlist      interaction list version
+  --enable-tree-build     tree building (merge-remote,split-phase)
+  --enable-nsmoothinner   nsmoothinner feedback
+  --enable-splitgas       gas particle splitting
+  --enable-wendland       DEPRECATED. Use --enable-sph-kernel=wendland
+  --enable-m6kernel       DEPRECATED. Use --enable-sph-kernel=m6
+  --enable-sph-kernel     SPH interpolation kernel (m4,m6,wendland)
+  --enable-cooling        gas cooling
+                          (none,planet,cosmo,boley,metal,H2,grackle)
+  --enable-damping        velocity damping in glasses
+  --enable-diffusion      thermal and metal diffusion
   --enable-feedbacklimit  limit diffusion of feedback energy
-  --enable-superbubble    enable superbubble feedback
-  --enable-cullenalpha    enable Cullen Dehnen artificial viscosity
-  --enable-vsigvisc       enable alternative Monahan artificial viscosity
-  --enable-rtforce        enable Richie-Thomas forces
-  --enable-sidminter      enable accounting of SIDM interactions
-  --enable-opts="options" Set compiler flags (override defaults)
+  --enable-superbubble    superbubble feedback
+  --enable-cullenalpha    Cullen Dehnen artificial viscosity
+  --enable-vsigvisc       alternative Monahan artificial viscosity
+  --enable-rtforce        Richie-Thomas forces
+  --enable-sidminter      SIDM interactions
+  --enable-default-lb     default load balancer
+  --enable-projections    Charm++ projections
+  --enable-opts           DEPRECATED - Do not use
+  --enable-sanitizer      LLVM sanitizers
+  --enable-gpu-local-tree-walk
+                          Do local tree walk on GPU
 
 Optional Packages:
   --with-PACKAGE[=ARG]    use PACKAGE [ARG=yes]
   --without-PACKAGE       do not use PACKAGE (same as --with-PACKAGE=no)
-  --with-cuda[=PATH]      use CUDA (installed in PATH) [no]
-  --with-cuda-sdk=PATH    specify the CUDA SDK install directory
   --with-cuda-level=LEVEL use CUDA compute capability LEVEL
+  --with-cuda[=PATH]      use CUDA (installed in PATH) [no]
+  --with-cuda-sdk=PATH    DEPRECATED. Do not use.
 
 Some influential environment variables:
   CHARMC      "Charm compiler"
@@ -1406,9 +1444,6 @@ Some influential environment variables:
   CC          C compiler command
   CFLAGS      C compiler flags
   CPP         C preprocessor
-  CUDA_DIR    CUDA toolkit install directory
-  CUDA_SDK_DIR
-              CUDA SDK install directory
 
 Use these variables to override the choices made by `configure' or to help
 it to find libraries and programs with nonstandard names/locations.
@@ -2290,7 +2325,25 @@ cat >>confdefs.h <<_ACEOF
 _ACEOF
 
 
-ac_config_headers="$ac_config_headers config.h $srcdir/../utility/structures/config.h"
+
+# Save the user-provided flags
+# NOTE: This must be done _before_ the Charm scripts are imported
+#       as they provide their own values for these flags.
+USER_CPPFLAGS=$CPPFLAGS
+
+USER_CFLAGS=$CFLAGS
+
+USER_CXXFLAGS=$CXXFLAGS
+
+USER_LDFLAGS=$LDFLAGS
+
+
+if test "x$STRUCT_DIR" = "x"; then
+	STRUCT_DIR=$srcdir/../utility/structures
+fi
+
+
+ac_config_headers="$ac_config_headers config.h $STRUCT_DIR/config.h"
 
 
 
@@ -2346,6 +2399,52 @@ $as_echo "$as_me: WARNING: Try setting your CHARM_DIR environment variable to po
    exit
 fi
 
+# Make sure git is available
+# Extract the first word of "git", so it can be a program name with args.
+set dummy git; ac_word=$2
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
+$as_echo_n "checking for $ac_word... " >&6; }
+if ${ac_cv_prog_HAVE_GIT+:} false; then :
+  $as_echo_n "(cached) " >&6
+else
+  if test -n "$HAVE_GIT"; then
+  ac_cv_prog_HAVE_GIT="$HAVE_GIT" # Let the user override the test.
+else
+as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_exec_ext in '' $ac_executable_extensions; do
+  if as_fn_executable_p "$as_dir/$ac_word$ac_exec_ext"; then
+    ac_cv_prog_HAVE_GIT="yes"
+    $as_echo "$as_me:${as_lineno-$LINENO}: found $as_dir/$ac_word$ac_exec_ext" >&5
+    break 2
+  fi
+done
+  done
+IFS=$as_save_IFS
+
+  test -z "$ac_cv_prog_HAVE_GIT" && ac_cv_prog_HAVE_GIT="no"
+fi
+fi
+HAVE_GIT=$ac_cv_prog_HAVE_GIT
+if test -n "$HAVE_GIT"; then
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: $HAVE_GIT" >&5
+$as_echo "$HAVE_GIT" >&6; }
+else
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+fi
+
+
+test "$HAVE_GIT" == "no" && as_fn_error $? "git not found" "$LINENO" 5
+
+MINIMUM_CHARM_VERSION=60800
+if test $($CHARMC -V | awk '{print $3}') -lt $MINIMUM_CHARM_VERSION; then
+	as_fn_error $? "At least Charm++ $MINIMUM_CHARM_VERSION is required" "$LINENO" 5
+fi
+
 CHARM_PATH=${CHARMC%/bin/charmc}
 CONV_CONFIG=${CHARM_PATH}/tmp/conv-config.sh
 CHARMINC=${CHARM_PATH}/include
@@ -2377,6 +2476,7 @@ if test "x$ac_cv_file____libs" = xyes; then :
   LDFLAGS="$LDFLAGS -L../libs"
 fi
 
+CMK_SMP=${CMK_SMP}
 
 ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
@@ -2885,7 +2985,6 @@ ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
 ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
-# AC_PROG_CC($CHARMC)
 
 # Checks for header files.
 ac_ext=c
@@ -4014,238 +4113,525 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
-# Use single-precision for gravity calculations
-# Check whether --enable-float was given.
-if test "${enable_float+set}" = set; then :
-  enableval=$enable_float; float=$enableval
-else
-  float=no
+# Set up the cha_commitid file
+VOLD=$(test -e VERSION && cat VERSION)
+VNEW=$(cd $srcdir && git describe --long --always)
+if test -n "$VNEW" -a "$VOLD" != "$VNEW"; then
+    echo "const char * const Cha_CommitID = \"$VNEW\";" > cha_commitid.c
 fi
 
-if test "$float" = "yes" ; then
-    echo "float selected"
-    FLAG_FLOAT="-DCOSMO_FLOAT"
+# Compiler-specific options
+# Compiler-specific options for ChaNGa
+
+{ $as_echo "$as_me:${as_lineno-$LINENO}: checking for grep that handles long lines and -e" >&5
+$as_echo_n "checking for grep that handles long lines and -e... " >&6; }
+if ${ac_cv_path_GREP+:} false; then :
+  $as_echo_n "(cached) " >&6
 else
-    FLAG_FLOAT=""
+  if test -z "$GREP"; then
+  ac_path_GREP_found=false
+  # Loop through the user's path and test for each of PROGNAME-LIST
+  as_save_IFS=$IFS; IFS=$PATH_SEPARATOR
+for as_dir in $PATH$PATH_SEPARATOR/usr/xpg4/bin
+do
+  IFS=$as_save_IFS
+  test -z "$as_dir" && as_dir=.
+    for ac_prog in grep ggrep; do
+    for ac_exec_ext in '' $ac_executable_extensions; do
+      ac_path_GREP="$as_dir/$ac_prog$ac_exec_ext"
+      as_fn_executable_p "$ac_path_GREP" || continue
+# Check for GNU ac_path_GREP and select it if it is found.
+  # Check for GNU $ac_path_GREP
+case `"$ac_path_GREP" --version 2>&1` in
+*GNU*)
+  ac_cv_path_GREP="$ac_path_GREP" ac_path_GREP_found=:;;
+*)
+  ac_count=0
+  $as_echo_n 0123456789 >"conftest.in"
+  while :
+  do
+    cat "conftest.in" "conftest.in" >"conftest.tmp"
+    mv "conftest.tmp" "conftest.in"
+    cp "conftest.in" "conftest.nl"
+    $as_echo 'GREP' >> "conftest.nl"
+    "$ac_path_GREP" -e 'GREP$' -e '-(cannot match)-' < "conftest.nl" >"conftest.out" 2>/dev/null || break
+    diff "conftest.out" "conftest.nl" >/dev/null 2>&1 || break
+    as_fn_arith $ac_count + 1 && ac_count=$as_val
+    if test $ac_count -gt ${ac_path_GREP_max-0}; then
+      # Best one so far, save it but keep looking for a better one
+      ac_cv_path_GREP="$ac_path_GREP"
+      ac_path_GREP_max=$ac_count
+    fi
+    # 10*(2^10) chars as input seems more than enough
+    test $ac_count -gt 10 && break
+  done
+  rm -f conftest.in conftest.tmp conftest.nl conftest.out;;
+esac
+
+      $ac_path_GREP_found && break 3
+    done
+  done
+  done
+IFS=$as_save_IFS
+  if test -z "$ac_cv_path_GREP"; then
+    as_fn_error $? "no acceptable grep could be found in $PATH$PATH_SEPARATOR/usr/xpg4/bin" "$LINENO" 5
+  fi
+else
+  ac_cv_path_GREP=$GREP
+fi
+
+fi
+{ $as_echo "$as_me:${as_lineno-$LINENO}: result: $ac_cv_path_GREP" >&5
+$as_echo "$ac_cv_path_GREP" >&6; }
+ GREP="$ac_cv_path_GREP"
+
+ # make sure a grep is available in $GREP
+
+# @synopsis COMPILER_FLAG_REQUIRE [flag]
+# @summary Require compiler to support 'flag'
+
+
+# @synopsis COMPILER_FLAG_CHECK [flag]
+# @summary Check if compiler supports 'flag'
+
+
+# @synopsis COMPILER_MACRO_CHECK [compiler macro]
+# @summary Check if compiler supports 'macro'
+
+
+# @synopsis COMPILER_CHECK_VENDOR [name,save]
+# @summary Return "yes" if the current compiler's vendor matches 'name'
+
+
+
+# Require C++11
+
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports -std=c++11" >&5
+$as_echo_n "checking whether $CXX supports -std=c++11... " >&6; }
+	ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+	ac_saved_cxxflags="$CXXFLAGS"
+	CXXFLAGS="-Werror -std=c++11"
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  as_fn_error $? "ChaNGa requires full C++11 support" "$LINENO" 5
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	CXXFLAGS="$ac_saved_cxxflags"
+	ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+# Require dependency-generation flags
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports -MMD -MP -MF .dummy" >&5
+$as_echo_n "checking whether $CXX supports -MMD -MP -MF .dummy... " >&6; }
+	ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+	ac_saved_cxxflags="$CXXFLAGS"
+	CXXFLAGS="-Werror -MMD -MP -MF .dummy"
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  as_fn_error $? "ChaNGa requires the dependency-generation flags '-MMD -MP -MF'" "$LINENO" 5
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	CXXFLAGS="$ac_saved_cxxflags"
+	ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+rm -f .dummy
+
+# Set compiler type
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if compiler vendor is g++" >&5
+$as_echo_n "checking if compiler vendor is g++... " >&6; }
+
+	## Determine the compiler's vendor.
+	COMPILER_VERSION=$($CXX --version 2>/dev/null)
+
+	## IBM xlC test if COMPILER_VERSION is empty
+	if test x"$COMPILER_VERSION" = "x"; then
+		COMPILER_VERSION=$($CXX -qversion 2>/dev/null)
+	fi
+
+	## SunCC test if COMPILER_VERSION is empty
+	if test x"$COMPILER_VERSION" = "x"; then
+		COMPILER_VERSION=$($CXX -V 2>&1)
+	fi
+
+	res=$(echo $COMPILER_VERSION | $GREP -i -c -F -e 'g++')
+
+	GNU_COMPILER=no
+	if test "$res" != "0"; then
+		GNU_COMPILER=yes
+	fi
+	echo $GNU_COMPILER
+
+
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if compiler vendor is intel" >&5
+$as_echo_n "checking if compiler vendor is intel... " >&6; }
+
+	## Determine the compiler's vendor.
+	COMPILER_VERSION=$($CXX --version 2>/dev/null)
+
+	## IBM xlC test if COMPILER_VERSION is empty
+	if test x"$COMPILER_VERSION" = "x"; then
+		COMPILER_VERSION=$($CXX -qversion 2>/dev/null)
+	fi
+
+	## SunCC test if COMPILER_VERSION is empty
+	if test x"$COMPILER_VERSION" = "x"; then
+		COMPILER_VERSION=$($CXX -V 2>&1)
+	fi
+
+	res=$(echo $COMPILER_VERSION | $GREP -i -c -F -e 'intel')
+
+	INTEL_COMPILER=no
+	if test "$res" != "0"; then
+		INTEL_COMPILER=yes
+	fi
+	echo $INTEL_COMPILER
+
+
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking if compiler vendor is clang" >&5
+$as_echo_n "checking if compiler vendor is clang... " >&6; }
+
+	## Determine the compiler's vendor.
+	COMPILER_VERSION=$($CXX --version 2>/dev/null)
+
+	## IBM xlC test if COMPILER_VERSION is empty
+	if test x"$COMPILER_VERSION" = "x"; then
+		COMPILER_VERSION=$($CXX -qversion 2>/dev/null)
+	fi
+
+	## SunCC test if COMPILER_VERSION is empty
+	if test x"$COMPILER_VERSION" = "x"; then
+		COMPILER_VERSION=$($CXX -V 2>&1)
+	fi
+
+	res=$(echo $COMPILER_VERSION | $GREP -i -c -F -e 'clang')
+
+	CLANG_COMPILER=no
+	if test "$res" != "0"; then
+		CLANG_COMPILER=yes
+	fi
+	echo $CLANG_COMPILER
+
+
+
+# Check if optimized debug builds are supported
+# Only gcc supports -Og, currently
+if test x"$GNU_COMPILER" = x"yes"; then
+	OPT_DEBUG=-Og
+else
+	OPT_DEBUG=-O0
 fi
 
 
-# SSE2 vector optimization for gravity
-# Check whether --enable-sse2 was given.
+# @synopsis ARG_ENABLE(name, description, flag_var, val_if_enabled, default_val)
+# @summary Wrapper around AC_ARG_ENABLE that does extra checking and automatic exporting
+
+
+# Select target CPU architecture (this determines SIMD type)
+# --- Deprecated flags ---
+	# Check whether --enable-sse2 was given.
 if test "${enable_sse2+set}" = set; then :
-  enableval=$enable_sse2; sse2=$enableval
+  enableval=$enable_sse2; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-sse2': $enableval" "$LINENO" 5;;
+	 esac
 else
-  sse2=no
+  val=no
 fi
 
-if test "$sse2" = "yes" ; then
-    echo "SSE2 selected"
-    FLAG_SSE="-DCMK_USE_SSE2"
-else
-    FLAG_SSE=""
-fi
+	if test x$val = xyes; then flag_sse_deprecated=sse2; else flag_sse_deprecated=""; fi
 
 
-# AVX vector optimization for gravity
-# Check whether --enable-avx was given.
+	# Check whether --enable-avx was given.
 if test "${enable_avx+set}" = set; then :
-  enableval=$enable_avx; avx=$enableval
+  enableval=$enable_avx; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-avx': $enableval" "$LINENO" 5;;
+	 esac
 else
-  avx=no
+  val=no
 fi
 
-if test "$avx" = "yes" ; then
-    echo "AVX selected"
-    FLAG_AVX="-DCMK_USE_AVX"
+	if test x$val = xyes; then flag_avx_deprecated=avx; else flag_avx_deprecated=""; fi
+
+
+# -----------------------
+# Check whether --enable-arch was given.
+if test "${enable_arch+set}" = set; then :
+  enableval=$enable_arch; arch=$enableval
 else
-    FLAG_AVX=""
+  arch=none
 fi
 
+# --enable-arch overrules when one of the deprecated flags is also given
+if test x$arch = xnone -a x$flag_sse_deprecated != x; then arch=$flag_sse_deprecated; fi
+if test x$arch = xnone -a x$flag_avx_deprecated != x; then arch=$flag_avx_deprecated; fi
+case $arch in
+	no|none ) FLAG_ARCH="" ;;
+ 	sse2    ) FLAG_ARCH=-DCMK_USE_SSE2 ;;
+	avx     ) FLAG_ARCH=-DCMK_USE_AVX ;;
+	*       ) as_fn_error $? "\"invalid argument for '--enable-arch': $arch\"" "$LINENO" 5;;
+esac
 
-# physical softening in comoving coordinates:
-# Check whether --enable-changesoft was given.
+
+# -----------------------------------------------------------------------------
+# ---- Gravity Options --------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+# Use single-precision for gravity calculations
+	# Check whether --enable-float was given.
+if test "${enable_float+set}" = set; then :
+  enableval=$enable_float; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-float': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then FLAG_FLOAT=-DCOSMO_FLOAT; else FLAG_FLOAT=""; fi
+
+
+
+# Hexadecapole expansion for gravity
+	# Check whether --enable-hexadecapole was given.
+if test "${enable_hexadecapole+set}" = set; then :
+  enableval=$enable_hexadecapole; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-hexadecapole': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=yes
+fi
+
+	if test x$val = xyes; then HEXADECAPOLE=-DHEXADECAPOLE; else HEXADECAPOLE=""; fi
+
+
+
+# physical softening in comoving coordinates
+	# Check whether --enable-changesoft was given.
 if test "${enable_changesoft+set}" = set; then :
-  enableval=$enable_changesoft; changesoft=$enableval
+  enableval=$enable_changesoft; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-changesoft': $enableval" "$LINENO" 5;;
+	 esac
 else
-  changesoft=yes
+  val=yes
 fi
 
-if test "$changesoft" = "yes" ; then
-    echo "CHANGESOFT selected"
-    FLAG_CHANGESOFT="-DCHANGESOFT"
-else
-    FLAG_CHANGESOFT=""
-fi
+	if test x$val = xyes; then FLAG_CHANGESOFT=-DCHANGESOFT; else FLAG_CHANGESOFT=""; fi
+
 
 
 # 128 bit keys:
-# Check whether --enable-bigkeys was given.
+	# Check whether --enable-bigkeys was given.
 if test "${enable_bigkeys+set}" = set; then :
-  enableval=$enable_bigkeys; bigkeys=$enableval
+  enableval=$enable_bigkeys; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-bigkeys': $enableval" "$LINENO" 5;;
+	 esac
 else
-  bigkeys=no
+  val=no
 fi
 
-if test "$bigkeys" = "yes" ; then
-    echo "BIGKEYS selected"
-    FLAG_BIGKEYS="-DBIGKEYS"
-else
-    FLAG_BIGKEYS=""
-fi
+	if test x$val = xyes; then FLAG_BIGKEYS=-DBIGKEYS; else FLAG_BIGKEYS=""; fi
+
 
 
 # DTADJUST
-# Check whether --enable-dtadjust was given.
+	# Check whether --enable-dtadjust was given.
 if test "${enable_dtadjust+set}" = set; then :
-  enableval=$enable_dtadjust; dtadjust=$enableval
+  enableval=$enable_dtadjust; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-dtadjust': $enableval" "$LINENO" 5;;
+	 esac
 else
-  dtadjust=yes
+  val=yes
 fi
 
-if test "$dtadjust" = "yes" ; then
-    echo "DTADJUST selected"
-    FLAG_DTADJUST="-DDTADJUST"
+	if test x$val = xyes; then FLAG_DTADJUST=-DDTADJUST; else FLAG_DTADJUST=""; fi
+
+
+
+# Interaction list version
+# Check whether --enable-interlist was given.
+if test "${enable_interlist+set}" = set; then :
+  enableval=$enable_interlist; interlist=$enableval
 else
-    FLAG_DTADJUST=""
+  interlist=2
 fi
 
+case $interlist in
+	1|2) FLAG_INTERLIST="-DINTERLIST_VER=$interlist";;
+	*  ) as_fn_error $? "invalid argument for '--enable-interlist': $interlist" "$LINENO" 5;;
+esac
 
+
+# Tree building
+# Check whether --enable-tree-build was given.
+if test "${enable_tree_build+set}" = set; then :
+  enableval=$enable_tree_build; tree_build=$enableval
+else
+  tree_build=merge-remote
+fi
+
+case $tree_build in
+	# merges remote requests before sending; local trees built after requests sent
+	merge-remote ) FLAG_TREE_BUILD="-DMERGE_REMOTE_REQUESTS";;
+	# no merging of remote requests on PE; local trees built after requests sent
+	split-phase  ) FLAG_TREE_BUILD="-DSPLIT_PHASE_TREE_BUILD";;
+	*            ) as_fn_error $? "invalid argument for '--enable-tree-build': $tree_build" "$LINENO" 5;;
+esac
+
+
+# -----------------------------------------------------------------------------
+# ---- Gas Options ------------------------------------------------------------
+# -----------------------------------------------------------------------------
 
 # NSMOOTHINNER smoothing adjustment
-# Check whether --enable-nsmoothinner was given.
+	# Check whether --enable-nsmoothinner was given.
 if test "${enable_nsmoothinner+set}" = set; then :
-  enableval=$enable_nsmoothinner; nsmoothinner=$enableval
+  enableval=$enable_nsmoothinner; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-nsmoothinner': $enableval" "$LINENO" 5;;
+	 esac
 else
-  nsmoothinner=no
+  val=no
 fi
 
-if test "$nsmoothinner" = "yes" ; then
-    echo "nSmoothInner selected"
-    FLAG_NSMOOTHINNER="-DNSMOOTHINNER"
-else
-    FLAG_NSMOOTHINNER=""
-fi
+	if test x$val = xyes; then FLAG_NSMOOTHINNER=-DNSMOOTHINNER; else FLAG_NSMOOTHINNER=""; fi
 
 
 
 # Gas particle splitting
-# Check whether --enable-splitgas was given.
+	# Check whether --enable-splitgas was given.
 if test "${enable_splitgas+set}" = set; then :
-  enableval=$enable_splitgas; splitgas=$enableval
+  enableval=$enable_splitgas; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-splitgas': $enableval" "$LINENO" 5;;
+	 esac
 else
-  splitgas=no
+  val=no
 fi
 
-if test "$splitgas" = "yes" ; then
-    echo "splitgas selected"
-    FLAG_SPLITGAS="-DSPLITGAS"
-else
-    FLAG_SPLITGAS=""
-fi
+	if test x$val = xyes; then FLAG_SPLITGAS=-DSPLITGAS; else FLAG_SPLITGAS=""; fi
 
 
 
-# Select kernel
-# Set defaults
-KERNEL="m4kernel"
-FLAG_M4KERNEL="-DM4KERNEL=0"
-FLAG_WENDLAND="-DWENDLAND=0"
-FLAG_M6KERNEL="-DM6KERNEL=0"
-
-# Wendland C4 Kernel:
-# Check whether --enable-wendland was given.
+# Select SPH interpolation kernel
+# --- Deprecated flags ---
+	# Check whether --enable-wendland was given.
 if test "${enable_wendland+set}" = set; then :
-  enableval=$enable_wendland; wendland=$enableval
+  enableval=$enable_wendland; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-wendland': $enableval" "$LINENO" 5;;
+	 esac
 else
-  wendland=no
+  val=none
 fi
 
-if test "$wendland" = "yes" ; then
-    KERNEL="wendland"
-fi
-# M6 quintic spline kernel
-# Check whether --enable-m6kernel was given.
+	if test x$val = xyes; then flag_sph_wendland_deprecated=wendland; else flag_sph_wendland_deprecated=""; fi
+
+
+	# Check whether --enable-m6kernel was given.
 if test "${enable_m6kernel+set}" = set; then :
-  enableval=$enable_m6kernel; m6kernel=$enableval
+  enableval=$enable_m6kernel; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-m6kernel': $enableval" "$LINENO" 5;;
+	 esac
 else
-  m6kernel=no
+  val=none
 fi
 
-if test "$m6kernel" = "yes" ; then
-    KERNEL="m6kernel"
-fi
-# Now set up kernel flags
-if test "$KERNEL" = "m4kernel" ; then
-    echo "M4KERNEL selected"
-    FLAG_M4KERNEL="-DM4KERNEL=1"
-elif test "$KERNEL" = "wendland" ; then
-    echo "WENDLAND selected"
-    FLAG_WENDLAND="-DWENDLAND=1"
-elif test "$KERNEL" = "m6kernel" ; then
-    echo "M6KERNEL selected"
-    FLAG_M6KERNEL="-DM6KERNEL=1"
-fi
-
-KERNEL_FLAGS="$FLAG_M4KERNEL $FLAG_WENDLAND $FLAG_M6KERNEL"
-echo "$KERNEL_FLAGS"
+	if test x$val = xyes; then flag_sph_m6kernel_deprecated=m6kernel; else flag_sph_m6kernel_deprecated=""; fi
 
 
-# Velocity damping
-# Check whether --enable-damping was given.
-if test "${enable_damping+set}" = set; then :
-  enableval=$enable_damping; damping=$enableval
+#------------------------
+# Check whether --enable-sph_kernel was given.
+if test "${enable_sph_kernel+set}" = set; then :
+  enableval=$enable_sph_kernel; sph_kernel=$enableval
 else
-  damping=no
+  sph_kernel=sph_none
 fi
 
-if test "$damping" = "yes" ; then
-    echo "DAMPING selected"
-    FLAG_DAMPING="-DDAMPING"
-else
-    FLAG_DAMPING=""
-fi
+if test x$sph_kernel = xsph_none -a x$flag_sph_m6kernel_deprecated != x; then sph_kernel=$flag_sph_m6kernel_deprecated; fi
+if test x$sph_kernel = xsph_none -a x$flag_sph_wendland_deprecated != x; then sph_kernel=$flag_sph_wendland_deprecated; fi
+case $sph_kernel in
+	sph_none|"m4") FLAG_SPH_KERNEL="-DM4KERNEL=1 -DWENDLAND=0 -DM6KERNEL=0";;
+	m6           ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=0 -DM6KERNEL=1";;
+	wendland     ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=1 -DM6KERNEL=0";;
+	*            ) as_fn_error $? "invalid argument for '--enable-sph-kernel': $sph_kernel" "$LINENO" 5;;
+esac
 
 
-# Cooling:
+# Cooling
 # Check whether --enable-cooling was given.
 if test "${enable_cooling+set}" = set; then :
   enableval=$enable_cooling; cooling=$enableval
 else
-  cooling=no
+  cooling=none
 fi
 
-OBJECTS_COOLING=""
-if test "$cooling" = "no" ; then
-   echo "Adiabatic SPH only selected"
-   FLAG_COOLING="-DCOOLING_NONE"
-elif test "$cooling" = "planet" ; then
-   echo "Planet cooling selected"
-   FLAG_COOLING="-DCOOLING_PLANET"
-   OBJECTS_COOLING="cooling_planet.o stiff.o"
-elif test "$cooling" = "boley" ; then
-   echo "Boley 2009 Planet cooling selected"
-   FLAG_COOLING="-DCOOLING_BOLEY"
-   OBJECTS_COOLING="cooling_boley.o stiff.o"
-elif test "$cooling" = "cosmo" ; then
-   echo "Cosmo cooling selected"
-   FLAG_COOLING="-DCOOLING_COSMO"
-   OBJECTS_COOLING="cooling_cosmo.o stiff.o"
-elif test "$cooling" = "metal" ; then
-   echo "Metal cooling selected"
-   FLAG_COOLING="-DCOOLING_METAL"
-   OBJECTS_COOLING="cooling_metal.o stiff.o"
-elif test "$cooling" = "H2" ; then
-   echo "H2 cooling selected"
-   FLAG_COOLING="-DCOOLING_MOLECULARH"
-   OBJECTS_COOLING="cooling_metal_H2.o stiff.o"
-elif test "$cooling" = "H2_NR" ; then
-   echo "H2 cooling (NR) selected"
-   FLAG_COOLING="-DCOOLING_MOLECULARH -DCOOLING_NR"
-   OBJECTS_COOLING="cooling_metal_H2_NR.o stiff_NR.o"
-elif test "$cooling" = "grackle" ; then
-   echo "Grackle cooling selected"
-   FLAG_COOLING="-DCOOLING_GRACKLE"
-   OBJECTS_COOLING="cooling_grackle.o"
+case $cooling in
+	no|none	) FLAG_COOLING="-DCOOLING_NONE";;
+	planet	) FLAG_COOLING="-DCOOLING_PLANET";;
+	cosmo	) FLAG_COOLING="-DCOOLING_COSMO";;
+	boley   ) FLAG_COOLING="-DCOOLING_BOLEY";;
+	metal   ) FLAG_COOLING="-DCOOLING_METAL";;
+	H2      ) FLAG_COOLING="-DCOOLING_MOLECULARH";;
+	grackle	) FLAG_COOLING="-DCOOLING_GRACKLE";;
+	*		) as_fn_error $? "invalid argument for '--enable-cooling': $cooling" "$LINENO" 5;;
+esac
+
+
+if test "$cooling" = "grackle" ; then
    ac_cv_libhdf5="yes"
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for H5Fcreate in -lhdf5" >&5
 $as_echo_n "checking for H5Fcreate in -lhdf5... " >&6; }
@@ -4375,211 +4761,275 @@ $as_echo "$as_me: WARNING: Try setting LDFLAGS environment with -L<gracklelibdir
 $as_echo "$as_me: WARNING: Also remember to set LD_LIBRARY_PATH when running, if grackle and hdf5 are dynamic libraries" >&2;};
        exit
    fi
-else
-        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: Unknown cooling selected, using Adiabatic" >&5
-$as_echo "$as_me: WARNING: Unknown cooling selected, using Adiabatic" >&2;}
-	FLAG_COOLING="-DCOOLING_NONE"
-	cooling="no"
 fi
 
-
-
-
-# Check whether --enable-hexadecapole was given.
-if test "${enable_hexadecapole+set}" = set; then :
-  enableval=$enable_hexadecapole; # Note that "$enableval" being "yes" means ENABLE hexadecapole -- the
-        # help string, as one would expect, only affects how we document
-        # the option.
-        case "$enableval" in
-              yes | no ) hexadecapole="$enableval";;
-              *) as_fn_error $? "\"$enableval: invalid argument to \`--disable-hexadecapole'\"" "$LINENO" 5 ;;
-         esac
+# Velocity damping
+	# Check whether --enable-damping was given.
+if test "${enable_damping+set}" = set; then :
+  enableval=$enable_damping; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-damping': $enableval" "$LINENO" 5;;
+	 esac
 else
-  hexadecapole="yes"
+  val=no
 fi
 
-
-HEXADECAPOLE=""
-if test "$hexadecapole" = "yes"; then
-    HEXADECAPOLE="-DHEXADECAPOLE"
-else
-    HEXADECAPOLE=""
-fi
-
-
-
-# GPU local tree walk
-# Check whether --enable-gpu_local_tree_walk was given.
-if test "${enable_gpu_local_tree_walk+set}" = set; then :
-  enableval=$enable_gpu_local_tree_walk; gpu_local_tree_walk=$enableval
-else
-  gpu_local_tree_walk=no
-fi
-
-GPU_LOCAL_TREE_WALK=""
-if test "$gpu_local_tree_walk" = "yes" ; then
-  echo "DGPU_LOCAL_TREE_WALK selected"
-  GPU_LOCAL_TREE_WALK="-DGPU_LOCAL_TREE_WALK"
-else
-  GPU_LOCAL_TREE_WALK=""
-fi
+	if test x$val = xyes; then FLAG_DAMPING=-DDAMPING; else FLAG_DAMPING=""; fi
 
 
 
 # diffusion (thermal and metal)
-# Check whether --enable-diffusion was given.
+	# Check whether --enable-diffusion was given.
 if test "${enable_diffusion+set}" = set; then :
-  enableval=$enable_diffusion; diffusion=$enableval
+  enableval=$enable_diffusion; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-diffusion': $enableval" "$LINENO" 5;;
+	 esac
 else
-  diffusion=yes
+  val=yes
 fi
 
-if test "$diffusion" = "yes" ; then
-    echo "DIFFUSION selected"
-    FLAG_DIFFUSION="-DDIFFUSION"
-else
-    FLAG_DIFFUSION=""
-fi
+	if test x$val = xyes; then FLAG_DIFFUSION=-DDIFFUSION; else FLAG_DIFFUSION=""; fi
 
 
 
 # Limit supernova feedback
 # By default this also enables DIFFHARMONIC
-# Check whether --enable-feedbacklimit was given.
+	# Check whether --enable-feedbacklimit was given.
 if test "${enable_feedbacklimit+set}" = set; then :
-  enableval=$enable_feedbacklimit; feedbacklimit=$enableval
+  enableval=$enable_feedbacklimit; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-feedbacklimit': $enableval" "$LINENO" 5;;
+	 esac
 else
-  feedbacklimit=no
+  val=no
 fi
 
-if test "$feedbacklimit" = "yes" ; then
-    echo "FEEDBACKDIFFLIMIT selected"
-    FLAG_FEEDBACKDIFFLIMIT="-DFEEDBACKDIFFLIMIT"
-    echo "DIFFUSIONHARMONIC selected"
-    FLAG_DIFFHARMONIC="-DDIFFUSIONHARMONIC"
-else
-    FLAG_FEEDBACKDIFFLIMIT=""
-    FLAG_DIFFHARMONIC=""
+	if test x$val = xyes; then FLAG_FEEDBACKDIFFLIMIT=-DFEEDBACKDIFFLIMIT; else FLAG_FEEDBACKDIFFLIMIT=""; fi
+
+
+if test x$FLAG_FEEDBACKDIFFLIMIT = x"-DFEEDBACKDIFFLIMIT"; then
+	FLAG_DIFFHARMONIC="-DDIFFUSIONHARMONIC";
 fi
-
-
 
 
 # SUPERBUBBLE FEEDBACK
-# Check whether --enable-superbubble was given.
+	# Check whether --enable-superbubble was given.
 if test "${enable_superbubble+set}" = set; then :
-  enableval=$enable_superbubble; superbubble=$enableval
+  enableval=$enable_superbubble; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-superbubble': $enableval" "$LINENO" 5;;
+	 esac
 else
-  superbubble=no
+  val=no
 fi
 
-if test "$superbubble" = "yes" ; then
-    echo "Superbubble Feedback selected"
-    FLAG_SUPERBUBBLE="-DSUPERBUBBLE"
-    if test "$diffusion" = "no" ; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: SUPERBUBBLE requires diffusion.  Enable it with --enable-diffusion" >&5
-$as_echo "$as_me: WARNING: SUPERBUBBLE requires diffusion.  Enable it with --enable-diffusion" >&2;};
-        exit
-    fi
-    if test "$cooling" = "no" ; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: SUPERBUBBLE requires cooling.  Enable it with --enable-cooling=XXX" >&5
-$as_echo "$as_me: WARNING: SUPERBUBBLE requires cooling.  Enable it with --enable-cooling=XXX" >&2;};
-        { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: where XXX is one of planet, boley, cosmo, metal, H2, or grackle" >&5
-$as_echo "$as_me: WARNING: where XXX is one of planet, boley, cosmo, metal, H2, or grackle" >&2;};
-        exit
-    fi
-else
-    FLAG_SUPERBUBBLE=""
+	if test x$val = xyes; then FLAG_SUPERBUBBLE=-DSUPERBUBBLE; else FLAG_SUPERBUBBLE=""; fi
+
+
+if test "$superbubble" = "yes" -a "$FLAG_DIFFUSION" = "no" ; then
+    as_fn_error $? "SUPERBUBBLE requires diffusion.  Enable it with --enable-diffusion" "$LINENO" 5;
 fi
-
-
+if test "$superbubble" = "yes" -a "$FLAG_COOLING" = "-DCOOLING_NONE" ; then
+    as_fn_error $? "SUPERBUBBLE requires cooling.  Enable it with --enable-cooling" "$LINENO" 5;
+fi
 
 # Calculate artificial viscosity from Cullen & Dehnen 2010
-# Check whether --enable-cullenalpha was given.
+	# Check whether --enable-cullenalpha was given.
 if test "${enable_cullenalpha+set}" = set; then :
-  enableval=$enable_cullenalpha; cullenalpha=$enableval
+  enableval=$enable_cullenalpha; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-cullenalpha': $enableval" "$LINENO" 5;;
+	 esac
 else
-  cullenalpha=no
+  val=no
 fi
 
-if test "$cullenalpha" = "yes" ; then
-    echo "CULLENALPHA selected"
-    FLAG_CULLENALPHA="-DCULLENALPHA"
-else
-    FLAG_CULLENALPHA=""
-fi
+	if test x$val = xyes; then FLAG_CULLENALPHA=-DCULLENALPHA; else FLAG_CULLENALPHA=""; fi
 
 
 
 # Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
-# Check whether --enable-vsigvisc was given.
+	# Check whether --enable-vsigvisc was given.
 if test "${enable_vsigvisc+set}" = set; then :
-  enableval=$enable_vsigvisc; vsigvisc=$enableval
+  enableval=$enable_vsigvisc; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-vsigvisc': $enableval" "$LINENO" 5;;
+	 esac
 else
-  vsigvisc=yes
+  val=yes
 fi
 
-if test "$vsigvisc" = "yes" ; then
-    echo "VSIGVISC selected"
-    FLAG_VSIGVISC="-DVSIGVISC"
-else
-    FLAG_VSIGVISC=""
-fi
+	if test x$val = xyes; then FLAG_VSIGVISC=-DVSIGVISC; else FLAG_VSIGVISC=""; fi
 
 
 
 # Richie-Thomas forces (Pressure SPH)
-# Check whether --enable-rtforce was given.
+	# Check whether --enable-rtforce was given.
 if test "${enable_rtforce+set}" = set; then :
-  enableval=$enable_rtforce; rtforce=$enableval
+  enableval=$enable_rtforce; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-rtforce': $enableval" "$LINENO" 5;;
+	 esac
 else
-  rtforce=yes
+  val=yes
 fi
 
-if test "$rtforce" = "yes" ; then
-    echo "RTFORCE selected"
-    FLAG_RTFORCE="-DRTFORCE"
-else
-    FLAG_RTFORCE=""
-fi
+	if test x$val = xyes; then FLAG_RTFORCE=-DRTFORCE; else FLAG_RTFORCE=""; fi
 
 
 
 # SIDM interactions
-# Check whether --enable-sidminter was given.
+	# Check whether --enable-sidminter was given.
 if test "${enable_sidminter+set}" = set; then :
-  enableval=$enable_sidminter; sidminter=yes
+  enableval=$enable_sidminter; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-sidminter': $enableval" "$LINENO" 5;;
+	 esac
 else
-  sidminter=no
+  val=no
 fi
 
-if test "$sidminter" = "yes" ; then
-    echo "SIDMINTERACT selected"
-    FLAG_SIDMINTERACT="-DSIDMINTERACT"
+	if test x$val = xyes; then FLAG_SIDMINTERACT=-DSIDMINTERACT; else FLAG_SIDMINTERACT=""; fi
+
+
+
+# -----------------------------------------------------------------------------
+# ---- Charm++ Options --------------------------------------------------------
+# -----------------------------------------------------------------------------
+
+# Default load balancer
+	# Check whether --enable-default-lb was given.
+if test "${enable_default_lb+set}" = set; then :
+  enableval=$enable_default_lb; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-default-lb': $enableval" "$LINENO" 5;;
+	 esac
 else
-    FLAG_SIDMINTERACT=""
+  val=yes
 fi
 
+	if test x$val = xyes; then DEFAULT_LB=MultistepLB_notopo; else DEFAULT_LB=""; fi
 
 
-# Compiler flags
+
+# Enable projections
+	# Check whether --enable-projections was given.
+if test "${enable_projections+set}" = set; then :
+  enableval=$enable_projections; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-projections': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then PROJECTIONS=yes; else PROJECTIONS=""; fi
+
+
+if test x$PROJECTIONS = xyes -a x$CMK_TRACE_ENABLED = x0; then
+	as_fn_error $? "You must enable tracing in Charm++ before using it in ChaNGa" "$LINENO" 5
+fi
+
+# -----------------------------------------------------------------------------
+# ---- Compiler Options -------------------------------------------------------
+# -----------------------------------------------------------------------------
+
 # Check whether --enable-opts was given.
 if test "${enable_opts+set}" = set; then :
-  enableval=$enable_opts; opts=$enableval
+  enableval=$enable_opts;
 fi
 
-if test "$opts" = "yes" ; then
-    # The user called without arguments.  Assume this is an empty string
-    opts=""
-fi
-# Test if 'opts' is defined
-if test "${opts+x}" != ""  ; then
-    OPTS="$opts"
+
+# Sanitizers
+# Check whether --enable-sanitizer was given.
+if test "${enable_sanitizer+set}" = set; then :
+  enableval=$enable_sanitizer; sanitizer=$enableval
 else
-    # Default options
-    OPTS="-O3 -lpthread"
+  sanitizer=no
 fi
-echo "compiler options: $OPTS"
+
+case $sanitizer in
+	no|none) FLAG_SANITIZER=no;;
+	yes    ) FLAG_SANITIZER=address;;  # default to the AddressSanitizer
+	*      ) FLAG_SANITIZER=$sanitizer;;
+esac
+if test ! x$FLAG_SANITIZER = xno; then
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports -fsanitize=$FLAG_SANITIZER" >&5
+$as_echo_n "checking whether $CXX supports -fsanitize=$FLAG_SANITIZER... " >&6; }
+	ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+	ac_saved_cxxflags="$CXXFLAGS"
+	CXXFLAGS="-Werror -fsanitize=$FLAG_SANITIZER"
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  as_fn_error $? "$CXX does not support the $FLAG_SANITIZER sanitizer" "$LINENO" 5
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	CXXFLAGS="$ac_saved_cxxflags"
+	ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+		{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports -fno-omit-frame-pointer" >&5
+$as_echo_n "checking whether $CXX supports -fno-omit-frame-pointer... " >&6; }
+	ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+	ac_saved_cxxflags="$CXXFLAGS"
+	CXXFLAGS="-Werror -fno-omit-frame-pointer"
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  as_fn_error $? "-fno-omit-frame-pointer is required when using the sanitizers" "$LINENO" 5
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	CXXFLAGS="$ac_saved_cxxflags"
+	ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+fi
 
 
 # Checks for typedefs, structures, and compiler characteristics.
@@ -5062,64 +5512,23 @@ done
 
 
 ####################### CUDA #######################
-# ----------------------------------------------------------------
-# CUDA support
 #
-# Here we define and process several `--with-cuda`-prefixed `configure`
-# options.  By default CUDA support is disabled: no automatic search for for
-# the nVidia CUDA toolkit or SDK is done, and ENABLE_CUDA is set to "no".
-#
-# The option `--with-cuda` can be used to specify the location of nVidia's CUDA
-# toolkit; if the option is given without an argument or with an argument of
-# "yes", we search for the CUDA toolkit in the following locations:
-#
-#   /usr/local/cuda			standard CUDA install directory
-#
-#   /usr/lib/nvidia-cuda-toolkit 	install directory for the system-
-#					installed CUDA toolkit package on Debian
-#                                       and Debian-based systems
-#
-# On successful search, these variables are set in the generated cuda.mk:
-#
-#   * HAVE_CUDA and ENABLE_CUDA: set to "yes"
-#   * CUDA_DIR: set to the found CUDA toolkit directory
-#   * NVCC: set to the location of the `nvcc` binary in the CUDA toolkit
-#     directory
-#
-# We also define a `--with-cuda-sdk=PATH` option, which allows the user to
-# specify the install location of nVidia's CUDA SDK.  Unlike the `--with-cuda`
-# option, `--with-cuda-sdk` does no automatic search and requires an argument.
-# If the argument exists and is a directory, the following variables are set in
-# the generated cuda.mk.
-#
-#   * HAVE_CUDA_SDK: set to "yes"
-#   * CUDA_SDK_DIR: set to the path given as an argument to `--with-cuda-sdk`.
-#
-# Note that `ENABLE_CUDA` and all `HAVE_*` variables that are set to "no"
-# (which is the default) by configure are set to the empty string prior to
-# substitution into cuda.mk[.in].
-#
-# The final option we define is `--with-cuda-level`, which takes a mandatory
-# argument.  This can be used to specify the CUDA compute capability of the
-# target device(s) when the nVidia CUDA compiler is invoked; the argument
-# should be an integer value equal to ten times the documented compute
-# capability for the target device(s).  This one sets the following variable in
-# the generated cuda.mk.
-#
-#   * CUDA_LEVEL: set to the argument give to `--with-cuda-level` (default 10).
-#
-# There are some arguments to AC_MSG_* with ugly formatting here; the formatting
-# is intentional (it produces nice, readable output in the generated `configure`
-# script, and keeps lines under 80 characters in length).
-#
-# To enable automatic "use" of CUDA (i.e., setting ENABLE_CUDA to "yes" if the
-# CUDA toolkit is found), change the assigned value of `ENABLE_CUDA` in the
-# line directly below this comment to "auto".  (You should also change the
-# default-argument value in the docstring passed to `AS_HELP_STRING` for
-# `--with-cuda` to match.)
-HAVE_CUDA="no"
-HAVE_CUDA_SDK="no"
+# This autoconf script assumes that the Charm++ script
+# conv-config.sh has been run in this environment such
+# that its exported variables are available
+########################################################
 
+# CUDA_DIR is exported by $CHARMINC/conv-mach-opt.sh
+CHARM_CUDA_DIR=$CUDA_DIR
+
+# Allow setting CUDA compute capability at `configure`-time.
+
+# Check whether --with-cuda-level was given.
+if test "${with_cuda_level+set}" = set; then :
+  withval=$with_cuda_level; CUDA_LEVEL=$withval
+else
+  CUDA_LEVEL=35
+fi
 
 
 
@@ -5131,72 +5540,47 @@ else
 fi
 
 
-# Interpret "--with-cuda" (i.e. no argument) as "enable CUDA support, please."
-# We also support using the argument "auto" for this purpose.
-ENABLE_CUDA=yes
-case x$(echo $CUDA_DIR | awk '{print tolower($0)}') in
-	xno)
-		ENABLE_CUDA=no
-		;;
-	x|xauto|xyes)
-		ENABLE_CUDA=yes
-		CUDA_DIR=
-		;;
-	*)
-		ENABLE_CUDA=yes
-		;;
-esac
-
-if test "$ENABLE_CUDA" != "no"; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CUDA toolkit directory" >&5
-$as_echo_n "checking for CUDA toolkit directory... " >&6; }
-    if test -z "$CUDA_DIR"; then
-        CUDA_DIR_AUTOMATIC=yes
-        CUDA_CANDIDATE_DIRS="/usr/local/cuda /usr/lib/nvidia-cuda-toolkit"
-
-        for dir in $CUDA_CANDIDATE_DIRS; do
-            if test -d "$dir"; then
-                CUDA_DIR="$dir"
-                HAVE_CUDA="yes"
-                { $as_echo "$as_me:${as_lineno-$LINENO}: result: $CUDA_DIR" >&5
-$as_echo "$CUDA_DIR" >&6; }
-                break
-            fi
-        done
-        if test -z "$CUDA_DIR"; then
-            if test "$ENABLE_CUDA" = "yes"; then
-                # User explicitly requested CUDA support but did not provide a
-                # directory argument; being unable to find a toolkit directory
-                # is an error.
-                { $as_echo "$as_me:${as_lineno-$LINENO}: result: not found" >&5
-$as_echo "not found" >&6; }
-                as_fn_error $? "\
-CUDA support explicitly enabled but the toolkit was not found by automatic path
-    search.  Specify CUDA toolkit location with \`--with-cuda=PATH\`." "$LINENO" 5
-            else
-                { $as_echo "$as_me:${as_lineno-$LINENO}: result: not found.  CUDA support will be disabled." >&5
-$as_echo "not found.  CUDA support will be disabled." >&6; }
-                ENABLE_CUDA="no"
-                HAVE_CUDA="no"
-            fi
-        fi
-    else                    # User gave explicit toolkit location.
-        if test -d "$CUDA_DIR"; then
-            { $as_echo "$as_me:${as_lineno-$LINENO}: result: $CUDA_DIR" >&5
-$as_echo "$CUDA_DIR" >&6; }
-            HAVE_CUDA="yes"
-        else
-            { $as_echo "$as_me:${as_lineno-$LINENO}: result: not found" >&5
-$as_echo "not found" >&6; }
-            as_fn_error $? "specified CUDA toolkit directory not found." "$LINENO" 5
-        fi
-    fi
+# GPU local tree walk
+	# Check whether --enable-gpu-local-tree-walk was given.
+if test "${enable_gpu_local_tree_walk+set}" = set; then :
+  enableval=$enable_gpu_local_tree_walk; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-gpu-local-tree-walk': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
 fi
 
-# Make sure we have the nVidia CUDA compiler available.  We give different
-# messages depending on how the `--with-cuda` option was passed to configure.
-if test "$ENABLE_CUDA" != "no"; then
-    # Extract the first word of "nvcc", so it can be a program name with args.
+	if test x$val = xyes; then FLAG_GPU_LOCAL_TREE_WALK=-DGPU_LOCAL_TREE_WALK; else FLAG_GPU_LOCAL_TREE_WALK=""; fi
+
+
+
+# We also support using the argument "auto" to mean "yes"
+case x$CUDA_DIR in
+             xno) ENABLE_CUDA=no ;;
+    x|xauto|xyes) ENABLE_CUDA=yes; CUDA_DIR=$CHARM_CUDA_DIR ;;
+               *) ENABLE_CUDA=yes ;;
+esac
+
+# BUILD_CUDA is exported by $CHARMINC/conv-mach-cuda.sh
+if test x$BUILD_CUDA = x; then
+	BUILD_CUDA=0
+fi
+if test x$ENABLE_CUDA = xno -a x$BUILD_CUDA = x1; then
+	as_fn_error $? "Charm++ ($CHARM_PATH) was built with CUDA support enabled." "$LINENO" 5
+fi
+if test x$ENABLE_CUDA = xyes -a x$BUILD_CUDA = x0; then
+	as_fn_error $? "Charm++ ($CHARM_PATH) was not built with CUDA support." "$LINENO" 5
+fi
+
+if test x$ENABLE_CUDA = xyes; then
+	if test x$CUDA_DIR != x -a x$CUDA_DIR != x$CHARM_CUDA_DIR; then
+		as_fn_error $? "Given CUDA directory '$CUDA_DIR' is \
+not the same as the one found by Charm++ '$CHARM_CUDA_DIR'
+		" "$LINENO" 5
+	fi
+
+	# Extract the first word of "nvcc", so it can be a program name with args.
 set dummy nvcc; ac_word=$2
 { $as_echo "$as_me:${as_lineno-$LINENO}: checking for $ac_word" >&5
 $as_echo_n "checking for $ac_word... " >&6; }
@@ -5236,92 +5620,48 @@ $as_echo "no" >&6; }
 fi
 
 
-    if test -z "$NVCC_PATH" ; then
-        if test "$ENABLE_CUDA" = "yes"; then
-            if test "$CUDA_DIR_AUTOMATIC" = "yes"; then
-                as_fn_error $? "\
-\`bin/nvcc\` not found in automatically-selected CUDA toolkit directory.  Specify
-    CUDA toolkit location with \`--with-cuda=PATH\`." "$LINENO" 5
-            else
-                as_fn_error $? "\
-\`bin/nvcc\` not found in specified CUDA toolkit install prefix." "$LINENO" 5
-            fi
-        else                    # ENABLE_CUDA is "auto"
-            { $as_echo "$as_me:${as_lineno-$LINENO}: \
-\`bin/nvcc\` not found in automatically-selected CUDA toolkit directory; CUDA
-    support will be disabled.  If this is not what you want, try specifying a
-    valid CUDA toolkit install prefix using \`--with-cuda=PATH\`." >&5
-$as_echo "$as_me: \
-\`bin/nvcc\` not found in automatically-selected CUDA toolkit directory; CUDA
-    support will be disabled.  If this is not what you want, try specifying a
-    valid CUDA toolkit install prefix using \`--with-cuda=PATH\`." >&6;}
-            ENABLE_CUDA="no"
-            HAVE_CUDA="no"
-        fi
-    fi
+	if test -z "$NVCC_PATH" ; then
+		as_fn_error $? "'bin/nvcc' not found in $CUDA_DIR/bin" "$LINENO" 5
+	fi
+
+	ac_config_files="$ac_config_files cuda.mk"
+
 fi
 
+# Some CUDA installs only use the runtime library, so test for the presence of each
+if test x$ENABLE_CUDA = xyes; then
+	if test -e $CUDA_DIR/lib64/libcuda.so; then
+		CUDA_LIBS=-lcuda
+	else
+		if test -e $CUDA_DIR/lib64/libcudart.so; then
+			CUDA_LIBS=-lcudart
+		else
+			>&2 echo Could not find libcudart.so
+			exit 1
+		fi
+	fi
+fi
 
-# Check for the CUDA SDK.
-
+# Deprecate using the SDK
 
 # Check whether --with-cuda-sdk was given.
 if test "${with_cuda_sdk+set}" = set; then :
   withval=$with_cuda_sdk; CUDA_SDK_DIR=$withval
 else
   CUDA_SDK_DIR=""
-fi
-
-
-if test -n "$CUDA_SDK_DIR"; then
-    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for CUDA SDK directory" >&5
-$as_echo_n "checking for CUDA SDK directory... " >&6; }
-    if test -d "$CUDA_SDK_DIR"; then
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: $CUDA_SDK_DIR" >&5
-$as_echo "$CUDA_SDK_DIR" >&6; }
-        HAVE_CUDA_SDK=yes
-    else
-        { $as_echo "$as_me:${as_lineno-$LINENO}: result: not found" >&5
-$as_echo "not found" >&6; }
-        as_fn_error $? "specified CUDA SDK directory not found." "$LINENO" 5
-    fi
-fi
-
-# Allow setting CUDA compute capability at `configure`-time.
-
-# Check whether --with-cuda-level was given.
-if test "${with_cuda_level+set}" = set; then :
-  withval=$with_cuda_level; CUDA_LEVEL=$withval
-else
-  CUDA_LEVEL=35
-fi
-
-
-# Set up boolean AC_SUBST variables for use in Make.
-for var in HAVE_CUDA HAVE_CUDA_SDK ENABLE_CUDA; do
-    eval value='$'"$var"
-    if test "$value" = "no"; then
-        eval "$var=''"
-    fi
-done
-
-
-
-
-
-
-
-
-
-if test -n "$ENABLE_CUDA"; then
-   ac_config_files="$ac_config_files cuda.mk"
 
 fi
+
+
+
+
+
+
+
 
 ##################### END CUDA #####################
 
-
-ac_config_files="$ac_config_files Makefile $srcdir/../utility/structures/Makefile"
+ac_config_files="$ac_config_files Makefile $STRUCT_DIR/Makefile"
 
 cat >confcache <<\_ACEOF
 # This file is a shell script that caches the results of configure
@@ -6013,10 +6353,10 @@ for ac_config_target in $ac_config_targets
 do
   case $ac_config_target in
     "config.h") CONFIG_HEADERS="$CONFIG_HEADERS config.h" ;;
-    "$srcdir/../utility/structures/config.h") CONFIG_HEADERS="$CONFIG_HEADERS $srcdir/../utility/structures/config.h" ;;
+    "$STRUCT_DIR/config.h") CONFIG_HEADERS="$CONFIG_HEADERS $STRUCT_DIR/config.h" ;;
     "cuda.mk") CONFIG_FILES="$CONFIG_FILES cuda.mk" ;;
     "Makefile") CONFIG_FILES="$CONFIG_FILES Makefile" ;;
-    "$srcdir/../utility/structures/Makefile") CONFIG_FILES="$CONFIG_FILES $srcdir/../utility/structures/Makefile" ;;
+    "$STRUCT_DIR/Makefile") CONFIG_FILES="$CONFIG_FILES $STRUCT_DIR/Makefile" ;;
 
   *) as_fn_error $? "invalid argument: \`$ac_config_target'" "$LINENO" 5;;
   esac
@@ -6598,3 +6938,36 @@ if test -n "$ac_unrecognized_opts" && test "$enable_option_checking" != no; then
 $as_echo "$as_me: WARNING: unrecognized options: $ac_unrecognized_opts" >&2;}
 fi
 
+
+echo "***************************************************************"
+echo "Configuration Summary for ChaNGa 3.3:"
+echo
+echo "    "Charm path "      " $CHARM_PATH
+echo "    "Charm compiler"   " $CHARMC
+echo "    "C++ compiler"     " $CXX
+echo
+echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_SSE$FLAG_AVX $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD
+echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
+echo "    "Load balancer "   " $DEFAULT_LB
+echo "    "CPU architecture" " $FLAG_ARCH
+
+if test x$ENABLE_CUDA = xyes; then
+	echo
+	echo "    "CUDA directory" " $CUDA_DIR
+	echo "    "CUDA nvcc "     " $NVCC_PATH
+
+	if test ! x$FLAG_SANITIZER = xno; then
+		echo
+		echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		echo !
+		echo ! You are using a sanitizer with CUDA. In order to avoid spurious errors,
+		echo ! you will need to export the following before running ChaNGa
+		echo !
+		echo !"     " ASAN_OPTIONS=protect_shadow_gap=0:replace_intrin=0:detect_leaks=0
+		echo !
+		echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+	fi
+fi
+
+echo
