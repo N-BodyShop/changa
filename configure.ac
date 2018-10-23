@@ -67,7 +67,7 @@ fi
 
 # Set up the cha_commitid file
 VOLD=$(test -e VERSION && cat VERSION)
-VNEW=$(git -C $srcdir describe --long --always)
+VNEW=$(cd $srcdir && git describe --long --always)
 if test -n "$VNEW" -a "$VOLD" != "$VNEW"; then
     echo "const char * const Cha_CommitID = \"$VNEW\";" > cha_commitid.c
 fi
