@@ -110,10 +110,10 @@ AC_ARG_ENABLE([arch], [AS_HELP_STRING([--enable-arch], [set compiler target arch
 if test x$arch = xnone -a x$flag_sse_deprecated != x; then arch=$flag_sse_deprecated; fi
 if test x$arch = xnone -a x$flag_avx_deprecated != x; then arch=$flag_avx_deprecated; fi
 case $arch in
-	no|none	) FLAG_ARCH="" ;;
- 	sse2	) FLAG_ARCH=-DCMK_USE_SSE2 ;;
-	avx		) FLAG_ARCH=-DCMK_USE_AVX ;;
-	*		) AC_MSG_ERROR("invalid argument for '--enable-arch': $arch");;
+	no|none ) FLAG_ARCH="" ;;
+ 	sse2    ) FLAG_ARCH=-DCMK_USE_SSE2 ;;
+	avx     ) FLAG_ARCH=-DCMK_USE_AVX ;;
+	*       ) AC_MSG_ERROR("invalid argument for '--enable-arch': $arch");;
 esac
 AC_SUBST([FLAG_ARCH])
 
@@ -137,9 +137,9 @@ if test x$sph_kernel = xsph_none -a x$flag_sph_m6kernel_deprecated != x; then sp
 if test x$sph_kernel = xsph_none -a x$flag_sph_wendland_deprecated != x; then sph_kernel=$flag_sph_wendland_deprecated; fi
 case $sph_kernel in
 	sph_none|"m4") FLAG_SPH_KERNEL="-DM4KERNEL=1 -DWENDLAND=0 -DM6KERNEL=0";;
-	m6			 ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=0 -DM6KERNEL=1";;
-	wendland	 ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=1 -DM6KERNEL=0";;
-	*			 ) AC_MSG_ERROR([invalid argument for '--enable-sph-kernel': $sph_kernel]);;
+	m6           ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=0 -DM6KERNEL=1";;
+	wendland     ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=1 -DM6KERNEL=0";;
+	*            ) AC_MSG_ERROR([invalid argument for '--enable-sph-kernel': $sph_kernel]);;
 esac
 AC_SUBST([FLAG_SPH_KERNEL])
 
@@ -261,7 +261,7 @@ case $tree_build in
 	merge-remote ) FLAG_TREE_BUILD="-DMERGE_REMOTE_REQUESTS";;
 	# no merging of remote requests on PE; local trees built after requests sent
 	split-phase  ) FLAG_TREE_BUILD="-DSPLIT_PHASE_TREE_BUILD";;
-	*		     ) AC_MSG_ERROR([invalid argument for '--enable-tree-build': $tree_build]);;
+	*            ) AC_MSG_ERROR([invalid argument for '--enable-tree-build': $tree_build]);;
 esac
 AC_SUBST([FLAG_TREE_BUILD])
 
