@@ -5,7 +5,13 @@ AC_PREREQ(2.59)
 AC_INIT([ChaNGa], [3.3], [changa-users@u.washington.edu])
 AC_DEFINE_UNQUOTED([NBODY_PACKAGE_VERSION], [$PACKAGE_VERSION])
 AC_CONFIG_SRCDIR([Reductions.h])
-AC_CONFIG_HEADER([config.h $srcdir/../utility/structures/config.h])
+
+if test "x$STRUCT_DIR" = "x"; then
+	STRUCT_DIR=$srcdir/../utility/structures
+fi
+AC_SUBST([STRUCT_DIR])
+
+AC_CONFIG_HEADER([config.h $STRUCT_DIR/config.h])
 
 AC_ARG_VAR([CHARMC], "Charm compiler")
 # Checks for programs.
@@ -15,6 +21,15 @@ if test "$CHARMC" = "no" ; then
    AC_MSG_WARN([Cannnot locate charmc])
    AC_MSG_WARN([Try setting your CHARM_DIR environment variable to point at the charm source directory])
    exit
+fi
+
+# Make sure git is available
+AC_CHECK_PROG(HAVE_GIT,[git],[yes],[no])
+test "$HAVE_GIT" == "no" && AC_MSG_ERROR([git not found])
+
+MINIMUM_CHARM_VERSION=60800
+if test $($CHARMC -V | awk '{print $3}') -lt $MINIMUM_CHARM_VERSION; then
+	AC_MSG_ERROR([[At least Charm++ $MINIMUM_CHARM_VERSION is required]])
 fi
 
 CHARM_PATH=${CHARMC%/bin/charmc}
@@ -31,7 +46,6 @@ CPPFLAGS="$CPPFLAGS -I.."
 AC_CHECK_FILE(../libs, [LDFLAGS="$LDFLAGS -L../libs"])
 
 AC_PROG_CXX($CHARMC)
-# AC_PROG_CC($CHARMC)
 
 # Checks for header files.
 AC_HEADER_STDC
@@ -61,146 +75,140 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
+# Set up the cha_commitid file
+VOLD=$(test -e VERSION && cat VERSION)
+VNEW=$(cd $srcdir && git describe --long --always)
+if test -n "$VNEW" -a "$VOLD" != "$VNEW"; then
+    echo "const char * const Cha_CommitID = \"$VNEW\";" > cha_commitid.c
+fi
+
+# Compiler-specific options
+m4_include([compiler.ac])
+
+# Require C++11
+COMPILER_FLAG_REQUIRE([-std=c++11],[ChaNGa requires full C++11 support])
+
+# Require dependency-generation flags
+COMPILER_FLAG_REQUIRE([-MMD -MP -MF .dummy],[ChaNGa requires the dependency-generation flags '-MMD -MP -MF'])
+rm -f .dummy
+
+# Check if optimized debug builds are supported
+COMPILER_FLAG_CHECK([-Og], [OPT_DEBUG], [-Og], [-O0])
+
+# Set compiler type
+COMPILER_MACRO_CHECK([__GNUC__],[IS_GNU]) # also true for Clang
+COMPILER_MACRO_CHECK([__ICC__],[IS_ICC])
+
+# @synopsis ARG_ENABLE(name, description, flag_var, val_if_enabled, default_val)
+# @summary Wrapper around AC_ARG_ENABLE that does extra checking and automatic exporting
+AC_DEFUN([ARG_ENABLE],
+[dnl
+	AC_ARG_ENABLE([$1], [AS_HELP_STRING([--enable-$1], [$2])],
+	[case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) AC_MSG_ERROR([invalid argument for '--enable-$1': $enableval]);;
+	 esac],
+	[val=$5])
+	if test x$val = xyes; then $3=$4; else $3=""; fi
+	AC_SUBST([$3])
+])
+
 # Use single-precision for gravity calculations
-AC_ARG_ENABLE([float],
-	[AS_HELP_STRING([--enable-float], [use single-precision for gravity calculations])],
-	[float=$enableval], [float=no])
-if test "$float" = "yes" ; then
-    echo "float selected"
-    FLAG_FLOAT="-DCOSMO_FLOAT"
-else
-    FLAG_FLOAT=""
-fi
-AC_SUBST([FLAG_FLOAT])
+ARG_ENABLE([float], [use single-precision gravity calculations], [FLAG_FLOAT], [-DCOSMO_FLOAT], [no])
 
-# SSE2 vector optimization for gravity
-AC_ARG_ENABLE([sse2],
-	[AS_HELP_STRING([--enable-sse2], [enable sse2 gravity vectorization])],
-	[sse2=$enableval], [sse2=no])
-if test "$sse2" = "yes" ; then
-    echo "SSE2 selected"
-    FLAG_SSE="-DCMK_USE_SSE2"
-else
-    FLAG_SSE=""
-fi
-AC_SUBST([FLAG_SSE])
+# Select target CPU architecture (this determines SIMD type)
+# --- Deprecated flags ---
+ARG_ENABLE([sse2], [DEPRECATED. Use --enable-arch=sse2], [flag_sse_deprecated], [sse], [no])
+ARG_ENABLE([avx], [DEPRECATED. Use --enable-arch=avx], [flag_avx_deprecated], [avx], [no])
+# -----------------------
+AC_ARG_ENABLE([arch], [AS_HELP_STRING([--enable-arch], [set compiler target architecture])],
+			  [arch=$enableval], [arch=none])
+# --enable-arch overrules when one of the deprecated flags is also given
+if test x$arch = xnone -a x$flag_sse_deprecated != x; then arch=$flag_sse_deprecated; fi
+if test x$arch = xnone -a x$flag_avx_deprecated != x; then arch=$flag_avx_deprecated; fi
+case $arch in
+	no|none ) FLAG_ARCH="" ;;
+ 	sse2    ) FLAG_ARCH=-DCMK_USE_SSE2 ;;
+	avx     ) FLAG_ARCH=-DCMK_USE_AVX ;;
+	*       ) AC_MSG_ERROR("invalid argument for '--enable-arch': $arch");;
+esac
+AC_SUBST([FLAG_ARCH])
 
-# AVX vector optimization for gravity
-AC_ARG_ENABLE([avx],
-	[AS_HELP_STRING([--enable-avx], [enable avx gravity vectorization])],
-	[avx=$enableval], [avx=no])
-if test "$avx" = "yes" ; then
-    echo "AVX selected"
-    FLAG_AVX="-DCMK_USE_AVX"
-else
-    FLAG_AVX=""
-fi
-AC_SUBST([FLAG_AVX])
-
-# physical softening in comoving coordinates:
-AC_ARG_ENABLE([changesoft],
-	[AS_HELP_STRING([--enable-changesoft], [enable physical softening])],
-	[changesoft=$enableval], [changesoft=yes])
-if test "$changesoft" = "yes" ; then
-    echo "CHANGESOFT selected"
-    FLAG_CHANGESOFT="-DCHANGESOFT"
-else
-    FLAG_CHANGESOFT=""
-fi
-AC_SUBST([FLAG_CHANGESOFT])
+# physical softening in comoving coordinates
+ARG_ENABLE([changesoft], [physical softening], [FLAG_CHANGESOFT], [-DCHANGESOFT], [yes])
 
 # 128 bit keys:
-AC_ARG_ENABLE([bigkeys],
-	[AS_HELP_STRING([--enable-bigkeys], [enable 128 bit hash keys])],
-	[bigkeys=$enableval], [bigkeys=no])
-if test "$bigkeys" = "yes" ; then
-    echo "BIGKEYS selected"
-    FLAG_BIGKEYS="-DBIGKEYS"
-else
-    FLAG_BIGKEYS=""
-fi
-AC_SUBST([FLAG_BIGKEYS])
+ARG_ENABLE([bigkeys], [128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [no])
 
 # DTADJUST
-AC_ARG_ENABLE([dtadjust],
-	[AS_HELP_STRING([--enable-dtadjust], [enable emergency timestep adjust])],
-	[dtadjust=$enableval], [dtadjust=yes])
-if test "$dtadjust" = "yes" ; then
-    echo "DTADJUST selected"
-    FLAG_DTADJUST="-DDTADJUST"
-else
-    FLAG_DTADJUST=""
-fi
+ARG_ENABLE([dtadjust], [emergency timestep adjust], [FLAG_DTADJUST], [-DDTADJUST], [yes])
 
-AC_SUBST([FLAG_DTADJUST])
-
-# Select kernel
-# Set defaults
-KERNEL="m4kernel"
-FLAG_M4KERNEL="-DM4KERNEL=0"
-FLAG_WENDLAND="-DWENDLAND=0"
-FLAG_M6KERNEL="-DM6KERNEL=0"
-# Wendland C4 Kernel:
-AC_ARG_ENABLE([wendland],
-	[AS_HELP_STRING([--enable-wendland], [enable Wendland C4 Kernel])],
-	[wendland=$enableval], [wendland=no])
-if test "$wendland" = "yes" ; then
-    KERNEL="wendland"
-fi
-# M6 quintic spline kernel
-AC_ARG_ENABLE([m6kernel],
-	[AS_HELP_STRING([--enable-m6kernel], [enable M6 cubic spline kernel])],
-	[m6kernel=$enableval], [m6kernel=no])
-if test "$m6kernel" = "yes" ; then
-    KERNEL="m6kernel"
-fi
-# Now set up kernel flags
-if test "$KERNEL" = "m4kernel" ; then
-    echo "M4KERNEL selected"
-    FLAG_M4KERNEL="-DM4KERNEL=1"
-elif test "$KERNEL" = "wendland" ; then
-    echo "WENDLAND selected"
-    FLAG_WENDLAND="-DWENDLAND=1"
-elif test "$KERNEL" = "m6kernel" ; then
-    echo "M6KERNEL selected"
-    FLAG_M6KERNEL="-DM6KERNEL=1"
-fi
-KERNEL_FLAGS="$FLAG_M4KERNEL $FLAG_WENDLAND $FLAG_M6KERNEL"
-echo "$KERNEL_FLAGS"
-AC_SUBST([KERNEL_FLAGS])
+# Select SPH interpolation kernel
+# --- Deprecated flags ---
+ARG_ENABLE([wendland], [DEPRECATED. Use --enable-sph-kernel=wendland], [flag_sph_wendland_deprecated], [wendland], [none])
+ARG_ENABLE([m6kernel], [DEPRECATED. Use --enable-sph-kernel=m6kernel], [flag_sph_m6kernel_deprecated], [m6kernel], [none])
+#------------------------
+AC_ARG_ENABLE([sph_kernel], [AS_HELP_STRING([--enable-sph-kernel], [SPH interpolation kernel (m4,m6,wendland)])],
+				[sph_kernel=$enableval], [sph_kernel=sph_none])
+if test x$sph_kernel = xsph_none -a x$flag_sph_m6kernel_deprecated != x; then sph_kernel=$flag_sph_m6kernel_deprecated; fi
+if test x$sph_kernel = xsph_none -a x$flag_sph_wendland_deprecated != x; then sph_kernel=$flag_sph_wendland_deprecated; fi
+case $sph_kernel in
+	sph_none|"m4") FLAG_SPH_KERNEL="-DM4KERNEL=1 -DWENDLAND=0 -DM6KERNEL=0";;
+	m6           ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=0 -DM6KERNEL=1";;
+	wendland     ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=1 -DM6KERNEL=0";;
+	*            ) AC_MSG_ERROR([invalid argument for '--enable-sph-kernel': $sph_kernel]);;
+esac
+AC_SUBST([FLAG_SPH_KERNEL])
 
 # Velocity damping
-AC_ARG_ENABLE([damping],
-	[AS_HELP_STRING([--enable-damping], [enable velocity damping for glasses])],
-	[damping=$enableval], [damping=no])
-if test "$damping" = "yes" ; then
-    echo "DAMPING selected"
-    FLAG_DAMPING="-DDAMPING"
-else
-    FLAG_DAMPING=""
-fi
-AC_SUBST([FLAG_DAMPING])
+ARG_ENABLE([damping], [velocity damping in gasses], [FLAG_DAMPING], [-DDAMPING], [no])
 
-# Cooling:
+# Hexadecapole expansion for gravity
+ARG_ENABLE([hexadecapole], [hexadecapole expansions in gravity], [HEXADECAPOLE], [-DHEXADECAPOLE], [yes])
+ 
+# diffusion (thermal and metal)
+ARG_ENABLE([diffusion], [thermal and metal diffusion], [FLAG_DIFFUSION], [-DDIFFUSION], [yes])
+
+# Limit supernova feedback
+# By default this also enables DIFFHARMONIC
+ARG_ENABLE([feedbacklimit], [limit diffusion of feedback energy], [FLAG_FEEDBACKDIFFLIMIT], [-DFEEDBACKDIFFLIMIT], [no])
+if test x$FLAG_FEEDBACKDIFFLIMIT = x"-DFEEDBACKDIFFLIMIT"; then
+	FLAG_DIFFHARMONIC="-DDIFFUSIONHARMONIC";
+fi
+AC_SUBST([FLAG_DIFFHARMONIC])
+
+# Calculate artificial viscosity from Cullen & Dehnen 2010
+ARG_ENABLE([cullenalpha], [Cullen Dehnen artificial viscosity], [FLAG_CULLENALPHA], [-DCULLENALPHA], [no])
+
+# Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
+ARG_ENABLE([vsigvisc], [alternative Monahan artificial viscosity], [FLAG_VSIGVISC], [-DVSIGVISC], [yes])
+
+# Richie-Thomas forces (Pressure SPH)
+ARG_ENABLE([rtforce], [Richie-Thomas forces], [FLAG_RTFORCE], [-DRTFORCE], [yes])
+
+# Default load balancer
+ARG_ENABLE([default-lb], [default load balancer], [DEFAULT_LB], [MultistepLB_notopo], [yes])
+
+# Enable projections
+ARG_ENABLE([projections], [Charm++ projections], [PROJECTIONS], [yes], [no])
+if test x$PROJECTIONS = xyes -a x$CMK_TRACE_ENABLED = x0; then
+	AC_MSG_ERROR([You must enable tracing in Charm++ before using it in ChaNGa])
+fi
+
+# Cooling
 AC_ARG_ENABLE([cooling],
-	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet, cosmo, grackle)])],
-	[cooling=$enableval], [cooling=no])
-OBJECTS_COOLING=""
-if test "$cooling" = "no" ; then
-   echo "Adiabatic SPH only selected"
-   FLAG_COOLING="-DCOOLING_NONE"
-elif test "$cooling" = "planet" ; then
-   echo "Planet cooling selected"
-   FLAG_COOLING="-DCOOLING_PLANET"
-   OBJECTS_COOLING="cooling_planet.o stiff.o"
-elif test "$cooling" = "cosmo" ; then
-   echo "Cosmo cooling selected"
-   FLAG_COOLING="-DCOOLING_COSMO"
-   OBJECTS_COOLING="cooling_cosmo.o stiff.o"
-elif test "$cooling" = "grackle" ; then
-   echo "Grackle cooling selected"
-   FLAG_COOLING="-DCOOLING_GRACKLE"
-   OBJECTS_COOLING="cooling_grackle.o"
+	[AS_HELP_STRING([--enable-cooling], [gas cooling (none,planet,cosmo,grackle)])],
+	[cooling=$enableval], [cooling=none])
+case $cooling in
+	no|none	) FLAG_COOLING="-DCOOLING_NONE";;
+	planet	) FLAG_COOLING="-DCOOLING_PLANET";;
+	cosmo	) FLAG_COOLING="-DCOOLING_COSMO";;
+	grackle	) FLAG_COOLING="-DCOOLING_GRACKLE";;
+	*		) AC_MSG_ERROR([invalid argument for '--enable-cooling': $cooling]);;
+esac
+AC_SUBST([FLAG_COOLING])
+
+if test "$cooling" = "grackle" ; then
    ac_cv_libhdf5="yes"
    AC_CHECK_LIB([hdf5], [H5Fcreate], [], [ac_cv_libhdf5=no]) 
    if test $ac_cv_libhdf5 = "no" ; then
@@ -226,136 +234,69 @@ elif test "$cooling" = "grackle" ; then
        AC_MSG_WARN([Also remember to set LD_LIBRARY_PATH when running, if grackle and hdf5 are dynamic libraries]);
        exit
    fi
-else
-        AC_MSG_WARN([Unknown cooling selected, using Adiabatic])
-	FLAG_COOLING="-DCOOLING_NONE"
-	cooling="no"
 fi
 
-AC_SUBST([FLAG_COOLING])
-AC_SUBST([OBJECTS_COOLING])
+# Default load balancer
+AC_ARG_WITH([default_lb],
+	[AS_HELP_STRING([--with-default_lb], [Set default load balancer [MultistepLB_notopo]])],
+	[DEFAULT_LB=$enableval], [DEFAULT_LB=MultistepLB_notopo])
+AC_SUBST([DEFAULT_LB])
 
-AC_ARG_ENABLE([hexadecapole],
-        [AS_HELP_STRING([--disable-hexadecapole], [disable use of hexadecapole expansions])],
-        # Note that "$enableval" being "yes" means ENABLE hexadecapole -- the
-        # help string, as one would expect, only affects how we document
-        # the option.
-        [case "$enableval" in
-              yes | no ) hexadecapole="$enableval";;
-              *) AC_MSG_ERROR("$enableval: invalid argument to `--disable-hexadecapole'") ;;
-         esac],
-        [hexadecapole="yes"])
-
-HEXADECAPOLE=""
-if test "$hexadecapole" = "yes"; then
-    HEXADECAPOLE="-DHEXADECAPOLE"
-else
-    HEXADECAPOLE=""
+# Enable projections
+AC_ARG_ENABLE([projections],
+	[AS_HELP_STRING([--enable-projections], [enable projections])],
+	[PROJECTIONS=$enableval], [PROJECTIONS=no])
+if test x$PROJECTIONS = xyes -a x$CMK_TRACE_ENABLED = x0; then
+	AC_MSG_ERROR([You must enable tracing in Charm++ before using it in ChaNGa])
 fi
+AC_SUBST([PROJECTIONS])
 
-AC_SUBST([HEXADECAPOLE])
-
-# GPU local tree walk
-AC_ARG_ENABLE([gpu_local_tree_walk],
-  [AS_HELP_STRING([--enable-gpu_local_tree_walk], [Enable gpu_local_tree_walk (yes, no)])],
-  [gpu_local_tree_walk=$enableval], [gpu_local_tree_walk=no])
-GPU_LOCAL_TREE_WALK=""
-if test "$gpu_local_tree_walk" = "yes" ; then
-  echo "DGPU_LOCAL_TREE_WALK selected"
-  GPU_LOCAL_TREE_WALK="-DGPU_LOCAL_TREE_WALK"
-else
-  GPU_LOCAL_TREE_WALK=""
-fi
-
-AC_SUBST([GPU_LOCAL_TREE_WALK])
- 
-# diffusion (thermal and metal)
-AC_ARG_ENABLE([diffusion],
-	[AS_HELP_STRING([--enable-diffusion], [enable diffusion])],
-	[diffusion=$enableval], [diffusion=yes])
-if test "$diffusion" = "yes" ; then
-    echo "DIFFUSION selected"
-    FLAG_DIFFUSION="-DDIFFUSION"
-else
-    FLAG_DIFFUSION=""
-fi
-
-AC_SUBST([FLAG_DIFFUSION])
-
-# Limit supernova feedback
-# By default this also enables DIFFHARMONIC
-AC_ARG_ENABLE([feedbacklimit],
-    [AS_HELP_STRING([--enable-feedbacklimit], [limit diffusion of feedback energy])],
-    [feedbacklimit=$enableval], [feedbacklimit=no])
-if test "$feedbacklimit" = "yes" ; then
-    echo "FEEDBACKDIFFLIMIT selected"
-    FLAG_FEEDBACKDIFFLIMIT="-DFEEDBACKDIFFLIMIT"
-    echo "DIFFUSIONHARMONIC selected"
-    FLAG_DIFFHARMONIC="-DDIFFUSIONHARMONIC"
-else
-    FLAG_FEEDBACKDIFFLIMIT=""
-    FLAG_DIFFHARMONIC=""
-fi
-
-AC_SUBST([FLAG_FEEDBACKDIFFLIMIT])
-AC_SUBST([FLAG_DIFFHARMONIC])
-
-# Calculate artificial viscosity from Cullen & Dehnen 2010
-AC_ARG_ENABLE([cullenalpha],
-        [AS_HELP_STRING([--enable-cullenalpha], [enable Cullen Dehnen artificial viscosity])],
-        [cullenalpha=$enableval], [cullenalpha=no])
-if test "$cullenalpha" = "yes" ; then
-    echo "CULLENALPHA selected"
-    FLAG_CULLENALPHA="-DCULLENALPHA"
-else
-    FLAG_CULLENALPHA=""
-fi
-
-AC_SUBST([FLAG_CULLENALPHA])
-
-# Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
-AC_ARG_ENABLE([vsigvisc],
-        [AS_HELP_STRING([--enable-vsigvisc], [enable alternative Monahan artificial viscosity])],
-        [vsigvisc=$enableval], [vsigvisc=yes])
-if test "$vsigvisc" = "yes" ; then
-    echo "VSIGVISC selected"
-    FLAG_VSIGVISC="-DVSIGVISC"
-else
-    FLAG_VSIGVISC=""
-fi
-
-AC_SUBST([FLAG_VSIGVISC])
-
-# Richie-Thomas forces (Pressure SPH)
-AC_ARG_ENABLE([rtforce],
-	[AS_HELP_STRING([--enable-rtforce], [enable Richie-Thomas forces])],
-	[rtforce=$enableval], [rtforce=yes])
-if test "$rtforce" = "yes" ; then
-    echo "RTFORCE selected"
-    FLAG_RTFORCE="-DRTFORCE"
-else
-    FLAG_RTFORCE=""
-fi
-
-AC_SUBST([FLAG_RTFORCE])
-
-# Compiler flags
 AC_ARG_ENABLE([opts],
-	[AS_HELP_STRING([--enable-opts="options"], [Set compiler flags (override defaults)])],
-	[opts=$enableval], [])
-if test "$opts" = "yes" ; then
-    # The user called without arguments.  Assume this is an empty string
-    opts=""
+	[AS_HELP_STRING([--enable-opts], [DEPRECATED - Do not use])],
+	[], [])
+
+# Tree building
+AC_ARG_ENABLE([tree-build],
+	[AS_HELP_STRING([--enable-tree-build], [tree building (merge-remote,split-phase)])],
+	[tree_build=$enableval], [tree_build=merge-remote])
+case $tree_build in
+	# merges remote requests before sending; local trees built after requests sent
+	merge-remote ) FLAG_TREE_BUILD="-DMERGE_REMOTE_REQUESTS";;
+	# no merging of remote requests on PE; local trees built after requests sent
+	split-phase  ) FLAG_TREE_BUILD="-DSPLIT_PHASE_TREE_BUILD";;
+	*            ) AC_MSG_ERROR([invalid argument for '--enable-tree-build': $tree_build]);;
+esac
+AC_SUBST([FLAG_TREE_BUILD])
+
+# Sanitizers
+AC_ARG_ENABLE([sanitizer],
+	[AS_HELP_STRING([--enable-sanitizer], [LLVM sanitizers])],
+	[sanitizer=$enableval], [sanitizer=no])
+case $sanitizer in
+	no|none) FLAG_SANITIZER=no;;
+	yes    ) FLAG_SANITIZER=address;;  # default to the AddressSanitizer
+	*      ) FLAG_SANITIZER=$sanitizer;;
+esac
+if test ! x$FLAG_SANITIZER = xno; then
+	COMPILER_FLAG_REQUIRE([-fsanitize=$FLAG_SANITIZER],[$CXX does not support the $FLAG_SANITIZER sanitizer])
+	COMPILER_FLAG_REQUIRE([-fno-omit-frame-pointer],[-fno-omit-frame-pointer is required when using the sanitizers])
 fi
-# Test if 'opts' is defined
-if test "${opts+x}" != ""  ; then
-    OPTS="$opts"
-else
-    # Default options
-    OPTS="-O3 -lpthread"
-fi
-echo "compiler options: $OPTS"
-AC_SUBST([OPTS])
+AC_SUBST([FLAG_SANITIZER])
+
+# Interaction list version
+AC_ARG_ENABLE([interlist],
+	[AS_HELP_STRING([--enable-interlist], [interaction list version])],
+	[interlist=$enableval], [interlist=2])
+case $interlist in
+	1|2) FLAG_INTERLIST="-DINTERLIST_VER=$interlist";;
+	*  ) AC_MSG_ERROR([invalid argument for '--enable-interlist': $interlist]);;
+esac
+AC_SUBST([FLAG_INTERLIST])
+
+# Force compiler flags
+AC_ARG_ENABLE([opts],
+	[AS_HELP_STRING([--enable-opts], [DEPRECATED - Do not use])],
+	[], [])
 
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
@@ -375,8 +316,38 @@ AC_CHECK_FUNCS([xdr_hyper])
 m4_include([cuda.ac])
 ##################### END CUDA #####################
 
-
-AC_CONFIG_FILES([Makefile
-		 $srcdir/../utility/structures/Makefile
-		])
+AC_CONFIG_FILES([Makefile $STRUCT_DIR/Makefile])
 AC_OUTPUT
+
+echo "***************************************************************"
+echo "Configuration Summary for AC_PACKAGE_NAME AC_PACKAGE_VERSION:"
+echo
+echo "    "Charm path "      " $CHARM_PATH
+echo "    "Charm compiler"   " $CHARMC
+echo "    "C++ compiler"     " $CXX
+echo
+echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_SSE$FLAG_AVX $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD
+echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
+echo "    "Load balancer "   " $DEFAULT_LB
+echo "    "CPU architecture" " $FLAG_ARCH
+
+if test x$ENABLE_CUDA = xyes; then
+	echo
+	echo "    "CUDA directory" " $CUDA_DIR
+	echo "    "CUDA nvcc "     " $NVCC_PATH
+	
+	if test ! x$FLAG_SANITIZER = xno; then
+		echo
+		echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!
+		echo !
+		echo ! You are using a sanitizer with CUDA. In order to avoid spurious errors,
+		echo ! you will need to export the following before running ChaNGa
+		echo !
+		echo !"     " ASAN_OPTIONS=protect_shadow_gap=0:replace_intrin=0:detect_leaks=0
+		echo !
+		echo !!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!!! 
+	fi
+fi
+
+echo
