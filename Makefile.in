@@ -1,8 +1,12 @@
-### Build information
+# This Makefile uses the GNU make convention that CAPITAL_NAMES are reserved
+# for variables that are either derived from the environment or are explicitly
+# set by the user during invocation.
+
 # ChaNGa source directory
-SOURCE_DIR=@srcdir@
+source_dir := @srcdir@
+
 # Directory from which `configure` was called.
-BUILD_DIR=@builddir@
+build_dir := @builddir@
 
 # Flags that can be passed during compilation
 #FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
