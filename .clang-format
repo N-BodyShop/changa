@@ -1,0 +1,8 @@
+BasedOnStyle: google
+IndentWidth: 4
+ColumnLimit: 90
+---
+Language: Cpp
+# Force pointers to the type for C++.
+DerivePointerAlignment: false
+PointerAlignment: Left
