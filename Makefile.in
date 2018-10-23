@@ -16,6 +16,9 @@ RM 		:= rm -f
 RMR		:= $(RM) -r
 quiet	:= $(if $(filter $(VERBOSE),1),,@)
 
+# ------- Top-level configurations --------------------------------------------
+interlist := -DINTERLIST_VER=2	# enable interaction lists
+
 # Flags that can be passed during compilation
 #FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
 #FLAG_PRINT = -DCOSMO_PRINT_BK=2       #enable verbose book-keeping prints
@@ -23,7 +26,6 @@ quiet	:= $(if $(filter $(VERBOSE),1),,@)
 #FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
 #FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
 #CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
-INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
 
 ifneq (,@ENABLE_CUDA@)
   # Include `configure`-generated CUDA config information
@@ -100,7 +102,7 @@ FLAG_TREE_BUILD = -DMERGE_REMOTE_REQUESTS
 #MULTISTEP_LOADBALANCING_VERBOSE = -DCOSMO_MCLB=2 -DMCLBMSV
 #ORB3DLB_LOADBALANCING_VERBOSE = -DORB3DLBV
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) \
-	       $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(FLAG_BIGKEYS) \
+	       $(interlist) $(HEXADECAPOLE) $(FLAG_COOLING) $(FLAG_BIGKEYS) \
 	       $(FLAG_DIFFUSION) $(FLAG_RTFORCE) \
                $(FLAG_DIFFHARMONIC) $(FLAG_FEEDBACKDIFFLIMIT) \
 	       $(FLAG_CULLENALPHA) $(FLAG_VSIGVISC) \
