@@ -672,10 +672,13 @@ CHARM_PATH
 HAVE_GIT
 CHARMC
 STRUCT_DIR
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
 USER_LDFLAGS
 USER_CXXFLAGS
 USER_CFLAGS
 USER_CPPFLAGS
+=======
+>>>>>>> Complete overhaul of build system
 target_alias
 host_alias
 build_alias
@@ -2308,6 +2311,7 @@ _ACEOF
 
 
 
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
 # Save the user-provided flags
 # NOTE: This must be done _before_ the Charm scripts are imported
 #       as they provide their own values for these flags.
@@ -2320,6 +2324,8 @@ USER_CXXFLAGS=$CXXFLAGS
 USER_LDFLAGS=$LDFLAGS
 
 
+=======
+>>>>>>> Complete overhaul of build system
 if test "x$STRUCT_DIR" = "x"; then
 	STRUCT_DIR=$srcdir/../utility/structures
 fi
@@ -4074,6 +4080,7 @@ _ACEOF
 if ac_fn_cxx_try_compile "$LINENO"; then :
   { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
 else
   as_fn_error $? "ChaNGa requires full C++11 support" "$LINENO" 5
 
@@ -4115,6 +4122,10 @@ if ac_fn_cxx_try_compile "$LINENO"; then :
 $as_echo "yes" >&6; }
 else
   as_fn_error $? "ChaNGa requires the dependency-generation flags '-MMD -MP -MF'" "$LINENO" 5
+=======
+else
+  as_fn_error $? "ChaNGa requires full C++11 support" "$LINENO" 5
+>>>>>>> Complete overhaul of build system
 
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
@@ -4126,11 +4137,18 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
 rm -f .dummy
 
 # Check if optimized debug builds are supported
 	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports -Og" >&5
 $as_echo_n "checking whether $CXX supports -Og... " >&6; }
+=======
+
+# Require dependency-generation flags
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports -MMD -MP -MF .dummy" >&5
+$as_echo_n "checking whether $CXX supports -MMD -MP -MF .dummy... " >&6; }
+>>>>>>> Complete overhaul of build system
 	ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
 ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -4138,6 +4156,7 @@ ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ex
 ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
 
 	ac_saved_cxxflags="$CXXFLAGS"
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
 	CXXFLAGS="-Werror -Og"
 	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
 /* end confdefs.h.  */
@@ -4146,16 +4165,33 @@ int
 main ()
 {
 
+=======
+	CXXFLAGS="-Werror -MMD -MP -MF .dummy"
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+
+int
+main ()
+{
+
+>>>>>>> Complete overhaul of build system
   ;
   return 0;
 }
 _ACEOF
 if ac_fn_cxx_try_compile "$LINENO"; then :
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
   OPT_DEBUG=-Og; { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
 $as_echo "yes" >&6; }
 else
   OPT_DEBUG=-O0; { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
 $as_echo "no" >&6; }
+=======
+  { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  as_fn_error $? "ChaNGa requires the dependency-generation flags '-MMD -MP -MF'" "$LINENO" 5
+>>>>>>> Complete overhaul of build system
 
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
@@ -4167,6 +4203,7 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
 
 
 # Set compiler type
@@ -4204,6 +4241,135 @@ ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $
 ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
  # also true for Clang
+=======
+rm -f .dummy
+
+# Check if optimized debug builds are supported
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: checking whether $CXX supports -Og" >&5
+$as_echo_n "checking whether $CXX supports -Og... " >&6; }
+>>>>>>> Complete overhaul of build system
+	ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#ifndef __ICC__
+	  	  # error
+	  	  #endif
+=======
+	ac_saved_cxxflags="$CXXFLAGS"
+	CXXFLAGS="-Werror -Og"
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+>>>>>>> Complete overhaul of build system
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
+  IS_ICC=yes
+else
+  IS_ICC=no
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+=======
+  OPT_DEBUG=-Og; { $as_echo "$as_me:${as_lineno-$LINENO}: result: yes" >&5
+$as_echo "yes" >&6; }
+else
+  OPT_DEBUG=-O0; { $as_echo "$as_me:${as_lineno-$LINENO}: result: no" >&5
+$as_echo "no" >&6; }
+
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	CXXFLAGS="$ac_saved_cxxflags"
+>>>>>>> Complete overhaul of build system
+	ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+
+
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
+# @synopsis ARG_ENABLE(name, description, flag_var, val_if_enabled, default_val)
+# @summary Wrapper around AC_ARG_ENABLE that does extra checking and automatic exporting
+
+
+# Use single-precision for gravity calculations
+	# Check whether --enable-float was given.
+if test "${enable_float+set}" = set; then :
+  enableval=$enable_float; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-float': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+=======
+
+# Set compiler type
+	ac_ext=cpp
+ac_cpp='$CXXCPP $CPPFLAGS'
+ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CXX -o conftest$ac_exeext $CXXFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_cxx_compiler_gnu
+
+	cat confdefs.h - <<_ACEOF >conftest.$ac_ext
+/* end confdefs.h.  */
+#ifndef __GNUC__
+	  	  # error
+	  	  #endif
+
+int
+main ()
+{
+
+  ;
+  return 0;
+}
+_ACEOF
+if ac_fn_cxx_try_compile "$LINENO"; then :
+  IS_GNU=yes
+else
+  IS_GNU=no
+
+>>>>>>> Complete overhaul of build system
+fi
+rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
+	ac_ext=c
+ac_cpp='$CPP $CPPFLAGS'
+ac_compile='$CC -c $CFLAGS $CPPFLAGS conftest.$ac_ext >&5'
+ac_link='$CC -o conftest$ac_exeext $CFLAGS $CPPFLAGS $LDFLAGS conftest.$ac_ext $LIBS >&5'
+ac_compiler_gnu=$ac_cv_c_compiler_gnu
+
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
+	if test x$val = xyes; then FLAG_FLOAT=-DCOSMO_FLOAT; else FLAG_FLOAT=""; fi
+
+
+
+# Select target CPU architecture (this determines SIMD type)
+# --- Deprecated flags ---
+	# Check whether --enable-sse2 was given.
+if test "${enable_sse2+set}" = set; then :
+  enableval=$enable_sse2; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-sse2': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+=======
+ # also true for Clang
 	ac_ext=cpp
 ac_cpp='$CXXCPP $CPPFLAGS'
 ac_compile='$CXX -c $CXXFLAGS $CPPFLAGS conftest.$ac_ext >&5'
@@ -4229,6 +4395,7 @@ if ac_fn_cxx_try_compile "$LINENO"; then :
 else
   IS_ICC=no
 
+>>>>>>> Complete overhaul of build system
 fi
 rm -f core conftest.err conftest.$ac_objext conftest.$ac_ext
 	ac_ext=c
@@ -4243,17 +4410,80 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 # @summary Wrapper around AC_ARG_ENABLE that does extra checking and automatic exporting
 
 
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
+	if test x$val = xyes; then flag_sse_deprecated=sse; else flag_sse_deprecated=""; fi
+
+
+	# Check whether --enable-avx was given.
+if test "${enable_avx+set}" = set; then :
+  enableval=$enable_avx; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-avx': $enableval" "$LINENO" 5;;
+=======
 # Use single-precision for gravity calculations
 	# Check whether --enable-float was given.
 if test "${enable_float+set}" = set; then :
   enableval=$enable_float; case "$enableval" in
 		  yes | no ) val=$enableval;;
 		  *) as_fn_error $? "invalid argument for '--enable-float': $enableval" "$LINENO" 5;;
+>>>>>>> Complete overhaul of build system
 	 esac
 else
   val=no
 fi
 
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
+	if test x$val = xyes; then flag_avx_deprecated=avx; else flag_avx_deprecated=""; fi
+
+
+# -----------------------
+# Check whether --enable-arch was given.
+if test "${enable_arch+set}" = set; then :
+  enableval=$enable_arch; arch=$enableval
+else
+  arch=none
+fi
+
+# --enable-arch overrules when one of the deprecated flags is also given
+if test x$arch = xnone -a x$flag_sse_deprecated != x; then arch=$flag_sse_deprecated; fi
+if test x$arch = xnone -a x$flag_avx_deprecated != x; then arch=$flag_avx_deprecated; fi
+case $arch in
+	no|none ) FLAG_ARCH="" ;;
+ 	sse2    ) FLAG_ARCH=-DCMK_USE_SSE2 ;;
+	avx     ) FLAG_ARCH=-DCMK_USE_AVX ;;
+	*       ) as_fn_error $? "\"invalid argument for '--enable-arch': $arch\"" "$LINENO" 5;;
+esac
+
+
+# physical softening in comoving coordinates
+	# Check whether --enable-changesoft was given.
+if test "${enable_changesoft+set}" = set; then :
+  enableval=$enable_changesoft; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-changesoft': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=yes
+fi
+
+	if test x$val = xyes; then FLAG_CHANGESOFT=-DCHANGESOFT; else FLAG_CHANGESOFT=""; fi
+
+
+
+# 128 bit keys:
+	# Check whether --enable-bigkeys was given.
+if test "${enable_bigkeys+set}" = set; then :
+  enableval=$enable_bigkeys; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-bigkeys': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then FLAG_BIGKEYS=-DBIGKEYS; else FLAG_BIGKEYS=""; fi
+
+=======
 	if test x$val = xyes; then FLAG_FLOAT=-DCOSMO_FLOAT; else FLAG_FLOAT=""; fi
 
 
@@ -4330,6 +4560,7 @@ if test "${enable_bigkeys+set}" = set; then :
 else
   val=no
 fi
+>>>>>>> Complete overhaul of build system
 
 	if test x$val = xyes; then FLAG_BIGKEYS=-DBIGKEYS; else FLAG_BIGKEYS=""; fi
 
@@ -4403,6 +4634,7 @@ if test "${enable_damping+set}" = set; then :
 		  yes | no ) val=$enableval;;
 		  *) as_fn_error $? "invalid argument for '--enable-damping': $enableval" "$LINENO" 5;;
 	 esac
+<<<<<<< 15997c7428aa50ef3319e48ce7809660bed9e8ea
 else
   val=no
 fi
@@ -4535,6 +4767,140 @@ fi
 	if test x$val = xyes; then PROJECTIONS=yes; else PROJECTIONS=""; fi
 
 
+=======
+else
+  val=no
+fi
+
+	if test x$val = xyes; then FLAG_DAMPING=-DDAMPING; else FLAG_DAMPING=""; fi
+
+
+
+# Hexadecapole expansion for gravity
+	# Check whether --enable-hexadecapole was given.
+if test "${enable_hexadecapole+set}" = set; then :
+  enableval=$enable_hexadecapole; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-hexadecapole': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=yes
+fi
+
+	if test x$val = xyes; then HEXADECAPOLE=-DHEXADECAPOLE; else HEXADECAPOLE=""; fi
+
+
+
+# diffusion (thermal and metal)
+	# Check whether --enable-diffusion was given.
+if test "${enable_diffusion+set}" = set; then :
+  enableval=$enable_diffusion; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-diffusion': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=yes
+fi
+
+	if test x$val = xyes; then FLAG_DIFFUSION=-DDIFFUSION; else FLAG_DIFFUSION=""; fi
+
+
+
+# Limit supernova feedback
+# By default this also enables DIFFHARMONIC
+	# Check whether --enable-feedbacklimit was given.
+if test "${enable_feedbacklimit+set}" = set; then :
+  enableval=$enable_feedbacklimit; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-feedbacklimit': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then FLAG_FEEDBACKDIFFLIMIT=-DFEEDBACKDIFFLIMIT; else FLAG_FEEDBACKDIFFLIMIT=""; fi
+
+
+if test x$FLAG_FEEDBACKDIFFLIMIT = x"-DFEEDBACKDIFFLIMIT"; then
+	FLAG_DIFFHARMONIC="-DDIFFUSIONHARMONIC";
+fi
+
+
+# Calculate artificial viscosity from Cullen & Dehnen 2010
+	# Check whether --enable-cullenalpha was given.
+if test "${enable_cullenalpha+set}" = set; then :
+  enableval=$enable_cullenalpha; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-cullenalpha': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then FLAG_CULLENALPHA=-DCULLENALPHA; else FLAG_CULLENALPHA=""; fi
+
+
+
+# Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
+	# Check whether --enable-vsigvisc was given.
+if test "${enable_vsigvisc+set}" = set; then :
+  enableval=$enable_vsigvisc; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-vsigvisc': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=yes
+fi
+
+	if test x$val = xyes; then FLAG_VSIGVISC=-DVSIGVISC; else FLAG_VSIGVISC=""; fi
+
+
+
+# Richie-Thomas forces (Pressure SPH)
+	# Check whether --enable-rtforce was given.
+if test "${enable_rtforce+set}" = set; then :
+  enableval=$enable_rtforce; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-rtforce': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=yes
+fi
+
+	if test x$val = xyes; then FLAG_RTFORCE=-DRTFORCE; else FLAG_RTFORCE=""; fi
+
+
+
+# Default load balancer
+	# Check whether --enable-default-lb was given.
+if test "${enable_default_lb+set}" = set; then :
+  enableval=$enable_default_lb; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-default-lb': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=yes
+fi
+
+	if test x$val = xyes; then DEFAULT_LB=MultistepLB_notopo; else DEFAULT_LB=""; fi
+
+
+
+# Enable projections
+	# Check whether --enable-projections was given.
+if test "${enable_projections+set}" = set; then :
+  enableval=$enable_projections; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-projections': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then PROJECTIONS=yes; else PROJECTIONS=""; fi
+
+
+>>>>>>> Complete overhaul of build system
 if test x$PROJECTIONS = xyes -a x$CMK_TRACE_ENABLED = x0; then
 	as_fn_error $? "You must enable tracing in Charm++ before using it in ChaNGa" "$LINENO" 5
 fi
