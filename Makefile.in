@@ -24,14 +24,27 @@ interlist := -DINTERLIST_VER=2	# enable interaction lists
 #	-DSPLIT_PHASE_TREE_BUILD	# no merging of remote requests on PE; local trees built after requests sent
 flag_tree_build := -DMERGE_REMOTE_REQUESTS
 
+# ------- Debugging -----------------------------------------------------------
+#	-DPRINT_MERGED_TREE 
+#	-DCOSMO_PRINT=1       			# enable really verbose prints
+#	-DCOSMO_PRINT_BK=2    			# enable verbose book-keeping prints
+#	-DCOSMO_DEBUG=2       			# enable debugging information
+#	-DMCLBMSV						# Multistepping LB verbosity
+#	-DCOSMO_STATS=1					# enable statistics collection
+#	-DCHANGA_REFACTOR_WALKCHECK
+#	-DCHANGA_REFACTOR_WALKCHECK_INTERLIST
+#	-DCHANGA_REFACTOR_MEMCHECK
+#	-DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
+#	-DCHANGA_REFACTOR_PRINT_INTERACTIONS
+# Check walk correctness and trace walk for TEST_BUCKET on TEST_TP:
+#	-DCHANGA_REFACTOR_WALKCHECK_INTERLIST
+#	-DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
+#	-DCHECK_WALK_COMPLETIONS
+debug_defines =
 
-# Flags that can be passed during compilation
-#FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
-#FLAG_PRINT = -DCOSMO_PRINT_BK=2       #enable verbose book-keeping prints
-
-#FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
-#FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
-#CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
+ifeq (1,$(DEBUG))
+	debug_defines += -DCOSMO_DEBUG=2
+endif
 
 ifneq (,@ENABLE_CUDA@)
   # Include `configure`-generated CUDA config information
@@ -86,21 +99,6 @@ ifneq ($(ENABLE_CUDA),)
 CUDA = -DINTERLIST_VER=2 -DCUDA -DHAPI_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DHAPI_MEMPOOL #-DCUDA_STATS #-DHAPI_INSTRUMENT_WRS -DCUDA_2D_FLAT
 endif
 
-# useful refactor flag combinations:
-# -DCHANGA_REFACTOR_WALKCHECK
-# -DCHANGA_REFACTOR_WALKCHECK_INTERLIST
-# -DCHANGA_REFACTOR_INTERLIST_REALLY_VERBOSE
-# -DCHANGA_REFACTOR_MEMCHECK
-# -DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE -DCHANGA_REFACTOR_PRINT_INTERACTIONS
-#
-#  Check walk correctness and trace walk for TEST_BUCKET on TEST_TP:
-#  -DCHANGA_REFACTOR_WALKCHECK_INTERLIST -DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
-# -DCHANGA_PRINT_INTERACTION_COUNTS
-# -DCHECK_WALK_COMPLETIONS
-#FLAG_REFACTOR =  
-
-#MULTISTEP_LOADBALANCING_VERBOSE = -DCOSMO_MCLB=2 -DMCLBMSV
-#ORB3DLB_LOADBALANCING_VERBOSE = -DORB3DLBV
 DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) \
 	       $(interlist) $(HEXADECAPOLE) $(FLAG_COOLING) $(FLAG_BIGKEYS) \
 	       $(FLAG_DIFFUSION) $(FLAG_RTFORCE) \
