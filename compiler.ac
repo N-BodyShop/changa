@@ -1,0 +1,81 @@
+# Compiler-specific options for ChaNGa
+
+AC_PROG_GREP # make sure a grep is available in $GREP
+
+# @synopsis COMPILER_FLAG_REQUIRE [flag]
+# @summary Require compiler to support 'flag'                   
+AC_DEFUN([COMPILER_FLAG_REQUIRE],
+[dnl
+	AC_MSG_CHECKING([whether $CXX supports $1])
+	AC_LANG_PUSH([C++])
+	ac_saved_cxxflags="$CXXFLAGS"
+	CXXFLAGS="-Werror $1"
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+		[AC_MSG_RESULT([yes])],
+		[AC_MSG_ERROR([$2])]
+	)
+	CXXFLAGS="$ac_saved_cxxflags"
+	AC_LANG_POP([C++])
+])
+
+# @synopsis COMPILER_FLAG_CHECK [flag]
+# @summary Check if compiler supports 'flag'                   
+AC_DEFUN([COMPILER_FLAG_CHECK],
+[dnl
+	AC_MSG_CHECKING([whether $CXX supports $1])
+	AC_LANG_PUSH([C++])
+	ac_saved_cxxflags="$CXXFLAGS"
+	CXXFLAGS="-Werror $1"
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([])],
+		[$2=$3; AC_MSG_RESULT([yes])],
+		[$2=$4; AC_MSG_RESULT([no])]
+	)
+	CXXFLAGS="$ac_saved_cxxflags"
+	AC_LANG_POP([C++])
+	AC_SUBST([$2])
+])
+
+# @synopsis COMPILER_MACRO_CHECK [compiler macro]
+# @summary Check if compiler supports 'macro'
+AC_DEFUN([COMPILER_MACRO_CHECK],
+[dnl
+	AC_LANG_PUSH([C++])
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM(
+		[[#ifndef $1
+	  	  # error
+	  	  #endif
+		]])],
+		[$2=yes],
+		[$2=no]
+	)
+	AC_LANG_POP([C++])
+])
+
+# @synopsis COMPILER_CHECK_VENDOR [name,save]
+# @summary Return "yes" if the current compiler's vendor matches 'name'
+AC_DEFUN([COMPILER_CHECK_VENDOR],
+[dnl
+	AC_MSG_CHECKING([if compiler vendor is $1])
+
+	## Determine the compiler's vendor.
+	COMPILER_VERSION=$($CXX --version 2>/dev/null)
+
+	## IBM xlC test if COMPILER_VERSION is empty
+	if test x"$COMPILER_VERSION" = "x"; then
+		COMPILER_VERSION=$($CXX -qversion 2>/dev/null)
+	fi
+
+	## SunCC test if COMPILER_VERSION is empty
+	if test x"$COMPILER_VERSION" = "x"; then
+		COMPILER_VERSION=$($CXX -V 2>&1)
+	fi
+
+	res=$(echo $COMPILER_VERSION | $GREP -i -c -F -e '$1')
+	
+	$2=no
+	if test "$res" != "0"; then
+		$2=yes
+	fi
+	echo $$2
+	AC_SUBST([$2])
+])
