@@ -10,6 +10,11 @@ source_dir := @srcdir@
 # Directory from which `configure` was called.
 build_dir := @builddir@
 
+# ------- Basic commands ------------------------------------------------------
+AR 		:= @AR@
+RM 		:= rm -f
+RMR		:= $(RM) -r
+
 # Flags that can be passed during compilation
 #FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
 #FLAG_PRINT = -DCOSMO_PRINT_BK=2       #enable verbose book-keeping prints
