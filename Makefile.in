@@ -1,302 +1,263 @@
-### Build information
+# This Makefile uses the GNU make convention that CAPITAL_NAMES are reserved
+# for variables that are either derived from the environment or are explicitly
+# set by the user during invocation.
+
+.DEFAULT_GOAL := all
+
 # ChaNGa source directory
-SOURCE_DIR=@srcdir@
+source_dir := @srcdir@
+
 # Directory from which `configure` was called.
-BUILD_DIR=@builddir@
+build_dir := @builddir@
 
-# Flags that can be passed during compilation
-#FLAG_PRINT = -DCOSMO_PRINT=1       #enable really verbose prints
-#FLAG_PRINT = -DCOSMO_PRINT_BK=2       #enable verbose book-keeping prints
+# These canned recipes allow for building different variations of source
+# and destination file mappings. They can also be used by subprojects.
+define compile-cxx =
+@ echo Compiling $*.cpp...
+$(quiet) $(charmc) $(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
+endef
 
-#FLAG_STATISTICS = -DCOSMO_STATS=1  # enable statistics collection
-#FLAG_DEBUG = -DCOSMO_DEBUG=2       # enable debugging information
-#CACHE_TREE = -DCACHE_TREE          # enable processor tree inside the cache
-INTERLIST = -DINTERLIST_VER=2      # enable interaction lists
+define compile-c =
+@ echo Compiling $*.c...
+$(quiet) $(charmc) $(c_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
+endef
+	
+define link-charmc =
+@ echo Building $@...
+$(quiet) $(charmc) -o $@ $^ $(ld_flags) $(ld_libs)
+endef
 
-ifneq (,@ENABLE_CUDA@)
-  # Include `configure`-generated CUDA config information
-  include cuda.mk
+# ------- Basic commands ------------------------------------------------------
+AR 		:= @AR@
+RM 		:= rm -f
+RMR		:= $(RM) -r
+
+# ------- Verbosity ------------------------------------------------------
+charm_quiet := $(if $(filter $(CHARM_VERBOSE),1),-verbose,)
+quiet       := $(if $(filter $(VERBOSE),1),,@)
+
+# ------- Compiler setup -----------------------------------------------------
+charmc 		:= @CHARM_PATH@/bin/charmc $(charm_quiet)
+target  	:= $(build_dir)/ChaNGa
+charmrun	:= charmrun
+cxx_std 	:= c++11
+c_std		:= c99
+opt_flag	:= -O3
+target_arch := -m64
+threads 	:= -lpthread
+
+# ------- Debugging -----------------------------------------------------------
+#	-DPRINT_MERGED_TREE 
+#	-DCOSMO_PRINT=1       			# enable really verbose prints
+#	-DCOSMO_PRINT_BK=2    			# enable verbose book-keeping prints
+#	-DCOSMO_DEBUG=2       			# enable debugging information
+#	-DMCLBMSV						# Multistepping LB verbosity
+#	-DCOSMO_STATS=1					# enable statistics collection
+#	-DCHANGA_REFACTOR_WALKCHECK
+#	-DCHANGA_REFACTOR_WALKCHECK_INTERLIST
+#	-DCHANGA_REFACTOR_MEMCHECK
+#	-DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
+#	-DCHANGA_REFACTOR_PRINT_INTERACTIONS
+# Check walk correctness and trace walk for TEST_BUCKET on TEST_TP:
+#	-DCHANGA_REFACTOR_WALKCHECK_INTERLIST
+#	-DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
+#	-DCHECK_WALK_COMPLETIONS
+debug_defines =
+
+ifeq (1,$(DEBUG))
+	debug_defines 	+= -DCOSMO_DEBUG=2
+	opt_flag 		:= @OPT_DEBUG@
+	target	 		:= $(target).dbg
+	charmrun 		:= $(charmrun).dbg
 endif
 
-HEXADECAPOLE = @HEXADECAPOLE@	    # use hexadecapole gravity expansions
-FLAG_SSE = @FLAG_SSE@
-FLAG_AVX = @FLAG_AVX@
-FLAG_CHANGESOFT = @FLAG_CHANGESOFT@
-FLAG_BIGKEYS = @FLAG_BIGKEYS@
-FLAG_DTADJUST = @FLAG_DTADJUST@
-KERNEL_FLAGS = @KERNEL_FLAGS@
-FLAG_COOLING = @FLAG_COOLING@
-FLAG_DIFFUSION = @FLAG_DIFFUSION@
-FLAG_RTFORCE = @FLAG_RTFORCE@
-FLAG_DIFFHARMONIC = @FLAG_DIFFHARMONIC@
-FLAG_FEEDBACKDIFFLIMIT = @FLAG_FEEDBACKDIFFLIMIT@
-FLAG_CULLENALPHA = @FLAG_CULLENALPHA@
-FLAG_VSIGVISC = @FLAG_VSIGVISC@
-FLAG_DAMPING = @FLAG_DAMPING@
-OPTS = @OPTS@ # compiler options
+# Always emit debug symbols in case of core dumps
+opt_flag += -g
 
-### GPU_LOCAL_TREE_WALK
-GPU_LOCAL_TREE_WALK = @GPU_LOCAL_TREE_WALK@
-
-# optional CUDA flags: 
-# memory:
-# -DHAPI_USE_CUDAMALLOCHOST
-# -DHAPI_MEMPOOL
-#
-# verbosity, debugging:
-# -DCUDA_DM_PRINT_TREES
-# -DCUDA_PRINT_TRANSFERRED_INTERACTIONS
-# -DCUDA_PRINT_TRANSFER_BACK_PARTICLES
-# -DCUDA_NOTIFY_DATA_TRANSFER_DONE
-# -DCUDA_VERBOSE_KERNEL_ENQUEUE
-# -DCUDA_NO_KERNELS
-# -DCUDA_NO_ACC_UPDATES
-#
-# print errors returned by CUDA calls:
-# -DCUDA_PRINT_ERRORS
-#
-# for performance monitoring via projections/stats
-# -DCUDA_STATS
-# -DHAPI_TRACE
-# -DHAPI_INSTRUMENT_WRS: to instrument time taken for each phase of a request. 
-#                        prints average transfer, kernel and cleanup times for
-#                        various kinds of request.
-#
-# N.B. the CUDA build NO LONGER REQUIRES `HEXADECAPOLE' to be disabled.
-ifneq ($(ENABLE_CUDA),)
-CUDA = -DINTERLIST_VER=2 -DCUDA -DHAPI_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DHAPI_MEMPOOL #-DCUDA_STATS #-DHAPI_INSTRUMENT_WRS -DCUDA_2D_FLAT
+# ------- Projections ---------------------------------------------------------
+ifeq (yes,@PROJECTIONS@)
+	target 	 	  := $(target).prj
+	charmrun 	  := $(charmrun).prj
+	debug_ldflags += -tracemode projections
 endif
 
-# useful refactor flag combinations:
-# -DCHANGA_REFACTOR_WALKCHECK
-# -DCHANGA_REFACTOR_WALKCHECK_INTERLIST
-# -DCHANGA_REFACTOR_INTERLIST_REALLY_VERBOSE
-# -DCHANGA_REFACTOR_MEMCHECK
-# -DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE -DCHANGA_REFACTOR_PRINT_INTERACTIONS
-#
-#  Check walk correctness and trace walk for TEST_BUCKET on TEST_TP:
-#  -DCHANGA_REFACTOR_WALKCHECK_INTERLIST -DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
-# -DCHANGA_PRINT_INTERACTION_COUNTS
-# -DCHECK_WALK_COMPLETIONS
-#FLAG_REFACTOR =  
-
-# Flags for tree building. Use one or the other: 
-# -DMERGE_REMOTE_REQUESTS : merges remote requests before sending; local trees built after requests sent
-# -DSPLIT_PHASE_TREE_BUILD : no merging of remote requests on PE; local trees built after requests sent
-# debug with -DPRINT_MERGED_TREE
-FLAG_TREE_BUILD = -DMERGE_REMOTE_REQUESTS
-
-#MULTISTEP_LOADBALANCING_VERBOSE = -DCOSMO_MCLB=2 -DMCLBMSV
-#ORB3DLB_LOADBALANCING_VERBOSE = -DORB3DLBV
-DEFINE_FLAGS = $(FLAG_PRINT) $(FLAG_STATISTICS) $(FLAG_DEBUG) $(CACHE_TREE) \
-	       $(INTERLIST) $(HEXADECAPOLE) $(FLAG_COOLING) $(FLAG_BIGKEYS) \
-	       $(FLAG_DIFFUSION) $(FLAG_RTFORCE) \
-               $(FLAG_DIFFHARMONIC) $(FLAG_FEEDBACKDIFFLIMIT) \
-	       $(FLAG_CULLENALPHA) $(FLAG_VSIGVISC) \
-	       $(FLAG_DTADJUST) $(FLAG_REFACTOR) \
-               $(MULTISTEP_LOADBALANCING_VERBOSE) \
-               $(ORB3DLB_LOADBALANCING_VERBOSE) $(CUDA) \
-	       -DREDUCTION_HELPER $(FLAG_TREE_BUILD) \
-               $(FLAG_DIFFHARMONIC) $(FLAG_FEEDBACKDIFFLIMIT) \
-               $(FLAG_SSE) $(FLAG_AVX) @FLAG_FLOAT@ \
-	       $(FLAG_CHANGESOFT) $(FLAG_DAMPING) \
-	       $(KERNEL_FLAGS) $(GPU_LOCAL_TREE_WALK)
-
-CHARM_PATH = @CHARM_PATH@
-STRUCTURES_PATH = $(SOURCE_DIR)/../utility/structures
-CHARM_LDB_PATH = $(CHARM_PATH)/src/ck-ldb
-CHARM_UTIL_PATH = $(CHARM_PATH)/src/util
-CHARM_LIB_PATH = $(CHARM_PATH)/lib
-METIS_SRC_PATH = $(CHARM_PATH)/src/libs/ck-libs/parmetis/METISLib
-CACHE_LIB_PATH = $(CHARM_PATH)/tmp/libs/ck-libs/cache
-THREADSAFE_HT_PATH = $(CACHE_LIB_PATH)/threadsafe_hashtable
-
-ifneq (,$(ENABLE_CUDA))
-NVIDIA_CUDA_SDK = $(CUDA_SDK_DIR)
-
-NVCC_FLAGS = -c -std=c++11 -use_fast_math --ptxas-options=-v #-deviceemu -device-debug
-
-ifdef CUDA_LEVEL
-# Set target CUDA compute capability with the -arch= and -code= `nvcc` flags.
-#
-# Those looking for a less-naive way of specifying the target compute
-# capability -- for example, one that supports devices of several different
-# compute capabilities -- are encouraged to read the nVidia CUDA Compiler
-# documentation starting at this link:
-# <http://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#virtual-architecture-feature-list>
-NVCC_FLAGS += -arch=compute_$(CUDA_LEVEL) -code=sm_$(CUDA_LEVEL)
+# ------- Sanitizers ----------------------------------------------------------
+ifneq (no,@FLAG_SANITIZER@)
+	target 	 	  := $(target).san
+	charmrun 	  := $(charmrun).san
+	debug_flags   += -fno-omit-frame-pointer -fsanitize=@FLAG_SANITIZER@
+	debug_ldflags += -fsanitize=@FLAG_SANITIZER@
 endif
 
-NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI -I$(CHARM_PATH)/src/arch/cuda/hybridAPI
-# add $(NVCC_LIBS) to LDLIBS when compiling for cuda
-NVCC_LIBS = -lcudart -lGL
+# ------- CUDA ----------------------------------------------------------------
+ifeq (yes,@ENABLE_CUDA@)
+	# Use a conditional include so seqential cleans work
+	-include $(build_dir)/cuda.mk
 endif
 
-# add -module Orb3dLB here for load balancing during singlestepped runs
-INCLUDE_FLAGS += -I$(STRUCTURES_PATH) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR) -I$(CHARM_UTIL_PATH)
-CPPFLAGS += $(INCLUDE_FLAGS) $(DEFINE_FLAGS) @CPPFLAGS@
-CXXFLAGS += $(OPTS) $(CPPFLAGS)
-LDFLAGS += $(OPTS) -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache \
-	   -module CkIO -module CkMulticast -module RefineLB \
-	   -module RefineCommLB -module GreedyLB -module GreedyCommLB \
-	   -module OrbLB -module RotateLB -module MultistepLB \
-	   -module MultistepLB_notopo -module MultistepNodeLB_notopo \
-           -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo \
-           -module HierarchOrbLB -module liveViz -module CkLoop \
-           -balancer MultistepLB_notopo \
-	   #-tracemode projections -memory charmdebug -memory paranoid
-XDR_DIR = ../rpc
-XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
-LDLIBS += $(STRUCTURES_PATH)/libTipsy.a  @LIBS@
+# ------- Include paths -------------------------------------------------------
+structures_path 	:= @STRUCT_DIR@
+charm_util_path 	:= @CHARM_PATH@/tmp
+cache_lib_path 		:= @CHARM_PATH@/tmp/libs/ck-libs/cache
+threadsafe_ht_path 	:= $(cache_lib_path)/threadsafe_hashtable
 
-CHARMC = $(CHARM_PATH)/bin/charmc
+# ------- Modules to build ----------------------------------------------------
+changa_modules := $(strip MultistepLB MultistepOrbLB MultistepLB_notopo	\
+					MultistepNodeLB_notopo Orb3dLB Orb3dLB_notopo 		\
+					HierarchOrbLB)
 
-CXX = $(CHARMC)
-CC = $(CXX)
-AR = @AR@ 
-CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
-CFLAGS = $(OPTS) $(DEFINE_FLAGS) -I$(SOURCE_DIR) -I$(BUILD_DIR) @CFLAGS@ @CPPFLAGS@
+charm_modules := $(strip CkCache CkIO CkMulticast RefineLB RefineCommLB	\
+					GreedyLB GreedyCommLB OrbLB RotateLB liveViz CkLoop)
 
-# Orb3dLB.{o,C} below
-OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
-	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
-	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
-	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o HierarchOrbLB.o \
-	  MultistepLB_notopo.o MultistepNodeLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
-	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
-	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
-	  sinks.o \
-	  cha_commitid.o externalGravity.o \
-	  @OBJECTS_COOLING@
+# ------- Helper Variables ----------------------------------------------------
+defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@	\
+			@FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@  	\
+			@FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@ 	\
+			@FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@			\
+			@FLAG_VSIGVISC@ @FLAG_DAMPING@ @FLAG_DIFFHARMONIC@	\
+			@FLAG_TREE_BUILD@ $(debug_defines) @FLAG_INTERLIST@	\
+			$(cuda_defines) -DREDUCTION_HELPER)
 
-SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
-	param.c GenericTreeNode.cpp ParallelGravity.cpp Ewald.cpp \
-	InOutput.cpp cosmo.c romberg.c runge.c dumpframe.cpp dffuncs.cpp \
-	moments.c MultistepLB.cpp Orb3dLB.cpp Orb3dLB_notopo.cpp HierarchOrbLB.cpp starform.cpp \
-	MultistepLB_notopo.cpp MultistepNodeLB_notopo.cpp MultistepOrbLB.cpp PETreeMerger.cpp \
-	TreeWalk.cpp Compute.cpp CacheInterface.cpp smooth.cpp Sph.cpp externalGravity.cpp \
-	starform.cpp feedback.cpp imf.cpp supernova.cpp supernovaia.cpp starlifetime.cpp \
-	sinks.cpp
+modules := $(strip -language charm++ -balancer @DEFAULT_LB@		\
+		    $(foreach m,$(charm_modules),-module $(m))			\
+		    $(foreach m,$(changa_modules),-module $(m)))
 
-ifneq (,$(ENABLE_CUDA))
-  CXXFLAGS += $(NVCC_INC)
-  OBJECTS += HostCUDA.o 
-  SRSC += HostCUDA.cu 
-  LDLIBS += $(NVCC_LIBS)
-  NVCC_FLAGS += $(INCLUDE_FLAGS) $(DEFINE_FLAGS)
-  LDFLAGS += -L$(NVIDIA_CUDA_SDK)/lib -L$(CUDA_DIR)/lib64
+includes := $(strip -I$(structures_path) -I$(cache_lib_path)		\
+			-I$(source_dir) -I$(threadsafe_ht_path)	-I$(build_dir)	\
+			-I$(charm_util_path) -I@CHARM_PATH@/include)
+
+basic_flags := $(opt_flag) $(threads) $(target_arch) $(debug_flags)
+basic_ldlibs := $(cuda_libs) $(modules) $(structures_path)/libTipsy.a $(threads)
+basic_ldflags := $(debug_ldflags) $(cuda_ldflags) -L. -L@CHARM_PATH@/lib
+
+# ------- Standard Variables --------------------------------------------------
+# The global version of each flag must be at the end so that the user
+# can override our defaults here from the command line
+cpp_flags := $(includes) $(defines) $(CPPFLAGS)
+c_flags   := $(basic_flags) -std=$(c_std) $(cpp_flags) $(CFLAGS)
+cxx_flags := $(basic_flags) -std=$(cxx_std) $(cpp_flags) $(CXXFLAGS)
+ld_libs   := $(basic_ldlibs) $(LDLIBS)
+ld_flags  := $(basic_ldflags) $(LDFLAGS)
+
+# ------- Sources -------------------------------------------------------------
+# Capture all sources except the ones for cooling
+c_srcs   := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.c))
+cxx_srcs := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.cpp))
+
+# If cha_commitid.c wasn't picked up in the source directory,
+# then we are doing an out-of-source build, so add it here.
+ifneq ($(source_dir),$(build_dir))
+	c_srcs += $(build_dir)/cha_commitid.c
 endif
 
-TARGET = ChaNGa
-VERSION = 1.0
-all: $(TARGET)
+# Add the cooling sources (if any)
+ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
+	c_srcs += $(source_dir)/cooling_planet.c $(source_dir)/stiff.c
+endif
+ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
+	c_srcs += $(source_dir)/cooling_cosmo.c $(source_dir)/stiff.c
+endif
+ifeq (-DCOOLING_GRACKLE,@FLAG_COOLING@)
+	c_srcs += $(source_dir)/cooling_grackle.c
+endif
 
-# Make's built-in database doesn't provide pattern rules for out-of-source
-# builds, so we provide them here.
-%.o: $(SOURCE_DIR)/%.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+sources := $(c_srcs) $(cxx_srcs)
 
-%.o: $(SOURCE_DIR)/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+ci_files   := $(wildcard $(source_dir)/*.ci)
+ci_headers := $(patsubst %.ci,%.decl.h,$(subst $(source_dir),$(build_dir),$(ci_files)))
 
+c_objs   := $(patsubst %.c,%.o,$(subst $(source_dir),$(build_dir),$(c_srcs)))
+cxx_objs := $(patsubst %.cpp,%.o,$(subst $(source_dir),$(build_dir),$(cxx_srcs)))
+objects  := $(strip $(cxx_objs) $(c_objs) $(cuda_objs))
 
-$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleHierarchOrbLB.a libmoduleMultistepLB_notopo.a libmoduleMultistepNodeLB_notopo.a libmoduleMultistepOrbLB.a
-	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
+# ------- Dependencies --------------------------------------------------------
+depend_flags 	:= -MMD -MP -MF
+depend_dir	 	:= $(build_dir)/.
+depend_suffix 	:= .d
+depend_files    := $(wildcard $(depend_dir)/*$(depend_suffix))
 
-$(TARGET).prj: $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleHierarchOrbLB.a libmoduleMultistepLB_notopo.a libmoduleMultistepNodeLB_notopo.a libmoduleMultistepOrbLB.a
-	$(CHARMC) -o $(TARGET).prj $(LDFLAGS) $(OBJECTS) $(LDLIBS) -tracemode projections
+# ------- Build targets -------------------------------------------------------
+all: $(target)
 
-$(TARGET).%: $(TARGET)
-	mv $(TARGET) $@
-	mv charmrun charmrun.$*
+.PHONY: show-config
+show-config:
+	@ echo TARGET = $(target)"\n"
+	@ echo DEFAULT_LB = @DEFAULT_LB@"\n"
+	@ echo TARGET_ARCH = $(target_arch)"\n"
+	@ echo CPPFLAGS = $(cpp_flags)"\n"
+	@ echo CFLAGS = $(filter-out $(cpp_flags),$(c_flags))"\n"
+	@ echo CXXFLAGS = $(filter-out $(cpp_flags),$(cxx_flags))"\n"
+	@ echo LDFLAGS = $(ld_flags)"\n"
+	@ echo LDLIBS = $(ld_libs)"\n"
 
+$(build_dir)/%.decl.h: $(source_dir)/%.ci
+	@ echo Compiling $<...
+	$(quiet) $(charmc) -E $(cpp_flags) $<
 
-VERSION: VERSION.new
-	$(SOURCE_DIR)/commitid.sh
+$(build_dir)/%.o: $(build_dir)/Makefile
+$(cxx_srcs): $(ci_headers)
 
-cha_commitid.c: VERSION
-	echo "extern const char * const Cha_CommitID;" > $@
-	echo "const char * const Cha_CommitID = \"`cat $<`\";" >> $@
-cha_commitid.o: CC=$(CHARMC)
+%.o: %.cpp
+	$(compile-cxx)
 
-$(STRUCTURES_PATH)/libTipsy.a:
-	cd $(STRUCTURES_PATH); $(MAKE) libTipsy.a
+%.o: %.c
+	$(compile-c)
 
-libmoduleMultistepLB.a: MultistepLB.o
-	$(CHARMC) -o libmoduleMultistepLB.a MultistepLB.o 
+$(build_dir)/%.o: $(source_dir)/%.cpp
+	$(compile-cxx)
 
-libmoduleMultistepOrbLB.a: MultistepOrbLB.o
-	$(CHARMC) -o libmoduleMultistepOrbLB.a MultistepOrbLB.o 
+$(build_dir)/%.o: $(source_dir)/%.c
+	$(compile-c)
 
-libmoduleMultistepLB_notopo.a: MultistepLB_notopo.o
-	$(CHARMC) -o libmoduleMultistepLB_notopo.a MultistepLB_notopo.o 
+# Use a conditional include so consecutive cleans work
+-include $(depend_files)
 
-libmoduleMultistepNodeLB_notopo.a: MultistepNodeLB_notopo.o
-	$(CHARMC) -o libmoduleMultistepNodeLB_notopo.a MultistepNodeLB_notopo.o 
+# Force a rebuild if the compiler flags have changed
+.PHONY: force
+$(build_dir)/settings: force
+	$(quiet) flags="$(cxx_flags) $(c_flags) $(ld_libs) $(ld_flags)" && \
+			 echo "$$flags" | cmp -s - $@ || echo "$$flags" > $@
 
-libmoduleOrb3dLB.a: Orb3dLB.o
-	$(CHARMC) -o libmoduleOrb3dLB.a Orb3dLB.o 
+$(ci_files): $(build_dir)/settings
+$(objects): $(build_dir)/settings
 
-libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
-	$(CHARMC) -o libmoduleOrb3dLB_notopo.a Orb3dLB_notopo.o 
+$(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a $(foreach m,$(changa_modules),libmodule$(m).a)
+	$(link-charmc)
+ifneq (charmrun,$(charmrun))
+	$(quiet) mv $(build_dir)/charmrun $(build_dir)/$(charmrun)
+endif
 
-libmoduleHierarchOrbLB.a: HierarchOrbLB.o
-	$(CHARMC) -o libmoduleHierarchOrbLB.a HierarchOrbLB.o
+$(structures_path)/libTipsy.a:
+	$(quiet) cd $(structures_path); $(MAKE) libTipsy.a
 
-%.ci.stamp: $(SOURCE_DIR)/%.ci
-	$(CHARMC) -E $(DEFINE_FLAGS) $<
-	touch $@
+$(build_dir)/libmodule%.a: $(build_dir)/%.o
+	@ echo Creating library $@...
+	$(quiet) $(AR) $@ $^
 
-%.decl.h %.def.h: %.ci.stamp
-	@true
-
-HostCUDA.o: $(SOURCE_DIR)/HostCUDA.cu $(SOURCE_DIR)/HostCUDA.h
-	$(NVCC) $(NVCC_FLAGS) $(NVCC_INC) $<
-
-Makefile: $(SOURCE_DIR)/Makefile.in
-	@echo 'Makefile.in changed; re-running `configure`'
-	@$(BUILD_DIR)/config.status
-%.o: Makefile
-
+.PHONY: docs
 docs:
-	doxygen $(SOURCE_DIR)/Doxyfile
+	@ Building docs...
+	$(quiet) doxygen $(source_dir)/Doxyfile
 
-DIRS = teststep
-
-test: $(TARGET)
-	for d in $(DIRS); do \
-		(cd $$d && $(MAKE) test OPTS='$(OPTS)' || exit 1) || exit 1; \
-	done
-
-dist:
-	mkdir $(TARGET)-$(VERSION)
-	cp Makefile $(TARGET).doxygen *.h *.cpp *.ci $(TARGET)-$(VERSION)/
-	tar zcf $(TARGET)-$(VERSION).tar.gz $(TARGET)-$(VERSION)
-	rm -Rf $(TARGET)-$(VERSION)
-
+.PHONY: clean
 clean:
-	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h *.ci.stamp charmrun conv-host
-	rm -f *.o *.a
-	cd $(STRUCTURES_PATH); $(MAKE) clean
+	@ echo Cleaning...
+	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files) settings
+	$(quiet) $(RM) $(foreach m,$(changa_modules),libmodule$(m).a)
+	$(quiet) cd $(structures_path); $(MAKE) clean
 
-ref-clean:
-	rm -f $(TARGET) Compute.o TreeWalk.o
-
+.PHONY: dist-clean
 dist-clean: clean
-	@ $(RM) *.a config.status config.log cuda.mk Makefile.dep
+	$(quiet) $(RM) $(target) $(charmrun) ChaNGa.* charmrun.* config.status config.log config.h Makefile $(build_dir)/cha_commitid.c
 
-depends: $(SOURCE_DIR)/Makefile.dep
-$(BUILD_DIR)/Makefile.dep:
-	FULLPATHS=""; for file in $(SRSC); do FULLPATHS="$(SOURCE_DIR)/$$file $$FULLPATHS"; done; \
-	$(CXX_DEPEND) $$FULLPATHS | while read i;do echo $$i| awk -F' ' '{for (i=1;i<NF;++i) print $$i" \\"}';echo;done|grep -v "$(CHARM_PATH)/bin" | grep -v "hashtable_mt.h" > $@
+.PHONY: full-clean
+full-clean: dist-clean
+	$(quiet) $(RMR) $(source_dir)/autom4te.cache $(source_dir)/configure 
 
-# depend:
-# 	$(CXX_DEPEND) $(SRSC) > Makefile.dep
-
-# The following line is a script usable to regenerate the dependace file,
-# without the inclusion of charm headers.
-# $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.cpp GenericTreeNode.cpp ParallelGravity.cpp Ewald.cpp InOutput.cpp cosmo.cpp romberg.cpp runge.cpp dumpframe.cpp dffuncs.cpp moments.cpp MultistepLB.cpp Orb3dLB.cpp TreeWalk.cpp Compute.cpp | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
-
-.PHONY: all docs dist clean depend test VERSION.new
-
--include $(BUILD_DIR)/Makefile.dep
+# for backwards compatibility
+.PHONY: ref-clean
+ref-clean:
+.PHONY: depends
+depends:
+.PHONY: test
+test:
