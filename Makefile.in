@@ -72,12 +72,12 @@ endif
 # ------- CUDA ----------------------------------------------------------------
 ifeq (yes,@ENABLE_CUDA@)
 	# Use a conditional include so seqential cleans work
-	-include cuda.mk
+	-include $(build_dir)/cuda.mk
 endif
 
 # ------- Include paths -------------------------------------------------------
 structures_path 	:= $(source_dir)/../utility/structures
-charm_util_path 	:= @CHARM_PATH@/src/util
+charm_util_path 	:= @CHARM_PATH@/tmp
 cache_lib_path 		:= @CHARM_PATH@/tmp/libs/ck-libs/cache
 threadsafe_ht_path 	:= $(cache_lib_path)/threadsafe_hashtable
 
@@ -102,8 +102,8 @@ modules := $(strip -language charm++ -balancer @DEFAULT_LB@		\
 		    $(foreach m,$(charm_modules),-module $(m))			\
 		    $(foreach m,$(changa_modules),-module $(m)))
 
-includes := $(strip -I$(structures_path) -I$(cache_lib_path)	\
-			-I$(source_dir) -I$(threadsafe_ht_path)				\
+includes := $(strip -I$(structures_path) -I$(cache_lib_path)		\
+			-I$(source_dir) -I$(threadsafe_ht_path)	-I$(build_dir)	\
 			-I$(charm_util_path) -I@CHARM_PATH@/include)
 
 basic_flags := $(opt_flag) $(threads) $(target_arch) $(debug_flags)
@@ -121,27 +121,35 @@ ld_flags  := $(basic_ldflags) $(LDFLAGS)
 
 # ------- Sources -------------------------------------------------------------
 # Capture all sources except the ones for cooling
-sources := $(filter-out $(source_dir)/cooling%,$(wildcard	\
-			$(addprefix $(source_dir)/,*.c *.cpp)))
+c_srcs   := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.c))
+cxx_srcs := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.cpp))
 
-ci_files   := $(wildcard $(source_dir)/*.ci)
-ci_headers := $(patsubst %.ci,%.decl.h,$(ci_files))
+# If cha_commitid.c wasn't picked up in the source directory,
+# then we are doing an out-of-source build, so add it here.
+ifneq ($(source_dir),$(build_dir))
+	c_srcs += $(build_dir)/cha_commitid.c
+endif
 
-objects := $(strip $(addprefix 												\
-			$(build_dir)/,$(patsubst %.cpp,%.o,$(filter %.cpp,$(sources)))	\
-			$(patsubst %.c,%.o,$(filter %.c,$(sources)))					\
-			$(cuda_objects)))												\
-
+# Add the cooling sources (if any)
 ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
-	objects += cooling_planet.o stiff.o
+	c_srcs += $(source_dir)/cooling_planet.c $(source_dir)/stiff.c
 endif
 ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
-	objects += cooling_cosmo.o stiff.o
+	c_srcs += $(source_dir)/cooling_cosmo.c $(source_dir)/stiff.c
 endif
 ifeq (-DCOOLING_GRACKLE,@FLAG_COOLING@)
-	objects += cooling_grackle.o
+	c_srcs += $(source_dir)/cooling_grackle.c
 endif
-	
+
+sources := $(c_srcs) $(cxx_srcs)
+
+ci_files   := $(wildcard $(source_dir)/*.ci)
+ci_headers := $(patsubst %.ci,%.decl.h,$(subst $(source_dir),$(build_dir),$(ci_files)))
+
+c_objs   := $(patsubst %.c,%.o,$(subst $(source_dir),$(build_dir),$(c_srcs)))
+cxx_objs := $(patsubst %.cpp,%.o,$(subst $(source_dir),$(build_dir),$(cxx_srcs)))
+objects  := $(strip $(cxx_objs) $(c_objs) $(cuda_objs))
+
 # ------- Dependencies --------------------------------------------------------
 depend_flags 	:= -MMD -MP -MF
 depend_dir	 	:= $(build_dir)/.
@@ -162,19 +170,19 @@ show-config:
 	@ echo LDFLAGS = $(ld_flags)"\n"
 	@ echo LDLIBS = $(ld_libs)"\n"
 
-$(source_dir)/%.decl.h: $(source_dir)/%.ci
+$(build_dir)/%.decl.h: $(source_dir)/%.ci
 	@ echo Compiling $<...
 	$(quiet) $(charmc) -E $(cpp_flags) $<
 
-%.o: Makefile
+$(build_dir)/%.o: $(build_dir)/Makefile
 
 $(filter %.cpp,$(sources)): $(ci_headers)
 
-%.o: $(source_dir)/%.cpp
+$(build_dir)/%.o: $(source_dir)/%.cpp
 	@ echo Compiling $*.cpp...
 	$(quiet) $(charmc) $(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
 
-%.o: $(source_dir)/%.c
+$(build_dir)/%.o: $(source_dir)/%.c
 	@ echo Compiling $*.c...
 	$(quiet) $(charmc) $(c_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
 
@@ -183,30 +191,31 @@ $(filter %.cpp,$(sources)): $(ci_headers)
 
 # Force a rebuild if the compiler flags have changed
 .PHONY: force
-settings: force
+$(build_dir)/settings: force
 	$(quiet) flags="$(cxx_flags) $(c_flags) $(ld_libs) $(ld_flags)" && \
 			 echo "$$flags" | cmp -s - $@ || echo "$$flags" > $@
 
-$(ci_files): settings
-$(objects): settings
+$(ci_files): $(build_dir)/settings
+$(objects): $(build_dir)/settings
 
-$(target): $(objects) $(structures_path)/libTipsy.a $(foreach m,$(changa_modules),libmodule$(m).a)
+$(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a $(foreach m,$(changa_modules),libmodule$(m).a)
 	@ echo Building $@...
 	$(quiet) $(charmc) -o $(target) $(ld_flags) $(objects) $(ld_libs)
 ifneq (charmrun,$(charmrun))
 	$(quiet) mv charmrun $(charmrun)
 endif
 
-VERSION: VERSION.new
+.PHONY: $(build_dir)/VERSION.new
+$(build_dir)/VERSION: $(build_dir)/VERSION.new
 	$(quiet) $(source_dir)/commitid.sh
 
-cha_commitid.c: VERSION
+$(source_dir)/cha_commitid.c: VERSION
 	@ echo "const char * const Cha_CommitID = \"`cat $<`\";" > $@
 
 $(structures_path)/libTipsy.a:
 	$(quiet) cd $(structures_path); $(MAKE) DEBUG='$(DEBUG)' libTipsy.a
 
-libmodule%.a: %.o
+$(build_dir)/libmodule%.a: $(build_dir)/%.o
 	@ echo Creating library $@...
 	$(quiet) $(AR) $@ $^
 
@@ -228,7 +237,7 @@ dist-clean: clean
 
 .PHONY: full-clean
 full-clean: dist-clean
-	$(quiet) $(RMR) autom4te.cache configure 
+	$(quiet) $(RMR) $(source_dir)/autom4te.cache $(source_dir)/configure 
 
 # for backwards compatibility
 .PHONY: ref-clean

@@ -42,12 +42,12 @@ ifeq (yes,@PROJECTIONS@)
 endif
 
 cuda_includes := -I@CUDA_DIR@/include -I@CHARM_PATH@/tmp/hybridAPI
-cuda_includes += -I@CHARM_PATH@/src/arch/cuda/hybridAPI
+cuda_includes += -I@CHARM_PATH@/tmp/hybridAPI
 
-cuda_srcs     := HostCUDA.cu
-cuda_objects  := $(patsubst %.cu,%.o,$(cuda_srcs))
+cuda_srcs     := $(source_dir)/HostCUDA.cu
 cuda_libs     += -lcuda -lcudart
 cuda_ldflags  += -L@CUDA_DIR@/lib64
+cuda_objs     := $(patsubst %.cu,%.o,$(subst $(source_dir),$(build_dir),$(cuda_srcs)))
 
 # For more details on the architectures, see
 # http://docs.nvidia.com/cuda/cuda-compiler-driver-nvcc/index.html#virtual-architecture-feature-list
@@ -90,7 +90,7 @@ cuda-dist-clean:
 # nvcc doesn't support -Og
 nvcc_cxx = $(subst -Og,-O0,$(cxx_flags))
 
-%.o: %.cu
+$(build_dir)/%.o: $(source_dir)/%.cu
 	@ echo Compiling $<...
 # nvcc doesn't support the full set of dependency generation flags, so do it manually
 	$(quiet) @NVCC_PATH@ $(nvcc_cxx) $(nvcc_flags) -M $< > $(depend_dir)/$*$(depend_suffix)
