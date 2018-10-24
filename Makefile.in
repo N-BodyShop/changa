@@ -73,12 +73,12 @@ threads 	:= -lpthread
 # Always emit debug symbols in case of core dumps
 opt_flag += -g
 
-define_flags := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@	\
-				@FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@  	\
-				@FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@ 	\
-				@FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@			\
-				@FLAG_VSIGVISC@ @FLAG_DAMPING@ @FLAG_DIFFHARMONIC@	\
-				$(debug_defines) $(interlist) $(flag_tree_build))
+defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@	\
+			@FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@  	\
+			@FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@ 	\
+			@FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@			\
+			@FLAG_VSIGVISC@ @FLAG_DAMPING@ @FLAG_DIFFHARMONIC@	\
+			$(debug_defines) $(interlist) $(flag_tree_build))
 
 modules := $(strip -language charm++ -balancer @DEFAULT_LB@	\
 		    $(foreach m,$(charm_modules),-module $(m))		\
@@ -139,10 +139,10 @@ depend_files    := $(wildcard $(depend_dir)/*$(depend_suffix))
 # defined before it is parsed.
 ifeq (yes,@ENABLE_CUDA@)
 	-include cuda.mk	# Use a conditional include so seqential cleans work
-	LDFLAGS      += $(cuda_ldflags)
-	LDLIBS       += $(cuda_libs)
-	objects      += $(cuda_objects)
-	define_flags += $(cuda_defines)
+	LDFLAGS	+= $(cuda_ldflags)
+	LDLIBS	+= $(cuda_libs)
+	objects	+= $(cuda_objects)
+	defines	+= $(cuda_defines)
 endif
 
 # ------- Build targets -------------------------------------------------------
@@ -152,7 +152,7 @@ all: $(target)
 show_config:
 	@ echo TARGET = $(target)"\n"
 	@ echo INCLUDES = $(includes)"\n"
-	@ echo DEFINE_FLAGS = $(define_flags)"\n"
+	@ echo DEFINE_FLAGS = $(defines)"\n"
 	@ echo OPT_FLAG = $(opt_flag)"\n"
 	@ echo DEFAULT_LB = @DEFAULT_LB@"\n"
 	@ echo TARGET_ARCH = $(target_arch)"\n"
@@ -163,7 +163,7 @@ show_config:
 
 $(source_dir)/%.decl.h: $(source_dir)/%.ci
 	@ echo Compiling $<...
-	$(quiet) $(charmc) -E $(define_flags) $<
+	$(quiet) $(charmc) -E $(defines) $<
 
 %.o: Makefile
 
