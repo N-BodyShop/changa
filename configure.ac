@@ -199,6 +199,15 @@ AC_ARG_WITH([default_lb],
 	[DEFAULT_LB=$enableval], [DEFAULT_LB=MultistepLB_notopo])
 AC_SUBST([DEFAULT_LB])
 
+# Enable projections
+AC_ARG_ENABLE([projections],
+	[AS_HELP_STRING([--enable-projections], [enable projections])],
+	[PROJECTIONS=$enableval], [PROJECTIONS=no])
+if test x$PROJECTIONS = xyes -a x$CMK_TRACE_ENABLED = x0; then
+	AC_MSG_ERROR([You must enable tracing in Charm++ before using it in ChaNGa])
+fi
+AC_SUBST([PROJECTIONS])
+
 AC_ARG_ENABLE([opts],
 	[AS_HELP_STRING([--enable-opts], [DEPRECATED - Do not use])],
 	[], [])
