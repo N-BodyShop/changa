@@ -127,6 +127,12 @@ endif
 ifeq (-DCOOLING_GRACKLE,@FLAG_COOLING@)
 	objects += cooling_grackle.o
 endif
+	
+# ------- Dependencies --------------------------------------------------------
+depend_flags 	:= -MMD -MP -MF
+depend_dir	 	:= $(build_dir)/.
+depend_suffix 	:= .d
+depend_files    := $(wildcard $(depend_dir)/*$(depend_suffix))
 
 # ------- CUDA ----------------------------------------------------------------
 # Do not move this include. cuda.mk assumes all of the compiler flags are
