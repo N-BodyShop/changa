@@ -200,7 +200,7 @@ $(objects): $(build_dir)/settings
 
 $(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a $(foreach m,$(changa_modules),libmodule$(m).a)
 	@ echo Building $@...
-	$(quiet) $(charmc) -o $(target) $(ld_flags) $(objects) $(ld_libs)
+	$(quiet) $(charmc) -o $@ $^ $(ld_flags) $(ld_libs)
 ifneq (charmrun,$(charmrun))
 	$(quiet) mv charmrun $(charmrun)
 endif
