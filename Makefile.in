@@ -107,14 +107,26 @@ ifeq (yes,@PROJECTIONS@)
 	charmrun := $(charmrun).prj
 endif
 
-SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
-	param.c GenericTreeNode.cpp ParallelGravity.cpp Ewald.cpp \
-	InOutput.cpp cosmo.c romberg.c runge.c dumpframe.cpp dffuncs.cpp \
-	moments.c MultistepLB.cpp Orb3dLB.cpp Orb3dLB_notopo.cpp HierarchOrbLB.cpp starform.cpp \
-	MultistepLB_notopo.cpp MultistepNodeLB_notopo.cpp MultistepOrbLB.cpp PETreeMerger.cpp \
-	TreeWalk.cpp Compute.cpp CacheInterface.cpp smooth.cpp Sph.cpp externalGravity.cpp \
-	starform.cpp feedback.cpp imf.cpp supernova.cpp supernovaia.cpp starlifetime.cpp \
-	sinks.cpp
+# Capture all sources except the ones for cooling
+sources := $(filter-out $(source_dir)/cooling%,$(wildcard	\
+				$(addprefix $(source_dir)/,*.c *.C *.cpp)))
+
+ci_headers := $(patsubst %.ci,%.decl.h,$(wildcard $(source_dir)/*.ci))
+
+objects := $(strip $(addprefix 												\
+			$(build_dir)/,$(patsubst %.cpp,%.o,$(filter %.cpp,$(sources)))	\
+			$(patsubst %.C,%.o,$(filter %.C,$(sources)))					\
+			$(patsubst %.c,%.o,$(filter %.c,$(sources)))					\
+			))
+ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
+	objects += cooling_planet.o stiff.o
+endif
+ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
+	objects += cooling_cosmo.o stiff.o
+endif
+ifeq (-DCOOLING_GRACKLE,@FLAG_COOLING@)
+	objects += cooling_grackle.o
+endif
 
 # ------- CUDA ----------------------------------------------------------------
 # Do not move this include. cuda.mk assumes all of the compiler flags are
