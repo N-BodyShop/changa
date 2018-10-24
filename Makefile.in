@@ -67,7 +67,7 @@ charmrun	:= charmrun
 cxx_std 	:= c++11
 c_std		:= c99
 OPT_FLAG	?= -O3
-TARGET_ARCH ?= -m64
+target_arch := -m64
 threads 	:= -lpthread
 
 # Always emit debug symbols in case of core dumps
@@ -155,7 +155,7 @@ show_config:
 	@ echo DEFINE_FLAGS = $(define_flags)"\n"
 	@ echo OPT_FLAG = $(OPT_FLAG)"\n"
 	@ echo DEFAULT_LB = @DEFAULT_LB@"\n"
-	@ echo TARGET_ARCH = $(TARGET_ARCH)"\n"
+	@ echo TARGET_ARCH = $(target_arch)"\n"
 	@ echo CXX_STD = $(cxx_std)"\n"
 	@ echo C_STD = $(c_std)"\n"
 	@ echo LDFLAGS = $(LDFLAGS)"\n"
