@@ -65,146 +65,93 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
+# @synopsis ARG_ENABLE(name, description, flag_var, val_if_enabled, default_val)
+# @summary Wrapper around AC_ARG_ENABLE that does extra checking and automatic exporting
+AC_DEFUN([ARG_ENABLE],
+[dnl
+	AC_ARG_ENABLE([$1], [AS_HELP_STRING([--enable-$1], [$2])],
+	[case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) AC_MSG_ERROR("invalid argument for '--enable-$1': $enableval");;
+	 esac],
+	[val=$5])
+	if test x$val = xyes; then $3=$4; else $3=""; fi
+	AC_SUBST([$3])
+])
+
 # Use single-precision for gravity calculations
-AC_ARG_ENABLE([float],
-	[AS_HELP_STRING([--enable-float], [use single-precision for gravity calculations])],
-	[float=$enableval], [float=no])
-if test "$float" = "yes" ; then
-    echo "float selected"
-    FLAG_FLOAT="-DCOSMO_FLOAT"
-else
-    FLAG_FLOAT=""
-fi
-AC_SUBST([FLAG_FLOAT])
+ARG_ENABLE([float], [use single-precision for gravity calculations], [FLAG_FLOAT], [-DCOSMO_FLOAT], [no])
 
 # SSE2 vector optimization for gravity
-AC_ARG_ENABLE([sse2],
-	[AS_HELP_STRING([--enable-sse2], [enable sse2 gravity vectorization])],
-	[sse2=$enableval], [sse2=no])
-if test "$sse2" = "yes" ; then
-    echo "SSE2 selected"
-    FLAG_SSE="-DCMK_USE_SSE2"
-else
-    FLAG_SSE=""
-fi
-AC_SUBST([FLAG_SSE])
+ARG_ENABLE([sse2], [enable sse2 gravity vectorization], [FLAG_SSE], [-DCMK_USE_SSE2], [no])
 
 # AVX vector optimization for gravity
-AC_ARG_ENABLE([avx],
-	[AS_HELP_STRING([--enable-avx], [enable avx gravity vectorization])],
-	[avx=$enableval], [avx=no])
-if test "$avx" = "yes" ; then
-    echo "AVX selected"
-    FLAG_AVX="-DCMK_USE_AVX"
-else
-    FLAG_AVX=""
-fi
-AC_SUBST([FLAG_AVX])
+ARG_ENABLE([avx], [enable avx gravity vectorization], [FLAG_AVX], [-DCMK_USE_AVX], [no])
 
-# physical softening in comoving coordinates:
-AC_ARG_ENABLE([changesoft],
-	[AS_HELP_STRING([--enable-changesoft], [enable physical softening])],
-	[changesoft=$enableval], [changesoft=yes])
-if test "$changesoft" = "yes" ; then
-    echo "CHANGESOFT selected"
-    FLAG_CHANGESOFT="-DCHANGESOFT"
-else
-    FLAG_CHANGESOFT=""
-fi
-AC_SUBST([FLAG_CHANGESOFT])
+# physical softening in comoving coordinates
+ARG_ENABLE([changesoft], [enable physical softening], [FLAG_CHANGESOFT], [-DCHANGESOFT], [yes])
 
 # 128 bit keys:
-AC_ARG_ENABLE([bigkeys],
-	[AS_HELP_STRING([--enable-bigkeys], [enable 128 bit hash keys])],
-	[bigkeys=$enableval], [bigkeys=no])
-if test "$bigkeys" = "yes" ; then
-    echo "BIGKEYS selected"
-    FLAG_BIGKEYS="-DBIGKEYS"
-else
-    FLAG_BIGKEYS=""
-fi
-AC_SUBST([FLAG_BIGKEYS])
+ARG_ENABLE([bigkeys], [enable 128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [no])
 
 # DTADJUST
-AC_ARG_ENABLE([dtadjust],
-	[AS_HELP_STRING([--enable-dtadjust], [enable emergency timestep adjust])],
-	[dtadjust=$enableval], [dtadjust=yes])
-if test "$dtadjust" = "yes" ; then
-    echo "DTADJUST selected"
-    FLAG_DTADJUST="-DDTADJUST"
-else
-    FLAG_DTADJUST=""
-fi
+ARG_ENABLE([dtadjust], [enable emergency timestep adjust], [FLAG_DTADJUST], [-DDTADJUST], [yes])
 
-AC_SUBST([FLAG_DTADJUST])
-
-# Select kernel
-# Set defaults
-KERNEL="m4kernel"
-FLAG_M4KERNEL="-DM4KERNEL=0"
-FLAG_WENDLAND="-DWENDLAND=0"
-FLAG_M6KERNEL="-DM6KERNEL=0"
-# Wendland C4 Kernel:
-AC_ARG_ENABLE([wendland],
-	[AS_HELP_STRING([--enable-wendland], [enable Wendland C4 Kernel])],
-	[wendland=$enableval], [wendland=no])
-if test "$wendland" = "yes" ; then
-    KERNEL="wendland"
-fi
-# M6 quintic spline kernel
-AC_ARG_ENABLE([m6kernel],
-	[AS_HELP_STRING([--enable-m6kernel], [enable M6 cubic spline kernel])],
-	[m6kernel=$enableval], [m6kernel=no])
-if test "$m6kernel" = "yes" ; then
-    KERNEL="m6kernel"
-fi
-# Now set up kernel flags
-if test "$KERNEL" = "m4kernel" ; then
-    echo "M4KERNEL selected"
-    FLAG_M4KERNEL="-DM4KERNEL=1"
-elif test "$KERNEL" = "wendland" ; then
-    echo "WENDLAND selected"
-    FLAG_WENDLAND="-DWENDLAND=1"
-elif test "$KERNEL" = "m6kernel" ; then
-    echo "M6KERNEL selected"
-    FLAG_M6KERNEL="-DM6KERNEL=1"
-fi
-KERNEL_FLAGS="$FLAG_M4KERNEL $FLAG_WENDLAND $FLAG_M6KERNEL"
-echo "$KERNEL_FLAGS"
-AC_SUBST([KERNEL_FLAGS])
+# Wendland C4 Kernel
+ARG_ENABLE([wendland], [enable Wendland C4 Kernel], [FLAG_KERNEL], [-DWENDLAND], [no])
 
 # Velocity damping
-AC_ARG_ENABLE([damping],
-	[AS_HELP_STRING([--enable-damping], [enable velocity damping for glasses])],
-	[damping=$enableval], [damping=no])
-if test "$damping" = "yes" ; then
-    echo "DAMPING selected"
-    FLAG_DAMPING="-DDAMPING"
-else
-    FLAG_DAMPING=""
-fi
-AC_SUBST([FLAG_DAMPING])
+ARG_ENABLE([damping], [enable velocity damping for glasses], [FLAG_DAMPING], [-DDAMPING], [no])
 
-# Cooling:
+# Hexadecapole expansion for gravity
+ARG_ENABLE([hexadecapole], [enable hexadecapole expansions], [HEXADECAPOLE], [-DHEXADECAPOLE], [yes])
+ 
+# diffusion (thermal and metal)
+ARG_ENABLE([diffusion], [enable thermal and metal diffusion], [FLAG_DIFFUSION], [-DDIFFUSION], [yes])
+
+# Limit supernova feedback
+# By default this also enables DIFFHARMONIC
+ARG_ENABLE([feedbacklimit], [limit diffusion of feedback energy], [FLAG_FEEDBACKDIFFLIMIT], [-DFEEDBACKDIFFLIMIT], [no])
+if test x$FLAG_FEEDBACKDIFFLIMIT = x"-DFEEDBACKDIFFLIMIT"; then
+	FLAG_DIFFHARMONIC="-DDIFFUSIONHARMONIC";
+fi
+AC_SUBST([FLAG_DIFFHARMONIC])
+
+# Calculate artificial viscosity from Cullen & Dehnen 2010
+ARG_ENABLE([cullenalpha], [enable Cullen Dehnen artificial viscosity], [FLAG_CULLENALPHA], [-DCULLENALPHA], [no])
+
+# Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
+ARG_ENABLE([vsigvisc], [enable alternative Monahan artificial viscosity], [FLAG_VSIGVISC], [-DVSIGVISC], [yes])
+
+# Richie-Thomas forces (Pressure SPH)
+ARG_ENABLE([rtforce], [enable Richie-Thomas forces], [FLAG_RTFORCE], [-DRTFORCE], [yes])
+
+# Default load balancer
+AC_ARG_WITH([default_lb],
+	[AS_HELP_STRING([--with-default_lb], [Set default load balancer [MultistepLB_notopo]])],
+	[DEFAULT_LB=$enableval], [DEFAULT_LB=MultistepLB_notopo])
+AC_SUBST([DEFAULT_LB])
+
+# Enable projections
+ARG_ENABLE([projections], [enable projections], [PROJECTIONS], [yes], [no])
+if test x$PROJECTIONS = xyes -a x$CMK_TRACE_ENABLED = x0; then
+	AC_MSG_ERROR([You must enable tracing in Charm++ before using it in ChaNGa])
+fi
+
+# Cooling
 AC_ARG_ENABLE([cooling],
 	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet, cosmo, grackle)])],
 	[cooling=$enableval], [cooling=no])
-OBJECTS_COOLING=""
-if test "$cooling" = "no" ; then
-   echo "Adiabatic SPH only selected"
-   FLAG_COOLING="-DCOOLING_NONE"
-elif test "$cooling" = "planet" ; then
-   echo "Planet cooling selected"
-   FLAG_COOLING="-DCOOLING_PLANET"
-   OBJECTS_COOLING="cooling_planet.o stiff.o"
-elif test "$cooling" = "cosmo" ; then
-   echo "Cosmo cooling selected"
-   FLAG_COOLING="-DCOOLING_COSMO"
-   OBJECTS_COOLING="cooling_cosmo.o stiff.o"
-elif test "$cooling" = "grackle" ; then
-   echo "Grackle cooling selected"
-   FLAG_COOLING="-DCOOLING_GRACKLE"
-   OBJECTS_COOLING="cooling_grackle.o"
+case $cooling in
+	no|none	) FLAG_COOLING="-DCOOLING_NONE";;
+	planet	) FLAG_COOLING="-DCOOLING_PLANET";
+	cosmo	) FLAG_COOLING="-DCOOLING_COSMO";
+	grackle	) FLAG_COOLING="-DCOOLING_GRACKLE";
+	*		) AC_MSG_ERROR([invalid argument for '--enable-cooling': $cooling]);;
+esac
+AC_SUBST([FLAG_COOLING])
+
+if test "$cooling" = "grackle" ; then
    ac_cv_libhdf5="yes"
    AC_CHECK_LIB([hdf5], [H5Fcreate], [], [ac_cv_libhdf5=no]) 
    if test $ac_cv_libhdf5 = "no" ; then
@@ -230,34 +177,7 @@ elif test "$cooling" = "grackle" ; then
        AC_MSG_WARN([Also remember to set LD_LIBRARY_PATH when running, if grackle and hdf5 are dynamic libraries]);
        exit
    fi
-else
-        AC_MSG_WARN([Unknown cooling selected, using Adiabatic])
-	FLAG_COOLING="-DCOOLING_NONE"
-	cooling="no"
 fi
-
-AC_SUBST([FLAG_COOLING])
-AC_SUBST([OBJECTS_COOLING])
-
-AC_ARG_ENABLE([hexadecapole],
-        [AS_HELP_STRING([--disable-hexadecapole], [disable use of hexadecapole expansions])],
-        # Note that "$enableval" being "yes" means ENABLE hexadecapole -- the
-        # help string, as one would expect, only affects how we document
-        # the option.
-        [case "$enableval" in
-              yes | no ) hexadecapole="$enableval";;
-              *) AC_MSG_ERROR("$enableval: invalid argument to `--disable-hexadecapole'") ;;
-         esac],
-        [hexadecapole="yes"])
-
-HEXADECAPOLE=""
-if test "$hexadecapole" = "yes"; then
-    HEXADECAPOLE="-DHEXADECAPOLE"
-else
-    HEXADECAPOLE=""
-fi
-
-AC_SUBST([HEXADECAPOLE])
 
 # GPU local tree walk
 AC_ARG_ENABLE([gpu_local_tree_walk],
@@ -273,75 +193,11 @@ fi
 
 AC_SUBST([GPU_LOCAL_TREE_WALK])
  
-# diffusion (thermal and metal)
-AC_ARG_ENABLE([diffusion],
-	[AS_HELP_STRING([--enable-diffusion], [enable diffusion])],
-	[diffusion=$enableval], [diffusion=yes])
-if test "$diffusion" = "yes" ; then
-    echo "DIFFUSION selected"
-    FLAG_DIFFUSION="-DDIFFUSION"
-else
-    FLAG_DIFFUSION=""
-fi
-
-AC_SUBST([FLAG_DIFFUSION])
-
-# Limit supernova feedback
-# By default this also enables DIFFHARMONIC
-AC_ARG_ENABLE([feedbacklimit],
-    [AS_HELP_STRING([--enable-feedbacklimit], [limit diffusion of feedback energy])],
-    [feedbacklimit=$enableval], [feedbacklimit=no])
-if test "$feedbacklimit" = "yes" ; then
-    echo "FEEDBACKDIFFLIMIT selected"
-    FLAG_FEEDBACKDIFFLIMIT="-DFEEDBACKDIFFLIMIT"
-    echo "DIFFUSIONHARMONIC selected"
-    FLAG_DIFFHARMONIC="-DDIFFUSIONHARMONIC"
-else
-    FLAG_FEEDBACKDIFFLIMIT=""
-    FLAG_DIFFHARMONIC=""
-fi
-
-AC_SUBST([FLAG_FEEDBACKDIFFLIMIT])
-AC_SUBST([FLAG_DIFFHARMONIC])
-
-# Calculate artificial viscosity from Cullen & Dehnen 2010
-AC_ARG_ENABLE([cullenalpha],
-        [AS_HELP_STRING([--enable-cullenalpha], [enable Cullen Dehnen artificial viscosity])],
-        [cullenalpha=$enableval], [cullenalpha=no])
-if test "$cullenalpha" = "yes" ; then
-    echo "CULLENALPHA selected"
-    FLAG_CULLENALPHA="-DCULLENALPHA"
-else
-    FLAG_CULLENALPHA=""
-fi
-
-AC_SUBST([FLAG_CULLENALPHA])
-
-# Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
-AC_ARG_ENABLE([vsigvisc],
-        [AS_HELP_STRING([--enable-vsigvisc], [enable alternative Monahan artificial viscosity])],
-        [vsigvisc=$enableval], [vsigvisc=yes])
-if test "$vsigvisc" = "yes" ; then
-    echo "VSIGVISC selected"
-    FLAG_VSIGVISC="-DVSIGVISC"
-else
-    FLAG_VSIGVISC=""
-fi
-
-AC_SUBST([FLAG_VSIGVISC])
-
-# Richie-Thomas forces (Pressure SPH)
-AC_ARG_ENABLE([rtforce],
-	[AS_HELP_STRING([--enable-rtforce], [enable Richie-Thomas forces])],
-	[rtforce=$enableval], [rtforce=yes])
-if test "$rtforce" = "yes" ; then
-    echo "RTFORCE selected"
-    FLAG_RTFORCE="-DRTFORCE"
-else
-    FLAG_RTFORCE=""
-fi
-
-AC_SUBST([FLAG_RTFORCE])
+# Default load balancer
+AC_ARG_WITH([default_lb],
+	[AS_HELP_STRING([--with-default_lb], [Set default load balancer [MultistepLB_notopo]])],
+	[DEFAULT_LB=$enableval], [DEFAULT_LB=MultistepLB_notopo])
+AC_SUBST([DEFAULT_LB])
 
 AC_ARG_ENABLE([opts],
 	[AS_HELP_STRING([--enable-opts], [DEPRECATED - Do not use])],
