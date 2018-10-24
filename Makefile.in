@@ -66,12 +66,12 @@ target  	:= $(build_dir)/ChaNGa
 charmrun	:= charmrun
 cxx_std 	:= c++11
 c_std		:= c99
-OPT_FLAG	?= -O3
+opt_flag	:= -O3
 target_arch := -m64
 threads 	:= -lpthread
 
 # Always emit debug symbols in case of core dumps
-OPT_FLAG += -g
+opt_flag += -g
 
 define_flags := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_DIFFHARMONIC@	\
 				@FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@ @FLAG_ARCH@ \
@@ -153,7 +153,7 @@ show_config:
 	@ echo TARGET = $(target)"\n"
 	@ echo INCLUDES = $(include_flags)"\n"
 	@ echo DEFINE_FLAGS = $(define_flags)"\n"
-	@ echo OPT_FLAG = $(OPT_FLAG)"\n"
+	@ echo OPT_FLAG = $(opt_flag)"\n"
 	@ echo DEFAULT_LB = @DEFAULT_LB@"\n"
 	@ echo TARGET_ARCH = $(target_arch)"\n"
 	@ echo CXX_STD = $(cxx_std)"\n"
@@ -214,7 +214,7 @@ docs:
 test: DIRS := teststep
 test: $(target)
 	$(quiet) for d in $(DIRS); do \
-		(cd $$d && $(MAKE) test OPTS='$(OPT_FLAG) $(threads)' || exit 1) || exit 1; \
+		(cd $$d && $(MAKE) test OPTS='$(opt_flag) $(threads)' || exit 1) || exit 1; \
 	done
 
 .PHONY: clean
