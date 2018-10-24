@@ -52,30 +52,26 @@ charm_util_path 	:= @CHARM_PATH@/src/util
 cache_lib_path 		:= @CHARM_PATH@/tmp/libs/ck-libs/cache
 threadsafe_ht_path 	:= $(cache_lib_path)/threadsafe_hashtable
 
-# add -module Orb3dLB here for load balancing during singlestepped runs
-INCLUDE_FLAGS += -I$(STRUCTURES_PATH) -I.. -I$(CACHE_LIB_PATH) -I$(THREADSAFE_HT_PATH) -I$(SOURCE_DIR) -I$(BUILD_DIR) -I$(CHARM_UTIL_PATH)
-CPPFLAGS += $(INCLUDE_FLAGS) $(DEFINE_FLAGS) @CPPFLAGS@
-CXXFLAGS += $(CPPFLAGS)
-LDFLAGS += -L. -L../libs @LDFLAGS@ -language charm++ -module CkCache \
-	   -module CkIO -module CkMulticast -module RefineLB \
-	   -module RefineCommLB -module GreedyLB -module GreedyCommLB \
-	   -module OrbLB -module RotateLB -module MultistepLB \
-	   -module MultistepLB_notopo -module MultistepNodeLB_notopo \
-           -module MultistepOrbLB -module Orb3dLB -module Orb3dLB_notopo \
-           -module HierarchOrbLB -module liveViz -module CkLoop \
-           -balancer MultistepLB_notopo \
-	   #-tracemode projections -memory charmdebug -memory paranoid
-XDR_DIR = ../rpc
-XDR_OBJS = $(XDR_DIR)/xdr.o $(XDR_DIR)/xdr_float.o $(XDR_DIR)/xdr_mem.o $(XDR_DIR)/xdr_stdio.o
-LDLIBS += $(STRUCTURES_PATH)/libTipsy.a  @LIBS@
+# ------- Modules to build ----------------------------------------------------
+changa_modules := $(strip MultistepLB MultistepOrbLB MultistepLB_notopo	\
+					MultistepNodeLB_notopo Orb3dLB Orb3dLB_notopo 		\
+					HierarchOrbLB)
 
-CHARMC = $(CHARM_PATH)/bin/charmc
+charm_modules := $(strip CkCache CkIO CkMulticast RefineLB RefineCommLB	\
+					GreedyLB GreedyCommLB OrbLB RotateLB liveViz CkLoop)
 
-CXX = $(CHARMC)
-CC = $(CXX)
-AR = @AR@ 
-CXX_DEPEND = $(CXX) -M -MM -MG $(CXXFLAGS)
-CFLAGS = $(DEFINE_FLAGS) -I$(SOURCE_DIR) -I$(BUILD_DIR) @CFLAGS@ @CPPFLAGS@
+# ------- Compiler setup -----------------------------------------------------
+charmc 		:= @CHARM_PATH@/bin/charmc
+target  	:= $(build_dir)/ChaNGa
+charmrun	:= charmrun
+cxx_std 	:= c++11
+c_std		:= c99
+OPT_FLAG	?= -O3
+TARGET_ARCH ?= -m64
+threads 	:= -lpthread
+
+# Always emit debug symbols in case of core dumps
+OPT_FLAG += -g
 
 define_flags := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_DIFFHARMONIC@	\
 				@FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@ @FLAG_SSE@ \
@@ -84,17 +80,20 @@ define_flags := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_DIFFHARMONIC@	\
 				@FLAG_DAMPING@ $(debug_defines) $(interlist)				\
 				$(flag_tree_build) -DREDUCTION_HELPER)
 
-# Orb3dLB.{o,C} below
-OBJECTS = Reductions.o DataManager.o TreePiece.o IntraNodeLBManager.o Sorter.o \
-	  param.o GenericTreeNode.o ParallelGravity.o Ewald.o \
-	  InOutput.o cosmo.o romberg.o runge.o dumpframe.o dffuncs.o \
-	  moments.o MultistepLB.o Orb3dLB.o Orb3dLB_notopo.o HierarchOrbLB.o \
-	  MultistepLB_notopo.o MultistepNodeLB_notopo.o MultistepOrbLB.o PETreeMerger.o \
-	  TreeWalk.o Compute.o CacheInterface.o smooth.o Sph.o starform.o \
-	  feedback.o imf.o supernova.o supernovaia.o starlifetime.o \
-	  sinks.o \
-	  cha_commitid.o externalGravity.o \
-	  @OBJECTS_COOLING@
+module_flags := $(strip -language charm++ -balancer @DEFAULT_LB@	\
+				  $(foreach m,$(charm_modules),-module $(m))		\
+				  $(foreach m,$(changa_modules),-module $(m)))
+
+LDFLAGS = $(module_flags) -L. -L@CHARM_PATH@/libs @LDFLAGS@
+
+include_flags = $(strip -I$(structures_path) -I$(cache_lib_path)	\
+				-I$(source_dir) -I$(threadsafe_ht_path)				\
+				-I$(charm_util_path) -I@CHARM_PATH@/include)
+
+CPPFLAGS := $(include_flags) $(define_flags) @CPPFLAGS@
+CFLAGS 	 := $(OPT_FLAG) $(CPPFLAGS) $(threads) $(TARGET_ARCH) -std=$(c_std)
+CXXFLAGS := $(OPT_FLAG) $(CPPFLAGS) $(threads) $(TARGET_ARCH) -std=$(cxx_std)
+LDLIBS 	 := $(structures_path)/libTipsy.a $(threads) @LIBS@
 
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
 	param.c GenericTreeNode.cpp ParallelGravity.cpp Ewald.cpp \
