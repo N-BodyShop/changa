@@ -206,7 +206,7 @@ ifneq (charmrun,$(charmrun))
 endif
 
 $(structures_path)/libTipsy.a:
-	$(quiet) cd $(structures_path); $(MAKE) DEBUG='$(DEBUG)' libTipsy.a
+	$(quiet) cd $(structures_path); $(MAKE) libTipsy.a
 
 $(build_dir)/libmodule%.a: $(build_dir)/%.o
 	@ echo Creating library $@...
