@@ -95,6 +95,18 @@ CFLAGS 	 := $(OPT_FLAG) $(CPPFLAGS) $(threads) $(TARGET_ARCH) -std=$(c_std)
 CXXFLAGS := $(OPT_FLAG) $(CPPFLAGS) $(threads) $(TARGET_ARCH) -std=$(cxx_std)
 LDLIBS 	 := $(structures_path)/libTipsy.a $(threads) @LIBS@
 
+ifeq (1,$(DEBUG))
+	OPT_FLAG  = -O0
+	target	 := $(target).dbg
+	charmrun := $(charmrun).dbg
+endif
+
+ifeq (yes,@PROJECTIONS@)
+	LDLIBS 	 += -tracemode projections
+	target 	 := $(target).prj
+	charmrun := $(charmrun).prj
+endif
+
 SRSC = Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp IntraNodeLBManager.cpp \
 	param.c GenericTreeNode.cpp ParallelGravity.cpp Ewald.cpp \
 	InOutput.cpp cosmo.c romberg.c runge.c dumpframe.cpp dffuncs.cpp \
