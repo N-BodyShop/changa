@@ -219,20 +219,6 @@ if test "$cooling" = "grackle" ; then
    fi
 fi
 
-# GPU local tree walk
-AC_ARG_ENABLE([gpu_local_tree_walk],
-  [AS_HELP_STRING([--enable-gpu_local_tree_walk], [Enable gpu_local_tree_walk (yes, no)])],
-  [gpu_local_tree_walk=$enableval], [gpu_local_tree_walk=no])
-GPU_LOCAL_TREE_WALK=""
-if test "$gpu_local_tree_walk" = "yes" ; then
-  echo "DGPU_LOCAL_TREE_WALK selected"
-  GPU_LOCAL_TREE_WALK="-DGPU_LOCAL_TREE_WALK"
-else
-  GPU_LOCAL_TREE_WALK=""
-fi
-
-AC_SUBST([GPU_LOCAL_TREE_WALK])
- 
 # Default load balancer
 AC_ARG_WITH([default_lb],
 	[AS_HELP_STRING([--with-default_lb], [Set default load balancer [MultistepLB_notopo]])],
