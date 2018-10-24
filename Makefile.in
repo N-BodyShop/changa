@@ -202,7 +202,7 @@ $(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a $(foreach m,$(c
 	@ echo Building $@...
 	$(quiet) $(charmc) -o $@ $^ $(ld_flags) $(ld_libs)
 ifneq (charmrun,$(charmrun))
-	$(quiet) mv charmrun $(charmrun)
+	$(quiet) mv $(build_dir)/charmrun $(build_dir)/$(charmrun)
 endif
 
 $(structures_path)/libTipsy.a:
