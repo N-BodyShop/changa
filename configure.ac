@@ -280,6 +280,21 @@ if test ! x$FLAG_SANITIZER = xno; then
 fi
 AC_SUBST([FLAG_SANITIZER])
 
+# Interaction list version
+AC_ARG_ENABLE([interlist],
+	[AS_HELP_STRING([--enable-interlist], [interaction list version])],
+	[interlist=$enableval], [interlist=2])
+case $interlist in
+	1|2) FLAG_INTERLIST="-DINTERLIST_VER=$interlist";;
+	*  ) AC_MSG_ERROR([invalid argument for '--enable-interlist': $interlist]);;
+esac
+AC_SUBST([FLAG_INTERLIST])
+
+# Force compiler flags
+AC_ARG_ENABLE([opts],
+	[AS_HELP_STRING([--enable-opts], [DEPRECATED - Do not use])],
+	[], [])
+
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
 AC_C_CONST
