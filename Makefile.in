@@ -145,113 +145,95 @@ ifeq (yes,@ENABLE_CUDA@)
 	define_flags += $(cuda_defines)
 endif
 
-TARGET = ChaNGa
-VERSION = 1.0
-all: $(TARGET)
+# ------- Build targets -------------------------------------------------------
+all: $(target)
 
-# Make's built-in database doesn't provide pattern rules for out-of-source
-# builds, so we provide them here.
-%.o: $(SOURCE_DIR)/%.cpp
-	$(CXX) $(CXXFLAGS) -c -o $@ $<
+.PHONY: show_config
+show_config:
+	@ echo TARGET = $(target)"\n"
+	@ echo INCLUDES = $(include_flags)"\n"
+	@ echo DEFINE_FLAGS = $(define_flags)"\n"
+	@ echo OPT_FLAG = $(OPT_FLAG)"\n"
+	@ echo DEFAULT_LB = @DEFAULT_LB@"\n"
+	@ echo TARGET_ARCH = $(TARGET_ARCH)"\n"
+	@ echo CXX_STD = $(cxx_std)"\n"
+	@ echo C_STD = $(c_std)"\n"
+	@ echo LDFLAGS = $(LDFLAGS)"\n"
+	@ echo LDLIBS = $(LDLIBS)"\n"
 
-%.o: $(SOURCE_DIR)/%.c
-	$(CC) $(CFLAGS) -c -o $@ $<
+$(source_dir)/%.decl.h: $(source_dir)/%.ci
+	@ echo Compiling $<...
+	$(quiet) $(charmc) -E $(define_flags) $<
 
-
-$(TARGET): $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleHierarchOrbLB.a libmoduleMultistepLB_notopo.a libmoduleMultistepNodeLB_notopo.a libmoduleMultistepOrbLB.a
-	$(CHARMC) -o $(TARGET) $(LDFLAGS) $(OBJECTS) $(LDLIBS)
-
-$(TARGET).prj: $(OBJECTS) $(STRUCTURES_PATH)/libTipsy.a libmoduleMultistepLB.a libmoduleOrb3dLB.a libmoduleOrb3dLB_notopo.a libmoduleHierarchOrbLB.a libmoduleMultistepLB_notopo.a libmoduleMultistepNodeLB_notopo.a libmoduleMultistepOrbLB.a
-	$(CHARMC) -o $(TARGET).prj $(LDFLAGS) $(OBJECTS) $(LDLIBS) -tracemode projections
-
-$(TARGET).%: $(TARGET)
-	mv $(TARGET) $@
-	mv charmrun charmrun.$*
-
-
-VERSION: VERSION.new
-	$(SOURCE_DIR)/commitid.sh
-
-cha_commitid.c: VERSION
-	echo "extern const char * const Cha_CommitID;" > $@
-	echo "const char * const Cha_CommitID = \"`cat $<`\";" >> $@
-cha_commitid.o: CC=$(CHARMC)
-
-$(STRUCTURES_PATH)/libTipsy.a:
-	cd $(STRUCTURES_PATH); $(MAKE) libTipsy.a
-
-libmoduleMultistepLB.a: MultistepLB.o
-	$(CHARMC) -o libmoduleMultistepLB.a MultistepLB.o 
-
-libmoduleMultistepOrbLB.a: MultistepOrbLB.o
-	$(CHARMC) -o libmoduleMultistepOrbLB.a MultistepOrbLB.o 
-
-libmoduleMultistepLB_notopo.a: MultistepLB_notopo.o
-	$(CHARMC) -o libmoduleMultistepLB_notopo.a MultistepLB_notopo.o 
-
-libmoduleMultistepNodeLB_notopo.a: MultistepNodeLB_notopo.o
-	$(CHARMC) -o libmoduleMultistepNodeLB_notopo.a MultistepNodeLB_notopo.o 
-
-libmoduleOrb3dLB.a: Orb3dLB.o
-	$(CHARMC) -o libmoduleOrb3dLB.a Orb3dLB.o 
-
-libmoduleOrb3dLB_notopo.a: Orb3dLB_notopo.o
-	$(CHARMC) -o libmoduleOrb3dLB_notopo.a Orb3dLB_notopo.o 
-
-libmoduleHierarchOrbLB.a: HierarchOrbLB.o
-	$(CHARMC) -o libmoduleHierarchOrbLB.a HierarchOrbLB.o
-
-%.ci.stamp: $(SOURCE_DIR)/%.ci
-	$(CHARMC) -E $(DEFINE_FLAGS) $<
-	touch $@
-
-%.decl.h %.def.h: %.ci.stamp
-	@true
-
-Makefile: $(SOURCE_DIR)/Makefile.in
-	@echo 'Makefile.in changed; re-running `configure`'
-	@$(BUILD_DIR)/config.status
 %.o: Makefile
 
+$(filter %.cpp,$(sources)): $(ci_headers)
+$(filter %.C,$(sources)): $(ci_headers)
+
+%.o: $(source_dir)/%.C
+	@ echo Compiling $*.C...
+	$(quiet) $(charmc) $(CXXFLAGS) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
+
+%.o: $(source_dir)/%.cpp
+	@ echo Compiling $*.cpp...
+	$(quiet) $(charmc) $(CXXFLAGS) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
+
+%.o: $(source_dir)/%.c
+	@ echo Compiling $*.c...
+	$(quiet) $(charmc) $(CFLAGS) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
+
+-include $(depend_files)
+
+$(target): $(objects) $(structures_path)/libTipsy.a $(foreach m,$(changa_modules),libmodule$(m).a)
+	@ echo Building $@...
+	$(quiet) $(charmc) -o $(target) $(LDFLAGS) $(objects) $(LDLIBS)
+ifneq (charmrun,$(charmrun))
+	$(quiet) mv charmrun $(charmrun)
+endif
+
+VERSION: VERSION.new
+	$(quiet) $(source_dir)/commitid.sh
+
+cha_commitid.c: VERSION
+	@ echo "const char * const Cha_CommitID = \"`cat $<`\";" > $@
+
+$(structures_path)/libTipsy.a:
+	$(quiet) cd $(structures_path); $(MAKE) DEBUG='$(DEBUG)' libTipsy.a
+
+libmodule%.a: %.o
+	@ echo Creating library $@...
+	$(quiet) $(AR) $@ $^
+
+.PHONY: docs
 docs:
-	doxygen $(SOURCE_DIR)/Doxyfile
+	@ Building docs...
+	$(quiet) doxygen $(source_dir)/Doxyfile
 
-DIRS = teststep
-
-test: $(TARGET)
-	for d in $(DIRS); do \
-		(cd $$d && $(MAKE) test || exit 1) || exit 1; \
+.PHONY: test
+test: DIRS := teststep
+test: $(target)
+	$(quiet) for d in $(DIRS); do \
+		(cd $$d && $(MAKE) test OPTS='$(OPT_FLAG) $(threads)' || exit 1) || exit 1; \
 	done
 
-dist:
-	mkdir $(TARGET)-$(VERSION)
-	cp Makefile $(TARGET).doxygen *.h *.cpp *.ci $(TARGET)-$(VERSION)/
-	tar zcf $(TARGET)-$(VERSION).tar.gz $(TARGET)-$(VERSION)
-	rm -Rf $(TARGET)-$(VERSION)
-
+.PHONY: clean
 clean:
-	rm -f core* $(OBJECTS) *~ $(TARGET) *.decl.h *.def.h *.ci.stamp charmrun conv-host
-	rm -f *.o *.a
-	cd $(STRUCTURES_PATH); $(MAKE) clean
+	@ echo Cleaning...
+	$(quiet) $(RM) $(objects) *~ $(target) *.decl.h *.def.h $(charmrun) $(depend_files)
+	$(quiet) $(RM) $(foreach m,$(changa_modules),libmodule$(m).a)
+	$(quiet) cd $(structures_path); $(MAKE) clean
 
-ref-clean:
-	rm -f $(TARGET) Compute.o TreeWalk.o
-
+.PHONY: dist-clean
 dist-clean: clean
-	@ $(RM) *.a config.status config.log cuda.mk Makefile.dep
+	$(quiet) $(RM) config.status config.log config.h Makefile
 
-depends: $(SOURCE_DIR)/Makefile.dep
-$(BUILD_DIR)/Makefile.dep:
-	FULLPATHS=""; for file in $(SRSC); do FULLPATHS="$(SOURCE_DIR)/$$file $$FULLPATHS"; done; \
-	$(CXX_DEPEND) $$FULLPATHS | while read i;do echo $$i| awk -F' ' '{for (i=1;i<NF;++i) print $$i" \\"}';echo;done|grep -v "$(CHARM_PATH)/bin" | grep -v "hashtable_mt.h" > $@
+.PHONY: full-clean
+full-clean: dist-clean
+	$(quiet) $(RMR) autom4te.cache configure 
 
-# depend:
-# 	$(CXX_DEPEND) $(SRSC) > Makefile.dep
+# for backwards compatibility
+.PHONY: ref-clean
+ref-clean:
+.PHONY: depends
+depends:
 
-# The following line is a script usable to regenerate the dependace file,
-# without the inclusion of charm headers.
-# $CHARM_DIR/bin/charmc  -M -MM -MG -O3 -I../utility/structures -I../ParallelGravity -Wall  -DCOSMO_STATS=1   -DCOSMO_DEBUG=2  -DINTERLIST_VER=2 -DHEXADECAPOLE     -DCACHE_TREE -DCOOLING_NONE  Reductions.cpp DataManager.cpp Sorter.cpp TreePiece.cpp param.cpp GenericTreeNode.cpp ParallelGravity.cpp Ewald.cpp InOutput.cpp cosmo.cpp romberg.cpp runge.cpp dumpframe.cpp dffuncs.cpp moments.cpp MultistepLB.cpp Orb3dLB.cpp TreeWalk.cpp Compute.cpp | while read i;do echo $i| awk -F' ' '{for (i=1;i<NF;++i) print $i" \\"}';echo;done|grep -v "charm/bin" > Makefile.dep
-
-.PHONY: all docs dist clean depend test VERSION.new
-
--include $(BUILD_DIR)/Makefile.dep
