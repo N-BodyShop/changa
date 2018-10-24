@@ -86,9 +86,9 @@ modules := $(strip -language charm++ -balancer @DEFAULT_LB@	\
 
 LDFLAGS = $(modules) -L. -L@CHARM_PATH@/libs @LDFLAGS@
 
-include_flags = $(strip -I$(structures_path) -I$(cache_lib_path)	\
-				-I$(source_dir) -I$(threadsafe_ht_path)				\
-				-I$(charm_util_path) -I@CHARM_PATH@/include)
+includes = $(strip -I$(structures_path) -I$(cache_lib_path)	\
+			-I$(source_dir) -I$(threadsafe_ht_path)			\
+			-I$(charm_util_path) -I@CHARM_PATH@/include)
 
 CPPFLAGS := $(include_flags) $(define_flags) @CPPFLAGS@
 CFLAGS 	 := $(OPT_FLAG) $(CPPFLAGS) $(threads) $(TARGET_ARCH) -std=$(c_std)
@@ -151,7 +151,7 @@ all: $(target)
 .PHONY: show_config
 show_config:
 	@ echo TARGET = $(target)"\n"
-	@ echo INCLUDES = $(include_flags)"\n"
+	@ echo INCLUDES = $(includes)"\n"
 	@ echo DEFINE_FLAGS = $(define_flags)"\n"
 	@ echo OPT_FLAG = $(opt_flag)"\n"
 	@ echo DEFAULT_LB = @DEFAULT_LB@"\n"
