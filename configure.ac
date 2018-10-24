@@ -5,7 +5,13 @@ AC_PREREQ(2.59)
 AC_INIT([ChaNGa], [3.3], [changa-users@u.washington.edu])
 AC_DEFINE_UNQUOTED([NBODY_PACKAGE_VERSION], [$PACKAGE_VERSION])
 AC_CONFIG_SRCDIR([Reductions.h])
-AC_CONFIG_HEADER([config.h $srcdir/../utility/structures/config.h])
+
+if test "x$STRUCT_DIR" = "x"; then
+	STRUCT_DIR=$srcdir/../utility/structures
+fi
+AC_SUBST([STRUCT_DIR])
+
+AC_CONFIG_HEADER([config.h $STRUCT_DIR/config.h])
 
 AC_ARG_VAR([CHARMC], "Charm compiler")
 # Checks for programs.
@@ -310,9 +316,7 @@ AC_CHECK_FUNCS([xdr_hyper])
 m4_include([cuda.ac])
 ##################### END CUDA #####################
 
-AC_CONFIG_FILES([Makefile
-		 $srcdir/../utility/structures/Makefile
-		])
+AC_CONFIG_FILES([Makefile $STRUCT_DIR/Makefile])
 AC_OUTPUT
 
 echo "***************************************************************"

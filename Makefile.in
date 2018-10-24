@@ -76,7 +76,7 @@ ifeq (yes,@ENABLE_CUDA@)
 endif
 
 # ------- Include paths -------------------------------------------------------
-structures_path 	:= $(source_dir)/../utility/structures
+structures_path 	:= @STRUCT_DIR@
 charm_util_path 	:= @CHARM_PATH@/tmp
 cache_lib_path 		:= @CHARM_PATH@/tmp/libs/ck-libs/cache
 threadsafe_ht_path 	:= $(cache_lib_path)/threadsafe_hashtable
