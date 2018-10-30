@@ -254,6 +254,11 @@ dist-clean: clean
 full-clean: dist-clean
 	$(quiet) $(RMR) $(source_dir)/autom4te.cache $(source_dir)/configure 
 
+# unit tests
+include $(source_dir)/unit_tests/tests.mk
+VPATH += $(source_dir)/unit_tests
+.PHONY: unit-tests
+
 # for backwards compatibility
 .PHONY: ref-clean
 ref-clean:

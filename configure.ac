@@ -23,6 +23,11 @@ if test "$CHARMC" = "no" ; then
    exit
 fi
 
+# For out-of-source builds, create a directory for the unit tests
+if test ! -d unit_tests; then
+	mkdir unit_tests
+fi
+
 # Make sure git is available
 AC_CHECK_PROG(HAVE_GIT,[git],[yes],[no])
 test "$HAVE_GIT" == "no" && AC_MSG_ERROR([git not found])

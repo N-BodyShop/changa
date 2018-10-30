@@ -2368,6 +2368,11 @@ $as_echo "$as_me: WARNING: Try setting your CHARM_DIR environment variable to po
    exit
 fi
 
+# For out-of-source builds, create a directory for the unit tests
+if test ! -d unit_tests; then
+	mkdir unit_tests
+fi
+
 # Make sure git is available
 # Extract the first word of "git", so it can be a program name with args.
 set dummy git; ac_word=$2

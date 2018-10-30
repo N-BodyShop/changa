@@ -8,7 +8,9 @@
 
 template<typename... Args>
 class formatted_string {
+public:
     static constexpr auto max_len = 32;
+private:
 	union arena {
 		std::array<char, max_len> array;
 		std::vector<char> vector;
