@@ -10,6 +10,23 @@ source_dir := @srcdir@
 # Directory from which `configure` was called.
 build_dir := @builddir@
 
+# These canned recipes allow for building different variations of source
+# and destination file mappings. They can also be used by subprojects.
+define compile-cxx =
+@ echo Compiling $*.cpp...
+$(quiet) $(charmc) $(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
+endef
+
+define compile-c =
+@ echo Compiling $*.c...
+$(quiet) $(charmc) $(c_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
+endef
+	
+define link-charmc =
+@ echo Building $@...
+$(quiet) $(charmc) -o $@ $^ $(ld_flags) $(ld_libs)
+endef
+
 # ------- Basic commands ------------------------------------------------------
 AR 		:= @AR@
 RM 		:= rm -f
@@ -180,13 +197,17 @@ $(build_dir)/%.decl.h: $(source_dir)/%.ci
 $(build_dir)/%.o: $(build_dir)/Makefile
 $(cxx_srcs): $(ci_headers)
 
+%.o: %.cpp
+	$(compile-cxx)
+
+%.o: %.c
+	$(compile-c)
+
 $(build_dir)/%.o: $(source_dir)/%.cpp
-	@ echo Compiling $*.cpp...
-	$(quiet) $(charmc) $(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
+	$(compile-cxx)
 
 $(build_dir)/%.o: $(source_dir)/%.c
-	@ echo Compiling $*.c...
-	$(quiet) $(charmc) $(c_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
+	$(compile-c)
 
 # Use a conditional include so consecutive cleans work
 -include $(depend_files)
@@ -201,8 +222,7 @@ $(ci_files): $(build_dir)/settings
 $(objects): $(build_dir)/settings
 
 $(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a $(foreach m,$(changa_modules),libmodule$(m).a)
-	@ echo Building $@...
-	$(quiet) $(charmc) -o $@ $^ $(ld_flags) $(ld_libs)
+	$(link-charmc)
 ifneq (charmrun,$(charmrun))
 	$(quiet) mv $(build_dir)/charmrun $(build_dir)/$(charmrun)
 endif
