@@ -178,8 +178,7 @@ $(build_dir)/%.decl.h: $(source_dir)/%.ci
 	$(quiet) $(charmc) -E $(cpp_flags) $<
 
 $(build_dir)/%.o: $(build_dir)/Makefile
-
-$(filter %.cpp,$(sources)): $(ci_headers)
+$(cxx_srcs): $(ci_headers)
 
 $(build_dir)/%.o: $(source_dir)/%.cpp
 	@ echo Compiling $*.cpp...
