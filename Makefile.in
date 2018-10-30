@@ -14,10 +14,13 @@ build_dir := @builddir@
 AR 		:= @AR@
 RM 		:= rm -f
 RMR		:= $(RM) -r
-quiet	:= $(if $(filter $(VERBOSE),1),,@)
+
+# ------- Verbosity ------------------------------------------------------
+charm_quiet := $(if $(filter $(CHARM_VERBOSE),1),-verbose,)
+quiet       := $(if $(filter $(VERBOSE),1),,@)
 
 # ------- Compiler setup -----------------------------------------------------
-charmc 		:= @CHARM_PATH@/bin/charmc
+charmc 		:= @CHARM_PATH@/bin/charmc $(charm_quiet)
 target  	:= $(build_dir)/ChaNGa
 charmrun	:= charmrun
 cxx_std 	:= c++11
