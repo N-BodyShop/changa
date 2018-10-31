@@ -1464,7 +1464,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   int *dummyStarts = NULL;
   int *dummySizes = NULL;
 
-#ifdef CUDA_USE_CUDAMALLOCHOST
+#ifdef HAPI_USE_CUDAMALLOCHOST
   allocatePinnedHostMemory((void **)&dummyFlatlists, dummyTotalNumInteractions *
                                                     sizeof(ILCell));
   allocatePinnedHostMemory((void **)&dummyNodeMarkers, (numFilledBuckets+1) *
