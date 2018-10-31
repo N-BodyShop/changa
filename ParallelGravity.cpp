@@ -723,6 +723,20 @@ Main::Main(CkArgMsg* m) {
 	param.bConcurrentSph = 1;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
+        // Recognize (and ignore) gasoline compatibility parameters.
+        int iDummy = 0;
+	prmAddParam(prm, "bRestart", paramBool, &iDummy,
+		    sizeof(int),"restartg", "(IGNORED) gasoline compatible restart");
+	prmAddParam(prm, "bRestart", paramBool, &iDummy,
+		    sizeof(int),"restartg", "(IGNORED) gasoline compatible restart");
+	prmAddParam(prm, "bDoSelfGravity", paramBool, &iDummy,
+		    sizeof(int),"sg", "(IGNORED) Use bDoGravity");
+	prmAddParam(prm, "bVStart", paramBool, &iDummy,
+                    sizeof(int), "vstart","(IGNORED)");
+	prmAddParam(prm, "bVStep", paramBool, &iDummy,
+                    sizeof(int), "vstep", "(IGNORED)");
+	prmAddParam(prm, "bVRungStat", paramBool, &iDummy,
+                    sizeof(int), "vrungstat", "(IGNORED)");
 
 #ifdef PUSH_GRAVITY
         param.dFracPushParticles = 0.0;
@@ -856,6 +870,36 @@ Main::Main(CkArgMsg* m) {
 #endif
 		  << endl;
 	    }
+        if(prmSpecified(prm, "bRestart")) {
+            ckerr << "WARNING: ";
+            ckerr << "bRestart parameter ignored; "
+                  << "restart from checkpoint is done with ++restart."
+                  << endl;
+            }
+        if(prmSpecified(prm, "bDoSelfGravity")) {
+            ckerr << "WARNING: ";
+            ckerr << "bDoSelfGravity parameter ignored; "
+                  << "Use bDoGravity to turn gravity on or off."
+                  << endl;
+            }
+        if(prmSpecified(prm, "bVStart")) {
+            ckerr << "WARNING: ";
+            ckerr << "bVStart parameter ignored"
+                  << "use -v # to increase verbosity"
+                  << endl;
+            }
+        if(prmSpecified(prm, "bVStep")) {
+            ckerr << "WARNING: ";
+            ckerr << "bVStep parameter ignored"
+                  << "use -v # to increase verbosity"
+                  << endl;
+            }
+        if(prmSpecified(prm, "bVRungStat")) {
+            ckerr << "WARNING: ";
+            ckerr << "bVRungStat parameter ignored"
+                  << "use -v # to increase verbosity"
+                  << endl;
+            }
 	if(!prmSpecified(prm, "dTheta2")) {
 	    param.dTheta2 = param.dTheta;
 	    }
