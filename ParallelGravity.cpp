@@ -150,7 +150,6 @@ int networkProgressUE;
 int nodeForceUE;
 int partForceUE;
 
-int tbRecursiveUE;
 int tbFlushRequestsUE;
 int prefetchDoneUE;
 
@@ -245,7 +244,6 @@ Main::Main(CkArgMsg* m) {
         traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
 #endif
 
-        tbRecursiveUE = traceRegisterUserEvent("TreeBuild::buildOctTree::recursive");
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
 
         prefetchDoneUE = traceRegisterUserEvent("PrefetchDone");
