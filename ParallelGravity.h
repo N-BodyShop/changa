@@ -172,7 +172,6 @@ extern int networkProgressUE;
 extern int nodeForceUE;
 extern int partForceUE;
 
-extern int tbRecursiveUE;
 extern int tbFlushRequestsUE;
 extern int prefetchDoneUE;
 
@@ -1358,13 +1357,6 @@ private:
             }
         }
     }
-
-	/// Recursive call to build the subtree with root "node", level
-	/// specifies the level at which "node" resides inside the tree
-	void buildOctTree(GenericTreeNode* node, int level);
-#ifdef TREE_BREADTH_FIRST
-	void growBottomUp(GenericTreeNode* node);
-#endif
 
 	/// Compute all the moments for the nodes that are NonLocal, so that
 	/// during the tree traversal, they contain useful information to decide

@@ -2895,11 +2895,13 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
         // Then construct the local parts of the tree
         LocalTreeBuilder w2(this);
         traversal.dft(root,&w2,0);
-
 #else
-        start = CmiWallTimer();
-	buildOctTree(root, 0);
-        traceUserBracketEvent(tbRecursiveUE,start,CmiWallTimer());
+        /*
+         * This should not happen since the tree build type is guaranteed to be specified
+         * at configure-time. If, however, the Makefile is manually modified, then we want
+         * to catch that error here.
+         */
+        #error "No valid tree build type specified"
 #endif
 
 	}
@@ -3067,179 +3069,6 @@ bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &la
   }
   return (myPlace >= firstOwner && myPlace <= lastOwner);
 }
-
-/** A recursive algorithm for building my tree.
-    Examines successive bits in the particles' keys, looking for splits.
-    Each bit is a level of nodes in the tree.  We keep going down until
-    we can bucket the particles.
-*/
-void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
-
-#ifdef TREE_BREADTH_FIRST
-  CkQ<GenericTreeNode*> *queue = new CkQ<GenericTreeNode*>(1024);
-  CkQ<GenericTreeNode*> *queueNext = new CkQ<GenericTreeNode*>(1024);
-  queue->enq(node);
-
-  GenericTreeNode *rootNode = node;
-  while (1) {
-    node = queue->deq();
-    if (node == NULL) {
-      node = queueNext->deq();
-      CkQ<GenericTreeNode*> *tmp = queue;
-      queue = queueNext;
-      queueNext = tmp;
-      level++;
-    }
-    if (node == NULL) break;
-#endif
-
-  if (level == NodeKeyBits-2) {
-    ckerr << thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
-    ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
-    ckerr << "Left key : " << keyBits((myParticles[node->firstParticle]).key, KeyBits).c_str() << endl;
-    ckerr << "Right key: " << keyBits((myParticles[node->lastParticle]).key, KeyBits).c_str() << endl;
-    ckerr << "Node type: " << node->getType() << endl;
-    ckerr << "myNumParticles: " << myNumParticles << endl;
-    CkAbort("Tree is too deep!");
-    return;
-  }
-
-  CkAssert(node->getType() == Boundary || node->getType() == Internal);
-
-  node->makeOctChildren(myParticles, myNumParticles, level, pTreeNodes);
-  // The boundingBox was used above to determine the spacially equal
-  // split between the children.  Now reset it so it can be calculated
-  // from the particle positions.
-  node->boundingBox.reset();
-  node->rungs = 0;
-
-  GenericTreeNode *child;
-#if INTERLIST_VER > 0
-  int bucketsBeneath = 0;
-#endif
-  for (unsigned int i=0; i<node->numChildren(); ++i) {
-    child = node->getChildren(i);
-    CkAssert(child != NULL);
-#if INTERLIST_VER > 0
-    child->startBucket=numBuckets;
-#endif
-    nodeLookupTable[child->getKey()] = child;
-    if (child->getType() == NonLocal) {
-      // find a remote index for the node
-      int first, last;
-      bool isShared = nodeOwnership(child->getKey(), first, last);
-      if (last < first) {
-	// the node is really empty because falling between two TreePieces
-	child->makeEmpty();
-	child->remoteIndex = thisIndex;
-      } else {
-	child->remoteIndex = getResponsibleIndex(first, last);
-	// if we have a remote child, the node is a Boundary. Thus count that we
-	// have to receive one more message for the NonLocal node
-	node->remoteIndex --;
-	// request the remote chare to fill this node with the Moments
-        CkEntryOptions opts;
-        opts.setPriority((unsigned int) -110000000);
-	streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex, &opts);
-      }
-    } else if (child->getType() == Internal
-              && (child->lastParticle - child->firstParticle < maxBucketSize
-                  || level >= NodeKeyBits-3)) {
-       if(level >= NodeKeyBits-3
-	  && child->lastParticle - child->firstParticle >= maxBucketSize)
-           ckerr << "Truncated tree with "
-                 << child->lastParticle - child->firstParticle
-                 << " particle bucket" << endl;
-       
-      CkAssert(child->firstParticle != 0 && child->lastParticle != myNumParticles+1);
-      child->remoteIndex = thisIndex;
-      child->makeBucket(myParticles);
-      bucketList.push_back(child);
-#if INTERLIST_VER > 0
-      child->startBucket=numBuckets;
-#endif
-      numBuckets++;
-      if (node->getType() != Boundary) {
-        node->moments += child->moments;
-        node->boundingBox.grow(child->boundingBox);
-        node->bndBoxBall.grow(child->bndBoxBall);
-	node->iParticleTypes |= child->iParticleTypes;
-        node->nSPH += child->nSPH;
-      }
-      if (child->rungs > node->rungs) node->rungs = child->rungs;
-    } else if (child->getType() == Empty) {
-      child->remoteIndex = thisIndex;
-    } else {
-      if (child->getType() == Internal) child->remoteIndex = thisIndex;
-      // else the index is already 0
-#ifdef TREE_BREADTH_FIRST
-      queueNext->enq(child);
-#else
-      buildOctTree(child, level+1);
-#endif
-      // if we have a Boundary child, we will have to compute it's multipole
-      // before we can compute the multipole of the current node (and we'll do
-      // it in receiveRemoteMoments)
-      if (child->getType() == Boundary) node->remoteIndex --;
-#ifndef TREE_BREADTH_FIRST
-      if (node->getType() != Boundary) {
-        node->moments += child->moments;
-        node->boundingBox.grow(child->boundingBox);
-        node->bndBoxBall.grow(child->bndBoxBall);
-	node->iParticleTypes |= child->iParticleTypes;
-        node->nSPH += child->nSPH;
-      }
-      // for the rung information we can always do now since it is a local property
-      if (child->rungs > node->rungs) node->rungs = child->rungs;
-#endif
-    }
-
-#if INTERLIST_VER > 0
-    bucketsBeneath += child->numBucketsBeneath;
-#endif
-  }
-
-#if INTERLIST_VER > 0
-  node->numBucketsBeneath = bucketsBeneath;
-#endif
-
-  /* The old version collected Boundary nodes, the new version collects NonLocal nodes */
-
-#ifndef TREE_BREADTH_FIRST
-  if (node->getType() == Internal) {
-    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
-  }
-#endif
-
-#ifdef TREE_BREADTH_FIRST
-  }
-  growBottomUp(rootNode);
-#endif
-}
-
-#ifdef TREE_BREADTH_FIRST
-void TreePiece::growBottomUp(GenericTreeNode *node) {
-  GenericTreeNode *child;
-  for (unsigned int i=0; i<node->numChildren(); ++i) {
-    child = node->getChildren(i);
-    if (child->getType() == NonLocal ||
-        (child->getType() == Bucket) ||
-        child->getType() == Empty) continue;
-    growBottomUp(child);
-    if (node->getType() != Boundary) {
-      node->moments += child->moments;
-      node->boundingBox.grow(child->boundingBox);
-      node->bndBoxBall.grow(child->bndBoxBall);
-      node->iParticleTypes |= child->iParticleTypes;
-      node->nSPH += child->nSPH;
-    }
-    if (child->rungs > node->rungs) node->rungs = child->rungs;
-  }
-  if (node->getType() == Internal) {
-    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
-  }
-}
-#endif
 
 /// When the node is found to be null, find the owner and forward the request.
 bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
