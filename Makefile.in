@@ -21,54 +21,55 @@ define compile-c =
 @ echo Compiling $*.c...
 $(quiet) $(charmc) $(c_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix) -c $< -o $@
 endef
-	
+
 define link-charmc =
 @ echo Building $@...
 $(quiet) $(charmc) -o $@ $^ $(ld_flags) $(ld_libs)
 endef
 
 # ------- Basic commands ------------------------------------------------------
-AR 		:= @AR@
-RM 		:= rm -f
-RMR		:= $(RM) -r
+AR    := @AR@
+RM    := rm -f
+RMR   := $(RM) -r
 
-# ------- Verbosity ------------------------------------------------------
+# ------- Verbosity -----------------------------------------------------------
 charm_quiet := $(if $(filter $(CHARM_VERBOSE),1),-verbose,)
 quiet       := $(if $(filter $(VERBOSE),1),,@)
 
-# ------- Compiler setup -----------------------------------------------------
-charmc 		:= @CHARM_PATH@/bin/charmc $(charm_quiet)
-target  	:= $(build_dir)/ChaNGa
-charmrun	:= charmrun
-cxx_std 	:= c++11
-c_std		:= c99
-opt_flag	:= -O3
+# ------- Compiler setup ------------------------------------------------------
+charmc      := @CHARM_PATH@/bin/charmc $(charm_quiet)
+target      := $(build_dir)/ChaNGa
+charmrun    := charmrun
+cxx_std     := c++11
+c_std       := c99
+opt_flag    := -O3
 target_arch := -m64
-threads 	:= -lpthread
+threads     := -lpthread
 
 # ------- Debugging -----------------------------------------------------------
-#	-DPRINT_MERGED_TREE 
-#	-DCOSMO_PRINT=1       			# enable really verbose prints
-#	-DCOSMO_PRINT_BK=2    			# enable verbose book-keeping prints
-#	-DCOSMO_DEBUG=2       			# enable debugging information
-#	-DMCLBMSV						# Multistepping LB verbosity
-#	-DCOSMO_STATS=1					# enable statistics collection
-#	-DCHANGA_REFACTOR_WALKCHECK
-#	-DCHANGA_REFACTOR_WALKCHECK_INTERLIST
-#	-DCHANGA_REFACTOR_MEMCHECK
-#	-DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
-#	-DCHANGA_REFACTOR_PRINT_INTERACTIONS
+# -DPRINT_MERGED_TREE
+# -DCOSMO_PRINT=1       # enable really verbose prints
+# -DCOSMO_PRINT_BK=2    # enable verbose book-keeping prints
+# -DCOSMO_DEBUG=2       # enable debugging information
+# -DMCLBMSV             # Multistepping LB verbosity
+# -DCOSMO_STATS=1       # enable statistics collection
+# -DCHANGA_REFACTOR_WALKCHECK
+# -DCHANGA_REFACTOR_WALKCHECK_INTERLIST
+# -DCHANGA_REFACTOR_MEMCHECK
+# -DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
+# -DCHANGA_REFACTOR_PRINT_INTERACTIONS
+#
 # Check walk correctness and trace walk for TEST_BUCKET on TEST_TP:
-#	-DCHANGA_REFACTOR_WALKCHECK_INTERLIST
-#	-DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
-#	-DCHECK_WALK_COMPLETIONS
+# -DCHANGA_REFACTOR_WALKCHECK_INTERLIST
+# -DCHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
+# -DCHECK_WALK_COMPLETIONS
 debug_defines =
 
 ifeq (1,$(DEBUG))
-	debug_defines 	+= -DCOSMO_DEBUG=2
-	opt_flag 		:= @OPT_DEBUG@
-	target	 		:= $(target).dbg
-	charmrun 		:= $(charmrun).dbg
+  debug_defines   += -DCOSMO_DEBUG=2
+  opt_flag        := @OPT_DEBUG@
+  target          := $(target).dbg
+  charmrun        := $(charmrun).dbg
 endif
 
 # Always emit debug symbols in case of core dumps
@@ -76,58 +77,57 @@ opt_flag += -g
 
 # ------- Projections ---------------------------------------------------------
 ifeq (yes,@PROJECTIONS@)
-	target 	 	  := $(target).prj
-	charmrun 	  := $(charmrun).prj
-	debug_ldflags += -tracemode projections
+  target        := $(target).prj
+  charmrun      := $(charmrun).prj
+  debug_ldflags += -tracemode projections
 endif
 
 # ------- Sanitizers ----------------------------------------------------------
 ifneq (no,@FLAG_SANITIZER@)
-	target 	 	  := $(target).san
-	charmrun 	  := $(charmrun).san
-	debug_flags   += -fno-omit-frame-pointer -fsanitize=@FLAG_SANITIZER@
-	debug_ldflags += -fsanitize=@FLAG_SANITIZER@
+  target        := $(target).san
+  charmrun      := $(charmrun).san
+  debug_flags   += -fno-omit-frame-pointer -fsanitize=@FLAG_SANITIZER@
+  debug_ldflags += -fsanitize=@FLAG_SANITIZER@
 endif
 
 # ------- CUDA ----------------------------------------------------------------
 ifeq (yes,@ENABLE_CUDA@)
-	# Use a conditional include so seqential cleans work
-	-include $(build_dir)/cuda.mk
+  # Use a conditional include so seqential cleans work
+  -include $(build_dir)/cuda.mk
 endif
 
 # ------- Include paths -------------------------------------------------------
-structures_path 	:= @STRUCT_DIR@
-charm_util_path 	:= @CHARM_PATH@/tmp
-cache_lib_path 		:= @CHARM_PATH@/tmp/libs/ck-libs/cache
-threadsafe_ht_path 	:= $(cache_lib_path)/threadsafe_hashtable
+structures_path     := @STRUCT_DIR@
+charm_util_path     := @CHARM_PATH@/tmp
+cache_lib_path      := @CHARM_PATH@/tmp/libs/ck-libs/cache
+threadsafe_ht_path  := $(cache_lib_path)/threadsafe_hashtable
 
 # ------- Modules to build ----------------------------------------------------
-changa_modules := $(strip MultistepLB MultistepOrbLB MultistepLB_notopo	\
-					MultistepNodeLB_notopo Orb3dLB Orb3dLB_notopo 		\
-					HierarchOrbLB)
+changa_modules := $(strip MultistepLB MultistepOrbLB MultistepLB_notopo \
+                    MultistepNodeLB_notopo Orb3dLB Orb3dLB_notopo HierarchOrbLB)
 
-charm_modules := $(strip CkCache CkIO CkMulticast RefineLB RefineCommLB	\
-					GreedyLB GreedyCommLB OrbLB RotateLB liveViz CkLoop)
+charm_modules := $(strip CkCache CkIO CkMulticast RefineLB RefineCommLB \
+                   GreedyLB GreedyCommLB OrbLB RotateLB liveViz CkLoop)
 
 # ------- Helper Variables ----------------------------------------------------
-defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@	\
-			@FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@  	\
-			@FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@ 	\
-			@FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@			\
-			@FLAG_VSIGVISC@ @FLAG_DAMPING@ @FLAG_DIFFHARMONIC@	\
-			@FLAG_TREE_BUILD@ $(debug_defines) @FLAG_INTERLIST@	\
-			$(cuda_defines) -DREDUCTION_HELPER)
+defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@  \
+          @FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@    \
+          @FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@   \
+          @FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@         \
+          @FLAG_VSIGVISC@ @FLAG_DAMPING@ @FLAG_DIFFHARMONIC@  \
+          @FLAG_TREE_BUILD@ $(debug_defines) @FLAG_INTERLIST@ \
+          $(cuda_defines) -DREDUCTION_HELPER)
 
-modules := $(strip -language charm++ -balancer @DEFAULT_LB@		\
-		    $(foreach m,$(charm_modules),-module $(m))			\
-		    $(foreach m,$(changa_modules),-module $(m)))
+modules := $(strip -language charm++ -balancer @DEFAULT_LB@   \
+            $(foreach m,$(charm_modules),-module $(m))        \
+            $(foreach m,$(changa_modules),-module $(m)))
 
-includes := $(strip -I$(structures_path) -I$(cache_lib_path)		\
-			-I$(source_dir) -I$(threadsafe_ht_path)	-I$(build_dir)	\
-			-I$(charm_util_path) -I@CHARM_PATH@/include)
+includes := $(strip -I$(structures_path) -I$(cache_lib_path)  \
+      -I$(source_dir) -I$(threadsafe_ht_path) -I$(build_dir)  \
+      -I$(charm_util_path) -I@CHARM_PATH@/include)
 
-basic_flags := $(opt_flag) $(threads) $(target_arch) $(debug_flags)
-basic_ldlibs := $(cuda_libs) $(modules) $(structures_path)/libTipsy.a $(threads)
+basic_flags   := $(opt_flag) $(threads) $(target_arch) $(debug_flags)
+basic_ldlibs  := $(cuda_libs) $(modules) $(structures_path)/libTipsy.a $(threads)
 basic_ldflags := $(debug_ldflags) $(cuda_ldflags) -L. -L@CHARM_PATH@/lib
 
 # ------- Standard Variables --------------------------------------------------
@@ -147,18 +147,18 @@ cxx_srcs := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.cpp))
 # If cha_commitid.c wasn't picked up in the source directory,
 # then we are doing an out-of-source build, so add it here.
 ifneq ($(source_dir),$(build_dir))
-	c_srcs += $(build_dir)/cha_commitid.c
+  c_srcs += $(build_dir)/cha_commitid.c
 endif
 
 # Add the cooling sources (if any)
 ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
-	c_srcs += $(source_dir)/cooling_planet.c $(source_dir)/stiff.c
+  c_srcs += $(source_dir)/cooling_planet.c $(source_dir)/stiff.c
 endif
 ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
-	c_srcs += $(source_dir)/cooling_cosmo.c $(source_dir)/stiff.c
+  c_srcs += $(source_dir)/cooling_cosmo.c $(source_dir)/stiff.c
 endif
 ifeq (-DCOOLING_GRACKLE,@FLAG_COOLING@)
-	c_srcs += $(source_dir)/cooling_grackle.c
+  c_srcs += $(source_dir)/cooling_grackle.c
 endif
 
 sources := $(c_srcs) $(cxx_srcs)
@@ -171,10 +171,10 @@ cxx_objs := $(patsubst %.cpp,%.o,$(subst $(source_dir),$(build_dir),$(cxx_srcs))
 objects  := $(strip $(cxx_objs) $(c_objs) $(cuda_objs))
 
 # ------- Dependencies --------------------------------------------------------
-depend_flags 	:= -MMD -MP -MF
-depend_dir	 	:= $(build_dir)/.
-depend_suffix 	:= .d
-depend_files    := $(wildcard $(depend_dir)/*$(depend_suffix))
+depend_flags  := -MMD -MP -MF
+depend_dir    := $(build_dir)/.
+depend_suffix := .d
+depend_files  := $(wildcard $(depend_dir)/*$(depend_suffix))
 
 # ------- Build targets -------------------------------------------------------
 all: $(target)
@@ -216,12 +216,13 @@ $(build_dir)/%.o: $(source_dir)/%.c
 .PHONY: force
 $(build_dir)/settings: force
 	$(quiet) flags="$(cxx_flags) $(c_flags) $(ld_libs) $(ld_flags)" && \
-			 echo "$$flags" | cmp -s - $@ || echo "$$flags" > $@
+		echo "$$flags" | cmp -s - $@ || echo "$$flags" > $@
 
 $(ci_files): $(build_dir)/settings
 $(objects): $(build_dir)/settings
 
-$(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a $(foreach m,$(changa_modules),libmodule$(m).a)
+$(build_dir)/$(target): $(foreach m,$(changa_modules),libmodule$(m).a)
+$(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a
 	$(link-charmc)
 ifneq (charmrun,$(charmrun))
 	$(quiet) mv $(build_dir)/charmrun $(build_dir)/$(charmrun)
@@ -248,11 +249,12 @@ clean:
 
 .PHONY: dist-clean
 dist-clean: clean
-	$(quiet) $(RM) $(target) $(charmrun) ChaNGa.* charmrun.* config.status config.log config.h Makefile $(build_dir)/cha_commitid.c
+	$(quiet) $(RM) $(target) $(charmrun) ChaNGa.* charmrun.* config.status
+	$(quiet) $(RM) config.log config.h Makefile $(build_dir)/cha_commitid.c
 
 .PHONY: full-clean
 full-clean: dist-clean
-	$(quiet) $(RMR) $(source_dir)/autom4te.cache $(source_dir)/configure 
+	$(quiet) $(RMR) $(source_dir)/autom4te.cache $(source_dir)/configure
 
 # for backwards compatibility
 .PHONY: ref-clean
