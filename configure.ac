@@ -146,7 +146,7 @@ ARG_ENABLE([dtadjust], [emergency timestep adjust], [FLAG_DTADJUST], [-DDTADJUST
 # Select SPH interpolation kernel
 # --- Deprecated flags ---
 ARG_ENABLE([wendland], [DEPRECATED. Use --enable-sph-kernel=wendland], [flag_sph_wendland_deprecated], [wendland], [none])
-ARG_ENABLE([m6kernel], [DEPRECATED. Use --enable-sph-kernel=m6kernel], [flag_sph_m6kernel_deprecated], [m6kernel], [none])
+ARG_ENABLE([m6kernel], [DEPRECATED. Use --enable-sph-kernel=m6], [flag_sph_m6kernel_deprecated], [m6kernel], [none])
 #------------------------
 AC_ARG_ENABLE([sph_kernel], [AS_HELP_STRING([--enable-sph-kernel], [SPH interpolation kernel (m4,m6,wendland)])],
 				[sph_kernel=$enableval], [sph_kernel=sph_none])
