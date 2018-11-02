@@ -449,7 +449,7 @@ mainmodule ParallelGravity {
 #ifndef MERGE_REMOTE_REQUESTS 
     	  [inline]
 #endif
-	  void requestRemoteMoments(Tree::NodeKey key, int sender);
+	  void requestRemoteMoments(const Tree::NodeKey key, int sender);
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type,
       int firstParticle, int numParticles, int remIdx, MultipoleMoments& moments,
       OrientedBox<double>& box, OrientedBox<double>& boxBall,
