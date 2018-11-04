@@ -269,13 +269,9 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
   Key k;
   BinaryTreeNode *rt;
 
-#ifdef REDUCTION_HELPER
   // The reduction helper needs to know the number of pieces on each processor.
   reductionHelperProxy.countTreePieces(CkCallbackResumeThread());
   CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy; 
-#else
-  CProxy_TreePiece boundariesTargetProxy = treeProxy; 
-#endif
 
   decompTime = CmiWallTimer();
     
@@ -528,11 +524,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     int arraySize = (1<<refineLevel)+1;
     startTimer = CmiWallTimer();
     Key *array = convertNodesToSplittersRefine(nodesOpened.size(),nodesOpened.getVec());
-#ifdef REDUCTION_HELPER
     CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy; 
-#else
-    CProxy_TreePiece boundariesTargetProxy = treeProxy; 
-#endif
     boundariesTargetProxy.evaluateBoundaries(array, nodesOpened.size()*arraySize, 1<<refineLevel, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
     delete[] array;
   }
@@ -817,13 +809,8 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 
 	} else {
           //send out the new guesses to be evaluated
-#ifdef REDUCTION_HELPER
           CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy;
           boundariesTargetProxy.evaluateBoundaries(binsToSplit, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#else
-          CProxy_TreePiece boundariesTargetProxy = treeProxy;
-          boundariesTargetProxy.evaluateBoundaries(&splitters[0], splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
-#endif
         }
 
 }

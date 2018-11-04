@@ -144,9 +144,7 @@ extern double dGlassDamper;
 extern int bUseCkLoopPar;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
-#ifdef REDUCTION_HELPER
 extern CProxy_ReductionHelper reductionHelperProxy;
-#endif
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
@@ -1145,10 +1143,9 @@ private:
 
 	/// The counts of how many particles belonging to other
 	/// TreePieces I currently hold
-#ifndef REDUCTION_HELPER
 	CkVec<int64_t> myBinCounts;
-#endif
 	std::vector<int> myBinCountsORB;
+
 	/// My index in the responsibility array.
 	int myPlace;
 	/// The keys determined by the Sorter that separate me from my
@@ -2023,8 +2020,6 @@ int encodeOffset(int reqID, int x, int y, int z);
 bool bIsReplica(int reqID);
 void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
 
-#ifdef REDUCTION_HELPER
-
 class TreePieceCounter : public CkLocIterator { 
   public:
     TreePieceCounter() { reset(); }
@@ -2059,7 +2054,7 @@ class ReductionHelper : public CBase_ReductionHelper {
   TreePieceCounter localTreePieces;
   std::vector<SFC::Key> splitters;
 };
-#endif
+
 
 /// @brief Used to count non-empty treepieces on the local processor.
 class NonEmptyTreePieceCounter : public CkLocIterator {            

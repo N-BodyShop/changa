@@ -9,9 +9,7 @@ mainmodule ParallelGravity {
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
-#ifdef REDUCTION_HELPER
   readonly CProxy_ReductionHelper reductionHelperProxy;
-#endif
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
@@ -189,7 +187,6 @@ mainmodule ParallelGravity {
     entry [notrace] void off(CkCallback);                     
   };                                                          
 
-#ifdef REDUCTION_HELPER
   group [migratable] ReductionHelper {
     entry ReductionHelper();
     entry void countTreePieces(const CkCallback &cb);
@@ -197,7 +194,6 @@ mainmodule ParallelGravity {
 
     entry void evaluateBoundaries(const CkBitVector &binsToSplit, const CkCallback& cb);
   };
-#endif
 
   chare [migratable] Sorter {
     entry Sorter();
