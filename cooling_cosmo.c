@@ -350,10 +350,6 @@ void clRatesRedshift( COOL *cl, double zIn, double dTimeIn ) {
   if (cl->R.Rate_Phot_HeI < CL_RT_MIN) cl->R.Rate_Phot_HeI = CL_RT_MIN;
   if (cl->R.Rate_Phot_HeII < CL_RT_MIN) cl->R.Rate_Phot_HeII = CL_RT_MIN;
 
-/*
-  printf("Cooling Rates for t(%1i)=%g, Z=%g: %g %g %g %g %g %g\n",cl->bUVTableUsesTime,dTimeIn,zIn,cl->R.Rate_Phot_HI,cl->R.Rate_Phot_HeI,cl->R.Rate_Phot_HeII,cl->R.Heat_Phot_HI,cl->R.Heat_Phot_HeI,cl->R.Heat_Phot_HeII);
-*/
-
   return;
   }
 
@@ -743,8 +739,6 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho ) {
     yHeI = yHe * rfHe;
     yHeII = yHe * fHeI * rfHe;
 
-    /*    fprintf(stderr,"Abund %g %g %g %g\n",yHI,yHeI,yHeII,ye);
-        fprintf(stderr,"  Rates %g %g %g \n",rcirrHI,rcirrHeI,rcirrHeII); */
     if ( fabs(yHeII_old-yHeII) < EPS * yHeII && fabs(yHI_old-yHI) < EPS * yHI ) break;
   }
 
@@ -931,7 +925,6 @@ double clCoolRadrHeII( double T ) {
   double Tpow;
     
   Tpow=pow(T,CL_b);
-  /* return CL_B_gm*(CL_eHeI+exp(-(CL_aHII*pow(13.6/24.59,CL_b))*Tpow)*CL_k_Boltzmann*T); */
   return CL_B_gm*(exp(-(CL_aHII*pow(13.6/24.59,CL_b))*Tpow)*CL_k_Boltzmann*T);
 }
 
@@ -939,7 +932,6 @@ double clCoolRadrHeIII( double T ) {
   double Tpow;
     
   Tpow=pow(T,CL_b);
-  /* return CL_B_gm*(CL_eHeII+exp(-(CL_aHII*pow(13.6/54.42,CL_b))*Tpow)*CL_k_Boltzmann*T); */
   return CL_B_gm*(exp(-(CL_aHII*pow(13.6/54.42,CL_b))*Tpow)*CL_k_Boltzmann*T);
 }
 
@@ -1119,29 +1111,6 @@ void clDerivs(double x, const double *y, double *dHeat, double *dCool,
       *dCool -= d->ExternalHeating;
 }
 
-#if 0
-/* Unused */
-int clJacobn(double x, const double y[], double dfdx[], double *dfdy, void *Data) {
-  clDerivsData *d = Data;
-  double E = y[0],dE;
-  const int ndim = 1;
-
-  dfdx[0] = 0;
-
-  /* Approximate dEdt/dE */
-  d->E = E*(EMUL);
-  clTempIteration( d );
-  dE = clEdotInstant( d->cl, &d->Y, &d->Rate, d->rho, d->ZMetal );
-
-  d->E = E*(1/EMUL);
-  clTempIteration( d );
-  dE -= clEdotInstant( d->cl, &d->Y, &d->Rate, d->rho, d->ZMetal );
-
-  dfdy[0*ndim + 0] = dE/(E*d->dlnE);
-  return GSL_SUCCESS;
-}
-#endif
-
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
 		       double ExternalHeating, double rho, double ZMetal, double tStep ) {
 
@@ -1160,7 +1129,6 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
   clAbunds( d->cl, &d->Y, &d->Rate, d->rho );
 
   EMin = clThermalEnergy( d->Y.Total, cl->TMin );
-  //if(tStep < 0) return; 
    if (tStep < 0)  {   /* Don't integrate energy equation */
       tStep = fabs(tStep);
       *E += ExternalHeating*tStep;
@@ -1191,8 +1159,6 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
   d->E = *E;
   clTempIteration( d );
   *Y = d->Y;
-  /*  printf("Abunds:  e %e HI %e HII %e\nHeI %e HeII %e HeIII %e\n",
-  	 d->Y.e,d->Y.HI,d->Y.HII,d->Y.HeI,d->Y.HeII,d->Y.HeIII); */
 }
 
 /* Module Interface routines */
@@ -1235,27 +1201,6 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 	}
 	
 void CoolOutputArray( COOLPARAM *CoolParam, int cnt, int *type, char *suffix ) {
-#if 0
-	*type = OUT_NULL;
-
-	switch (cnt) {
-	case 0:
-		if (!CoolParam->bDoIonOutput) return;
-		*type = OUT_COOL_ARRAY0;
-		sprintf(suffix,".HI");
-		return;
-	case 1:
-		if (!CoolParam->bDoIonOutput) return;
-		*type = OUT_COOL_ARRAY1;
-		sprintf(suffix,".HeI");
-		return;
-	case 2:
-		if (!CoolParam->bDoIonOutput) return;
-		*type = OUT_COOL_ARRAY2;
-		sprintf(suffix,".HeII");
-		return;
-		}
-#endif
 	}
 
 /* Output Conversion Routines */

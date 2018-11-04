@@ -1386,14 +1386,8 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                                    ? 0 : diffSum);
             #endif
             // Metals Base term
-            /* massdiff not implemented */
-//            #ifdef MASSDIFF /* compile-time flag */
-//                double diffMetalsBase = 4*smf->dMetalDiffusionCoeff*diffBase \
-//                     /((p->fDensity+q->fDensity)*(p->fMass+q->fMass));
-//            #else
                 double diffMetalsBase = 2*dMetalDiffusionCoeff*diffBase \
                      /(p->fDensity+q->fDensity); 
-//            #endif //MASSDIFF
         
             // Thermal diffusion
             /* 
@@ -1404,63 +1398,20 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
              *  params.diffuNc
              */
             double diffTh;
-//            /* DIFFUSIONPRICE not implemented */
-//            #ifdef DIFFUSIONPRICE /* compile-time flag */
-//                {
-//                double irhobar = 2/(p->fDensity+q->fDensity);
-//                double vsig = sqrt(fabs(qParams.PoverRho2*q->fDensity*q->fDensity \
-//                                        - pParams.PoverRho2*p->fDensity*p->fDensity)\
-//                                        *irhobar);
-//                diffTh = smf->dThermalDiffusionCoeff*0.5 \
-//                        * (ph+sqrt(0.25*BALL2(q)))*irhobar*vsig;
-//                params.diffu = diffTh*(p->uPred-q->uPred);
-//                }
-//            #else
                 #ifndef NODIFFUSIONTHERMAL /* compile-time flag */
                     {
                     diffTh = (2*dThermalDiffusionCoeff*diffBase/(p->fDensity+q->fDensity));
                     double dt_diff;
                     double dThermalCond;
-//                    /* THERMALCOND not implemented */
-//                    #ifdef THERMALCOND /* compile-time flag */
-//                        #if (0)
-//                            /* Harmonic average coeff */
-//                            double dThermalCondSum = p->fThermalCond + q->fThermalCond;
-//                            dThermalCond = ( dThermalCondSum <= 0 ? 0 \
-//                                : 4*p->fThermalCond*q->fThermalCond \
-//                                /(dThermalCondSum*p->fDensity*q->fDensity) );
-//                        #else
-//                            /* Arithmetic average coeff */
-//                            dThermalCond = (p->fThermalCond + q->fThermalCond) \
-//                                    /(p->fDensity*q->fDensity);
-//                            if (dThermalCond > 0 && (dt_diff = dtFacDiffusion*ph \
-//                                    *p->fThermalLength/(dThermalCond*p->fDensity)) < dt){
-//                                dt = dt_diff;
-//                            }
-//                        #endif
-//                    #else
                         dThermalCond = 0.0;
-//                    #endif //THERMALCOND
                     if (diffTh > 0 && (dt_diff= dtFacDiffusion*ph*ph/(diffTh*p->fDensity)) < dt) dt = dt_diff;
                     params.diffu = (diffTh+dThermalCond)*(p->uPred()-q->uPred());
                     }
                 #endif
-//            #endif //DIFFUSIONPRICE
-//            /* not implemented */
-//            #ifdef UNONCOOL /* compile-time flag */
-//                params.diffuNc = diffTh*(p->uNoncoolPred-q->uNoncoolPred);
-//            #endif
             // Calculate diffusion pre-factor terms (required for updating particles)
             params.diffMetals = diffMetalsBase*(p->fMetals() - q->fMetals());
             params.diffMetalsOxygen = diffMetalsBase*(p->fMFracOxygen() - q->fMFracOxygen());
             params.diffMetalsIron = diffMetalsBase*(p->fMFracIron() - q->fMFracIron());
-//            /* not implemented */
-//            #ifdef MASSDIFF /* compile-time flag */
-//                params.diffMass = diffMetalsBase*(p->fMass - q->fMass);
-//                // To properly implement this in ChaNGa the correct velocity 
-//                // should be chosen
-//                params.diffVelocity = diffMetalsBase * (p->velocity - q->velocity);
-//            #endif
         #endif
         if (p->rung >= activeRung) {
             updateParticle(p, q, &params, &pParams, &qParams, 1);
@@ -1502,19 +1453,10 @@ void updateParticle(GravityParticle *a, GravityParticle *b,
     // Update diffusion terms
     #ifdef DIFFUSION /* compile-time flag */
         // Thermal diffusion
-//        /* not implemented */
-//        #ifdef DIFFUSIONPRICE /* compile-time flag */
-//            a->uDotDiff += sign * params->diffu * bParams->rNorm;
-//        #else
             #ifndef NODIFFUSIONTHERMAL /* compile-time flag */
                 a->PdV() += sign * params->diffu * bParams->rNorm \
                         * massDiffFac(b);
             #endif
-//        #endif //DIFFUSIONPRICE
-//        /* not implemented */
-//        #ifdef UNONCOOL /* compile-time flag */
-//            a->uNoncoolDotDiff += sign * params->diffuNc * bParams->rNorm;
-//        #endif
         // Metals diffusion
         a->fMetalsDot() += sign * params->diffMetals * bParams->rNorm
                 * massDiffFac(b);
@@ -1522,22 +1464,7 @@ void updateParticle(GravityParticle *a, GravityParticle *b,
                 * bParams->rNorm * massDiffFac(b);
         a->fMFracIronDot() += sign * params->diffMetalsIron * bParams->rNorm
                 * massDiffFac(b);
-//        /* not implemented */
-//        #ifdef MASSDIFF /* compile-time flag */
-//        // Note: to implement this in ChaNGa, ACCEL should be properly vectorized
-//            a->fMassDot += sign * params->diffMass * a->fMass * bParams->rNorm;
-//            ACCEL(a) += sign * params->diffVelocity * bParams->rNorm \
-//                    * massDiffFac(b);
-//        #endif
     #endif
-    // Update pressure/viscosity terms
-//    /* not implemented */
-//    #ifdef DRHODT /* compile-time flag */
-//        a->fDivv_PdV -= bParams->rNorm / params->fDivv_Corrector / \
-//                rhoDivv(a->fDensity,b->fDensity) * params->dvdotdr;
-//        a->fDivv_PdVcorr -= bParams->rNorm / rhoDivv(a->fDensity,b->fDensity) \
-//                * params->dvdotdr;
-//    #endif
     a->PdV() += bParams->rNorm*presPdv(aParams->PoverRho2, bParams->PoverRho2)
             * params->dvdotdr;
     a->PdV() += bParams->rNorm * 0.5 * params->visc * params->dvdotdr;

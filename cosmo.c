@@ -365,44 +365,6 @@ double csmComoveLookbackTime2Exp(CSM csm,double dComoveTime)
 	    }
 	}
 
-#if 0
-/*
- * Code for generating linear growth factors.
- * This is taken from Carroll, Press & Turner Ann. Rev. (1992)
- */
-
-/*
- * The following will not work with general quintessence models.
- * It is replaced with the code that follows.
- */
-double csmGrowthFacInt(CSM csm, double dExp)
-{
-    return pow(dExp*csmExp2Hub(csm, dExp), -3.0);
-    }
-
-double csmGrowthFac(CSM csm, double dExp)
-{
-    return 2.5*csm->dOmega0*csm->dHubble0*csm->dHubble0*csmExp2Hub(csm, dExp)
-	*dRombergO(csm, (double (*)(void *, double)) csmGrowthFacInt,
-		   0.0, dExp, EPSCOSMO);
-    }
-
-/*
- * Time derivative of the growth factor.
- */
-
-double csmGrowthFacDot(CSM csm, double dExp)
-{
-    double dHubble = csmExp2Hub(csm, dExp);
-    
-    return 2.5*csm->dOmega0*csm->dHubble0*csm->dHubble0
-	*((csmExpDot2(csm, dExp) - dHubble*dHubble)
-	  *dRombergO(csm, (double (*)(void *, double)) csmGrowthFacInt,
-		     0.0, dExp, EPSCOSMO)
-	  + 1.0/(dExp*dExp*dHubble));
-    }
-#endif
-
 /*
  * delta[1] => deltadot
  */

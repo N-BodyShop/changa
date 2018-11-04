@@ -244,9 +244,6 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
 	    a = 1.0;
 	    }
 	}
-    /*    ~DistStellarFeedbackSmoothParams() {
-	delete fb;
-	}*/
     PUPable_decl(DistStellarFeedbackSmoothParams);
     DistStellarFeedbackSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
     virtual void pup(PUP::er &p) {
