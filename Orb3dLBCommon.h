@@ -14,7 +14,6 @@
 #include "Vector3D.h"
 #include "CentralLB.h"
 #define  ORB3DLB_NOTOPO_DEBUG
-// #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
 
 /// @brief Hold information about Pe load and number of objects.
 class PeInfo {
@@ -197,19 +196,6 @@ class Orb3dCommon{
       }
       int nleft = splitIndex;
       int nright = numEvents-nleft;
-
-#if 0
-      if(nright < nrprocs) {  // at least one piece per processor
-        nright = nrprocs;
-        nleft = splitIndex = numEvents-nright;
-        CkAssert(nleft >= nlprocs);
-      }
-      else if(nleft < nlprocs) {
-        nleft = splitIndex = nlprocs;
-        nright = numEvents-nleft;
-        CkAssert(nright >= nrprocs);
-      }
-#endif
 
       if(nleft > nlprocs*maxPieceProc) {
 	  nleft = splitIndex = (int) (nlprocs*maxPieceProc);
@@ -419,22 +405,12 @@ class Orb3dCommon{
       double maxPiece = 0.0;
 
       CkPrintf("***************************\n");
-      //  CkPrintf("Before LB step %d\n", step());
       for(int i = 0; i < stats->count; i++){
         double wallTime = stats->procs[i].total_walltime;
         double idleTime = stats->procs[i].idletime;
         double bgTime = stats->procs[i].bg_walltime;
         double pred = predLoad[i];
         double npiece = predCount[i];
-        /*
-           CkPrintf("[pestats] %d %d %f %f %f %f\n", 
-           i,
-           stats->procs[i].pe, 
-           wallTime,
-           idleTime,
-           bgTime,
-           objTime);
-           */
 
         avgWall += wallTime; 
         avgIdle += idleTime; 
@@ -492,30 +468,6 @@ class Orb3dCommon{
       delete[] predLoad;
       delete[] predCount;
 
-#if 0
-      float minload, maxload, avgload;
-      minload = maxload = procload[0];
-      avgload = 0.0;
-      for(int i = 0; i < stats->count; i++){
-        CkPrintf("pe %d load %f box %f %f %f %f %f %f\n", i, procload[i], 
-            procbox[i].lesser_corner.x,
-            procbox[i].lesser_corner.y,
-            procbox[i].lesser_corner.z,
-            procbox[i].greater_corner.x,
-            procbox[i].greater_corner.y,
-            procbox[i].greater_corner.z
-            );
-        avgload += procload[i];
-        if(minload > procload[i]) minload = procload[i];
-        if(maxload < procload[i]) maxload = procload[i];
-      }
-
-      avgload /= stats->count;
-
-      CkPrintf("Orb3dLB_notopo stats: min %f max %f avg %f max/avg %f\n", minload, maxload, avgload, maxload/avgload);
-#endif
-
-
       CkPrintf("Orb3dLB_notopo stats: maxObjLoad %f\n", maxObjLoad);
       CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
       CkPrintf("Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", minIdle, maxIdle, avgIdle, minIdle/avgIdle);
@@ -548,8 +500,6 @@ class Orb3dCommon{
       for(int i = 0; i < events.size(); i++){
         totalLoad += events[i].load;
       }
-      //CkPrintf("************************************************************\n");
-      //CkPrintf("partitionEvenLoad start %d end %d total %f\n", tpstart, tpend, totalLoad);
       float perfectLoad = ratio * totalLoad;
       ORB3DLB_NOTOPO_DEBUG("partitionRatioLoad bgl %f bgr %f\n",
                            bglp, bgrp);

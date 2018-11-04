@@ -100,12 +100,7 @@ inline bool diffusionLimitTest(const double diffSum, const double dTime,
 }
 
 inline double massDiffFac(const GravityParticle *p) {
-///* not implemented */
-//#ifdef MASSDIFF /* compile-time flag */
-//    return p->fMass;
-//#else
     return 1.0;
-//#endif //MASSDIFF
 }
 
 typedef struct PressSmoothUpdateStruct {
@@ -113,31 +108,13 @@ typedef struct PressSmoothUpdateStruct {
     double visc;
     double aFac;
     Vector3D<double> dx;
-//    /* not implemented */
-//    #ifdef DRHODT /* compile-time flag */
-//        double fDivv_Corrector;
-//    #endif
     #ifdef DIFFUSION
-//        /* DIFFUSIONPRICE not implemented */
-//        #ifdef DIFFUSIONPRICE /* compile-time flag */
-//            double diffu;
-//        #else
             #ifndef NODIFFUSIONTHERMAL /* compile-time flag */
                 double diffu;
             #endif
-//        #endif //DIFFUSIONPRICE
-        /* not implemented */
-//        #ifdef UNONCOOL
-//            double diffuNc;
-//        #endif
         double diffMetals;
         double diffMetalsOxygen;
         double diffMetalsIron;
-//        /* not implemented */
-//        #ifdef MASSDIFF /* compile-time flag */
-//            double diffMass;
-//            Vector3D<double> diffVelocity;
-//        #endif
     #endif
 } PressSmoothUpdate;
 

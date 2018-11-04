@@ -72,8 +72,6 @@ class Sorter : public CBase_Sorter {
 	std::vector<int> chareIDs;
 	/// A list of chare elements to which nothing is assigned
 	std::vector<int> availableChares;
-	// Total size of the keys allocated (allows a margin to increase)
-	//int keysSize;
 
 	/// The percent tolerance to sort keys within.
 	double tolerance;
@@ -183,7 +181,6 @@ public:
 	void startSorting(const CkGroupID& dataManagerID, const double toler, const CkCallback& cb, bool decompose);
 	void convertNodesToSplitters();
 	SFC::Key * convertNodesToSplittersRefine(int num, NodeKey* keys);
-	//void convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero);
         /// @brief Collect the counts of particles in each domain
 	void collectEvaluations(CkReductionMsg* m);
 	void collectEvaluationsSFC(CkReductionMsg* m);
@@ -194,7 +191,6 @@ public:
   void finishPhase(CkReductionMsg *m);
   void collectORBCounts(CkReductionMsg* m);
   void readytoSendORB(CkReductionMsg* m);
-  //void sendBoundingBoxes(CkReductionMsg* m);
 };
 
 #endif //SORTER_H

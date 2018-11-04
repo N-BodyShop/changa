@@ -47,10 +47,6 @@ struct PendingBuffers {
   CkVec<CudaMultipoleMoments> *moments;
   CkVec<CompactPartData> *particles;
   int chunk;
-  //CudaMultipoleMoments *moments;
-  //int nMoments;
-  //CompactPartData *particles;
-  //int nParticles;
 };
 
 #endif
@@ -110,11 +106,6 @@ protected:
         // for now, the former
 
         std::map<NodeKey, int> cachedPartsOnGpu;
-        // local particles that have been copied to the gpu
-        //std::map<NodeKey, int> localPartsOnGpu;
-
-        //std::map<Tree::NodeKey, GenericTreeNode *> missedNodesOnGpu;
-        //std::map<Tree::NodeKey, ExternalGravityParticle *> missedPartsOnGpu;
 
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
@@ -223,11 +214,6 @@ public:
 	void pup(PUP::er& p);
 
 #ifdef CUDA
-        /*
-        std::map<NodeKey, int> &getLocalPartsOnGpuTable(){
-          return localPartsOnGpu;
-        }
-        */
         std::map<NodeKey, int> &getCachedPartsOnGpuTable(){
           return cachedPartsOnGpu;
         }

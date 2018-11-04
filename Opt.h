@@ -35,13 +35,6 @@ class RemoteOpt : public Opt{
     // local data
     action_array[0][Bucket] = DUMP;
     action_array[0][Internal] = DUMP;
-    /*
-    action_array[0][Boundary] = COMPUTE;
-    action_array[0][NonLocal] = COMPUTE;
-    action_array[0][NonLocalBucket] = COMPUTE;
-    action_array[0][Cached] = COMPUTE;
-    action_array[0][CachedBucket] = COMPUTE;
-    */
     action_array[0][Boundary] = DUMP;
     // XXX - changed to COMPUTE from DUMP. see below also
     action_array[0][NonLocal] = COMPUTE;

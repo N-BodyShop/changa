@@ -25,9 +25,6 @@
 #include <sys/param.h>
 #include <sys/stat.h>
 
-// Debug floating point problems
-// #include <fenv.h>
-
 #include "BaseLB.h"
 #include "CkLoopAPI.h"
 
@@ -679,8 +676,6 @@ Main::Main(CkArgMsg* m) {
 		    sizeof(int),"rand", "Randomize the order of remote chunk computation (default: ON)");
 	
 	_nocache = 0;
-	// prmAddParam(prm, "bNoCache", paramBool, &_nocache,
-	//	    sizeof(int),"nc", "Disable the CacheManager caching behaviour");
 	
         param.iVerbosity = 0;
 	prmAddParam(prm, "iVerbosity", paramInt, &param.iVerbosity,
@@ -811,9 +806,6 @@ Main::Main(CkArgMsg* m) {
               sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request (in millions)");
 
           largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
-//          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
-//              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
-
 #endif
 
         int processSimfile = 1;
@@ -1109,7 +1101,6 @@ Main::Main(CkArgMsg* m) {
 	// hardcoding some parameters, later may be full options
 	if(domainDecomposition==ORB_dec || domainDecomposition==ORB_space_dec){
 	    useTree = Binary_ORB;
-	    // CkAbort("ORB decomposition known to be bad and not implemented");
 	    }
 	else { useTree = Binary_Oct; }
 
@@ -2680,15 +2671,7 @@ Main::doSimulation()
 				CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
-#if 0
-	  // For testing concurrent Sph, we don't want to do the
-	  // resmooth.
 
-          ckout << "Recalculating densities ...";
-          startTime = CkWallTimer();
-	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
-          ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-#endif
 	  treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reordering ...";
           startTime = CkWallTimer();
@@ -3673,12 +3656,6 @@ void Main::DumpFrame(double dTime, double dStep)
 		    com = (double *)msgCOMbyType->getData();
 		  }
 
-#if (0)
-		if (df[i]->bGetOldestStar) {
-		  pstOldestStar(msr->pst, NULL, 0, &com[0], NULL);
-		  }
-#endif
-
 		dExp = csmTime2Exp(param.csm,dTime);
                 in.dMinGasMass = param.stfm->dMinGasMass;
 		dfSetupFrame(df[i], dTime, dStep, dExp, com, &in, 0, 0 );
@@ -3848,12 +3825,6 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
       com = (double *)msgCOMbyType->getData();
       }
 
-#if (0)
-    if (df_temp.bGetOldestStar) {
- 	 pstOldestStar(msr->pst, NULL, 0, &com[0], NULL);
-    }
-#endif
-
   dExp = csmTime2Exp(param.csm,dTime);
   dfSetupFrame(&df_temp, dTime, 0.0, dExp, com, &in, 
 		     msg->req.wid, msg->req.ht );
@@ -3975,10 +3946,3 @@ void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name){
 
 
 #include "ParallelGravity.def.h"
-
-/*
-#define CK_TEMPLATES_ONLY
-#include "CacheManager.def.h"
-#undef CK_TEMPLATES_ONLY
-#include "CacheManager.def.h"
-*/
