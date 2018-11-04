@@ -1138,11 +1138,8 @@ private:
           // the index assigned by the CacheManager upon registration
           int localIndex;
 
-	//unsigned int numSplitters;
-        //SFC::Key* splitters;
 	CProxy_TreePiece pieces;
-	/// A proxy to the DataManager.
-	//CProxy_DataManager dataManager; // unused...
+
 	/// A local pointer to my DataManager.
 	DataManager* dm;
 
@@ -1173,10 +1170,6 @@ private:
 	/// from NodeKey to a vector of treepieces that have requested it.
 	MomentRequestType momentRequests;
 
-	/// Opening angle
-	//double theta; -- moved as readonly
-	/// Opening angle - monopole
-	//double thetaMono; -- moved as readonly
         /// The current active mask for force computation in multistepping
         int activeRung;
 
@@ -1211,8 +1204,6 @@ private:
 	/// Map between Keys and TreeNodes, used to get a node from a key
 	NodeLookupType nodeLookupTable;
 
-	/// Number of nodes still missing before starting the real computation
-	//u_int64_t prefetchWaiting;
 	/// Array of keys that will be the root of the prefetching chunks
 	Tree::NodeKey *prefetchRoots;
 	/// Placeholder for particles used for prefetching
@@ -1255,9 +1246,6 @@ private:
 	/// bucketList), and myParticles.
 	/// @todo Eliminate the usage of this in the cache walk
 	BucketGravityRequest *bucketReqs;
-
-	/// Pointer to the instance of the local cache
-        //CacheManager *localCache;
 
 	// Entries used for the CacheManager
 	EntryTypeGravityParticle gravityParticleEntry;
@@ -1409,7 +1397,6 @@ public:
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
     treePieceActivePartsTmp(0) {
-	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
@@ -1424,9 +1411,7 @@ public:
 	  completedActiveWalks = 0;
 	  myPlace = -1;
 	  nSetupWriteStage = -1;
-    //openingDiffCount=0;
     chunkRootLevel=0;
-    //splitters = NULL;
 #if COSMO_STATS > 0
 	  nodesOpenedLocal = 0;
 	  nodesOpenedRemote = 0;
@@ -1505,7 +1490,6 @@ public:
 	  nPartCacheEntries = 0;
 	  completedActiveWalks = 0;
 	  prefetchRoots = NULL;
-	  //remaining Chunk = NULL;
           ewt = NULL;
 	  root = NULL;
 	  pTreeNodes = NULL;
@@ -1663,11 +1647,7 @@ public:
 	// move particles around for output
 	void ioShuffle(CkReductionMsg *msg);
 	void ioAcceptSortedParticles(ParticleShuffleMsg *);
-	/** Inform the DataManager of my node that I'm here.
-	 The callback will receive a CkReductionMsg containing no data.
-	void registerWithDataManager(const CkGroupID& dataManagerID,
-				     const CkCallback& cb);
-	 */
+
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
@@ -1821,7 +1801,6 @@ public:
 	void recvdBoundaries(CkReductionMsg* m);
 
   /********ORB Tree**********/
-  //void receiveBoundingBoxes(BoundingBoxes *msg);
   void startORBTreeBuild(CkReductionMsg* m);
   OrientedBox<float> constructBoundingBox(GenericTreeNode *node,int level, int numChild);
   void buildORBTree(GenericTreeNode * node, int level);
@@ -1865,12 +1844,6 @@ public:
 	void nextBucketSmooth(dummyMsg *msg);
 	void nextBucketReSmooth(dummyMsg *msg);
 	void nextBucketMarkSmooth(dummyMsg *msg);
-#if INTERLIST_VER > 0
-#if 0
-  void calculateForceRemoteBucket(int bucketIndex, int chunk);
-  void calculateForceLocalBucket(int bucketIndex);
-#endif
-#endif
 
   /// @brief Start a tree based gravity computation.
   /// @param am the active rung for the computation
@@ -1904,13 +1877,7 @@ public:
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
 	void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
-	/** @brief Receive the node from the cache as following a previous
-	 * request which returned NULL, and continue the treewalk of the bucket
-	 * which requested it with this new node.
-	*/
-#if 0
-	void receiveNode(GenericTreeNode &node, int chunk, unsigned int reqID);
-#endif
+
 	/// @brief Find the key in the KeyTable, and copy the node over the passed pointer
 	const GenericTreeNode* lookupNode(Tree::NodeKey key);
 	/// Find the particles starting at "begin", and return a pointer to it
@@ -2055,7 +2022,6 @@ int decodeReqID(int);
 int encodeOffset(int reqID, int x, int y, int z);
 bool bIsReplica(int reqID);
 void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
-//bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
 
 #ifdef REDUCTION_HELPER
 

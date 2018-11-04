@@ -124,20 +124,6 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   CkPrintf("numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
 #endif
 
-  /*
-  CkPrintf("**********************************************\n");
-  CkPrintf("Object load predictions phase %d\n", phase);
-  CkPrintf("**********************************************\n");
-  for(int i = 0; i < stats->n_objs; i++){
-      int tp = tpCentroids[i].tp;
-      int lb = tpCentroids[i].tag;
-    CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
-  }
-  CkPrintf("**********************************************\n");
-  CkPrintf("Done object load predictions phase %d\n", prevPhase);
-  CkPrintf("**********************************************\n");
-  */
-
   // select processors
 #ifdef MCLBMSV
   //printData(*stats, phase, NULL);
@@ -215,18 +201,6 @@ void MultistepLB::greedy(BaseLB::LDStats *stats, int count){
 
     processors.push(p);
   }
-
-  // diagnostics
-  /*
-  CkPrintf("**********************************\n");
-  CkPrintf("GREEDY CPU LOAD PREDICTIONS phase %d\n", phase);
-  CkPrintf("**********************************\n");
-  while(!processors.empty()){
-    Processor p = processors.top();
-    processors.pop();
-    CkPrintf("proc %d load %f\n", p.t, p.load);
-  }
-  */
 
   CkPrintf("**********************************\n");
   CkPrintf("GREEDY MEASURED CPU LOAD\n");
@@ -309,7 +283,6 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
     nodes[node].y = y;
     nodes[node].z = z;
     nodes[node].procRanks.push_back(i);
-    //CkPrintf("node %d,%d,%d (%d) gets t %d\n", nodes[node].x, nodes[node].y, nodes[node].z, node, t);
   }
 
   if (_lb_args.debug()>=2) {
@@ -328,18 +301,6 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
 
     objload[pe] += load;
   }
-
-  /*
-  CkPrintf("******************************\n");
-  CkPrintf("CPU LOAD PREDICTIONS phase %d\n", phase);
-  CkPrintf("******************************\n");
-  for(int i = 0; i < stats->count; i++){
-    CkPrintf("[pestats] %d %g \n",
-                               i,
-                               objload[i]);
-  }
-  */
-
 
   CkPrintf("******************************\n");
   CkPrintf("MEASURED CPU LOAD\n");
@@ -361,7 +322,6 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
 }
 
 void MultistepLB::map(TPObject *tp, int ntp, int nn, Node *nodes, int xs, int ys, int zs, int dim){
-  //CkPrintf("ntp: %d np: %d dim: %d path: 0x%x\n",ntp,np,dim,path);
   if(nn == 1){
     directMap(tp,ntp,nodes);
   }
@@ -397,10 +357,8 @@ void MultistepLB::directMap(TPObject *tp, int ntp, Node *nodes){
 
   float load = 0.0;
   for(int i = 0; i < ntp; i++){
-    //CkPrintf("obj %d thisindex %d %d %f %f %f %f to node %d %d %d\n", tp[i].lbindex, tp[i].index, tp[i].nparticles, tp[i].load, tp[i].centroid.x, tp[i].centroid.y, tp[i].centroid.z, nodes[0].x, nodes[0].y, nodes[0].z);
     load += tp[i].load;
   }
-  //CkPrintf("node %d %d %d total load %f\n", nodes[0].x, nodes[0].y, nodes[0].z, load);
 
   std::priority_queue<TPObject> pq_obj;
   std::priority_queue<Processor> pq_proc;
@@ -433,8 +391,6 @@ void MultistepLB::directMap(TPObject *tp, int ntp, Node *nodes){
       // if object has some non-zero load, assign it to a proc greedily
       Processor p = pq_proc.top();
       pq_proc.pop();
-
-      //CkPrintf("proc %d load %f gets obj %d load %f\n", p.t, p.load, tp.lbindex, tp.load);
 
       p.load += tp.load;
       (*mapping)[tp.lbindex] = nodes[0].procRanks[p.t];
@@ -480,8 +436,6 @@ TPObject *MultistepLB::partitionEvenLoad(TPObject *tp, int &ntp){
       newdiff = -newdiff;
     }
 
-    //CkPrintf("consider load %f newdiff %f prevdiff %f\n", tp[consider].load, newdiff, prevDiff);
-
     if(newdiff > prevDiff){
       break;
     }
@@ -492,8 +446,6 @@ TPObject *MultistepLB::partitionEvenLoad(TPObject *tp, int &ntp){
       prevDiff = newdiff;
     }
   }
-
-  //CkPrintf("partitionEvenLoad lload %f rload %f\n", lload, rload);
 
   ntp = consider;
   return (tp+consider);

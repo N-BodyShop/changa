@@ -9,7 +9,6 @@
 extern CProxy_TreePiece treeProxy;
 CkpvExtern(int, _lb_obj_index);
 using namespace std;
-//#define ORB3DLB_NOTOPO_DEBUG CkPrintf
 
 CreateLBFunc_Def(MultistepLB_notopo, "Works best with multistepped runs; uses Orb3D_notopo");
 
@@ -30,7 +29,6 @@ MultistepLB_notopo::MultistepLB_notopo(const CkLBOptions &opt): CBase_MultistepL
 
 bool MultistepLB_notopo::QueryBalanceNow(int step){
  if(CkMyPe() == 0) CkPrintf("Orb3dLB_notopo: Step %d\n", step);
- //  if(step == 0) return false;
   return true;
 
 }

@@ -253,8 +253,6 @@ mainmodule ParallelGravity {
     entry void nextBucketSmooth(dummyMsg *msg);
     entry void nextBucketReSmooth(dummyMsg *msg);
     entry void nextBucketMarkSmooth(dummyMsg *msg);
-    //entry void registerWithDataManager(const CkGroupID& dataManagerID,
-    //		     		  const CkCallback& cb);
 
     entry void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod, int bEwald,
                            double fEwCut, double fEwhCut, int bPeriod,
@@ -265,7 +263,6 @@ mainmodule ParallelGravity {
     entry [notrace] void EwaldGPUComplete(); 
     entry [notrace] void EwaldGPU(); 
     entry void velScale(double dScale, const CkCallback& cb);
-    //entry void markPresence(const CkCallback& cb);
     entry void loadNChilada(const std::string& filename, const double dTuFac,
                             const CkCallback& cb);
     entry void readFloatBinary(CkReference<OutputParams> params, int bParaRead,
@@ -466,10 +463,6 @@ mainmodule ParallelGravity {
 
     entry [expedited] void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
     entry [local] void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
-    //entry void receiveNode(GenericTreeNode node[1],
-    //	       unsigned int reqID);
-    //entry void receiveParticle(GravityParticle part,
-    //			   BucketGravityRequest &req);
     entry [expedited] void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
     entry [expedited] void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
     entry void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);

@@ -284,20 +284,13 @@ void dfProjection( struct inDumpFrame *in, struct dfFrameSetup *fs, int nxPix, i
 		DIFF( fs->eye, zero, in->z );
 		}
 
-/*	fprintf(stderr,"eye2: %i  %lf %lf %lf,  %lf %lf %lf",fs->bEye2,fs->eye2[0],fs->eye2[1],fs->eye2[2], in->z[0],in->z[1],in->z[2] ); */
-
 	if (fs->bzEye1) SIZEVEC( in->z, fs->zEye1 );
-
-/* 	fprintf(stderr,"eye2: %i  %lf %lf %lf,  %lf %lf %lf",fs->bEye2,fs->eye2[0],fs->eye2[1],fs->eye2[2], in->z[0],in->z[1],in->z[2] ); */
-
 
 	if (fs->bEye2) {
 		SET( vec, fs->eye2 );
 		if (fs->bzEye2) SIZEVEC( vec, fs->zEye2 );
 		ADD ( in->z, vec );
 		}
-
-/*	fprintf(stderr,"eye2: %i  %lf %lf %lf,  %lf %lf %lf",fs->bEye2,fs->eye2[0],fs->eye2[1],fs->eye2[2], in->z[0],in->z[1],in->z[2] ); */
 
 	if (fs->bzEye) {
 		in->zEye = fs->zEye;
@@ -585,7 +578,6 @@ int dfPropertyToType(char *word)
 	    !strcmp(word,"rho") || !strcmp(word,"dens") || 
 	    !strcmp(word,"Dens") || !strcmp(word,"DENS"))
 	return OUT_DENSITY_ARRAY;
-    //	return GasDenOutputParams(string("junk"), 0, fs->dTime);
     else if(!strcmp(word,"udot") || !strcmp(word,"uDot") || 
 	    !strcmp(word,"edot") || !strcmp(word,"eDot") || 
 	    !strcmp(word,"Edot") || !strcmp(word,"EDot"))
@@ -603,12 +595,6 @@ int dfPropertyToType(char *word)
 	return OUT_TIMEFORM_ARRAY;
     else if(!strcmp(word,"age") || !strcmp(word,"Age"))
 	return OUT_AGE_ARRAY;
-    /*    else if(!strcmp(word,"grp") || !strcmp(word,"group") ||
-	    !strcmp(word,"GRP") || !strcmp(word,"GROUP") ||
-	    !strcmp(word,"grpID") || !strcmp(word,"grpid") ||
-	    !strcmp(word,"groupid") || !strcmp(word,"groupID"))
-	return OUT_GROUP_ARRAY;
-    */
     else return 0;
     }
 
@@ -783,7 +769,6 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 		CkAssert( df->fs != NULL );
 
 		if (df->bVDetails) CkPrintf("DF Default Frame Setup\n" );
-		/* dfProjection( &in, &fs ); */ /* Redundant now -- done again later */
 		df->fs[0] = fs;
 		return;
 		}
@@ -809,7 +794,6 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 		nitem = sscanf( line, "%s", command );
 		if (nitem != 1 || command[0]=='#') continue;
 		else if (!strcmp( command, "t" ) || !strcmp( command, "time" )) {
-			/* dfProjection( &in, &fs );  */ /* Redundant now -- done again later */
 			df->fs[n] = fs;
 			n++; /* next setup */
 
@@ -1133,12 +1117,6 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 				} 
 			}
 		}
-	
-	/* Redundant now -- done again later */
-	/*	
-	in.bVDetails = df->bVDetails;
-	dfProjection( &in, &fs );
-	*/ 
 
 	df->fs[n] = fs;
 	n++; /* next setup */
@@ -1663,7 +1641,6 @@ void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, str
 	int iMax;
 	unsigned char *g;
 	unsigned char *gray;
-	/*char number[40]; -- not used: DCR 12/19/02*/
 
 	iMax = in->nxPix*in->nyPix;
 	gray = (unsigned char *) malloc(sizeof(unsigned char)*3*iMax);

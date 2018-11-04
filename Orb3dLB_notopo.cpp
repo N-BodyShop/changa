@@ -20,8 +20,6 @@ void Orb3dLB_notopo::init() {
     CkpvAccess(_lb_obj_index) = LBRegisterObjUserData(sizeof(TaggedVector3D));
 }
 
-//#define ORB3DLB_NOTOPO_DEBUG CkPrintf 
-
 using namespace std;
 
 CreateLBFunc_Def(Orb3dLB_notopo, "3d ORB mapping of tree piece space onto 3d processor mesh");

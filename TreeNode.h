@@ -18,7 +18,6 @@ using namespace SFC;
 /// @brief Convert a Key into a printable string.
 inline std::string keyBits(const Key k, const int numBits) {
   std::ostringstream oss;
-  //oss << "N";
   bool ready = false;
   for(int i = 0; i < numBits; i++) {
     Key k2 = k & (static_cast<Key>(1) << (62 - i));

@@ -30,8 +30,6 @@ namespace Tree {
       node into the tree, all the bits at its right describe the path of this
       node into the tree, and the bits at its left are clearly 0 and unused.
    */
-  // C++11 syntax
-  // using NodeKey = KeyType;
   typedef KeyType NodeKey;
   static const int NodeKeyBits = 8*sizeof(NodeKey);
 
@@ -613,7 +611,6 @@ public:
       children[0]->firstParticle = firstParticle;
       children[1]->lastParticle = lastParticle;
 
-      //CkPrintf("children keys:%lld,%lld\n",children[0]->key,children[1]->key);
       if(level<rootsLevel){
         //This branch is taken for levels above the TreePiece root level
         //TreePiece root level is the level from where onwards data is internal
@@ -778,8 +775,6 @@ public:
     // extraSpace is used by the CacheInterface to store a pointer to
     // the message so it can be freed when we are finished.
     int packNodes(BinaryTreeNode *buffer, int depth, int extraSpace=0) {
-      //CkPrintf("Entering packNodes: this=%p, buffer=%p, depth=%d\n",this,buffer,depth);
-      //*buffer = *this;
       memcpy(buffer, this, sizeof(*this));
       buffer->parent = NULL;
       buffer->particlePointer = NULL;
@@ -792,40 +787,30 @@ public:
         if (children[0] != NULL) {
           BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * ALIGN_DEFAULT(sizeof(BinaryTreeNode)+extraSpace));
           buffer->children[0] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
-          //CkPrintf("Entering child 0: offset %ld\n",buffer->children[0]);
           used += children[0]->packNodes(nextBuf, depth-1, extraSpace);
         } else {
-          //CkPrintf("Excluding child 0\n");
           buffer->children[0] = NULL;
         }
         if (children[1] != NULL) {
           BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * ALIGN_DEFAULT(sizeof(BinaryTreeNode)+extraSpace));
           buffer->children[1] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
-          //CkPrintf("Entering child 1: offset %ld\n",buffer->children[1]);
           used += children[1]->packNodes(nextBuf, depth-1, extraSpace);
         } else {
-          //CkPrintf("Excluding child 1\n");
           buffer->children[1] = NULL;
         }
       } else {
-        //CkPrintf("Depth reached\n");
         buffer->children[0] = buffer->children[1] = NULL;
       }
-      //CkAssert((long int)buffer->children[0] < 10000);
-      //CkAssert((long int)buffer->children[1] < 10000);
-      //CkPrintf("Returning used = %d\n",used);
       return used;
     }
 
     void unpackNodes() {
       if (children[0] != NULL) {
-        //CkAssert((long int)children[0] < 10000);
         children[0] = (BinaryTreeNode*)(((long int)children[0]) + ((char*)this));
         children[0]->parent = this;
         children[0]->unpackNodes();
       }
       if (children[1] != NULL) {
-        //CkAssert((long int)children[1] < 10000);
         children[1] = (BinaryTreeNode*)(((long int)children[1]) + ((char*)this));
         children[1]->parent = this;
         children[1]->unpackNodes();
@@ -833,21 +818,7 @@ public:
     }
 
     void pup(PUP::er &p) { pup(p, -1); }
-    void pup(PUP::er &p, int depth);/* {
-      //CkPrintf("Pupper of BinaryTreeNode(%d) called for %s (%d)\n",depth,p.isPacking()?"Packing":p.isUnpacking()?"Unpacking":"Sizing",p.isSizing()?((PUP::sizer*)&p)->size():((PUP::mem*)&p)->size());
-      GenericTreeNode::pup(p);
-      int isNull;
-      for (int i=0; i<2; ++i) {
-	isNull = (children[i]==NULL || depth==0) ? 0 : 1;
-	p | isNull;
-	CkAssert(isNull==0 || isNull==1);
-	if (isNull != 0 && depth != 0) {
-	  if (p.isUnpacking()) children[i] = new BinaryTreeNode();
-	  children[i]->pup(p, depth-1);
-	  if (p.isUnpacking()) children[i]->parent = this;
-	}
-      }
-      }*/
+    void pup(PUP::er &p, int depth);
   };
 
 inline
@@ -959,17 +930,6 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
       *tmp = *this;
       return tmp;
     }
-
-    /*
-    int getNumChunks(int num) {
-      int i = 0;
-      while (num > 1) {
-	num >>= 3;
-	i++;
-      }
-      return 1 << (3*i);
-    }
-    */
 
     void getChunks(int num, NodeKey *&ret) {
       return;
