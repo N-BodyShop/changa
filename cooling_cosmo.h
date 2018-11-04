@@ -22,18 +22,10 @@ extern "C" {
 #define CL_k_Boltzmann  1.38066e-16
 #define CL_eV_erg       1.60219e-12
 #define CL_eV_per_K     (CL_k_Boltzmann/CL_eV_erg)
-/*
-#define CL_RT_FLOAT      float
-#define CL_RT_MIN        1e-38
-#define CL_RT_MIN        FLT_MIN
-*/
 
 #define CL_RT_FLOAT      double
 #define CL_RT_MIN        1e-100
 
-/*
-#define CL_RT_MIN        DBL_MIN
-*/
 /* 
  * Work around for Dec ev6 flawed
  * treatment of sub-normal numbers 
@@ -383,12 +375,6 @@ void CoolCodePressureOnDensitySoundSpeed( COOL *cl, COOLPARTICLE *cp, double uPr
 #define CoolCodePressureOnDensitySoundSpeed( cl__, cp__, uPred__, fDensity__, gamma__, gammam1__, PoverRho__, c__ ) { \
   *(PoverRho__) = ((5./3.-1)*(uPred__)); \
   *(c__) = sqrt((5./3.)*(*(PoverRho__))); }
-
-/*
-double CoolCodePressureOnDensity( COOL *cl, COOLPARTICLE *cp, double uPred, double fDensity, double gammam1 );
-
-#define CoolCodePressureOnDensity( cl, cp, uPred, fDensity, gammam1 ) ((gammam1)*(uPred))
-*/
 
 void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns, char *suffix );
 

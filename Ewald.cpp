@@ -520,7 +520,6 @@ void TreePiece::EwaldGPU() {
 		      thisArrayID); 
 
   
-  //CkPrintf("[%d] in EwaldGPU, calling EwaldHost\n", thisIndex);
 #ifdef HAPI_INSTRUMENT_WRS
   EwaldHost(h_idata, (void *) cb, instrumentId, activeRung, largephase); 
 #else
@@ -551,7 +550,6 @@ void TreePiece::EwaldGPUComplete() {
     bucketReqs[i].finished = 1; 
     finishBucket(i); 
   }
-  //CkPrintf("[%d] in EwaldGPUComplete, completed book-keeping\n", thisIndex);
 #endif 
 }
 

@@ -19,12 +19,10 @@
 #include "Orb3dLB.h"
 #include "Orb3dLB_notopo.h"
 #include "HierarchOrbLB.h"
-// jetley - refactoring
-//#include "codes.h"
+
 #include "Opt.h"
 #include "Compute.h"
 #include "TreeWalk.h"
-//#include "State.h"
 
 #include "Space.h"
 #include "gravity.h"
@@ -43,13 +41,6 @@
 #include "hapi.h"
 #endif
 #endif
-
-/*
-// uncomment when using cuda version of charm but running without GPUs
-struct hapiWorkRequest; 
-void kernelSelect(hapiWorkRequest* wr) {
-}
-*/
 
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
@@ -607,7 +598,6 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 #ifdef REDUCTION_HELPER
   myCounts = new int64_t[numBins];
 #else
-  //myBinCounts.assign(numBins, 0);
   myBinCounts.resize(numBins);
   myCounts = myBinCounts.getVec();
 #endif
@@ -622,9 +612,7 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
     GravityParticle *interpolatedBound;
     GravityParticle *refinedLowerBound;
     GravityParticle *refinedUpperBound;
-    //int binIter = 0;
-    //vector<int>::iterator binIter = myBinCounts.begin();
-    //vector<Key>::iterator keyIter = dm->boundaryKeys.begin();
+
     Key* keyIter = lower_bound(keys, keys+n, binBegin->key);
     int binIter = skipEvery ? (keyIter-keys) - (keyIter-keys-1) / (skipEvery+1) - 1: keyIter - keys - 1;
     int skip = skipEvery ? skipEvery - (keyIter-keys-1) % (skipEvery+1) : -1;
@@ -1046,16 +1034,6 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
 
   setNumExpectedNeighborMsgs();
 
-  // CkPrintf("[%d] myplace %d\n", thisIndex, myPlace);
-
-  /*
-  if(myNumParticles > 0){
-    for(int i = 0; i <= myNumParticles+1; i++){
-      CkPrintf("[%d] part %d key %llx\n", thisIndex, i, myParticles[i].key);
-    }
-  }
-  */
-
   if (myNumParticles == 0) {
     incomingParticlesSelf = true;
     acceptSortedParticles(NULL);
@@ -1363,7 +1341,6 @@ void TreePiece::populateSavedPhaseData(int phase, double tp_load,
   if (phase == -1) {
     phase = 0;
     activeparts = myNumParticles;
-    //return;
   }
 
   if (phase > len-1) {
@@ -1382,33 +1359,6 @@ void TreePiece::populateSavedPhaseData(int phase, double tp_load,
 bool TreePiece::havePhaseData(int phase) {
   return (savedPhaseLoad.size() > phase && savedPhaseLoad[phase] > -0.5);
 }
-
-#if 0
-void TreePiece::checkin(){
-  if(myDecomposer == NULL){
-    myDecomposer = decomposerProxy.ckLocalBranch();
-  }
-  CkPrintf("[%d] checkin\n", thisIndex);
-  myDecomposer->checkin();
-}
-
-void Decomposer::checkin(){
-  numTreePiecesCheckedIn++;
-  // +1 for self checkin(), since Decomposer::unshuffleParticles
-  // (in which myNumTreePieces is set) may be called
-  // after all local TreePieces have called Decomposer::checkin()
-  // through TreePiece::acceptSortedParticles();
-  CkPrintf("decomposer %d checked in %d/%d\n", CkMyPe(),
-  numTreePiecesCheckedIn, myNumTreePieces);
-  if(numTreePiecesCheckedIn == myNumTreePieces){
-    numTreePiecesCheckedIn = 0;
-    myNumTreePieces = -1;
-
-    // return control to mainchare
-    //contribute(callback);
-  }
-}
-#endif
 
 // Find the center of mass of the star particles.  This is needed for
 // cooling_planet, so that gas particles know how far they are from the central
@@ -2276,16 +2226,6 @@ void TreePiece::SetTypeFromFileSweep(int iSetMask, char *file,
   }
 
 DoneSS:
-#if 0
-  /* The following should only be done for debugging.  It doubles the
-     amount of file reading. */
-  /* Finish reading file to verify consistency across processors */
-  while ( (nRet=fscanf( fp, "%d\n", &iOrder )) == 1 ) {
-	niOrder++;
-	assert( iOrder > iOrderOld );
-	iOrderOld = iOrder;
-	}
-#endif
   fclose(fp);
 
   *pniOrder += niOrder;
@@ -3704,7 +3644,6 @@ void TreePiece::startNextBucket() {
 #endif
 }
 
-/*inline*/
 void TreePiece::finishBucket(int iBucket) {
   BucketGravityRequest *req = &bucketReqs[iBucket];
   int remaining;
@@ -3746,7 +3685,6 @@ void TreePiece::finishBucket(int iBucket) {
       // not be reset, so that the data manager gets 
       // confused.
       dm->transferParticleVarsBack();
-      //dm->freeLocalTreeMemory();
 #else
       // move on to markwalkdone in non-cuda version
       continueWrapUp();
@@ -6552,15 +6490,6 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
 
   TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
   tv.tp = thisIndex;
-
-  /*
-  CkPrintf("[%d] centroid %f %f %f\n", 
-                      thisIndex,
-                      tv.vec.x,
-                      tv.vec.y,
-                      tv.vec.z
-                      );
-  */
 
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
