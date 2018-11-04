@@ -193,14 +193,6 @@ void TreePiece::loadTipsy(const std::string& filename,
         if(thisIndex % numTreePiecesPerPE > 0 || thisIndex >= numLoadingPEs * numTreePiecesPerPE) skipLoad = true;
 #endif
 #endif
-
-        /*
-        if(thisIndex == 0){
-          CkPrintf("[%d] numTreePieces %d numTreePiecesPerPE %d numLoadingPEs %d\n", thisIndex, numTreePieces, numTreePiecesPerPE, numLoadingPEs);
-        }
-        */
-
-
         if(skipLoad){
           myNumParticles = 0;
           nStartRead = -1;

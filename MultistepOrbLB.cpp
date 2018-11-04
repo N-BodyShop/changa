@@ -95,20 +95,6 @@ void MultistepOrbLB::work(BaseLB::LDStats* stats)
     CkPrintf("Migrating all: numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
   }
 
-  /*
-  CkPrintf("**********************************************\n");
-  CkPrintf("Object load predictions phase %d\n", phase);
-  CkPrintf("**********************************************\n");
-  for(int i = 0; i < stats->n_objs; i++){
-      int tp = tpCentroids[i].tp;
-      int lb = tpCentroids[i].tag;
-    CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
-  }
-  CkPrintf("**********************************************\n");
-  CkPrintf("Done object load predictions phase %d\n", prevPhase);
-  CkPrintf("**********************************************\n");
-  */
-
   // select processors
 #ifdef MCLBMSV
   //printData(*stats, phase, NULL);

@@ -58,13 +58,6 @@ void PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkVec<TreePiece
       bool isRemote = (type == NonLocal || type == NonLocalBucket);
       if(i == pickedIndex || !isRemote) continue;
       it->second.addClient(NonLocalMomentsClient(treePieceList[i],mergeList[i]));
-
-    /*
-      oss << "(" << 
-        mergeList[i]->getKey() << "," << 
-        typeString(mergeList[i]->getType()) << "," << 
-        treePieceList[i]->getIndex() << "); ";
-        */
     }
     
     MERGE_REMOTE_REQUESTS_VERBOSE("[%d] clients (%llu,%s,%d): %s\n", CkMyPe(), pickedNode->getKey(), typeString(pickedNode->getType()), pickedTreePiece->getIndex(), oss.str().c_str());

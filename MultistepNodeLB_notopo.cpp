@@ -9,7 +9,6 @@
 extern CProxy_TreePiece treeProxy;
 CkpvExtern(int, _lb_obj_index);
 using namespace std;
-//#define ORB3DLB_NOTOPO_DEBUG CkPrintf
 
 CreateLBFunc_Def(MultistepNodeLB_notopo, "Works best with multistepped runs; uses Orb3D_notopo for larger steps, greedy otherwise");
 
@@ -129,20 +128,6 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
     }
     CkPrintf("Migrating all: numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
   }
-
-  /*
-  CkPrintf("**********************************************\n");
-  CkPrintf("Object load predictions phase %d\n", phase);
-  CkPrintf("**********************************************\n");
-  for(int i = 0; i < stats->n_objs; i++){
-      int tp = tpCentroids[i].tp;
-      int lb = tpCentroids[i].tag;
-    CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
-  }
-  CkPrintf("**********************************************\n");
-  CkPrintf("Done object load predictions phase %d\n", prevPhase);
-  CkPrintf("**********************************************\n");
-  */
 
   // select processors
 #ifdef MCLBMSV
@@ -329,13 +314,9 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
   sort(unldpes.begin(), unldpes.end(), PeLdLesser(counts));
 
   int undcount = 0;
-  //CkPrintf("[%d] is the maxLoadedPe with ld %f ovlded %d unldpes %d\n", ovldpes.front(), counts[ovldpes.front()], ovldpes.size(), unldpes.size());
-  //CkPrintf("[%d] is the minLoadedPe with ld %f\n", unldpes.front(), counts[unldpes.front()]);
 
   int* tmpcounts = new int[numNodes];
   memcpy(tmpcounts, counts, numNodes * sizeof(int));
-  // This is BAD
-  // srand(42);
  
   while (undcount < unldpes.size() && ovldpes.size() > 0) {
     int ovlpe = ovldpes.front();
@@ -384,7 +365,6 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
     }
   }
 
-  //CkPrintf("[%d] Afterwards is the maxLoadedPe with ld %f\n", ovldpes.front(), counts[ovldpes.front()]);
   delete[] counts;
   delete[] tmpcounts;
 }
@@ -430,8 +410,6 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
   sort(unldpes.begin(), unldpes.end(), PeLdLesser(counts));
 
   int undcount = 0;
-  //CkPrintf("[%d] is the maxLoadedPe with ld %f ovlded %d unldpes %d\n", ovldpes.front(), counts[ovldpes.front()], ovldpes.size(), unldpes.size());
-  //CkPrintf("[%d] is the minLoadedPe with ld %f\n", unldpes.front(), counts[unldpes.front()]);
 
   int* tmpcounts = new int[stats->count];
   memcpy(tmpcounts, counts, stats->count * sizeof(int));
@@ -485,7 +463,6 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
     }
   }
 
-  //CkPrintf("[%d] Afterwards is the maxLoadedPe with ld %f\n", ovldpes.front(), counts[ovldpes.front()]);
   delete[] counts;
   delete[] tmpcounts;
 }

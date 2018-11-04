@@ -187,9 +187,6 @@ double COOL_COOLING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode
 double COOL_HEATING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_ );
 #define COOL_HEATING( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolHeatingCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ ))) 
 
-//void CoolPARTICLEtoPERBARYON(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double ZMetal);
-//void CoolPERBARYONtoPARTICLE(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double ZMetal);
-
 double CoolEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E, double, double ZMetal);
 double CoolCodeEnergyToTemperature( COOL *Cool, COOLPARTICLE *cp, double E,
     double rho, double ZMetal);
@@ -251,31 +248,6 @@ void CoolCodePressureOnDensitySoundSpeed( COOL *cl, COOLPARTICLE *cp, double uPr
 #define CoolCodePressureOnDensitySoundSpeed( cl__, cp__, uPred__, fDensity__, gamma__, gammam1__, PoverRho__, c__ ) { \
   *(PoverRho__) = ((5./3.-1)*(uPred__)); \
   *(c__) = sqrt((5./3.)*(*(PoverRho__))); }
-
-/*
-double CoolCodePressureOnDensity( COOL *cl, COOLPARTICLE *cp, double uPred, double fDensity, double gammam1 );
-
-#define CoolCodePressureOnDensity( cl, cp, uPred, fDensity, gammam1 ) ((gammam1)*(uPred))
-*/
-
-#if 0
-struct inInitCooling {
-  double dGmPerCcUnit;
-  double dComovingGmPerCcUnit;
-  double dErgPerGmUnit;
-  double dSecUnit;
-  double dKpcUnit;
-  double z;
-  double dTime;
-  COOLPARAM CoolParam;
-};
-
-struct inInitEnergy {
-	double dTuFac;
-	double z;
-	double dTime;
-	};
-#endif
 
 void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns, char *suffix );
 

@@ -123,10 +123,8 @@ class TPObject{
 
   Vector3D<float> centroid;
   float load;
-  //int index;
   int lbindex;
   bool migratable;
-  //int nparticles;
 
   int whichPartition;
 

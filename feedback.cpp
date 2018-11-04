@@ -93,10 +93,6 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 	dRadPreFactor = (0.097 / param.dKpcUnit) *
 	    pow(param.dGmPerCcUnit/MHYDR,-0.2)*
 	    pow(param.dSecUnit/SECONDSPERYEAR / 1e7,0.6);
-	/* Solar metallicity Z from Grevesse & Sauval (1998) SSR 85 161*/
-	/* TOO LONG dTimePreFactor = 4e6*SECONDSPERYEAR/
-	   param.dSecUnit * pow(0.018,1.5)*
-	   pow(param.dGmPerCcUnit/MHYDR,-0.7);*/
 	} else {
 	/* from McKee and Ostriker (1977) ApJ 218 148 */
 	dRadPreFactor = pow(10,1.74)/(param.dKpcUnit*1000.0)*
@@ -688,8 +684,6 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	/* McCray + Kafatos (1987) ApJ 317 190*/
 	fBlastRadius = fb.dRadPreFactor*pow(p->fNSN() / fAveDens, 0.2) * 
 	    pow(dAge,0.6)/aFac; /* eq 3 */
-	/* TOO LONG    fShutoffTime = dTimePreFactor*pow(p->fMetals, -1.5)*
-	   pow(p->fNSN,0.3) / pow(fAveDens,0.7);*/
 	}
     else {
 	/* from McKee and Ostriker (1977) ApJ 218 148 */
