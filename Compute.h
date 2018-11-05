@@ -145,7 +145,6 @@ class GravityCompute : public Compute{
 
 };
 
-#if INTERLIST_VER > 0
 /// @brief Computations for Stadel-style interaction list walk.
 ///
 /// At a given point in the walk, this compares a node against another
@@ -224,7 +223,6 @@ class ListCompute : public Compute{
 #endif
 
 };
-#endif
 
 /// @brief Compute for the remote node prefetch walk.
 class PrefetchCompute : public Compute{

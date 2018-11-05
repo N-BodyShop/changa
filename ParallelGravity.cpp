@@ -2207,9 +2207,6 @@ void Main::setupICs() {
 #ifdef HEXADECAPOLE
   ofsLog << " HEXADECAPOLE";
 #endif
-#ifdef INTERLIST_VER
-  ofsLog << " INTERLIST_VER:" << INTERLIST_VER;
-#endif
 #ifdef BIGKEYS
   ofsLog << " BIGKEYS";
 #endif

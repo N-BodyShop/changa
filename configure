@@ -629,7 +629,6 @@ ENABLE_CUDA
 NVCC_PATH
 FLAG_GPU_LOCAL_TREE_WALK
 LIBOBJS
-FLAG_INTERLIST
 FLAG_SANITIZER
 FLAG_TREE_BUILD
 FLAG_COOLING
@@ -744,7 +743,6 @@ enable_cooling
 enable_opts
 enable_tree_build
 enable_sanitizer
-enable_interlist
 with_cuda_level
 with_cuda
 enable_gpu_local_tree_walk
@@ -1406,7 +1404,6 @@ Optional Features:
   --enable-opts           DEPRECATED - Do not use
   --enable-tree-build     tree building (merge-remote,split-phase)
   --enable-sanitizer      LLVM sanitizers
-  --enable-interlist      interaction list version
   --enable-gpu-local-tree-walk
                           Do local tree walk on GPU
 
@@ -5166,20 +5163,6 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 fi
-
-
-# Interaction list version
-# Check whether --enable-interlist was given.
-if test "${enable_interlist+set}" = set; then :
-  enableval=$enable_interlist; interlist=$enableval
-else
-  interlist=2
-fi
-
-case $interlist in
-	1|2) FLAG_INTERLIST="-DINTERLIST_VER=$interlist";;
-	*  ) as_fn_error $? "invalid argument for '--enable-interlist': $interlist" "$LINENO" 5;;
-esac
 
 
 # Force compiler flags

@@ -72,7 +72,6 @@ void Compute::freeState(State *s){
   delete s;
 }
 
-#if INTERLIST_VER > 0
 /// @brief Version that frees a DoubleWalkState
 void ListCompute::freeState(State *s){
   freeDoubleWalkState((DoubleWalkState *)s);
@@ -195,7 +194,6 @@ void ListCompute::initState(State *state){
     CkAbort("Invalid Opt type for ListCompute");
   }
 }
-#endif
 
 void GravityCompute::reassoc(void *ce, int ar, Opt *o){
   computeEntity = ce;
@@ -203,14 +201,12 @@ void GravityCompute::reassoc(void *ce, int ar, Opt *o){
   opt = o;
 }
 
-#if INTERLIST_VER > 0
 /// @brief Reassociate the target node.
 void ListCompute::reassoc(void *ce, int ar, Opt *o){
   computeEntity = ce;
   activeRung = ar;
   opt = o;
 }
-#endif
 
 void GravityCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp){
   if(getOptType() == Remote){
@@ -230,7 +226,6 @@ void PrefetchCompute::finishNodeProcessEvent(TreePiece *owner, State *state){
   }
 }
 
-#if INTERLIST_VER > 0
 /// @brief Update state on a node miss.
 /// @param reqID unused.
 void ListCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp){
@@ -249,7 +244,6 @@ void ListCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece 
   CmiMemoryCheck();
 #endif
 }
-#endif
 
 int GravityCompute::openCriterion(TreePiece *ownerTP,
                           GenericTreeNode *node, int reqID, State *state){
@@ -339,7 +333,6 @@ void GravityCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, i
   }// end if finished with chunk
 }
 
-#if INTERLIST_VER > 0
 /// @brief Update state upon receiving a remote node.
 ///
 /// Calls TreePiece::finishedChunk() if all outstanding requests are satisfied.
@@ -386,7 +379,6 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
     owner->finishedChunk(chunk);
   }// end if finished with chunk
 }
-#endif
 
 #include "TreeNode.h"
 using namespace TreeStuff;
@@ -668,7 +660,6 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
   return -1;
 }
 
-#if INTERLIST_VER > 0
 /// @brief Process a node.
 /// @param node is the global node being processed.
 /// @param state contains the lists to be checked.
@@ -2300,8 +2291,6 @@ void printUndlist(DoubleWalkState *state, int level, TreePiece *tp){
 }
 #endif
 
-#endif // INTERLIST_VER > 0
-
 void RemoteTreeBuilder::registerNode(GenericTreeNode *node){
   tp->nodeLookupTable[node->getKey()] = node;
 }
@@ -2390,9 +2379,7 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
     return false;
   }
 
-#if INTERLIST_VER > 0
   node->startBucket = tp->numBuckets; 
-#endif
 
   if(node->getType() == NonLocal || node->getType() == NonLocalBucket){
     // don't deliver moments of this node to clients
@@ -2474,9 +2461,7 @@ void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
   CkAssert(node->getType() == Boundary ||
            node->getType() == Internal);
   node->rungs = 0;
-#if INTERLIST_VER > 0
   node->numBucketsBeneath = 0;
-#endif
 
   if(node->getType() == Boundary){
     for(int i = 0; i < node->numChildren(); i++){
@@ -2485,9 +2470,7 @@ void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
 	  && child->getType() != Empty)
 	 && child->rungs > node->rungs)
 	  node->rungs = child->rungs;
-#if INTERLIST_VER > 0
       node->numBucketsBeneath += child->numBucketsBeneath;
-#endif
     }
 
     if(node->remoteIndex == 0){
@@ -2505,9 +2488,7 @@ void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
 	  tp->accumulateMomentsFromChild(node,child); 
 
 	  if(child->rungs > node->rungs) node->rungs = child->rungs;
-#if INTERLIST_VER > 0
 	  node->numBucketsBeneath += child->numBucketsBeneath;
-#endif
 	  }
     }
 

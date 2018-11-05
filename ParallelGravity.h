@@ -613,14 +613,12 @@ typedef struct OffsetNodeStruct
       int offsetID;
 }OffsetNode;
 
-#if INTERLIST_VER > 0
 /// @brief Queue of nodes to check for interactions.
 typedef CkQ<OffsetNode> CheckList;
 /// @brief Vector of nodes that are undecided at this level.
 typedef CkVec<OffsetNode> UndecidedList;
 /// @brief Vector of undecided lists, one for each level.
 typedef CkVec<UndecidedList> UndecidedLists;
-#endif
 
 /// @brief Remote particles in an interaction list.
 typedef struct particlesInfoR{
@@ -677,7 +675,7 @@ struct BucketActiveInfo{
 class SmoothCompute;
 #include "Compute.h"
 
-#if INTERLIST_VER > 0 && defined CUDA
+#if defined CUDA
 template<typename T> class GenericList;
 #endif
 
@@ -729,7 +727,7 @@ class TreePiece : public CBase_TreePiece {
    friend class ReNearNeighborState;
    friend class MarkNeighborState;
    friend class BottomUpTreeWalk;
-#if INTERLIST_VER > 0 && defined CUDA
+#if defined CUDA
    friend class DataManager;
    template<typename T> friend class GenericList;
 #endif
@@ -740,11 +738,9 @@ class TreePiece : public CBase_TreePiece {
    /// @brief Walk for gravity prefetch
    TreeWalk *sTopDown;
    TreeWalk *twSmooth;
-#if INTERLIST_VER > 0
    TreeWalk *sInterListWalk;
    // clearable, used for resumed walks
    State *sInterListStateRemoteResume;
-#endif
    Compute *sGravity, *sPrefetch;
    SmoothCompute *sSmooth;
    
@@ -1006,11 +1002,9 @@ class TreePiece : public CBase_TreePiece {
 #endif
         void continueWrapUp();
 
-#if INTERLIST_VER > 0
         void getBucketsBeneathBounds(GenericTreeNode *&node, int &start, int &end);
         void updateBucketState(int start, int end, int n, int chunk, State *state);
         void updateUnfinishedBucketState(int start, int end, int n, int chunk, State *state);
-#endif
 
 #if defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
         void addToBucketChecklist(int bucketIndex, NodeKey k){
@@ -1020,9 +1014,8 @@ class TreePiece : public CBase_TreePiece {
         }
 #endif
 
-#if INTERLIST_VER > 0
         GenericTreeNode *getStartAncestor(int current, int previous, GenericTreeNode *dflt);
-#endif
+
 	/// \brief convert a key to a node using the nodeLookupTable
 	inline GenericTreeNode *keyToNode(const Tree::NodeKey k){
           NodeLookupType::iterator iter = nodeLookupTable.find(k);
@@ -1232,12 +1225,10 @@ private:
 
 	/// Size of bucketList, total number of buckets present
 	unsigned int numBuckets;
-#if INTERLIST_VER > 0
 	/// Completed buckets, remote gravity walk
 	int prevRemoteBucket;
 	/// Completed buckets, local gravity walk
 	int prevBucket;
-#endif
 	/// Used to start the Ewald computation for all buckets, one after the other
 	unsigned int ewaldCurrentBucket;
 	/// @brief Used as a placeholder while traversing the tree and computing
@@ -1292,11 +1283,7 @@ private:
 
   double myTotalMass;
 
- #if INTERLIST_VER > 0
-
-
  public:
-#endif
   // called when a chunk has been used completely (chunkRemaining[chunk] == 0)
   void finishedChunk(int chunk);
 
@@ -1428,9 +1415,7 @@ public:
 	  particleInterRemote = NULL;
 	  nodeInterRemote = NULL;
 
-#if INTERLIST_VER > 0
 	  sInterListWalk = NULL;
-#endif
 #ifdef CUDA
           numActiveBuckets = -1;
 #ifdef CUDA_STATS
@@ -1498,9 +1483,7 @@ public:
 	  sGravity = NULL;
 	  sPrefetch = NULL;
 	  sSmooth = NULL;
-#if INTERLIST_VER > 0
 	  sInterListWalk = NULL;
-#endif
 
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
@@ -1895,12 +1878,10 @@ public:
 	 */
 	void cachedWalkBucketTree(GenericTreeNode* node, int chunk, int reqID);
 
-#if INTERLIST_VER > 0
 	void calculateForcesNode(OffsetNode node, GenericTreeNode *myNode,
 				 int level,int chunk);
 	void calculateForces(OffsetNode node, GenericTreeNode *myNode,
 			     int level,int chunk);
-#endif
 
         ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source, bool isPrefetch=false);
 	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,

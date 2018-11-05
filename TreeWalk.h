@@ -88,7 +88,6 @@ class BottomUpTreeWalk : public TreeWalk{
 };
 
 
-#if INTERLIST_VER > 0
 /// Traverses local tree instead of global one.
 /// Heads towards a target local bucket until told to DUMP.
 /// The class is used in the local tree part of the 
@@ -129,7 +128,6 @@ class LocalTargetWalk : public TreeWalk {
   NodeKey getTargetKey() {return targetKey;}
   
 };
-#endif
 
 /// @brief class to walk just the local treepiece.
 class LocalTreeTraversal {

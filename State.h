@@ -37,7 +37,6 @@ class State {
     virtual ~State() {}
 };
 
-#if INTERLIST_VER > 0
 #if defined CUDA
 #include "HostCUDA.h"
 #include "DataManager.h"
@@ -221,7 +220,6 @@ class DoubleWalkState : public State {
 
 #endif
 };
-#endif //  INTERLIST_VER 
 
 class NullState : public State {
 };

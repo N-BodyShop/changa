@@ -69,13 +69,11 @@ class NodePool;
 #if COSMO_STATS > 0
       used = false;
 #endif
-#if INTERLIST_VER > 0
       numBucketsBeneath=0;
       startBucket=-1;
 #ifdef CUDA
       nodeArrayIndex = -1;
       bucketArrayIndex = -1;
-#endif
 #endif
 #ifdef CHANGA_REFACTOR_WALKCHECK
       touched = false;
@@ -119,7 +117,6 @@ class NodePool;
     /// TreePiece, and do not consider non-local data.
     int rungs;
 
-#if INTERLIST_VER > 0
     /// @brief Number of buckets in this node
     int numBucketsBeneath;
     /// @brief index of first bucket in this node
@@ -128,7 +125,6 @@ class NodePool;
     /// index in moments array sent to GPU
     int nodeArrayIndex;
     int bucketArrayIndex;
-#endif
 #endif
     /// center of smoothActive particles during smooth operation
     Vector3D<double> centerSm;
@@ -146,13 +142,11 @@ class NodePool;
     /// @param last  Last particle index
     /// @param p Parent node
     GenericTreeNode(NodeKey k, NodeType type, int first, int last, GenericTreeNode *p) : myType(type), key(k), parent(p), firstParticle(first), lastParticle(last), remoteIndex(0) {
-#if INTERLIST_VER > 0
       numBucketsBeneath=0;
       startBucket=-1;
 #ifdef CUDA
       nodeArrayIndex = -1;
       bucketArrayIndex = -1;
-#endif
 #endif
     }
 
@@ -180,10 +174,8 @@ class NodePool;
     virtual NodeKey getParentKey() = 0;
     /// return an integer with the number of the child reflecting the key
     virtual int whichChild(NodeKey childkey) = 0;
-#if INTERLIST_VER > 0
     /// Is nodekey contained by this node
     virtual bool contains(NodeKey nodekey) = 0;
-#endif
 
     /// Is the NodeType valid
     bool isValid(){
@@ -217,9 +209,8 @@ class NodePool;
     inline void makeBucket(GravityParticle *part) {
       myType = Bucket;
       iRank = CkMyRank();
-#if INTERLIST_VER > 0
       numBucketsBeneath = 1;
-#endif
+
       calculateRadiusBox(moments, boundingBox);	/* set initial size */
       boundingBox.reset();
       bndBoxBall.reset();
@@ -249,9 +240,7 @@ class NodePool;
     inline void makeEmpty() {
       myType = Empty;
       particleCount = 0;
-#if INTERLIST_VER > 0
       numBucketsBeneath = 0;
-#endif
       moments.clear();
       boundingBox.reset();
       bndBoxBall.reset();
@@ -302,10 +291,8 @@ class NodePool;
       p | lastParticle;
       p | remoteIndex;
       p | particleCount;
-#if INTERLIST_VER > 0
       p | numBucketsBeneath;
       p | startBucket;
-#endif
       p | centerSm;
       p | sizeSm;
       p | fKeyMax;
@@ -423,7 +410,6 @@ public:
       return ((child >> (childLevel-thisLevel-1)) ^ (key << 1));
     }
 
-#if INTERLIST_VER > 0
     bool contains(NodeKey node) {
       int thisLevel = getLevel(key);
       int nodeLevel = getLevel(node);
@@ -432,7 +418,6 @@ public:
 
       return ((node>>(nodeLevel-thisLevel))==key);
     }
-#endif
 
     bool isLeftChild() const {
       return (dynamic_cast<BinaryTreeNode *>(parent) && dynamic_cast<BinaryTreeNode *>(parent)->children[0] == this);
@@ -580,11 +565,9 @@ public:
       }
       children[0]->particlePointer = &part[children[0]->firstParticle];
       children[1]->particlePointer = &part[children[1]->firstParticle];
-#if INTERLIST_VER > 0
       if(children[0]->myType == NonLocal) children[0]->numBucketsBeneath = 0;
       if(children[1]->myType == NonLocal) children[1]->numBucketsBeneath = 0;
       // empty nodes are makeEmpty()'ed, so that the numbucketsbeneath them are 0
-#endif
     }
 
     // Constructs 2 children of this node based on ORB decomposition
@@ -778,7 +761,7 @@ public:
       memcpy(buffer, this, sizeof(*this));
       buffer->parent = NULL;
       buffer->particlePointer = NULL;
-#if INTERLIST_VER > 0 && defined CUDA
+#if defined CUDA
       buffer->nodeArrayIndex = -1;
       buffer->bucketArrayIndex = -1;
 #endif
@@ -912,12 +895,10 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
       return i;
     }
 
-#if INTERLIST_VER > 0
     bool contains(NodeKey node) {
 
       return true;
     }
-#endif
 
     void makeOctChildren(GravityParticle *part, int totalPart, int level,
 			 NodePool *pool = NULL) {}
