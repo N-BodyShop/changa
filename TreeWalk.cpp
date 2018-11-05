@@ -296,7 +296,6 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 
 /// This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
 /// It can only be called from the calculateGravityRemote/startNextBucket
-#if INTERLIST_VER > 0
 void LocalTargetWalk::walk(GenericTreeNode *ancestor, State *state, int chunk, int targetBucketIndex, int awi){
 
     targetKey = ownerTP->getBucket(targetBucketIndex)->getKey();
@@ -517,7 +516,6 @@ void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk
 	}
 	comp->setComputeEntity(source);
 }
-#endif
 
 const char *translations[] = {"",
                                  "Invalid",

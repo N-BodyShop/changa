@@ -324,9 +324,7 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
   else{
    // more than one boundary, need recursion
     Tree::GenericTreeNode *newNode = pickedNode->clone();
-#if INTERLIST_VER > 0
     newNode->startBucket = -1;
-#endif
     // keep track if all the children are internal, in which case we have to
     // change this node type too from boundary to internal
     bool isInternal = true;

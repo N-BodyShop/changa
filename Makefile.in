@@ -115,7 +115,7 @@ defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@  \
           @FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@   \
           @FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@         \
           @FLAG_VSIGVISC@ @FLAG_DAMPING@ @FLAG_DIFFHARMONIC@  \
-          @FLAG_TREE_BUILD@ $(debug_defines) @FLAG_INTERLIST@ \
+          @FLAG_TREE_BUILD@ $(debug_defines)                  \
           $(cuda_defines) -DREDUCTION_HELPER)
 
 modules := $(strip -language charm++ -balancer @DEFAULT_LB@   \
