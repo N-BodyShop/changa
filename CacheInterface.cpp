@@ -378,12 +378,6 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg<KeyType> *msg, Tree::Bina
 
   *(CkCacheFillMsg<KeyType> **) (((char*)node)-PAD_reply) = msg;
 
-  // Overwrite virtual pointer table.  Something like this will be
-  // needed for heterogeneous architectures.  Commented out for now
-  // since it breaks on the PGI compiler.
-
-  // memcpy(node, &vptr, sizeof(void*));
-
   if (!isRoot) CmiReference(UsrToEnv(msg));
   for (int i=0; i < 2; ++i) {
     if (node->children[i] != NULL) {
@@ -440,7 +434,6 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg<KeyType> *msg) {
   //GenericTreeNode tmp;
   if(node != NULL) {
     if(_cache) {
-#if 1 || defined CACHE_BUFFER_MSGS
       int count = ((Tree::BinaryTreeNode*)node)->countDepth(_cacheLineDepth);
       // Extra bytes are allocated to store the msg pointer at the
       // beginning of the buffer.  See the free() and the
@@ -449,23 +442,12 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg<KeyType> *msg) {
       //CkCacheFillMsg<KeyType> *reply = new (count * (sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(msg->key);
       CkCacheFillMsg<KeyType> *reply = new (count * ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode)+PAD_reply), 8*sizeof(int)) CkCacheFillMsg<KeyType>(msg->key);
       ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+PAD_reply), _cacheLineDepth, PAD_reply);
-#else
-      PUP::sizer p1;
-      node->pup(p1, msg->depth);
-      FillNodeMsg *reply = new (p1.size(), 0) FillNodeMsg(thisIndex);
 
-      /// @TODO: check that at destination of "remoteIndex" are correct
-      PUP::toMem p2((void*)reply->nodes);
-      node->pup(p2, msg->depth);
-      //int count = node->copyTo(reply->nodes, msg->depth);
-#endif
       *(int*)CkPriorityPtr(reply) = -10000000;
       CkSetQueueing(reply, CK_QUEUEING_IFIFO);
       cacheNode[msg->replyTo].recvData(reply);
     } else {
       CkAbort("Non cached version not anymore supported, feel free to fix it!");
-      //copySFCTreeNode(tmp,node);
-      //streamingProxy[retIndex].receiveNode(tmp,msg->reqID);
     }
     delete msg;
   }

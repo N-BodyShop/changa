@@ -30,9 +30,6 @@ private:
 
   void pupDump(PUP::er &, BaseLB::LDStats *, vector<Event> *);
 
-//  void orbPartition(vector<Event> *events, OrientedBox<float> &box, int procs);
-//  int partitionRatioLoad(vector<Event> &events, float ratio);
-
 public:
   Orb3dLB_notopo(const CkLBOptions &);
   Orb3dLB_notopo(CkMigrateMessage *m): CBase_Orb3dLB_notopo(m) {init();}

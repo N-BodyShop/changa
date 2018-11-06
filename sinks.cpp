@@ -508,7 +508,6 @@ void SinkFormTestSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		q = nnList[i].p;
 		if (TYPETest( q, TYPE_GAS ) && ((s.bSinkFormPotMin ? q->potential < p->potential : q->fDensity > p->fDensity))) {
 		    /* Abort without grabbing any particles -- this isn't an extremum particle */
-/*		    CkPrintf("Sink aborted %d %g: Denser Neighbour %d %g\n",p->iOrder,p->fDensity,q->iOrder,q->fDensity);*/
 		    return;
 			
 		    }
@@ -517,8 +516,6 @@ void SinkFormTestSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	fSinkRating(p) =  (s.bSinkFormPotMin ? -p->potential : p->fDensity); /* rate yourself */
 	
-/*	printf("Sink %d %g: looking...\n",p->iOrder,p->fDensity);*/
-
 	/* Identify all nbrs as to be eaten unless those nbrs already
 	   belong to a "higher rated" sink 
 	   Thus sink quality is rated by density or potential depth
@@ -850,7 +847,6 @@ void SinkFormSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 #ifndef SINKING
 	    assert(fabs(sinkp.mass/mtot-1) < 1e-4);
 #else
-/*	    printf("Sink Made %g %g\n",sinkp.fMass,sinkp.fTrueMass);*/
 	    assert(fabs(sinkp.fMass/sinkp.fTrueMass-1) < 1e-7);
 	    assert(!TYPETest(p, TYPE_SINKING));
 #endif
@@ -1167,12 +1163,6 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 			       tree */
 
 	    if(q != NULL) {	    
-#if 0
-	      /* Timestep for accretion is larger of sink and victim timestep */
-	      iRung = q->rung; 
-	      if (iRung > p->rung) iRung = p->rung;
-#endif
-	      // dtEff = s.dSinkCurrentDelta;
 	      dtEff = RungToDt(dDelta, p->rung);
 	      /* If victim has unclosed kick -- don't actually take the mass
 	       If sink has unclosed kick we shouldn't even be here!
@@ -1310,14 +1300,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	aDot = aFac*H;
 
 	mdot = p->dMDot();	
-#if 0
-	if (p->dDeltaM() == 0.0) {
-	    dtEff = s.dSinkCurrentDelta*pow(0.5,p->rung-s.iSinkCurrentRung);
-	    dmAvg = mdot*dtEff;
-	    CkPrintf("BHSink %ld:  Delta: %g dm: 0 ( %g ) (victims on wrong step)\n",p->iOrder,dtEff,dmAvg);
-	    return;
-	    }
-#endif
 
 	mdotCurr = mdot;
 	dm = 0;
@@ -1334,12 +1316,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    assert(q != NULL);
 	    r2min = nnList[i].fKey;
 
-#if 0
-	    /* Timestep for accretion is larger of sink and victim timestep */
-	    iRung = q->rung;
-	    if (iRung > p->rung) iRung = p->rung;
-#endif
-	    // dtEff = s.dSinkCurrentDelta;
 	    dtEff = RungToDt(dDelta, p->rung);
 	      /* If victim has unclosed kick -- don't actually take the mass
 	       If sink has unclosed kick we shouldn't even be here!
@@ -1394,7 +1370,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		p->mass += dmq;
 		dm += dmq;
 		q->mass -= dmq;
-		/*assert(q->mass >= 0.0);*/
 		naccreted += 1;  /* running tally of how many are accreted JMB 10/23/08 */
 		CkPrintf("BHSink %ld:  Time %g dist2: %ld %g gas smooth: %g eatenmass %g \n",
 			 p->iOrder,dTime,q->iOrder,r2min,q->fBall*q->fBall,dmq);
@@ -1434,10 +1409,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      if(nnList[i].p->curlv()[2] == p->iOrder) continue;
 	      /* don't choose a pre-accreted particle 
 	         but it can have been accreted by another BH */
-#if 0
-	      if(nnList[i].p->rung < s.iSinkCurrentRung) continue;
-	      /* has to be on the right timestep */
-#endif
 	      r2 = nnList[i].fKey;
 	      if(!s.bBHAccreteAll
 		 && r2 > 0.25*(nnList[i].p->fBall)*(nnList[i].p->fBall))
@@ -1477,11 +1448,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	    else {
 	      assert(q != NULL);
 	      /* Timestep for accretion is larger of sink and victim timestep */
-#if 0
-	      iRung = q->rung;
-	      if (iRung > p->rung) iRung = p->rung;
-#endif
-	      // dtEff = s.dSinkCurrentDelta;
 	      dtEff = RungToDt(dDelta, p->rung);
 	      dmq = mdotCurr*dtEff;
 
@@ -2120,12 +2086,6 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		    vx = q->v[0]; vy = q->v[1]; vz = q->v[2];
 		    /* Enter sinking stage */
 		    assert(r2 < smf->dSinkRadius*smf->dSinkRadius);
-		    /* If this code is active, ignore non-infalling particles */
-/*		    vr = 0;
-		    for (j=0;j<3;j++) {
-			vr +=  (q->r[j]-p->r[j])*(q->v[j]-p->v[j]);
-			}
-			if (vr >= 0) continue;*/
 
 		    /* All force, velocity, position info associated
 		       with particle now belong to sink instead.
@@ -2208,7 +2168,6 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 			    vr += dv[j]*dx[j];
 			    }
 			if (p->iOrder==DBGIORDER) printf("SINKING %ld Add Sinking Trajectory vr %ld %g %g %g\n",p->iOrder,q->iOrder,vr,vrraw,-q->c);
-/*                    printf("Infall vr avg %g ",vr);*/
 #endif
 			vt = 0;
 			for (j=0;j<3;j++) {
@@ -2221,7 +2180,6 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 #endif
 			vrmin = -q->c; /* Bondi-Hoyle minimum inflow speed -- perhaps not ideal for rotating case */
 			if (vr > vrmin) vr = vrmin;
-/*                    printf("min %g : %g   vt %g \n",-vrmin,vr,vt);*/
 			
 			q->rSinking0Mag = r0;
 			if (r0 > smf->dSinkRadius) printf("WARNING: %li outside sink r=%g %g %g\n",q->iOrder,r0,sqrt(nnList[i].fDist2),smf->dSinkRadius);

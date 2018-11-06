@@ -36,7 +36,7 @@ class Compute{
   int activeRung;
   ComputeType type;
 
-  Compute(ComputeType t) : type(t) /*state(0)*/{}
+  Compute(ComputeType t) : type(t){}
 
   public:
   int nActive;  // accumulate total number of active particles.
@@ -177,8 +177,6 @@ class ListCompute : public Compute{
     int end, CkVec<OffsetNode>& clistforb, CkVec<RemotePartInfo>& rplistforb,
     CkVec<LocalPartInfo>& lplistforb);
 
-//  void printUndlist(DoubleWalkState *state, int level, TreePiece *tp);
-//  void printClist(DoubleWalkState *state, int level, TreePiece *tp);
   void reassoc(void *cE, int activeRung, Opt *o);
   State *getNewState(int d1, int d2);
   State *getNewState(int d1);

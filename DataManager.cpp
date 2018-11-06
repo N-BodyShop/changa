@@ -12,8 +12,6 @@
 #include "SFC.h"
 
 #ifdef HAPI_INSTRUMENT_WRS
-//#define GPU_INSTRUMENT_WRS
-//#include "wr.h"
 void hapi_initInstrument(int, char);
 void hapi_clearInstrument();
 #endif
@@ -146,8 +144,6 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
   CmiLock(__nodelock);
   registeredTreePieces.push_back(TreePieceDescriptor(tp, root));
 #ifdef CUDA
-  //gpuFree = true;
-  //registeredTreePieceIndices.push_back(index);
 #if COSMO_PRINT_BK > 1
   CkPrintf("(%d) notifyPresence called by %d, length: %d\n", CkMyPe(), tp->getIndex(), registeredTreePieces.length());
 #endif
@@ -322,16 +318,6 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
   int pickedIndex;
   GenericTreeNode *pickedNode = pickNodeFromMergeList(n,gtn,nUnresolved,pickedIndex);
 
-  /*
-  ostringstream oss;
-  for(int i = 0; i < n; i++){
-    oss << "(" << gtn[i]->getKey() << "," << typeString(gtn[i]->getType()) << ")";
-    if(gtn[i] == pickedNode) oss << " * ";
-    oss << "; ";
-  }
-  CkPrintf("[%d] %s\n", CkMyPe(), oss.str().c_str());
-  */
-
   if(nUnresolved <= 1){
     return pickedNode;
   }
@@ -339,9 +325,6 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
    // more than one boundary, need recursion
     Tree::GenericTreeNode *newNode = pickedNode->clone();
 #if INTERLIST_VER > 0
-    //newNode->particlePointer = (GravityParticle *)0;
-    //newNode->firstParticle = -1;
-    //newNode->lastParticle = -1;
     newNode->startBucket = -1;
 #endif
     // keep track if all the children are internal, in which case we have to
@@ -355,7 +338,6 @@ Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeN
         if (gtn[i]->getType() == Tree::Boundary){
           GenericTreeNode *childNode = gtn[i]->getChildren(child);
           newgtn.push_back(childNode);
-          //CkPrintf("[%d] (%llu,%s) add child (%llu,%s)\n", CkMyPe(), pickedNode->getKey(), typeString(pickedNode->getType()), childNode->getKey(), typeString(childNode->getType()));
         }
       }
       Tree::GenericTreeNode *ch = buildProcessorTree(newgtn.length(), &newgtn[0]);
@@ -375,7 +357,6 @@ int DataManager::createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *k
   // assumes that the keys are ordered in tree depth first!
   if (node->getKey() == *keys) {
     // ok, found a chunk root, we can end the recursion
-    //CkPrintf("mapping key %s\n",keyBits(*keys,KeyBits).c_str());
     chunkRootTable[*keys] = node;
     return 1;
   }
@@ -401,7 +382,6 @@ int DataManager::createLookupRoots(Tree::GenericTreeNode *node, Tree::NodeKey *k
       // add the last key found to the count
       ++partial;
       ++keys;
-      //CkPrintf("missed keys of %s, %d\n",keyBits(childKey,63).c_str(),partial);
     }
     count += partial;
   }
@@ -562,7 +542,6 @@ void DataManager::donePrefetch(int chunk){
       gpuFree = false;
       lastChunkMoments = buffers->moments->length();
       lastChunkParticles = buffers->particles->length();
-      //CkPrintf("(%d) DM donePrefetch gpuFree, transferring 0x%x (%d); 0x%x (%d) \n", CkMyPe(), buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles);
 
   CkCallback *remoteChunkTransferCallback
       = new CkCallback(CkIndex_DataManager::resumeRemoteChunk(), CkMyNode(),
@@ -578,7 +557,6 @@ void DataManager::donePrefetch(int chunk){
     }
     else{
       // enqueue pendingbuffers
-      //CkPrintf("(%d) DM donePrefetch gpu not free, enqueuing\n", CkMyPe());
       pendingChunkTransferQ.enq(buffers);
     }
     
@@ -945,7 +923,6 @@ void DataManager::freeRemoteChunkMemory(int chunk){
   treePiecesDoneRemoteChunkComputation++;
   if(treePiecesDoneRemoteChunkComputation == registeredTreePieces.length()){
     treePiecesDoneRemoteChunkComputation = 0;
-    //CkPrintf("(%d) DM freeRemoteChunkMemory chunk %d called\n", CkMyPe(), chunk);
 #ifdef HAPI_INSTRUMENT_WRS
     FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0, 0, activeRung);
 #else
@@ -966,7 +943,6 @@ void DataManager::initiateNextChunkTransfer(){
     next = currentChunkBuffers;
     // Transfer moments and particle cores to gpu
     int chunk = next->chunk;
-    //CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d (%d moments, %d particles) called\n", CkMyPe(), chunk, next->moments->length(), next->particles->length());
     lastChunkMoments = next->moments->length();
     lastChunkParticles = next->particles->length();
 

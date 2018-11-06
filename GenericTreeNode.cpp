@@ -4,14 +4,10 @@
 namespace Tree {
 
 GenericTreeNode *BinaryTreeNode::clone() const {
-  //BinaryTreeNode *tmp = new BinaryTreeNode();
-  //*tmp = *this;
-  //return tmp;
   return new BinaryTreeNode(*this);
 };
 
 void BinaryTreeNode::pup(PUP::er &p, int depth) {
-  //CkPrintf("Pupper of BinaryTreeNode(%d) called for %s (%d)\n",depth,p.isPacking()?"Packing":p.isUnpacking()?"Unpacking":"Sizing",p.isSizing()?((PUP::sizer*)&p)->size():((PUP::mem*)&p)->size());
   GenericTreeNode::pup(p);
   int isNull;
   for (int i=0; i<2; ++i) {

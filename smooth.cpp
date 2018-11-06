@@ -504,35 +504,6 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
   double dSearchMax = DBL_MAX;
   
   if(!bEnough) {
-#if 0
-/// This optimization is specific to the "Distribute Stellar
-/// Feedback".  It might not be necessary because the next
-/// optimization (largest node containing enough particles) is good
-/// enough and more general.
-      int bStarSrc = 0;
-      OrientedBox<double> bndSmoothTmp; // bounding box for smoothActive particles
-      for(int j = myNode->firstParticle; j <= myNode->lastParticle; ++j) {
-          GravityParticle *p = &tp->myParticles[j];
-          if(params->isSmoothActive(p) && p->isStar()) {
-              bStarSrc = 1;
-              bndSmoothTmp.grow(p->position);
-              }
-          }
-      // doing stars -> gas
-      // Set maximum search to largest gas search plus safety margin
-      if(bStarSrc && (params->iType == TYPE_GAS) && (tp->myNumSPH > 0)) {
-          double dGasBallMax = 0.0;
-          for(int k = firstQueue; k < lastQueue; k++) {
-	      if(!TYPETest(&tp->myParticles[k], params->iType))
-		  continue;
-              double dGasBall = tp->myParticles[k].fBall;
-              if(dGasBall > dGasBallMax)
-                  dGasBallMax = dGasBall;
-	      }
-          if(dGasBallMax > 0.0)
-              dSearchMax = pow(dGasBallMax*4.0 + (bndSmoothTmp.size()).length(), 2);
-          }
-#endif
       // Search for largest node containing enough particles.
       if(params->iType == TYPE_GAS) {
           GenericTreeNode *parent = tp->root;
@@ -884,8 +855,6 @@ void TreePiece::startReSmooth(SmoothParams* params,
       return;
       }
 
-  //for (int i=0; i<numChunks; ++i) remaining Chunk[i] = myNumParticles;
-
   // Create objects that are reused by all buckets
   twSmooth = new TopDownTreeWalk;
   sSmooth = new ReSmoothCompute(this, params);
@@ -913,7 +882,6 @@ void TreePiece::calculateReSmoothLocal() {
     // Give smooths higher priority than gravity
     *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-    // msg->val=0;
     thisProxy[thisIndex].nextBucketReSmooth(msg);
     }
 
@@ -1117,8 +1085,6 @@ void TreePiece::startMarkSmooth(SmoothParams* params,
       return;
       }
 
-  //for (int i=0; i<numChunks; ++i) remaining Chunk[i] = myNumParticles;
-
   // Create objects that are reused by all buckets
   twSmooth = new TopDownTreeWalk;
   sSmooth = new MarkSmoothCompute(this, params);
@@ -1145,7 +1111,6 @@ void TreePiece::calculateMarkSmoothLocal() {
     // Give smooths higher priority than gravity
     *((int *)CkPriorityPtr(msg)) = thisIndex + 1;
     CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-    // msg->val=0;
     thisProxy[thisIndex].nextBucketMarkSmooth(msg);
     }
 
