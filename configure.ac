@@ -215,9 +215,9 @@ AC_ARG_ENABLE([sph_kernel], [AS_HELP_STRING([--enable-sph-kernel], [SPH interpol
 if test x$sph_kernel = xsph_none -a x$flag_sph_m6kernel_deprecated != x; then sph_kernel=$flag_sph_m6kernel_deprecated; fi
 if test x$sph_kernel = xsph_none -a x$flag_sph_wendland_deprecated != x; then sph_kernel=$flag_sph_wendland_deprecated; fi
 case $sph_kernel in
-	sph_none|"m4") FLAG_SPH_KERNEL="-DM4KERNEL=1 -DWENDLAND=0 -DM6KERNEL=0";;
-	m6           ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=0 -DM6KERNEL=1";;
-	wendland     ) FLAG_SPH_KERNEL="-DM4KERNEL=0 -DWENDLAND=1 -DM6KERNEL=0";;
+	sph_none|"m4") FLAG_SPH_KERNEL="-DM4KERNEL";;
+	m6           ) FLAG_SPH_KERNEL="-DM6KERNEL";;
+	wendland     ) FLAG_SPH_KERNEL="-DWENDLAND";;
 	*            ) AC_MSG_ERROR([invalid argument for '--enable-sph-kernel': $sph_kernel]);;
 esac
 AC_SUBST([FLAG_SPH_KERNEL])
