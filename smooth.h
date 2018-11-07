@@ -504,11 +504,11 @@ inline double dkernelM4(double ar2)
  * @return KERNEL = (pi h^3) W
  */
 inline double KERNEL(double ar2, int nSmooth) {
-#if WENDLAND == 1
+#if defined WENDLAND
     return kernelWendland(ar2, nSmooth);
-#elif M6KERNEL == 1
+#elif defined M6KERNEL
     return kernelM6(ar2);
-#elif M4KERNEL == 1
+#elif defined M4KERNEL
     return kernelM4(ar2);
 #else
     #error No available kernel selected.
@@ -526,11 +526,11 @@ inline double KERNEL(double ar2, int nSmooth) {
  * saying:  gradW = (1/(pi h^5)) DKERNEL * dx
  */
 inline double DKERNEL(double ar2) {
-#if WENDLAND == 1
+#if defined WENDLAND
     return dkernelWendland(ar2);
-#elif M6KERNEL == 1
+#elif defined M6KERNEL
     return dkernelM6(ar2);
-#elif M4KERNEL == 1
+#elif defined M4KERNEL
     return dkernelM4(ar2);
 #else
     #error No available kernel selected.
