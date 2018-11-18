@@ -612,17 +612,12 @@ int GravityCompute::computeParticleForces(TreePiece *ownerTP, GenericTreeNode *n
 
 int PrefetchCompute::openCriterion(TreePiece *ownerTP,
                           GenericTreeNode *node, int reqID, State *state){
-  TreePiece *tp = ownerTP;
-  PrefetchRequestStruct prs(tp->prefetchReq, tp->numPrefetchReq);
   Vector3D<cosmoType> offset = ownerTP->decodeOffset(reqID);
-  for(int i = 0; i < prs.numPrefetchReq; i++){
-    BinaryTreeNode testNode;
-    testNode.boundingBox = prs.prefetchReq[i];
-    //testNode.moments.softBound = 0.0;
+  BinaryTreeNode testNode;
+  testNode.boundingBox = ownerTP->prefetchReq;
 
-    if(openCriterionBucket(node, &testNode, offset))
+  if(openCriterionBucket(node, &testNode, offset))
       return 1;
-  }
   return 0;
 }
 
