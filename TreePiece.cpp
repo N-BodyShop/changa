@@ -4953,38 +4953,11 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
   initBuckets();
 
-  switch(domainDecomposition){
-    case Oct_dec:
-    case ORB_dec:
-    case ORB_space_dec:
-      //Prefetch Roots for Oct
-      prefetchReq[0].reset();
-      for (unsigned int i=1; i<=myNumParticles; ++i) {
-        if (myParticles[i].rung >= activeRung) {
-          prefetchReq[0].grow(myParticles[i].position);
-        }
+  prefetchReq.reset();
+  for (unsigned int i=1; i<=myNumParticles; ++i) {
+      if (myParticles[i].rung >= activeRung) {
+          prefetchReq.grow(myParticles[i].position);
       }
-      break;
-    default:
-      //Prefetch Roots for SFC
-      prefetchReq[0].reset();
-      for (unsigned int i=1; i<=myNumParticles; ++i) {
-	  // set to first active particle
-        if (myParticles[i].rung >= activeRung) {
-          prefetchReq[0].grow(myParticles[i].position);
-	  break;
-	}
-      }
-      prefetchReq[1].reset();
-      for (unsigned int i=myNumParticles; i>=1; --i) {
-	  // set to last active particle
-        if (myParticles[i].rung >= activeRung) {
-	    prefetchReq[1].grow(myParticles[i].position);
-	    break;
-	}
-      }
-
-      break;
   }
 
 #if CHANGA_REFACTOR_DEBUG > 0
@@ -5286,7 +5259,6 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   // start prefetching next chunk
   if (++sPrefetchState->currentBucket < numChunks) {
     // Nothing needs to be changed for this chunk -
-    // the prefetchReqs and their number remains the same
     // We only need to reassociate the tree walk with the
     // prefetch compute object and the prefetch object wiht
     // the prefetch opt object
@@ -5740,22 +5712,6 @@ void TreePiece::pup(PUP::er& p) {
   if (p.isUnpacking()) {
     particleInterRemote = NULL;
     nodeInterRemote = NULL;
-
-    switch(domainDecomposition) {
-    case SFC_dec:
-    case SFC_peano_dec:
-    case SFC_peano_dec_3D:
-    case SFC_peano_dec_2D:
-      numPrefetchReq = 2;
-      break;
-    case Oct_dec:
-    case ORB_dec:
-    case ORB_space_dec:
-      numPrefetchReq = 1;
-      break;
-    default:
-      CmiAbort("Pupper has wrong domain decomposition type!\n");
-    }
   }
 
   p | myPlace;

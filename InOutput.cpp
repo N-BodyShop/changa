@@ -134,21 +134,6 @@ void TreePiece::loadTipsy(const std::string& filename,
 	nTotalStar = tipsyHeader.nstar;
 	dStartTime = tipsyHeader.time;
 
-	switch (domainDecomposition) {
-	case SFC_dec:
-        case SFC_peano_dec:
-	case SFC_peano_dec_3D:
-	case SFC_peano_dec_2D:
-	    numPrefetchReq = 2;
-	case Oct_dec:
-	case ORB_dec:
-	case ORB_space_dec:
-	    numPrefetchReq = 1;
-	    break;
-	default:
-	    CkAbort("Invalid domain decomposition requested");
-	    }
-
         bool skipLoad = false;
         int numLoadingPEs = CkNumPes();
 
@@ -775,21 +760,6 @@ void TreePiece::loadNChilada(const std::string& filename,
         if(nTotalParticles <= 0)
             CkAbort("No particles can be read.  Check file permissions\n");
 	dStartTime = fh_time;
-
-	switch (domainDecomposition) {
-	case SFC_dec:
-        case SFC_peano_dec:
-	case SFC_peano_dec_3D:
-	case SFC_peano_dec_2D:
-	    numPrefetchReq = 2;
-	case Oct_dec:
-	case ORB_dec:
-	case ORB_space_dec:
-	    numPrefetchReq = 1;
-	    break;
-	default:
-	    CkAbort("Invalid domain decomposition requested");
-	    }
 
         bool skipLoad = false;
         int numLoadingPEs = CkNumPes();
