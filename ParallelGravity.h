@@ -1215,9 +1215,8 @@ private:
 	//u_int64_t prefetchWaiting;
 	/// Array of keys that will be the root of the prefetching chunks
 	Tree::NodeKey *prefetchRoots;
-	/// Placeholder for particles used for prefetching
-	OrientedBox<double> prefetchReq[2];
-	unsigned int numPrefetchReq;
+	/// Bounding box to use for prefetching
+	OrientedBox<double> prefetchReq;
 
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
@@ -1463,7 +1462,6 @@ public:
 	  // temporarely set to -1, it will updated after the tree is built
 	  numChunks=-1;
 	  prefetchRoots = NULL;
-	  numPrefetchReq = 0;
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
 
