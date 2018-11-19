@@ -127,7 +127,7 @@ ifdef CUDA_LEVEL
 NVCC_FLAGS += -arch=compute_$(CUDA_LEVEL) -code=sm_$(CUDA_LEVEL)
 endif
 
-NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI -I$(CHARM_PATH)/src/arch/cuda/hybridAPI
+NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI -I$(CHARM_PATH)/src/arch/cuda/hybridAPI -I$(CHARM_PATH)/include
 # add $(NVCC_LIBS) to LDLIBS when compiling for cuda
 NVCC_LIBS = -lcudart -lGL
 endif
