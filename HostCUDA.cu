@@ -46,8 +46,9 @@ inline void cudaErrorDie(cudaError_t retCode, const char* code,
   }
 }
 
-#define CmiMyPe() _Cmi_mype
-extern int _Cmi_mype;
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
+#include "converse.h"
+#endif
 
 __device__ __constant__ EwaldReadOnlyData cachedData[1];
 __device__ __constant__ EwtData ewt[NEWH];  
