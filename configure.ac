@@ -42,12 +42,19 @@ if test "${MISSING_NETINET}" = "yes" ; then
 fi
 
 AC_CHECK_HEADERS([rpc/types.h])
+AC_CHECK_HEADER([tirpc/netconfig.h],[HAVE_TIRPC=yes])
 AC_CHECK_HEADER([rpc/xdr.h],,[MISSING_XDR=yes],
 [#ifdef HAVE_RPC_TYPES_H
 #include <rpc/types.h>
 #endif
 ])
-AC_SEARCH_LIBS([xdr_float], [xdr],,[MISSING_XDR=yes])
+if test "${MISSING_XDR}" = "yes" -a "${HAVE_TIRPC}" = yes; then
+   echo "XDR missing but TIRPC installed"
+   CPPFLAGS="$CPPFLAGS -I/usr/include/tirpc"
+   AC_SEARCH_LIBS([xdr_float], [xdr tirpc], [MISSING_XDR=no], [MISSING_XDR=yes])
+else
+   AC_SEARCH_LIBS([xdr_float], [xdr],,[MISSING_XDR=yes])
+fi
 if test "${MISSING_XDR}" = "yes" ; then
    echo "XDR missing, attempting to use xdr with package"
    if test -d ../xdr ; then
