@@ -52,7 +52,8 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     double gammam1 = gamma - 1.0;
     p.c() = sqrt(gamma*gammam1*p.uPred());
     p.vPred() = gp.vel;
-    p.fBallMax() = HUGE;
+    p.fBallMax() = FLT_MAX;     // N.B. don't use DOUBLE_MAX here:
+                                // fBallMax*fBallMax should not overflow.
     p.fESNrate() = 0.0;
     p.fTimeCoolIsOffUntil() = 0.0;
     p.dTimeFB() = 0.0;
@@ -566,7 +567,8 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
     for(int i = 0; i < myNumSPH; ++i) {
         myParts[i].iType = TYPE_GAS;
         myParts[i].extraData = &mySPHParts[i];
-        myParts[i].fBallMax() = HUGE;
+        myParts[i].fBallMax() = FLT_MAX;  // N.B. don't use DOUBLE_MAX here:
+                                          // fBallMax*fBallMax should not overflow.
         myParts[i].fESNrate() = 0.0;
         myParts[i].fTimeCoolIsOffUntil() = 0.0;
         myParts[i].dTimeFB() = 0.0;
