@@ -1890,15 +1890,10 @@ public:
   void startMarkSmooth(SmoothParams *p, const CkCallback& cb);
 
   void finishNodeCache(const CkCallback& cb);
-	/// Function called by the CacheManager to send out request for needed
-	/// remote data, so that the later computation will hit.
-	void prefetch(GenericTreeNode *node, int offsetID);
-	void prefetch(ExternalGravityParticle *part);
 
-	/// @brief Retrieve the remote node, goes through the cache if present
-        //GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, bool isPrefetch=false);
-
-        GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, int awi, void *source, bool isPrefetch);
+    /// @brief Retrieve the remote node, goes through the cache if present
+    GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey,
+                                 int chunk, int reqID, int awi, void *source);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
 	void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
@@ -1933,10 +1928,13 @@ public:
 			     int level,int chunk);
 #endif
 
-        ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source, bool isPrefetch=false);
-	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
-				    int remoteIndex, int begin,int end,
-				    int reqID, int awi, void *source, bool isPrefetch);
+    ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,
+                                              int remoteIndex,int begin,
+                                              int end,int reqID, int awi,
+                                              void *source);
+    GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
+                                            int remoteIndex, int begin,int end,
+                                            int reqID, int awi, void *source);
 	void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
 	void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
 	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
@@ -2000,10 +1998,6 @@ public:
 
 	    return offset;
 	    }
-
-        GenericTreeNode *nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi, void *source);
-
-        ExternalGravityParticle *particlesMissed(Tree::NodeKey &key, int chunk, int remoteIndex, int firstParticle, int lastParticle, int reqID, bool isPrefetch, int awi, void *source);
 
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
