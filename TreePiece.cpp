@@ -5228,7 +5228,7 @@ void TreePiece::initiatePrefetch(int chunk){
           child = requestNode(dm->responsibleIndex[(first+last)>>1],
               prefetchRoots[chunk], chunk,
               encodeOffset(0, x, y, z),
-              prefetchAwi, (void *)0, true);
+              prefetchAwi, (void *)0);
         }
         if (child != NULL) {
 #if CHANGA_REFACTOR_DEBUG > 1
@@ -5411,7 +5411,8 @@ const GravityParticle *TreePiece::lookupParticles(int begin) {
   return &myParticles[begin];
 }
 
-GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int chunk, int reqID, int awi, void *source, bool isPrefetch) {
+GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
+                       int chunk, int reqID, int awi, void *source) {
 
   CkAssert(remoteIndex < (int) numTreePieces);
   CkAssert(chunk < numChunks);
@@ -5455,7 +5456,7 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int 
   return NULL;
 }
 
-ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source, bool isPrefetch) {
+ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source) {
   if (_cache) {
     CProxyElement_ArrayElement thisElement(thisProxy[thisIndex]);
     CkCacheUserData userData;
@@ -5504,8 +5505,7 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
 
 GravityParticle *
 TreePiece::requestSmoothParticles(Tree::NodeKey key,int chunk,int remoteIndex,
-				  int begin,int end,int reqID, int awi, void *source,
-				  bool isPrefetch) {
+				  int begin,int end,int reqID, int awi, void *source) {
   if (_cache) {
     CProxyElement_ArrayElement thisElement(thisProxy[thisIndex]);
     CkCacheUserData userData;
@@ -6077,15 +6077,6 @@ checkWalkCorrectness();
 #else
   CkAbort("Invalid call, only valid if COSMO_STATS is defined");
 #endif
-}
-
-GenericTreeNode *TreePiece::nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi, void *source){
-  GenericTreeNode *gtn = requestNode(remoteIndex, key, chunk, reqID, awi, source, isPrefetch);
-  return gtn;
-}
-
-ExternalGravityParticle *TreePiece::particlesMissed(Tree::NodeKey &key, int chunk, int remoteIndex, int firstParticle, int lastParticle, int reqID, bool isPrefetch, int awi, void *source){
-  return requestParticles(key, chunk, remoteIndex,firstParticle,lastParticle,reqID, awi, source, isPrefetch);
 }
 
 // This is invoked when a remote node is received from the CacheManager
