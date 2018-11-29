@@ -524,9 +524,12 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
 #endif
     Tree::NodeKey keyref = node->getKey();
     ExternalGravityParticle *part;
-    part = tp->requestParticles(keyref, chunk, node->remoteIndex,
-                               node->firstParticle, node->lastParticle,
-                               reqID, awi, computeEntity);
+    part = tp->particlesMissed(keyref,
+                               chunk,
+                               node->remoteIndex,
+                               node->firstParticle,
+                               node->lastParticle,
+                               reqID, false, awi, computeEntity);
     if(part){
 #if CHANGA_REFACTOR_DEBUG > 2
       CkPrintf("Particles found in cache\n");
@@ -646,9 +649,13 @@ int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, i
 #endif
     Tree::NodeKey keyref = node->getKey();
     ExternalGravityParticle *part;
-    part = tp->requestParticles(keyref, chunk, node->remoteIndex,
-                                node->firstParticle, node->lastParticle, reqID,
-                                awi, (void *)0);
+    part = tp->particlesMissed(keyref,
+                               chunk,
+                               node->remoteIndex,
+                               node->firstParticle,
+                               node->lastParticle,
+                               reqID,
+                               true, awi, (void *)0);
 
     if(part == NULL){
 //#ifdef CUDA
@@ -841,9 +848,12 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
 #endif
     Tree::NodeKey keyref = node->getKey();
     ExternalGravityParticle *part;
-    part = tp->requestParticles(keyref, chunk, node->remoteIndex,
-                                node->firstParticle, node->lastParticle,
-                                reqID, awi, computeEntity);
+    part = tp->particlesMissed(keyref,
+                               chunk,
+                               node->remoteIndex,
+                               node->firstParticle,
+                               node->lastParticle,
+                               reqID, false, awi, computeEntity);
     if(part){
 #if CHANGA_REFACTOR_DEBUG > 2
       CkPrintf("Particles found in cache\n");
@@ -2272,8 +2282,12 @@ void ListCompute::addChildrenToCheckList(GenericTreeNode *node, int reqID, int c
     {
       Tree::NodeKey childKey = node->getChildKey(i);
       // child not in my tree, look in cache
-      child = tp->requestNode(reqID, node->remoteIndex, childKey, chunk, awi,
-                              computeEntity);
+      child = tp->nodeMissed(reqID,
+                             node->remoteIndex,
+                             childKey,
+                             chunk,
+                             false,
+                             awi, computeEntity);
       if(!child)
       {
 #if COSMO_PRINT_BK > 1
