@@ -215,6 +215,7 @@ int cacheSize;
 /// call to setupICs().
 ///
 Main::Main(CkArgMsg* m) {
+  CkAbort("Test failure");
 	args = m;
 	_cache = true;
 	mainChare = thishandle;
