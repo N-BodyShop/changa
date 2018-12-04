@@ -970,7 +970,7 @@ class TreePiece : public CBase_TreePiece {
         void clearMarkedBuckets(CkVec<GenericTreeNode *> &markedBuckets);
         void clearMarkedBucketsAll();
 
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
         long long localNodeInteractions;
         long long localPartInteractions;
         long long remoteNodeInteractions;
@@ -1447,7 +1447,7 @@ public:
 #endif
 #ifdef CUDA
           numActiveBuckets = -1;
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
           localNodeInteractions = 0;
           localPartInteractions = 0;
           remoteNodeInteractions = 0;
