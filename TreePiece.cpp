@@ -5133,7 +5133,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   }
 #endif // CUDA
 
-#if CUDA_STATS
+#if HAPI_TRACE
   localNodeInteractions = 0;
   localPartInteractions = 0;
   remoteNodeInteractions = 0;
@@ -6425,13 +6425,13 @@ void TreePiece::finishWalk()
   }
 
 #endif
-#ifdef CUDA_STATS
-  CkPrintf("[%d] (%d) CUDA_STATS localnode: %ld\n", thisIndex, activeRung, localNodeInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remotenode: %ld\n", thisIndex, activeRung, remoteNodeInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remoteresumenode: %ld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS localpart: %ld\n", thisIndex, activeRung, localPartInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remotepart: %ld\n", thisIndex, activeRung, remotePartInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remoteresumepart: %ld\n", thisIndex, activeRung, remoteResumePartInteractions);
+#ifdef HAPI_TRACE
+  CkPrintf("[%d] (%d) HAPI_TRACE localnode: %ld\n", thisIndex, activeRung, localNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remotenode: %ld\n", thisIndex, activeRung, remoteNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumenode: %ld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE localpart: %ld\n", thisIndex, activeRung, localPartInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remotepart: %ld\n", thisIndex, activeRung, remotePartInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumepart: %ld\n", thisIndex, activeRung, remoteResumePartInteractions);
   
 #endif
 

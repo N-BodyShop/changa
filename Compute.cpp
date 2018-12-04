@@ -2108,7 +2108,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
   double time = state->nodeListConstructionTimeStop();
 #endif
   if(type == Local){
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
     tp->localNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferLocal(data);
@@ -2118,7 +2118,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
 #endif
   }
   else if(type == Remote && !state->resume){
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
     tp->remoteNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferRemote(data);
@@ -2131,7 +2131,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
     CudaMultipoleMoments *missedNodes = state->nodes->getVec();
     int len = state->nodes->length();
     CkAssert(missedNodes);
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
     tp->remoteResumeNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferRemoteResume(data, missedNodes, len);
@@ -2216,7 +2216,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 #endif
 
   if(type == Local){
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
     tp->localPartInteractions += state->particleLists.totalNumInteractions;
 #endif
     if(tp->largePhase()){
@@ -2234,7 +2234,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 #endif
   }
   else if(type == Remote && !state->resume){
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
     tp->remotePartInteractions += state->particleLists.totalNumInteractions;
 #endif
     TreePiecePartListDataTransferRemote(data);
@@ -2247,7 +2247,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
     CompactPartData *missedParts = state->particles->getVec();
     int len = state->particles->length();
     CkAssert(missedParts);
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
     tp->remoteResumePartInteractions += state->particleLists.totalNumInteractions;
 #endif
     TreePiecePartListDataTransferRemoteResume(data, missedParts, len);
