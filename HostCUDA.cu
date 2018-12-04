@@ -23,6 +23,7 @@
 #include "EwaldCUDA.h"
 
 #include "hapi.h"
+#include "cuda_typedef.h"
 
 #ifdef GPU_LOCAL_TREE_WALK
 #include "codes.h"
