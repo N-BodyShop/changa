@@ -490,9 +490,6 @@ void DataManager::serializeLocalTree(){
   if(treePiecesDone == registeredTreePieces.length()){
     treePiecesDone = 0;
 
-#ifdef HAPI_TRACE
-    double starttime = CmiWallTimer();
-#endif
     if(verbosity > 1)
         CkPrintf("[%d] Registered tree pieces length: %d\n", CkMyPe(), registeredTreePieces.length());
     serializeLocal(root);
@@ -526,9 +523,6 @@ void DataManager::resumeRemoteChunk() {
   delete currentChunkBuffers->particles;
   delete currentChunkBuffers;
 
-#ifdef HAPI_TRACE
-    traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
-#endif
     // resume each treepiece's startRemoteChunk, now that the nodes
     // are properly labeled and the particles accounted for
     for(int i = 0; i < registeredTreePieces.length(); i++){
