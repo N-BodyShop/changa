@@ -192,6 +192,7 @@ elif test "$KERNEL" = "m6kernel" ; then
     echo "M6KERNEL selected"
     FLAG_M6KERNEL="-DM6KERNEL=1"
 fi
+AC_SUBST([FLAG_KERNEL])
 KERNEL_FLAGS="$FLAG_M4KERNEL $FLAG_WENDLAND $FLAG_M6KERNEL"
 echo "$KERNEL_FLAGS"
 AC_SUBST([KERNEL_FLAGS])
@@ -210,7 +211,7 @@ AC_SUBST([FLAG_DAMPING])
 
 # Cooling:
 AC_ARG_ENABLE([cooling],
-	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet, cosmo, grackle)])],
+	[AS_HELP_STRING([--enable-cooling], [enable gas cooling (planet, cosmo, metal, H2, grackle)])],
 	[cooling=$enableval], [cooling=no])
 OBJECTS_COOLING=""
 if test "$cooling" = "no" ; then
@@ -220,6 +221,10 @@ elif test "$cooling" = "planet" ; then
    echo "Planet cooling selected"
    FLAG_COOLING="-DCOOLING_PLANET"
    OBJECTS_COOLING="cooling_planet.o stiff.o"
+elif test "$cooling" = "boley" ; then
+   echo "Boley 2009 Planet cooling selected"
+   FLAG_COOLING="-DCOOLING_BOLEY"
+   OBJECTS_COOLING="cooling_boley.o stiff.o"
 elif test "$cooling" = "cosmo" ; then
    echo "Cosmo cooling selected"
    FLAG_COOLING="-DCOOLING_COSMO"
@@ -342,7 +347,7 @@ AC_SUBST([FLAG_DIFFHARMONIC])
 # SUPERBUBBLE FEEDBACK
 AC_ARG_ENABLE([superbubble],
 	[AS_HELP_STRING([--enable-superbubble], [enable superbubble feedback])],
-	[superbubble=yes], [superbubble=no])
+	[superbubble=$enableval], [superbubble=no])
 if test "$superbubble" = "yes" ; then
     echo "Superbubble Feedback selected"
     FLAG_SUPERBUBBLE="-DSUPERBUBBLE"
