@@ -878,22 +878,29 @@ class Cool2OutputParams : public OutputParams
 	}
     };
 
+
 /// @brief Output the value in cool_array3.
 class Cool3OutputParams : public OutputParams
 {
-    virtual double dValue(GravityParticle *p)
-    {
+  virtual double dValue(GravityParticle *p)
+  {
 #ifndef COOLING_NONE
-	CkAssert(dm != NULL);
-	if (TYPETest(p, TYPE_GAS))
-	    return COOL_ARRAY3(dm->Cool, &p->CoolParticle(), p->fMetals());
-	else
-#endif
-	    return 0.0;
-	}
-    virtual Vector3D<double> vValue(GravityParticle *p)
-			    {CkAssert(0); return 0.0;}
-    virtual void setDValue(GravityParticle *p, double val) {
+#ifdef COOLING_MOLECULARH
+    CkAssert(dm != NULL);
+    if (TYPETest(p, TYPE_GAS))
+      return COOL_ARRAY3(dm->Cool, &p->CoolParticle(), p->fMetals());
+    else
+#else /*COOLING_MOLECULARH*/
+    if (TYPETest(p, TYPE_GAS))
+        return COOL_ARRAY3(dm->Cool, &p->CoolParticle(), p->fMetals());
+    else
+#endif /*COOLING_MOLECULARH*/
+#endif /*COOLING_NONE*/
+      return 0.0;
+  }
+  virtual Vector3D<double> vValue(GravityParticle *p)
+  {CkAssert(0); return 0.0;}
+  virtual void setDValue(GravityParticle *p, double val) {
 #ifndef COOLING_NONE
     if (TYPETest(p, TYPE_GAS))
 #ifdef COOLING_MOLECULARH
@@ -906,22 +913,21 @@ class Cool3OutputParams : public OutputParams
   virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
   virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
-    Cool3OutputParams() {}
-    Cool3OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
-        bFloat = 1;
-        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+  Cool3OutputParams() {}
+  Cool3OutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+    bFloat = 1;
+    bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
 #ifndef COOLING_NONE
-        sTipsyExt = COOL_ARRAY3_EXT; sNChilExt = COOL_ARRAY3_EXT;
+    sTipsyExt = COOL_ARRAY3_EXT; sNChilExt = COOL_ARRAY3_EXT;
 #endif
-        dTime = _dTime;
-        iType = TYPE_GAS; }
-    PUPable_decl(Cool3OutputParams);
-    Cool3OutputParams(CkMigrateMessage *m) {}
-    virtual void pup(PUP::er &p) {
-        OutputParams::pup(p);//Call base class
-	}
-    };
-#endif /*COOLING_MOLECULARH*/
+    dTime = _dTime;
+    iType = TYPE_GAS; }
+  PUPable_decl(Cool3OutputParams);
+  Cool3OutputParams(CkMigrateMessage *m) {}
+  virtual void pup(PUP::er &p) {
+    OutputParams::pup(p);//Call base class
+  }
+};
 
 #ifdef COOLING_MOLECULARH
 class LWOutputParams : public OutputParams
@@ -933,17 +939,20 @@ class LWOutputParams : public OutputParams
 	}
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {
+      if (TYPETest(p, TYPE_STAR))  p->dStarLymanWerner() = val;
+      if (TYPETest(p, TYPE_GAS))  p->CoolParticle().dLymanWerner = val;
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     LWOutputParams() {}
     LWOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "lw"; sNChilExt = "lw";
         dTime = _dTime;
         iType = TYPE_GAS | TYPE_STAR; }
-    /*    LWOutputParams(std::string achFileName) { 
-	bVector = 0; 
-	fileName = achFileName+".lw";
-	}*/
     PUPable_decl(LWOutputParams);
     LWOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
@@ -1061,6 +1070,8 @@ class MetalsDotOutputParams : public OutputParams
 	if (p->isGas()) p->fMetalsDot() = val;
 #endif
         }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
  public:
     MetalsDotOutputParams() {}
     MetalsDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
@@ -1100,72 +1111,6 @@ class MFormOutputParams : public OutputParams
         iType = TYPE_STAR; }
     PUPable_decl(MFormOutputParams);
     MFormOutputParams(CkMigrateMessage *m) {}
-    virtual void pup(PUP::er &p) {
-        OutputParams::pup(p);//Call base class
-	}
-    };
-
-class OxygenMassFracDotOutputParams : public OutputParams
-{
-    virtual double dValue(GravityParticle *p) {
-#ifdef DIFFUSION
-	if (p->isGas()) return p->fMFracOxygenDot();
-	else
-	    return 0.0;
-#endif
-	}
-    virtual Vector3D<double> vValue(GravityParticle *p)
-			    {CkAssert(0); return 0.0;}
-    virtual void setDValue(GravityParticle *p, double val) {
-#ifdef DIFFUSION
-	if (p->isGas()) p->fMFracOxygenDot() = val;
-#endif
-	}
-    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
-    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
- public:
-    OxygenMassFracDotOutputParams() {}
-    OxygenMassFracDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
-        bFloat = 1;
-        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
-        sTipsyExt = "OxMassFracdot"; sNChilExt = "OxMassFracdot";
-        dTime = _dTime;
-        iType = TYPE_GAS; }
-    PUPable_decl(OxygenMassFracDotOutputParams);
-    OxygenMassFracDotOutputParams(CkMigrateMessage *m) {}
-    virtual void pup(PUP::er &p) {
-        OutputParams::pup(p);//Call base class
-	}
-    };
-
-class IronMassFracDotOutputParams : public OutputParams
-{
-    virtual double dValue(GravityParticle *p) {
-#ifdef DIFFUSION
-	if (p->isGas()) return p->fMFracIronDot();
-	else
-	    return 0.0;
-#endif
-	}
-    virtual Vector3D<double> vValue(GravityParticle *p)
-			    {CkAssert(0); return 0.0;}
-    virtual void setDValue(GravityParticle *p, double val) {
-#ifdef DIFFUSION
-	if (p->isGas()) p->fMFracIronDot() = val;
-#endif
-	}
-    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
-    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
- public:
-    IronMassFracDotOutputParams() {}
-    IronMassFracDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
-        bFloat = 1;
-        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
-        sTipsyExt = "FeMassFracdot"; sNChilExt = "FeMassFracdot";
-        dTime = _dTime;
-        iType = TYPE_GAS; }
-    PUPable_decl(IronMassFracDotOutputParams);
-    IronMassFracDotOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}
@@ -1223,6 +1168,72 @@ class AgeOutputParams : public OutputParams
         iType = TYPE_STAR; }
     PUPable_decl(AgeOutputParams);
     AgeOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class OxygenMassFracDotOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+#ifdef DIFFUSION
+	if (p->isGas()) return p->fMFracOxygenDot();
+	else
+	    return 0.0;
+#endif
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {
+#ifdef DIFFUSION
+	if (p->isGas()) p->fMFracOxygenDot() = val;
+#endif
+        }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    OxygenMassFracDotOutputParams() {}
+    OxygenMassFracDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "OxMassFracdot"; sNChilExt = "OxMassFracdot";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(OxygenMassFracDotOutputParams);
+    OxygenMassFracDotOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class IronMassFracDotOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+#ifdef DIFFUSION
+	if (p->isGas()) return p->fMFracIronDot();
+	else
+	    return 0.0;
+#endif
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {
+#ifdef DIFFUSION
+	if (p->isGas()) p->fMFracIronDot() = val;
+#endif
+	}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    IronMassFracDotOutputParams() {}
+    IronMassFracDotOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "FeMassFracdot"; sNChilExt = "FeMassFracdot";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(IronMassFracDotOutputParams);
+    IronMassFracDotOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}
