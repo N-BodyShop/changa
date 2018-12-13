@@ -646,6 +646,7 @@ OBJECTS_COOLING
 FLAG_COOLING
 FLAG_DAMPING
 KERNEL_FLAGS
+FLAG_KERNEL
 FLAG_SPLITGAS
 FLAG_NSMOOTHINNER
 FLAG_DTADJUST
@@ -1372,7 +1373,8 @@ Optional Features:
   --enable-wendland       enable Wendland C4 Kernel
   --enable-m6kernel       enable M6 cubic spline kernel
   --enable-damping        enable velocity damping for glasses
-  --enable-cooling        enable gas cooling (planet, cosmo, grackle)
+  --enable-cooling        enable gas cooling (planet, cosmo, metal, H2,
+                          grackle)
   --disable-hexadecapole  disable use of hexadecapole expansions
   --enable-gpu_local_tree_walk
                           Enable gpu_local_tree_walk (yes, no)
@@ -4114,6 +4116,7 @@ elif test "$KERNEL" = "m6kernel" ; then
     echo "M6KERNEL selected"
     FLAG_M6KERNEL="-DM6KERNEL=1"
 fi
+
 KERNEL_FLAGS="$FLAG_M4KERNEL $FLAG_WENDLAND $FLAG_M6KERNEL"
 echo "$KERNEL_FLAGS"
 
@@ -4150,6 +4153,10 @@ elif test "$cooling" = "planet" ; then
    echo "Planet cooling selected"
    FLAG_COOLING="-DCOOLING_PLANET"
    OBJECTS_COOLING="cooling_planet.o stiff.o"
+elif test "$cooling" = "boley" ; then
+   echo "Boley 2009 Planet cooling selected"
+   FLAG_COOLING="-DCOOLING_BOLEY"
+   OBJECTS_COOLING="cooling_boley.o stiff.o"
 elif test "$cooling" = "cosmo" ; then
    echo "Cosmo cooling selected"
    FLAG_COOLING="-DCOOLING_COSMO"
@@ -4162,6 +4169,10 @@ elif test "$cooling" = "H2" ; then
    echo "H2 cooling selected"
    FLAG_COOLING="-DCOOLING_MOLECULARH"
    OBJECTS_COOLING="cooling_metal_H2.o stiff.o"
+elif test "$cooling" = "H2_NR" ; then
+   echo "H2 cooling (NR) selected"
+   FLAG_COOLING="-DCOOLING_MOLECULARH -DCOOLING_NR"
+   OBJECTS_COOLING="cooling_metal_H2_NR.o stiff_NR.o"
 elif test "$cooling" = "grackle" ; then
    echo "Grackle cooling selected"
    FLAG_COOLING="-DCOOLING_GRACKLE"
@@ -4388,7 +4399,7 @@ fi
 # SUPERBUBBLE FEEDBACK
 # Check whether --enable-superbubble was given.
 if test "${enable_superbubble+set}" = set; then :
-  enableval=$enable_superbubble; superbubble=yes
+  enableval=$enable_superbubble; superbubble=$enableval
 else
   superbubble=no
 fi
