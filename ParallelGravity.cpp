@@ -1239,6 +1239,7 @@ Main::Main(CkArgMsg* m) {
 	    CkAbort("Thermal Diffusion Rate specified but not compiled for\n");
 	    }
 #endif
+
         if (domainDecomposition == SFC_peano_dec) peanoKey = 3;
         if (domainDecomposition == SFC_peano_dec_2D) peanoKey = 2;
         if (domainDecomposition == SFC_peano_dec_3D) peanoKey = 3;
@@ -1881,10 +1882,14 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
     }
     if(bClosing) // For a closing kick, gravity may not have finished
         waitForGravity(cbGravity, gravStartTime, iActiveRung);
+
+    double a = csmTime2Exp(param.csm,dTime);
     double startTime = CkWallTimer();
     treeProxy.kick(iActiveRung, dKickFac, bClosing, param.bDoGas,
-		     param.bGasIsothermal, param.dMaxEnergy, duKick, (param.dConstGamma-1), 
-             param.dThermalCondSatCoeff/a, param.feedback->dMultiPhaseMaxTime, param.feedback->dMultiPhaseMinTemp, 
+                   param.bGasIsothermal, param.dMaxEnergy, duKick,
+                   (param.dConstGamma-1), param.dThermalCondSatCoeff/a,
+                   param.feedback->dMultiPhaseMaxTime,
+                   param.feedback->dMultiPhaseMinTemp,
                    param.dEvapCoeffCode*a, CkCallbackResumeThread());
     double tKick = CkWallTimer() - startTime;
     timings[iActiveRung].tKick += tKick;
@@ -2059,16 +2064,18 @@ void Main::advanceBigStep(int iStep) {
     buildTree(activeRung);
 
     CkCallback cbGravity(CkCallback::resumeThread);
+
+#ifdef COOLING_MOLECULARH
+    // XXX should this go inside buildTree()?
+    treeProxy.distribLymanWerner(CkCallbackResumeThread());
+#endif /*COOLING_MOLECULARH*/
+
     if(verbosity > 1)
 	memoryStats();
     double gravStartTime;
     startGravity(cbGravity, activeRung, &gravStartTime);
     if(param.bDoExternalGravity)
         externalGravity(activeRung);
-
-#ifdef COOLING_MOLECULARH
-    treeProxy.distribLymanWerner(CkCallbackResumeThread());
-#endif /*COOLING_MOLECULARH*/
 
     if(verbosity > 1)
 	memoryStats();
@@ -2081,12 +2088,12 @@ void Main::advanceBigStep(int iStep) {
     if(!param.bStaticTest) {
         // Closing Kick
         kick(true, activeRung, nextMaxRung, cbGravity, gravStartTime);
-      //SIDM needs to check that it is on on active rung?
-      if (activeRung == 0 ) {
-	doSIDM(dTime,RungToDt(param.dDelta, activeRung), activeRung);
+        //SIDM needs to check that it is on on active rung?
+        if (activeRung == 0 ) {
+            doSIDM(dTime,RungToDt(param.dDelta, activeRung), activeRung);
 	}
-      doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
-      }
+        doSinks(dTime, RungToDt(param.dDelta, activeRung), activeRung);
+    }
     else
         waitForGravity(cbGravity, gravStartTime, activeRung);
 
@@ -2289,7 +2296,7 @@ void Main::setupICs() {
           param.dSIDMVariable=param.dSIDMVariable/(pow(param.dMsolUnit*MSOLG*GCGS/(KPCCM*param.dKpcUnit),.5)/100000.0) ; //converts from km/s to sim units
           }
       } 
-
+  
   param.externalGravity.CheckParams(prm, param);
 
   string achLogFileName = string(param.achOutName) + ".log";
@@ -3442,11 +3449,11 @@ void Main::writeOutput(int iStep)
       outputBinary(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
       outputBinary(pTeffOut, param.bParaWrite, CkCallbackResumeThread());
 #endif
-	    outputBinary(pOxOut, param.bParaWrite, CkCallbackResumeThread());
-	    outputBinary(pFeOut, param.bParaWrite, CkCallbackResumeThread());
-	    outputBinary(pMFormOut, param.bParaWrite, CkCallbackResumeThread());
-	    outputBinary(pcoolontimeOut, param.bParaWrite, CkCallbackResumeThread());
-	    outputBinary(pESNRateOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pOxOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pFeOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pMFormOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pcoolontimeOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pESNRateOut, param.bParaWrite, CkCallbackResumeThread());
             }
 #ifndef COOLING_NONE
 	if(param.bGasCooling) {
@@ -3456,10 +3463,10 @@ void Main::writeOutput(int iStep)
 #ifdef COOLING_MOLECULARH
 	    outputBinary(pCool3Out, param.bParaWrite, CkCallbackResumeThread());
 #endif /*COOLING_MOLECULARH*/
-	}
+            }
 #ifdef COOLING_MOLECULARH
-	    if(param.bDoStellarLW)
-	      outputBinary(pLWOut, param.bParaWrite, CkCallbackResumeThread());
+        if(param.bDoStellarLW)
+            outputBinary(pLWOut, param.bParaWrite, CkCallbackResumeThread());
 #endif /*COOLING_MOLECULARH*/
 #endif
 	if(param.bDoSoftOutput && param.iBinaryOut != 6) {
@@ -3515,8 +3522,8 @@ void Main::writeOutput(int iStep)
       treeProxy[0].outputASCII(puOut, param.bParaWrite, CkCallbackResumeThread());
       treeProxy[0].outputASCII(pTeffOut, param.bParaWrite,CkCallbackResumeThread());
 #endif
-            treeProxy[0].outputASCII(pRung, param.bParaWrite,
-                                     CkCallbackResumeThread());
+        treeProxy[0].outputASCII(pRung, param.bParaWrite,
+                                 CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pOxOut, param.bParaWrite,
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pFeOut, param.bParaWrite,
