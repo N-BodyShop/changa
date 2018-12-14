@@ -50,8 +50,9 @@ class Fdbk : public PUP::able {
     void CalcUVFeedback(SFEvent *sfEvent, double dTime, double dDelta,
                         FBEffects *fbEffects) const;
 #ifdef COOLING_MOLECULARH
-    double CalcLWFeedback(SFEvent *sfEvent, double dTime, double dDelta);
+    double CalcLWFeedback(SFEvent *sfEvent, double dTime, double dDelta) const;
 #endif /*COOLING_MOLECULARH*/
+
     char achIMF[32];	        /* initial mass function */
     int iRandomSeed;		/* seed for stochastic quantized feedback */
     double dGmUnit;		/* system mass in grams */

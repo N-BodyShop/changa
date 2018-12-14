@@ -563,8 +563,8 @@ void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 /// injected before the first SNII go off.
 void Fdbk::CalcUVFeedback(SFEvent *sfEvent, /**< Star to process */
                           double dTime, /**< current time in years */
-			  double dDelta, /**< length of timestep (years) */
-			  FBEffects *fbEffects /**< [out] effects */)
+                          double dDelta, /**< length of timestep (years) */
+                          FBEffects *fbEffects /**< [out] effects */) const
 {
     fbEffects->dMassLoss = 0.0;
     fbEffects->dEnergy = 0.0;
@@ -598,7 +598,7 @@ void Fdbk::CalcUVFeedback(SFEvent *sfEvent, /**< Star to process */
 #ifdef COOLING_MOLECULARH
 /*----  Lyman-Warner Radiation from young stars*/
 double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
-			    double dDelta /* length of timestep (years) */ )
+			    double dDelta /* length of timestep (years) */ ) const
 {
     double dAge1log, dAge2log, dLW1log, dLW2log, dStarAge;
     double dA0old =  70.908586,
@@ -914,7 +914,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
             if ( !fb.bSmallSNSmooth || fDist2 < f2h2 ) {
 		r2 = fDist2*ih2;            
 #ifdef SUPERBUBBLE
-        rs = 1.0; //Use a tophat kernel for superbubble feedback
+                rs = 1.0; //Use a tophat kernel for superbubble feedback
 #else
 		rs = KERNEL(r2, nSmooth);
 #endif
@@ -969,9 +969,9 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 		counter++;  
 		r2 = fDist2*ih2;
 #ifdef SUPERBUBBLE
-        rs = 1.0; //Use a tophat kernel for superbubble feedback
+                rs = 1.0; //Use a tophat kernel for superbubble feedback
 #else
-		rs = KERNEL(r2, nSmooth);
+                rs = KERNEL(r2, nSmooth);
 #endif
 		/* Remember: We are dealing with total energy rate and total metal
 		 * mass, not energy/gram or metals per gram.  
@@ -988,7 +988,7 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	    double fDist2 = nList[i].fKey;
 	    r2 = fDist2*ih2;  
 #ifdef SUPERBUBBLE
-        rs = 1.0; //Use a tophat kernel for superbubble feedback
+            rs = 1.0; //Use a tophat kernel for superbubble feedback
 #else
 	    rs = KERNEL(r2, nSmooth);
 #endif
@@ -1101,7 +1101,7 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
         uy=2.0*vvar*norm;
         uz=1.0-2.0*(uvar*uvar+vvar*vvar);
         p->mass /= 2.0;
-#ifdef TWOPHASE
+#ifdef SUPERBUBBLE
         p->massHot() /= 2.0;
 #endif
         GravityParticle daughter = *p;
