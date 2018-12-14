@@ -1479,7 +1479,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bClosing, // Are we at the end of a timestep
 		     int bNeedVPred, // do we need to update vpred
 		     int bGasIsothermal, // Isothermal EOS
-                     double dMaxEnergy, // Maximum internal energy of gas.
+             double dMaxEnergy, // Maximum internal energy of gas.
 		     double duDelta[MAXRUNG+1], // dts for energy
              double gammam1, // Adiabatic index - 1
              double dThermalCondSatCoeff, //Saturated conduction coefficient
@@ -1523,7 +1523,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                   p->uHot() = uold*exp(p->uHotDot()*duDelta[p->rung]/uold);
               }
               p->uHotPred() = p->uHot();
-              double fDensity;
+              double fDensity=0;
               double ph = p->fBall*0.5;
               double frac = p->massHot()/p->mass;
               double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
@@ -1536,10 +1536,6 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                      CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, TpNC, p->fMetals());
                      p->cpHotInit() = 0;
                  }
-              }
-              else
-              {
-                  fDensity = 0;
               }
               double upnc52, up52, massFlux;
               upnc52 = pow(p->uHotPred(), 2.5);
@@ -1829,6 +1825,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
+          dTEdot = dt;
 #ifdef SUPERBUBBLE
     /* Prevent rapid overconduction */
     if (p->fThermalCond() > 0 || (p->diff() > 0 && dDiffCoeff > 0)) {
@@ -1984,7 +1981,7 @@ void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
 #else
     CkAbort("emergency adjust called without DTADJUST defined");
 #endif
-    }
+}
 
 /// @brief assign domain number to each particle for diagnostic
 void TreePiece::assignDomain(const CkCallback &cb)
