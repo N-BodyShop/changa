@@ -102,7 +102,7 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
             CkAbort("SIDM done with unknown cross section type (iSIDMSelect");
 
         //density in physical units? fNorm*KERNEL( r2 )*(p->mass)/(a*a*a)
-        probability=Sigma*dvcosmo*dDelta*fNorm*KERNEL( r2 )*(q->mass)/(a*a*a*2.0);
+        probability=Sigma*dvcosmo*dDelta*fNorm*KERNEL( r2, nSmooth )*(q->mass)/(a*a*a*2.0);
     
         //if ( ran>0.999999) {
         //   CkPrintf("SIDM Diagnostics: %g \n",probability);
@@ -115,7 +115,7 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
         if (probability > .1 && ran>0.99999) {
            CkPrintf("SIDM Warning! The probability is rather large: %g \n",probability);
            CkPrintf("iOrder: %i, dDelta: %g,  dvcosmo: %g, Sigma: %g  \n",p->iOrder,dDelta,dvcosmo, Sigma);
-           CkPrintf("fnorm: %g, kern: %g, r2: %g, q->mass: %g, aaa: %g  \n",fNorm,KERNEL( r2 ),r2,(q->mass),(a*a*a*2.0));
+           CkPrintf("fnorm: %g, kern: %g, r2: %g, q->mass: %g, aaa: %g  \n",fNorm,KERNEL( r2, nSmooth ),r2,(q->mass),(a*a*a*2.0));
            }
 
         if (probability > ran) {
