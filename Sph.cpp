@@ -737,12 +737,12 @@ Main::doSph(int activeRung, int bNeedDensity)
       }
     treeProxy.sphViscosityLimiter(param.iViscosityLimiter, activeRung,
 			CkCallbackResumeThread());
-    double a = csmTime2Exp(param.csm,dTime);
+    double a = csmTime2Exp(param.csm, dTime);
     double dDtCourantFac = param.dEtaCourant*a*2.0/1.6;
     if(param.bGasCooling)
-	treeProxy.getCoolingGasPressure(param.dConstGamma,
-					param.dConstGamma-1, param.dThermalCondCoeffCode*a, param.dThermalCond2CoeffCode*a,
-                    param.dThermalCondSatCoeff/a, param.dThermalCond2SatCoeff/a, 
+    treeProxy.getCoolingGasPressure(param.dConstGamma, param.dConstGamma-1,
+            param.dThermalCondCoeffCode*a, param.dThermalCond2CoeffCode*a,
+            param.dThermalCondSatCoeff/a, param.dThermalCond2SatCoeff/a,
             param.dEvapMinTemp,	dDtCourantFac,
             param.dResolveJeans/a,
             CkCallbackResumeThread());
@@ -1129,13 +1129,13 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
         if (qiActive)
           TYPESet(p,TYPE_NbrOfACTIVE);
-
+		
         p->fDensity = fNorm*fDensity;
 #ifdef SUPERBUBBLE
     fDensityU *= fNorm;
     if (nSmooth > 1)
     {
-        rs = KERNEL(0.0);
+        rs = KERNEL(0.0, nSmooth);
         p->fDensityU() = (fDensityU-rs*p->mass*p->uPred()*fNorm)/p->uPred()*p->fDensity/(p->fDensity-rs*p->mass*fNorm);
         CkAssert(p->fDensityU() > 0);
     }
@@ -1162,17 +1162,15 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
       double sxz = 0.5*(dvxdz + dvzdx);
       double syz = 0.5*(dvydz + dvzdy);
 #endif
-		}
-		
 #ifdef DIFFUSION
       /* diff coeff., nu ~ C L^2 S (add C via dMetalDiffusionConstant, assume L ~ h) */
       if (bConstantDiffusion) p->diff() = 1;
       else p->diff() = fNorm1*0.25*p->fBall*p->fBall*sqrt(2*(sxx*sxx + syy*syy + szz*szz + 2*(sxy*sxy + sxz*sxz + syz*syz)));
 #endif
-        p->divv() =  fNorm1*trace + 3.0*H; /* physical */
-        p->curlv().x = fNorm1*(dvzdy - dvydz);
-        p->curlv().y = fNorm1*(dvxdz - dvzdx);
-        p->curlv().z = fNorm1*(dvydx - dvxdy);
+	p->divv() =  fNorm1*trace + 3.0*H; /* physical */
+	p->curlv().x = fNorm1*(dvzdy - dvydz); 
+	p->curlv().y = fNorm1*(dvxdz - dvzdx);
+	p->curlv().z = fNorm1*(dvydx - dvxdy);
 
 #ifdef CULLENALPHA 
         double alphaLoc, tau; 
@@ -1332,6 +1330,9 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTh
             {
                 double uDot = p->PdV();
                 double dt;
+#ifdef SUPERBUBBLE
+                uDot = p->uHotDot()*frac + p->PdV()*(1-frac);
+#endif
                 if(uDot > 0.0)
                     dt = dtFacCourant*0.5*p->fBall
                         /sqrt(4.0*(p->c()*p->c() + GAMMA_NONCOOL*uDot*p->dt));
@@ -1361,8 +1362,8 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
     for(i=1; i<= myNumParticles; ++i) {
 	p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)) {
-            CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/cl->dErgPerGmUnit);
-            double cGas;
+        CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/cl->dErgPerGmUnit);
+        double cGas;
 	    CoolCodePressureOnDensitySoundSpeed(cl, &p->CoolParticle(),
 						p->uPred(), p->fDensity(),
 						gamma, gammam1, &PoverRho,
@@ -1599,13 +1600,13 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
             #endif
             // Metals Base term
             /* massdiff not implemented */
-//            #ifdef MASSDIFF /* compile-time flag */
-//                double diffMetalsBase = 4*smf->dMetalDiffusionCoeff*diffBase \
-//                     /((p->fDensity+q->fDensity)*(p->fMass+q->fMass));
-//            #else
+            #ifdef MASSDIFF /* compile-time flag */
+                double diffMetalsBase = 4*dMetalDiffusionCoeff*diffBase \
+                    /((p->fDensity+q->fDensity)*(p->fMass+q->fMass));
+            #else
                 double diffMetalsBase = 2*dMetalDiffusionCoeff*diffBase \
                      /(p->fDensity+q->fDensity); 
-//            #endif //MASSDIFF
+            #endif //MASSDIFF
         
             // Thermal diffusion
             /* 
@@ -1616,18 +1617,15 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
              *  params.diffuNc
              */
             double diffTh;
-//            /* DIFFUSIONPRICE not implemented */
-//            #ifdef DIFFUSIONPRICE /* compile-time flag */
-//                {
-//                double irhobar = 2/(p->fDensity+q->fDensity);
-//                double vsig = sqrt(fabs(qParams.PoverRho2*q->fDensity*q->fDensity \
-//                                        - pParams.PoverRho2*p->fDensity*p->fDensity)\
-//                                        *irhobar);
-//                diffTh = smf->dThermalDiffusionCoeff*0.5 \
-//                        * (ph+sqrt(0.25*BALL2(q)))*irhobar*vsig;
-//                params.diffu = diffTh*(p->uPred-q->uPred);
-//                }
-//            #else
+            #ifdef DIFFUSIONPRICE /* compile-time flag */
+                {
+                double irhobar = 2/(p->fDensity+q->fDensity);
+                double vsig = sqrt(fabs(qParams.PoverRho2*q->fDensity*q->fDensity
+                        - pParams.PoverRho2*p->fDensity*p->fDensity)*irhobar);
+                diffTh = dThermalDiffusionCoeff*0.5*(ph+0.5*q->fBall)*irhobar*vsig;
+                params.diffu = diffTh*(p->uPred-q->uPred);
+                }
+            #else
                 #ifndef NODIFFUSIONTHERMAL /* compile-time flag */
                     {
                     diffTh = (2*dThermalDiffusionCoeff*diffBase/(p->fDensity+q->fDensity));
@@ -1656,11 +1654,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                     params.diffu = (diffTh+dThermalCond)*(p->uPred()-q->uPred());
                     }
                 #endif
-//            #endif //DIFFUSIONPRICE
-//            /* not implemented */
-//            #ifdef UNONCOOL /* compile-time flag */
-//                params.diffuNc = diffTh*(p->uNoncoolPred-q->uNoncoolPred);
-//            #endif
+            #endif //DIFFUSIONPRICE
             // Calculate diffusion pre-factor terms (required for updating particles)
             params.diffMetals = diffMetalsBase*(p->fMetals() - q->fMetals());
             params.diffMetalsOxygen = diffMetalsBase*(p->fMFracOxygen() - q->fMFracOxygen());
@@ -2017,7 +2011,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    CkAssert(TYPETest(q, TYPE_GAS));
         CkAssert(!TYPETest(p, TYPE_STAR));
 		r2 = nnList[i].fKey*ih2;            
-		rs = KERNEL(r2);
+		rs = KERNEL(r2, nSmooth);
         rstot += rs;
   		xc += rs*nnList[i].dx.x; 
 		yc += rs*nnList[i].dx.y;
@@ -2058,7 +2052,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         if (Tq >= dEvapMinTemp ) continue;  /* Exclude hot particles */
 	    CkAssert(TYPETest(q, TYPE_GAS));
 		r2 = nnList[i].fKey*ih2;            
-		rs = KERNEL(r2);
+		rs = KERNEL(r2, nSmooth);
         q->fPromoteSum() += p->mass;
         q->fPromoteSumuPred() += p->mass*p->uPred();
 		
