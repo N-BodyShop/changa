@@ -6,6 +6,7 @@
 #include <stdio.h>
 #include <math.h>
 #include <assert.h>
+#include <time.h>
 /* #include <rpc/xdr.h> */
 
 /*
@@ -77,7 +78,7 @@
 #define MAXINTEGITS 10000
 
 /* Debugging Information */
-#define PARTICLEIORD    100
+#define PARTICLEIORD    -1 /*100*/
 
 #define CL_eH2     (4.476*CL_eV_erg) /*Energy lost during H2 dissociation, Shapira & Kang (1987) through Abel 1997, page 194 */
 #define CL_eHI     (13.60*CL_eV_erg)
@@ -2598,8 +2599,7 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 
 #ifdef COOLDEBUG
   /*Debugging information on cooling and heating */
-  if (cl->p->iOrder == PARTICLEIORD) { 
-    if (0) { 
+  if (cl->iOrder == PARTICLEIORD) {
       printf("\nEdot-> Total: %#2e, T: %#2f; rho: %#2f; Shield: %#2e\n",*dEdotHeat - *dEdotCool,Rate->T,en_B,s_dust*s_self);
       printf("Edot-> HI: %#2e; H2: %#2e; HeI: %#2e, HeII: %#2e\n",Y->HI,Y->H2,Y->HeI,Y->HeII);
       printf("Edot-> Line: %#2e, Coll %#2e, %#2e, Phot: %#2e, %#2e\n",
@@ -2636,7 +2636,7 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 	     Y->HI*cl->R.Heat_Phot_HI*Rate->Phot_HI  + Y->HeI*cl->R.Heat_Phot_HeI*Rate->Phot_HeI + Y->HeII*cl->R.Heat_Phot_HeII*Rate->Phot_HeII + Y->H2*cl->R.Heat_Phot_H2*Rate->Phot_H2*s_dust*s_self,Rate->Heat_Metal);
       printf("\n");
     }
-  }
+    /*  }*/
 #endif
 
 
@@ -2736,8 +2736,8 @@ void clDerivs(double x, const double *y, double *dGain, double *dLoss,
 
 #ifdef COOLDEBUG
   if (0) {
-  if (d->cl->p->iOrder == PARTICLEIORD) printf("%d, x: %e, en_B: %e, T: %e, HI: %e, H2: ,%e\n",d->cl->p->iOrder,x,en_B,T,d->Y.HI,d->Y.H2);
-    if (d->cl->p->iOrder == PARTICLEIORD) printf("GasForm: %e,  PhotH2: %e = %e * %e,  Coll_e: %e, Coll_H2: %e, Coll_HI: %e, Coll_HII: %e, Shield: %e, Shielded: %e, Dust: %e \n",	      
+    if (d->cl->iOrder == PARTICLEIORD)printf("%d, x: %e, en_B: %e, T: %e, HI: %e, H2: ,%e\n",d->cl->iOrder,x,en_B,T,d->Y.HI,d->Y.H2); 
+    if (d->cl->iOrder == PARTICLEIORD)printf("GasForm: %e,  PhotH2: %e = %e * %e,  Coll_e: %e, Coll_H2: %e, Coll_HI: %e, Coll_HII: %e, Shield: %e, Shielded: %e, Dust: %e \n",	      
 	   d->Y.HI*nHminus*en_B*d->Rate.HI_Hm,
           -1.0*d->Y.H2*d->Rate.Phot_H2,d->Y.H2,d->Rate.Phot_H2,
           -1.0*d->Y.H2*d->Rate.Coll_e_H2*ne,
@@ -2893,8 +2893,8 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
     printf("Y e:%g Total:%g H2:%g HI:%g HII:%g HeI:%g HeII:%g HeIII:%g\n",Y->e, YTotal, Y->H2, Y->HI, Y->HII, Y->HeI, Y->HeII, Y->HeIII);
     /*   printf("dHeat[0]: %e, dHeat[1]: %e, dHeat[2]: %e, dHeat[3]: %e, dHeat[4] %e\n",dHeat[0],dHeat[1],dHeat[2],dHeat[3],dHeat[4]);
 	 printf("dCool[0]: %e, dCool[1]: %e, dCool[2]: %e, dCool[3]: %e, dCool[4] %e\n",dCool[0],dCool[1],dCool[2],dCool[3],dCool[4]);*/
-/*  printf("Cooling p %i: %f %f %g %g %g %g %f %f %g %g %g %g \n",cl->p->iOrder,cl->z,d->Rate.T,rho,cl->p->fMass,cl->p->fBall2,*E,ExternalHeating, ZMetal, d->Rate.Cool_Metal, d->Rate.Heat_Metal, clCoolTotal(cl, Y, &d->Rate, rho, ZMetal), clHeatTotal(cl, Y, &d->Rate, rho) ); 
-    printf("Cooling p %i \n", cl->p->iOrder); 
+/*  printf("Cooling p %i: %f %f %g %g %g %g %f %f %g %g %g %g \n",cl->iOrder,cl->z,d->Rate.T,rho,cl->p->fMass,cl->p->fBall2,*E,ExternalHeating, ZMetal, d->Rate.Cool_Metal, d->Rate.Heat_Metal, clCoolTotal(cl, Y, &d->Rate, rho, ZMetal), clHeatTotal(cl, Y, &d->Rate, rho) ); 
+    printf("Cooling p %i \n", cl->iOrder); 
     printf("temperature %g \n", d->Rate.T);
     printf("redshift %g rho %g \n",cl->z, rho*CL_B_gm);
     printf("PdV %e \n",ExternalHeating); 
@@ -2930,6 +2930,7 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
     fprintf(fpdebug, "E %g \n", *E); 
     /*fprintf(fpdebug, "units %e %e %e %e %e \n", cl->dGmPerCcUnit, cl->dComovingGmPerCcUnit, cl->dErgPerGmUnit, cl->dSecUnit, cl->dKpcUnit );*/
     fclose(fpdebug);
+    }
   }
  #endif
 
@@ -3031,7 +3032,7 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
    }
 
 #ifdef COOLDEBUG
-      if(cl->p->iOrder == PARTICLEIORD){
+ if(cl->iOrder == PARTICLEIORD){
 	printf("%e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e %e\n",
 	       t,
 	       d->Rate.T, 
@@ -3065,7 +3066,7 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
 
 #ifdef COOLDEBUG
    /* Table of cooling and heating terms that can be read into an idl function to create a nice cooling curve*/
-   if (cl->p->iOrder == PARTICLEIORD) {
+   if (cl->iOrder == PARTICLEIORD) {
      FILE *cooldebug;
      cooldebug = fopen("cooldebug_table.txt","a");
      double Edot, LowTCool;
@@ -3305,7 +3306,7 @@ void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, doubl
 	*E = clThermalEnergy(Y.Total,dTemp)*cl->diErgPerGmUnit;
 
 #ifdef COOLDEBUG
-       if (cl->p->iOrder == 1) {
+	if (cl->iOrder == PARTICLEIORD) {
 	FILE *cooldebug;
 	/* Output heading for table of coooling of the gas particle*/
 	cooldebug = fopen("cooldebug_table.txt","w");
@@ -3315,12 +3316,12 @@ void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, doubl
 	fclose(cooldebug);
        }
 
-       if (cl->p->iOrder == 1) {
-	FILE *fpdebug;
-	fpdebug = fopen("cooldebug.txt","w");
-	fprintf(fpdebug,"\n");
-	fclose(fpdebug);
-       }
+	if (cl->iOrder == PARTICLEIORD) {
+	  FILE *fpdebug;
+	  fpdebug = fopen("cooldebug.txt","w");
+	  fprintf(fpdebug,"\n");
+	  fclose(fpdebug);
+	}
 #endif
 }
 

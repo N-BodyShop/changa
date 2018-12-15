@@ -9,9 +9,9 @@
  */
 
 /* Global consts */
-#if defined(COOLDEBUG)
+/*#if defined(COOLDEBUG)
 #include "mdl.h"
-#endif
+#endif*/
 #include "param.h"
 #include "rpc/xdr.h"
 
@@ -216,8 +216,9 @@ typedef struct CoolingPKDStruct {
 /* Diagnostic */
   int       its;
 #if defined(COOLDEBUG)
-  MDL        mdl; /* For diag/debug outputs */
-  struct particle *p; /* particle pointer needed for SN feedback */
+  /*  MDL        mdl; *//* For diag/debug outputs */
+  /*struct particle *p;*/ /* particle pointer needed for SN feedback */
+  int        iOrder;
 #endif 
 } COOL;
 
