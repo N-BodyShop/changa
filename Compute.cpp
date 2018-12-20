@@ -1169,7 +1169,7 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
       allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
       allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
 #else
-      flatlists = (T *) malloc(numParticleInteractions*sizeof(ILCell));
+      flatlists = (ILCell *) malloc(numParticleInteractions*sizeof(ILCell));
       markers = (int *) malloc((numFilledBuckets+1)*sizeof(int));
       starts = (int *) malloc(numFilledBuckets*sizeof(int));
       sizes = (int *) malloc(numFilledBuckets*sizeof(int));
