@@ -3241,8 +3241,32 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
 }
 #endif
 
-/// When the node is found to be null, forward it to the neighbor 
+/// When the node is found to be null, find the owner and forward the request.
 bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
+    // Find the true owner
+    int first, last;
+    bool bIsShared = nodeOwnership(msg->key, first, last);
+    if(verbosity > 0) {
+        CkPrintf("fillRequest empty piece %d: %d %d %d %llx\n", thisIndex,
+            first, last, bIsShared, msg->key);
+        CkPrintf("fillRequest resp. pieces %d: %d %d\n", thisIndex,
+                   getResponsibleIndex(first, first),
+                   getResponsibleIndex(last, last));
+    }
+    int iResp = getResponsibleIndex(first, last);
+    // Handle the case where the chosen "owner" happens to be empty.
+    if (iResp == thisIndex)
+        iResp = getResponsibleIndex(first, first);
+    if (iResp == thisIndex)
+        iResp = getResponsibleIndex(last, last);
+    if(iResp != thisIndex) {
+        treeProxy[iResp].fillRequestNode(msg);
+        return true;
+    }
+
+    // Last ditch effort to find the node
+    CkAssert(myNumParticles > 0);
+
   Tree::NodeKey key = msg->key;
   KeyType firstKey = KeyType(key);
   KeyType lastKey = KeyType(key + 1);
@@ -3257,15 +3281,18 @@ bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
 
   // If the firstkey of the requested key is greater than the last particle key,
   // then this node may be with the right neighbor
-  if (myParticles[myNumParticles].key < firstKey) {
-    streamingProxy[thisIndex+1].fillRequestNode(msg);
-    return true;
+  if (myParticles[myNumParticles].key < firstKey
+      && thisIndex < numTreePieces-1) {
+      int iNextIndex = dm->responsibleIndex[myPlace + 1];
+      treeProxy[iNextIndex].fillRequestNode(msg);
+      return true;
   }
   // If the lastkey of the requested key is less than the first particle key,
   // then this node may be with the left neighbor
-  if (myParticles[1].key > lastKey) {
-    streamingProxy[thisIndex-1].fillRequestNode(msg);
-    return true;
+  else if (myParticles[1].key > lastKey && thisIndex > 0) {
+      int iPrevIndex = dm->responsibleIndex[myPlace - 1];
+      treeProxy[iPrevIndex].fillRequestNode(msg);
+      return true;
   }
   return false;
 }
