@@ -2772,7 +2772,11 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
   /* The old version collected Boundary nodes, the new version collects NonLocal nodes */
 
   if (node->getType() == Internal) {
+#ifdef PARENT_GT_CHILD
+    calculateRadiusChildNodes(node);
+#else
     calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+#endif
   }
 
 }
@@ -3207,7 +3211,11 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 
 #ifndef TREE_BREADTH_FIRST
   if (node->getType() == Internal) {
+#ifdef PARENT_GT_CHILD
+    calculateRadiusChildNodes(node);
+#else
     calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+#endif
   }
 #endif
 
@@ -3236,7 +3244,11 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
     if (child->rungs > node->rungs) node->rungs = child->rungs;
   }
   if (node->getType() == Internal) {
+#ifdef PARENT_GT_CHILD
+    calculateRadiusChildNodes(node);
+#else
     calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+#endif
   }
 }
 #endif
@@ -3450,7 +3462,11 @@ GenericTreeNode *TreePiece::boundaryParentReady(GenericTreeNode *parent){
     parent->particleCount += child->particleCount;
     accumulateMomentsFromChild(parent,child);
   }
+#ifdef PARENT_GT_CHILD
+  calculateRadiusChildNodes(parent);
+#else
   calculateRadiusFarthestCorner(parent->moments, parent->boundingBox);
+#endif
   // check if someone has requested this node
   MomentRequestType::iterator iter;
   if ((iter = momentRequests.find(parent->getKey())) != momentRequests.end()) {

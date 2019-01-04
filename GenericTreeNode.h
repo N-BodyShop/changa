@@ -1051,6 +1051,26 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
     }
   }
 
+/// Calculate the radius of a node such that it encloses the radii of
+/// all children.
+inline void calculateRadiusChildNodes(GenericTreeNode *node)
+{
+    cosmoType radius = 0.0;
+    for(int i = 0; i < node->numChildren(); i++){
+        GenericTreeNode *child = node->getChildren(i);
+        if(child->getType() != Empty) {
+            cosmoType dr = (child->moments.cm - node->moments.cm).length();
+            if (dr + child->moments.getRadius() > radius)
+                radius = dr + child->moments.getRadius();
+        }
+    }
+#ifdef HEXADECAPOLE
+    momRescaleFmomr(&node->moments.mom, radius, node->moments.getRadius());
+#endif
+    node->moments.getRadius() = radius;
+}
+
 } //close namespace Tree
+
 
 #endif //GENERICTREENODE_H
