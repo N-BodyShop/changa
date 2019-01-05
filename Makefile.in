@@ -45,8 +45,8 @@ GPU_LOCAL_TREE_WALK = @GPU_LOCAL_TREE_WALK@
 
 # optional CUDA flags: 
 # memory:
-# -DCUDA_USE_CUDAMALLOCHOST
-# -DCUDA_MEMPOOL
+# -DHAPI_USE_CUDAMALLOCHOST
+# -DHAPI_MEMPOOL
 #
 # verbosity, debugging:
 # -DCUDA_DM_PRINT_TREES
@@ -62,14 +62,14 @@ GPU_LOCAL_TREE_WALK = @GPU_LOCAL_TREE_WALK@
 #
 # for performance monitoring via projections/stats
 # -DCUDA_STATS
-# -DCUDA_TRACE
-# -DCUDA_INSTRUMENT_WRS: to instrument time taken for each phase of a request. 
+# -DHAPI_TRACE
+# -DHAPI_INSTRUMENT_WRS: to instrument time taken for each phase of a request. 
 #                        prints average transfer, kernel and cleanup times for
 #                        various kinds of request.
 #
 # N.B. the CUDA build NO LONGER REQUIRES `HEXADECAPOLE' to be disabled.
 ifneq ($(ENABLE_CUDA),)
-CUDA = -DINTERLIST_VER=2 -DCUDA -DCUDA_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DCUDA_MEMPOOL #-DCUDA_STATS #-DCUDA_INSTRUMENT_WRS -DCUDA_2D_FLAT
+CUDA = -DINTERLIST_VER=2 -DCUDA -DHAPI_USE_CUDAMALLOCHOST -DSPCUDA -DCUDA_2D_TB_KERNEL -DHAPI_MEMPOOL #-DCUDA_STATS #-DHAPI_INSTRUMENT_WRS -DCUDA_2D_FLAT
 endif
 
 # useful refactor flag combinations:
@@ -120,7 +120,7 @@ THREADSAFE_HT_PATH = $(CACHE_LIB_PATH)/threadsafe_hashtable
 ifneq (,$(ENABLE_CUDA))
 NVIDIA_CUDA_SDK = $(CUDA_SDK_DIR)
 
-NVCC_FLAGS = -c -use_fast_math --ptxas-options=-v #-deviceemu -device-debug
+NVCC_FLAGS = -c -std=c++11 -use_fast_math --ptxas-options=-v #-deviceemu -device-debug
 
 ifdef CUDA_LEVEL
 # Set target CUDA compute capability with the -arch= and -code= `nvcc` flags.
@@ -133,9 +133,9 @@ ifdef CUDA_LEVEL
 NVCC_FLAGS += -arch=compute_$(CUDA_LEVEL) -code=sm_$(CUDA_LEVEL)
 endif
 
-NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI -I$(CHARM_PATH)/src/arch/cuda/hybridAPI
+NVCC_INC = -I$(CUDA_DIR)/include -I$(NVIDIA_CUDA_SDK)/common/inc -I$(CHARM_PATH)/tmp/hybridAPI -I$(CHARM_PATH)/src/arch/cuda/hybridAPI -I$(CHARM_PATH)/include
 # add $(NVCC_LIBS) to LDLIBS when compiling for cuda
-NVCC_LIBS = -lcuda -lcudart -lGL
+NVCC_LIBS = -lcudart -lGL
 endif
 
 # add -module Orb3dLB here for load balancing during singlestepped runs
