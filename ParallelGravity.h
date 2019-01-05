@@ -172,7 +172,6 @@ extern int networkProgressUE;
 extern int nodeForceUE;
 extern int partForceUE;
 
-extern int tbRecursiveUE;
 extern int tbFlushRequestsUE;
 extern int prefetchDoneUE;
 
@@ -880,7 +879,7 @@ class TreePiece : public CBase_TreePiece {
         void callFreeRemoteChunkMemory(int chunk);
 
         int getActiveRung(){ return activeRung; }
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int getInstrumentId(){ return instrumentId; }
 #endif
         // returns either all particles or only active particles,
@@ -970,7 +969,7 @@ class TreePiece : public CBase_TreePiece {
         void clearMarkedBuckets(CkVec<GenericTreeNode *> &markedBuckets);
         void clearMarkedBucketsAll();
 
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
         long long localNodeInteractions;
         long long localPartInteractions;
         long long remoteNodeInteractions;
@@ -979,7 +978,7 @@ class TreePiece : public CBase_TreePiece {
         long long remoteResumePartInteractions;
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int instrumentId;
 
         double localNodeListConstructionTime;
@@ -1215,9 +1214,8 @@ private:
 	//u_int64_t prefetchWaiting;
 	/// Array of keys that will be the root of the prefetching chunks
 	Tree::NodeKey *prefetchRoots;
-	/// Placeholder for particles used for prefetching
-	OrientedBox<double> prefetchReq[2];
-	unsigned int numPrefetchReq;
+        /// Bounding box to use for prefetching
+        OrientedBox<cosmoType> prefetchReq;
 
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
@@ -1360,13 +1358,6 @@ private:
         }
     }
 
-	/// Recursive call to build the subtree with root "node", level
-	/// specifies the level at which "node" resides inside the tree
-	void buildOctTree(GenericTreeNode* node, int level);
-#ifdef TREE_BREADTH_FIRST
-	void growBottomUp(GenericTreeNode* node);
-#endif
-
 	/// Compute all the moments for the nodes that are NonLocal, so that
 	/// during the tree traversal, they contain useful information to decide
 	/// whether to open or not.
@@ -1448,7 +1439,7 @@ public:
 #endif
 #ifdef CUDA
           numActiveBuckets = -1;
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
           localNodeInteractions = 0;
           localPartInteractions = 0;
           remoteNodeInteractions = 0;
@@ -1463,7 +1454,6 @@ public:
 	  // temporarely set to -1, it will updated after the tree is built
 	  numChunks=-1;
 	  prefetchRoots = NULL;
-	  numPrefetchReq = 0;
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
 
@@ -1892,15 +1882,10 @@ public:
   void startMarkSmooth(SmoothParams *p, const CkCallback& cb);
 
   void finishNodeCache(const CkCallback& cb);
-	/// Function called by the CacheManager to send out request for needed
-	/// remote data, so that the later computation will hit.
-	void prefetch(GenericTreeNode *node, int offsetID);
-	void prefetch(ExternalGravityParticle *part);
 
-	/// @brief Retrieve the remote node, goes through the cache if present
-        //GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, bool isPrefetch=false);
-
-        GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, int awi, void *source, bool isPrefetch);
+    /// @brief Retrieve the remote node, goes through the cache if present
+    GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey,
+                                 int chunk, int reqID, int awi, void *source);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
 	void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
@@ -1935,10 +1920,13 @@ public:
 			     int level,int chunk);
 #endif
 
-        ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source, bool isPrefetch=false);
-	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
-				    int remoteIndex, int begin,int end,
-				    int reqID, int awi, void *source, bool isPrefetch);
+    ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,
+                                              int remoteIndex,int begin,
+                                              int end,int reqID, int awi,
+                                              void *source);
+    GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
+                                            int remoteIndex, int begin,int end,
+                                            int reqID, int awi, void *source);
 	void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
 	void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
 	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
@@ -2002,10 +1990,6 @@ public:
 
 	    return offset;
 	    }
-
-        GenericTreeNode *nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi, void *source);
-
-        ExternalGravityParticle *particlesMissed(Tree::NodeKey &key, int chunk, int remoteIndex, int firstParticle, int lastParticle, int reqID, bool isPrefetch, int awi, void *source);
 
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);

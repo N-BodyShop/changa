@@ -2,10 +2,10 @@
 #define _CUDAFUNCTIONS_H_
 
 #ifdef CUDA
-#include "wr.h"
+#include "hapi.h"
 #include "HostCUDA.h"
-void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *wr);
-void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *wr);
+void TreePieceCellListDataTransferBasic(CudaRequest *data, hapiWorkRequest *wr);
+void TreePiecePartListDataTransferBasic(CudaRequest *data, hapiWorkRequest *wr);
 
 #ifdef GPU_LOCAL_TREE_WALK
 __global__ void gpuLocalTreeWalk(

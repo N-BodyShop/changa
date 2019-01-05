@@ -60,7 +60,6 @@ mainmodule ParallelGravity {
   readonly int nodeForceUE;
   readonly int partForceUE;
 
-  readonly int tbRecursiveUE;
   readonly int tbFlushRequestsUE;
   readonly int prefetchDoneUE;
 
@@ -446,10 +445,10 @@ mainmodule ParallelGravity {
     entry void finishNodeCache(const CkCallback &cb);
 
     entry
-#ifndef MERGE_REMOTE_REQUESTS 
-    	  [inline]
+#ifndef MERGE_REMOTE_REQUESTS
+          [inline]
 #endif
-	  void requestRemoteMoments(Tree::NodeKey key, int sender);
+          void requestRemoteMoments(const Tree::NodeKey key, int sender);
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type,
       int firstParticle, int numParticles, int remIdx, MultipoleMoments& moments,
       OrientedBox<double>& box, OrientedBox<double>& boxBall,
@@ -502,7 +501,7 @@ mainmodule ParallelGravity {
     entry void outputStatistics(const CkCallback& cb);
     entry void collectStatistics(const CkCallback &cb);
 
-    // jetley - cuda
+    // jetley
     entry void continueStartRemoteChunk(int chunk);
 #ifdef CUDA
     entry void updateParticles(intptr_t data, int partIndex);

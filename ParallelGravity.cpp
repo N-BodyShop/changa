@@ -42,7 +42,7 @@
 #include "starform.h"
 #include "feedback.h"
 #include "externalGravity.h"
-
+#include "formatted_string.h"
 #include "PETreeMerger.h"
 
 #ifdef CUDA
@@ -150,7 +150,6 @@ int networkProgressUE;
 int nodeForceUE;
 int partForceUE;
 
-int tbRecursiveUE;
 int tbFlushRequestsUE;
 int prefetchDoneUE;
 
@@ -233,7 +232,7 @@ Main::Main(CkArgMsg* m) {
         networkProgressUE = traceRegisterUserEvent("CmiNetworkProgress");
         nodeForceUE = traceRegisterUserEvent("Node interaction");
         partForceUE = traceRegisterUserEvent("Particle interaction");
-#ifdef CUDA_TRACE 
+#ifdef HAPI_TRACE
         traceRegisterUserEvent("Tree Serialization", CUDA_SER_TREE);
         traceRegisterUserEvent("List Serialization", CUDA_SER_LIST);
 
@@ -245,7 +244,6 @@ Main::Main(CkArgMsg* m) {
         traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
 #endif
 
-        tbRecursiveUE = traceRegisterUserEvent("TreeBuild::buildOctTree::recursive");
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
 
         prefetchDoneUE = traceRegisterUserEvent("PrefetchDone");
@@ -1658,7 +1656,7 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
             // XXX this is probably broken (cbGravity gets called too soon.)
             dMProxy.clearInstrument(cbGravity);
 #endif
@@ -1676,7 +1674,7 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
             dMProxy.clearInstrument(CkCallbackResumeThread());
 #endif
             double tGrav = CkWallTimer() - *startTime;
@@ -3100,14 +3098,14 @@ int path_is_directory (const char* path) {
 void delete_dir_tree (const char* achDir) {
     DIR*            dp;
     struct dirent*  ep;
-    char            p_buf[256];
 
     dp = opendir(achDir);
 
     while ((ep = readdir(dp)) != NULL) {
         if(strcmp(ep->d_name, ".") == 0 || strcmp(ep->d_name, "..") == 0)
             continue;
-        sprintf(p_buf, "%s/%s", achDir, ep->d_name);
+        auto file_name = make_formatted_string("%s/%s", achDir, ep->d_name);
+        char const* p_buf = file_name.c_str();
         if (path_is_directory(p_buf))
             delete_dir_tree(p_buf);
         else
@@ -3125,12 +3123,12 @@ void delete_dir_tree (const char* achDir) {
 
 void Main::writeOutput(int iStep) 
 {
-    char achFile[256];
     double dOutTime;
     double dvFac;
     double startTime = 0.0;
-    
-    sprintf(achFile,"%s.%06i",param.achOutName,iStep);
+
+    auto file_name = make_formatted_string("%s.%06i",param.achOutName,iStep);
+    char const* achFile = file_name.c_str();
     if(param.csm->bComove) {
 	dOutTime = csmTime2Exp(param.csm, dTime);
 	dvFac = 1.0/(dOutTime*dOutTime);
@@ -3591,8 +3589,6 @@ void Main::growMass(double dTime, double dDelta)
  */
 int
 Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
-	char achFile[256];
-	
 	if (param.dDumpFrameStep > 0 || param.dDumpFrameTime > 0) {
                 if(param.iDirector < 1) {
                     CkError("WARNING: DumpFrame parameters set, but iDirector is %d; DumpFrame is disabled\n", param.iDirector);
@@ -3603,26 +3599,24 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 
 		df = (DumpFrameContext **) malloc(param.iDirector*sizeof(*df));
 		for(i = 0; i < param.iDirector; i++) {
-		    achFile[0] = '\0';
 		    df[i] = NULL;
-		    if(i == 0) {
-			sprintf(achFile,"%s.director", param.achOutName);
+		    auto file_name = make_formatted_string("%s.director%d", param.achOutName, i+1);
+			if(i == 0) {
+				file_name = std::move(make_formatted_string("%s.director", param.achOutName));
 			}
-		    else {
-			sprintf(achFile,"%s.director%d", param.achOutName, i+1);
-			}
+		    char const* achFile = file_name.c_str();
 		    dfInitialize( &df[i], param.dSecUnit/SECONDSPERYEAR, 
 				  dTime, param.dDumpFrameTime, dStep, 
 				  param.dDumpFrameStep, param.dDelta, 
-                                  param.iMaxRung, verbosity, achFile,
+                                  param.iMaxRung, verbosity, const_cast<char*>(achFile),
                                   param.bPeriodic, param.vPeriod);
                     df[i]->duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
 		    }
 		    
 		/* Read in photogenic particle list */
 		if (df[0]->bGetPhotogenic) {
-		  achFile[0] = 0;
-		  sprintf(achFile,"%s.photogenic", param.achOutName);
+		  auto file_name = make_formatted_string("%s.photogenic", param.achOutName);
+		  char const* achFile = file_name.c_str();
 		  FILE *fp = fopen(achFile, "r" );
 		  if(fp == NULL)
 		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
