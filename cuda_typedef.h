@@ -98,7 +98,7 @@ typedef struct CudaMultipoleMoments{
   cudatype totalMass;
   CudaVector3D cm;
 
-#ifdef GPU_LOCAL_TREE_WALK
+#if defined(GPU_LOCAL_TREE_WALK) || defined(GPU_REMOTE_TREE_WALK) 
   // We need tree node's spatial and tree structural information to do GPU
   // tree walk. The spatial info is used for force computation, and the
   // structural data is needed in tree traversal.
@@ -110,7 +110,8 @@ typedef struct CudaMultipoleMoments{
   int nodeArrayIndex;
   int children[2];
   int type;
-#endif //GPU_LOCAL_TREE_WALK
+  int key;  // For debug
+#endif // GPU_LOCAL_TREE_WALK || GPU_REMOTE_TREE_WALK
 
 #ifdef HEXADECAPOLE
   cudatype xx, xy, xz, yy, yz;
@@ -235,6 +236,8 @@ typedef struct CompactPartData{
 
 #ifdef GPU_LOCAL_TREE_WALK
   int nodeId;
+  int numRemoteNodes;
+  int numRemoteParticles;
 #endif
 
 #if __cplusplus && !defined __CUDACC__
@@ -262,8 +265,8 @@ typedef struct VariablePartData{
   cudatype dtGrav;
 
 #ifdef GPU_LOCAL_TREE_WALK
-  int numOfNodesTraversed;
-  int numOfParticlesTraversed;
+  int numRemoteNodes;
+  int numRemoteParticles;
 #endif //GPU_LOCAL_TREE_WALK
 }VariablePartData;
 

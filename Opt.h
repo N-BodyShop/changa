@@ -44,7 +44,8 @@ class RemoteOpt : public Opt{
     */
     action_array[0][Boundary] = DUMP;
     // XXX - changed to COMPUTE from DUMP. see below also
-    action_array[0][NonLocal] = COMPUTE;
+    // CAMBRIDGE: action_array[0][NonLocal] change from COMPUTE to DUMP
+    action_array[0][NonLocal] = DUMP;
     action_array[0][NonLocalBucket] = DUMP;
     
     // changed these two to COMPUTE from DEFER
@@ -91,9 +92,10 @@ class LocalOpt : public Opt{
     action_array[0][Internal] = COMPUTE;
     action_array[0][Bucket] = COMPUTE;
 
-    action_array[0][Boundary] = COMPUTE; 
+    action_array[0][Boundary] = COMPUTE;
     // XXX - changed to DUMP from COMPUTE
-    action_array[0][NonLocal] = DUMP; 
+    // CAMBRIDGE: action_array[0][NonLocal] change from DUMP to COMPUTE
+    action_array[0][NonLocal] = COMPUTE;
     action_array[0][NonLocalBucket] = COMPUTE;	
     // changed these to DUMP from COMPUTE - remote does computation now
     action_array[0][Cached] = DUMP;	

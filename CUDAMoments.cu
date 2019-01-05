@@ -319,35 +319,65 @@ CUDA_SPLINE(cudatype r2, cudatype twoh, cudatype &a, cudatype &b) {
 
 // This function will to be simplified soon.
 __device__ inline int __attribute__(( always_inline ))
-CUDA_OptAction(int fakeOpen, int nodetype) {
+CUDA_LocalOptAction(int fakeOpen, int nodetype) {
   if (fakeOpen == 0) {
-    if (nodetype == CudaInternal || nodetype == CudaBucket || nodetype == CudaBoundary || nodetype == CudaNonLocalBucket) {
+    if (nodetype == CudaInternal || nodetype == CudaBucket || nodetype == CudaBoundary || nodetype == CudaNonLocalBucket || nodetype == CudaNonLocal) {
       return COMPUTE;
-    } else if (nodetype == CudaNonLocal || nodetype == CudaCached || nodetype == CudaCachedBucket || nodetype == CudaEmpty || nodetype == CudaCachedEmpty) {
+    } else if (nodetype == CudaCached || nodetype == CudaCachedBucket || nodetype == CudaEmpty || nodetype == CudaCachedEmpty) {
       return DUMP;
     } else if (nodetype == CudaTop || nodetype == CudaInvalid) {
       return ERROR;
     } else {
-      printf("ERROR in CUDA_OptAction\n");
+      printf("ERROR in CUDA_LocalOptAction, nodetype = %d\n", nodetype);
       return -1;
     }
   } else {
-    if (nodetype == CudaInternal || nodetype == CudaBoundary) {
+    if (nodetype == CudaInternal || nodetype == CudaBoundary || nodetype == CudaNonLocal) {
       return KEEP;
     } else if (nodetype == CudaBucket) {
       return KEEP_LOCAL_BUCKET;
-    } else if (nodetype == CudaNonLocal || nodetype == CudaNonLocalBucket || nodetype == CudaCachedBucket || nodetype == CudaCached || nodetype == CudaEmpty ||
+    } else if (nodetype == CudaNonLocalBucket || nodetype == CudaCachedBucket || nodetype == CudaCached || nodetype == CudaEmpty ||
               nodetype == CudaCachedEmpty) {
       return DUMP;
     } else if (nodetype == CudaTop || nodetype == CudaInvalid) {
       return ERROR;
     } else {
-      printf("ERROR in CUDA_OptAction\n");
+      printf("ERROR in CUDA_LocalOptAction, nodetype = %d\n", nodetype);
       return -1;
     }
   }
 }
-
 #endif //GPU_LOCAL_TREE_WALK
+
+#ifdef GPU_REMOTE_TREE_WALK
+__device__ inline int __attribute__(( always_inline ))
+CUDA_RemoteOptAction(int fakeOpen, int nodetype) {
+  if (fakeOpen == 0) {
+    if (nodetype == CudaCached || nodetype == CudaCachedBucket) {
+      return COMPUTE;
+    } else if (nodetype == CudaNonLocal || nodetype == CudaBucket || nodetype == CudaInternal || nodetype == CudaBoundary || nodetype == CudaNonLocalBucket || nodetype == CudaEmpty || nodetype == CudaCachedEmpty) {
+      return DUMP;
+    } else if (nodetype == CudaTop || nodetype == CudaInvalid) {
+      return ERROR;
+    } else {
+      printf("ERROR in CUDA_RemoteOptAction, nodetype = %d\n", nodetype);
+      return -1;
+    }
+  } else {
+    if (nodetype == CudaNonLocal || nodetype == CudaBoundary || nodetype == CudaCached) {
+      return KEEP;
+    } else if (nodetype == CudaNonLocalBucket || nodetype == CudaCachedBucket) {
+      return KEEP_REMOTE_BUCKET;
+    } else if (nodetype == CudaInternal || nodetype == CudaBucket || nodetype == CudaCachedEmpty || nodetype == CudaEmpty) {
+      return DUMP;
+    } else if (nodetype == CudaTop || nodetype == CudaInvalid) {
+      return ERROR;
+    } else {
+      printf("ERROR in CUDA_RemoteOptAction, nodetype = %d\n", nodetype);
+      return -1;
+    }
+  }
+}
+#endif // GPU_REMOTE_TREE_WALK
 
 

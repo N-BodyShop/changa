@@ -17,11 +17,11 @@
 
 #define THREADS_PER_BLOCK 128
 
-#ifdef GPU_LOCAL_TREE_WALK
+#if defined(GPU_LOCAL_TREE_WALK) || defined(GPU_REMOTE_TREE_WALK)
 #define THREADS_PER_WARP 32
 #define WARPS_PER_BLOCK (THREADS_PER_BLOCK / THREADS_PER_WARP)
 #define WARP_INDEX (threadIdx.x >> 5)
-#endif //GPU_LOCAL_TREE_WALK
+#endif //GPU_LOCAL_TREE_WALK || GPU_REMOTE_TREE_WALK
 
 #ifdef CUDA_2D_TB_KERNEL
 #define PARTS_PER_BLOCK 16
@@ -73,6 +73,13 @@
 #define MISSED_MOMENTS_IDX 4
 #define MISSED_PARTS_IDX 4
 
+// GPU_REMOTE_TREE_WALK
+#define GPU_RECVD_MOMENTS_IDX 0
+#define ROOTS_IDX_OF_RECVD_SUBTREES 1
+#define PARENTS_OF_ROOTS 2
+#define GPU_RECVD_PARTICLES_IDX 0
+#define IDX_OF_RECVD_BUCKETS 1
+
 // node moments, particle cores, particle vars
 #define DM_TRANSFER_LOCAL_NBUFFERS 3
 #define DM_TRANSFER_REMOTE_CHUNK_NBUFFERS 2
@@ -90,13 +97,18 @@
 #define TP_NODE_GRAVITY_REMOTE_RESUME_NBUFFERS 5
 #define TP_PART_GRAVITY_REMOTE_RESUME_NBUFFERS 5
 
+// GPU_REMOTE_TREE_WALK
+#define TP_GRAVITY_GPU_REMOTE_WALK_NODE_NBUFFERS 3
+#define TP_GRAVITY_GPU_REMOTE_WALK_PARTICLE_NBUFFERS 2
+
 #define MAX_NBUFFERS 5
 
 // tp_gravity_local uses arrays of particles and nodes already allocated on the gpu
 // tp_gravity_remote uses arrays of nodes already on the gpu + particles from an array it supplies
 // tp_gravity_remote_resume uses an array each of nodes and particles it supplies
-enum kernels {
-  DM_TRANSFER_LOCAL=0,
+enum kernels
+{
+  DM_TRANSFER_LOCAL = 0,
   DM_TRANSFER_REMOTE_CHUNK,
   DM_TRANSFER_BACK,
   DM_TRANSFER_FREE_LOCAL,
@@ -108,9 +120,10 @@ enum kernels {
   TP_PART_GRAVITY_LOCAL_SMALLPHASE,
   TP_PART_GRAVITY_REMOTE,
   TP_PART_GRAVITY_REMOTE_RESUME,
-  EWALD_KERNEL
+  EWALD_KERNEL,
+  TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES,
+  TP_GRAVITY_GPU_REMOTE_TREE_WALK_PARTICLES
 };
-
 
 typedef struct _CudaRequest{
         // can either be a ILCell* or an ILPart*
@@ -166,6 +179,7 @@ typedef struct _ParameterStruct{
   int nReplicas;
   cudatype fperiodY;  // Support periodic boundary condition in more dimensions
   cudatype fperiodZ;  // Support periodic boundary condition in more dimensions
+  int numMessages;    // Indicates how many messages are packed in this request
 #endif //GPU_LOCAL_TREE_WALK
 }ParameterStruct;
 
@@ -210,5 +224,8 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data);
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartData *missedParticles, int numMissedParticles);
 
 void DummyKernel(void *cb);
+
+void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, CompactPartData *missedParticles, int numParticles, CudaMultipoleMoments *missedBuckets, int numBuckets);
+void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, CudaMultipoleMoments *missedMoments, int numMoments, int *missedRoots, int numRoots, CudaMultipoleMoments *parents);
 
 #endif

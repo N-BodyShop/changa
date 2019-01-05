@@ -340,6 +340,8 @@ public:
 #endif
 	}
 	inline cosmoType getRadius() const {return radius;}
+	// Tom & CAMBRIDGE
+	inline cosmoType& getRadius() {return radius;}
 	friend void operator|(PUP::er& p, MultipoleMoments& m);
 	friend void calculateRadiusFarthestCorner(MultipoleMoments& m,
 					      const OrientedBox<double>& box);

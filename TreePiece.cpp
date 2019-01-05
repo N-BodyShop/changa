@@ -2772,7 +2772,9 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
   /* The old version collected Boundary nodes, the new version collects NonLocal nodes */
 
   if (node->getType() == Internal) {
-    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+// Tom & CAMBRIDGE
+      calculateRadiusChildNodes(node);
+//    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
   }
 
 }
@@ -3207,7 +3209,9 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 
 #ifndef TREE_BREADTH_FIRST
   if (node->getType() == Internal) {
-    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+// Tom & CAMBRIDGE
+    calculateRadiusChildNodes(node);
+//    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
   }
 #endif
 
@@ -3236,7 +3240,9 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
     if (child->rungs > node->rungs) node->rungs = child->rungs;
   }
   if (node->getType() == Internal) {
-    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+// Tom & CAMBRIDGE
+    calculateRadiusChildNodes(node);
+//    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
   }
 }
 #endif
@@ -3423,7 +3429,9 @@ GenericTreeNode *TreePiece::boundaryParentReady(GenericTreeNode *parent){
     parent->particleCount += child->particleCount;
     accumulateMomentsFromChild(parent,child);
   }
-  calculateRadiusFarthestCorner(parent->moments, parent->boundingBox);
+// Tom & CAMBRIDGE
+  calculateRadiusChildNodes(parent);
+  //  calculateRadiusFarthestCorner(parent->moments, parent->boundingBox);
   // check if someone has requested this node
   MomentRequestType::iterator iter;
   if ((iter = momentRequests.find(parent->getKey())) != momentRequests.end()) {
@@ -3752,6 +3760,10 @@ void TreePiece::finishBucket(int iBucket) {
       // move on to markwalkdone in non-cuda version
       continueWrapUp();
 #endif
+      // CAMBRIDGE
+      printf("WE are going to shut down the tree walk!\n");
+      fflush(stdout);
+      finishedChunk(0);
     }
   }
 }
@@ -3760,6 +3772,9 @@ void TreePiece::finishBucket(int iBucket) {
 /// @brief update particle accelerations with GPU results
 void TreePiece::updateParticles(intptr_t data, int partIndex) {
     VariablePartData *deviceParticles = ((UpdateParticlesStruct *)data)->buf;
+
+    unsigned long long numRemoteNodesTotal = 0;
+    unsigned long long numRemoteParticlesTotal = 0;
 
     for(int j = 1; j <= myNumParticles; j++){
         if(isActive(j)){
@@ -3771,11 +3786,26 @@ void TreePiece::updateParticles(intptr_t data, int partIndex) {
             myParticles[j].dtGrav = fmax(myParticles[j].dtGrav,
                                          deviceParticles[partIndex].dtGrav);
 #endif
+//            printf("TP %d, pt %d, acc.x = %f, y = %f, z = %f\n", this->getIndex(),
+//                    j-1, myParticles[j].treeAcceleration.x, myParticles[j].treeAcceleration.y, myParticles[j].treeAcceleration.z);
+            numRemoteNodesTotal += deviceParticles[partIndex].numRemoteNodes;
+            numRemoteParticlesTotal += deviceParticles[partIndex].numRemoteParticles;
             if(!largePhase()) partIndex++;
             }
         if(largePhase()) partIndex++;
         }
+    printf("TP %d, numRemoteNodesTotal = %lld, numRemoteParticlesTotal = %lld\n", this->getIndex(), numRemoteNodesTotal, numRemoteParticlesTotal);
 
+// added by CAMBRIDGE
+/*    for (int j = 0; j < this->numBuckets; ++j) {
+      GenericTreeNode *bucketNode = this->bucketList[j];
+      int id = bucketNode->bucketArrayIndex;
+      if (this->getIndex() == 0) {
+        printf("TP %d, bucket %d, visited %d remote nodes and %d particles, sum = %d.\n", this->getIndex(), j, deviceParticles[id].numRemoteNodes, deviceParticles[id].numRemoteParticles,
+               deviceParticles[id].numRemoteNodes + deviceParticles[id].numRemoteParticles);
+      }
+    }*/
+// end of CAMBRIDGE
     dm->updateParticlesFreeMemory((UpdateParticlesStruct *)data);
     continueWrapUp();
     }
@@ -4047,6 +4077,11 @@ void TreePiece::doParallelNextBucketWork(int idx, LoopParData* lpdata) {
 
 /// This function could be replaced by the doAllBuckets() call.
 void TreePiece::calculateGravityLocal() {
+
+//  if (this->getIndex() == 0) {
+    printf("TP %d TreePiece::calculateGravityLocal() is called!\n", this->getIndex());
+//  }
+
   doAllBuckets();
 }
 
@@ -4164,6 +4199,10 @@ void TreePiece::calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num) {
 const char *typeString(NodeType type);
 
 void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
+
+//  if (this->getIndex() == 0)
+//    printf("TreePiece::calculateGravityRemote is called! sRemoteGravityState->currentBucket = %d, numBuckets = %d\n", sRemoteGravityState->currentBucket, numBuckets);
+
   unsigned int i=0;
   // cache internal tree: start directly asking the CacheManager
 #ifdef DISABLE_NODE_TREE
@@ -4988,7 +5027,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 	  // set to first active particle
         if (myParticles[i].rung >= activeRung) {
           prefetchReq[0].grow(myParticles[i].position);
-	  break;
+//CAMBRIDGE	  break;
 	}
       }
       prefetchReq[1].reset();
@@ -5051,13 +5090,14 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   // remaining Chunk[]
   for(int i = 0; i < numChunks; i++) {
     remoteWalkState->counterArrays[1][i] = numBuckets;
+//CAMBRIDGE    remoteWalkState->counterArrays[1][i] = 0;
   }
 
   for(int i = 0; i < numBuckets; i++){
     remoteWalkState->counterArrays[0][i] = numChunks;
+//CAMBRIDGE    remoteWalkState->counterArrays[0][i] = 0;
     localWalkState->counterArrays[0][i] = 1;
   }
-
 
   sGravity = compute;
   sLocalGravityState = localWalkState;
@@ -5195,7 +5235,13 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
 
   // variable currentBucket masquerades as current chunk
+/*CAMBRIDGE  if (this->getIndex() == 0) {
+    printf("The number fo buckets is %d\n", this->getNumBuckets());
+  }
   initiatePrefetch(sPrefetchState->currentBucket);
+  if (this->getIndex() == 0) {
+    printf("initiatePrefetch is done!\n");
+  }*/
 
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
@@ -5207,11 +5253,20 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   // prefetch can occur concurrently with this, 
   // though calculateGravityLocal can only come
   // afterwards.
-  dm->serializeLocalTree();
+  dm->serializeLocalTree();  
+  if (this->getIndex() == 0) {
+    printf("dm->serializeLocalTree() is done!\n");
+  }
 #else
   thisProxy[thisIndex].commenceCalculateGravityLocal();
 #endif
 
+  // CAMBRIDGE: I believe this is the best trade off for GPU remote tree walk.
+  // By this time point, the data manager has serialized the local tree piece and delegated Charm
+  // to transfer the treepiece to GPU. Although the transfer has not been completed, it's safe
+  // to start the prefetch now. Because the data transfers and kernel calls issued by the remote walk
+  // won't be executed by GPU hardware until the local tree transfer is done.
+  initiatePrefetch(sPrefetchState->currentBucket);
 
 #ifdef CHANGA_PRINT_MEMUSAGE
       int piecesPerPe = numTreePieces/CmiNumPes();
@@ -5269,6 +5324,8 @@ void TreePiece::startRemoteChunk() {
   CkPrintf("[%d] sending message to commence remote gravity\n", thisIndex);
 #endif
 
+  printf("TreePiece::startRemoteChunk is called!\n");
+
   traceUserEvent(prefetchDoneUE);
 
 #ifdef CUDA
@@ -5294,6 +5351,43 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   DoubleWalkState *rstate = (DoubleWalkState *)sRemoteGravityState;
   rstate->placedRoots[msg->chunkNum] = false;
 #endif
+
+#ifdef GPU_REMOTE_TREE_WALK
+  ListCompute *listcompute = (ListCompute *) sGravity;
+  GPURemoteWalkState *state = (GPURemoteWalkState *)sPrefetchState;
+
+  if (state->receivedNodes->length() > 0) {
+    printf("TP: %d. we are cleaning up %d nodes!\n", this->getIndex(), state->receivedNodes->length());
+    listcompute->sendRemoteTreeWalkNodeTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets,
+                                                    state->receivedNodes, state->receivedRoots, state->rootParents);
+    state->receivedNodes->clear();
+    state->rootParents->clear();
+    state->receivedRoots->clear();
+  }
+
+  if (state->receivedParticles->length() > 0) {
+    printf("TP: %d. we are cleaning up %d particles!\n", this->getIndex(), state->receivedParticles->length());
+    listcompute->sendRemoteTreeWalkParticleTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, state->receivedParticles, state->bucketNodes);
+    state->bucketNodes->clear();
+    state->receivedParticles->clear();
+  }
+
+  // Set up the book keeping flags
+  bool useckloop = false;
+  for (int i = 0; i < numBuckets; i ++) {
+    sRemoteGravityState->currentBucket = i;
+    GenericTreeNode *target = bucketList[i];
+    if(target->rungs >= activeRung){
+      doBookKeepingForTargetActive(i, i+1, -1, !useckloop, sRemoteGravityState);
+    } else {
+      i += doBookKeepingForTargetInactive(-1, !useckloop, sRemoteGravityState) - 1;
+    }
+  }
+
+//  finishedChunk(chunk);
+  return;
+#endif // GPU_REMOTE_TREE_WALK
+
   thisProxy[thisIndex].calculateGravityRemote(msg);
 
   // start prefetching next chunk
@@ -6101,6 +6195,120 @@ ExternalGravityParticle *TreePiece::particlesMissed(Tree::NodeKey &key, int chun
   return requestParticles(key, chunk, remoteIndex,firstParticle,lastParticle,reqID, awi, source, isPrefetch);
 }
 
+void TreePiece::serializeRecvdRemoteTree(GenericTreeNode *root, CkVec<CudaMultipoleMoments>* buffer, CkVec<GenericTreeNode*>* leaves) {
+/*  if (buffer->size() > 0)
+    buffer->clear();
+  buffer->reserve((int)pow(2, _cacheLineDepth+1));*/
+
+  CkQ<GenericTreeNode *> queue;
+  int nodeIndex = buffer->length(); // We're going to append current subtree behind previous subtrees
+  int startId = nodeIndex;
+  int msgIndex = 0;
+  int bucketIndex = 0;
+  queue.enq(root);
+  while(!queue.isEmpty()){
+    GenericTreeNode *node = queue.deq();
+    NodeType type = node->getType();
+    ++msgIndex;
+
+    if(type == Empty || type == CachedEmpty || type == Internal ||
+       type == Bucket || type == Boundary || type == NonLocal ||
+       type == NonLocalBucket){ // skip
+//      printf("    We have a node with type = %d\n", type);
+      continue;
+    } else if(type == CachedBucket){
+      // Let's temporarily ignore "type == CachedEmpty"
+      node->nodeArrayIndex = nodeIndex;
+      CudaMultipoleMoments cmm(node->moments);
+      cmm.lesser_corner = node->boundingBox.lesser_corner;
+      cmm.greater_corner = node->boundingBox.greater_corner;
+      cmm.type = type;
+      cmm.key = node->getKey(); // For debug
+      cmm.nodeArrayIndex = nodeIndex;
+      cmm.particleCount = node->particleCount;
+      buffer->push_back(cmm);
+      nodeIndex++;
+      ++bucketIndex;
+    } else if(type == Cached){
+      node->nodeArrayIndex = nodeIndex;
+      CudaMultipoleMoments cmm(node->moments);
+      cmm.lesser_corner = node->boundingBox.lesser_corner;
+      cmm.greater_corner = node->boundingBox.greater_corner;
+      cmm.type = type;
+      cmm.key = node->getKey(); // For debug
+      cmm.nodeArrayIndex = nodeIndex;
+      cmm.particleCount = node->particleCount;
+      buffer->push_back(cmm);
+      nodeIndex++;
+
+      // put children into queue, if available
+      for(int i = 0 ; i < node->numChildren(); i++){
+        GenericTreeNode *child = node->getChildren(i);
+        if(child){// available to dm
+          queue.enq(child);
+        }
+      }
+    }
+  }// end while queue not empty
+
+  transformRemoteTreeRecursive(root, buffer, leaves, 0);
+/*  if (this->getIndex() == 0) {
+    printf("================The structure of treepiece 1 is:================\n");
+    printRemoteTreeRecursive(buffer, startId, 0);
+  }*/
+}
+
+void TreePiece::transformRemoteTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>* remoteMoments, CkVec<GenericTreeNode*>* leaves, int depth) {
+  NodeType type = node->getType();
+  int node_index = node->nodeArrayIndex;
+
+  if(type == Empty || type == CachedEmpty || type == Internal || type == Bucket){ // skip
+    return;
+  } else if(type == CachedBucket) {
+    if (depth == _cacheLineDepth) {
+      leaves->push_back(node);
+    }
+    for (int i = 0; i < 2; i ++) {
+      (*remoteMoments)[node_index].children[i] = -1;
+    }
+  } else if (type == Cached) {
+    if (depth == _cacheLineDepth) {
+      leaves->push_back(node);
+    }
+
+    for (int i = 0; i < 2; i ++) {
+      (*remoteMoments)[node_index].children[i] = -1;
+    }
+
+    for(int i = 0 ; i < node->numChildren(); i++){
+      GenericTreeNode *child = node->getChildren(i);
+      if (child && (child->getType() == CachedBucket || child->getType() == Cached)) {
+        int child_index = child->nodeArrayIndex;
+        (*remoteMoments)[node_index].children[i] = child_index;
+        transformRemoteTreeRecursive(child, remoteMoments, leaves, depth + 1);   
+      }
+    }
+  }  
+  
+/*  if ((registeredTreePieces[0].treePiece)->getIndex() == 0) {
+    printf("TreePiece::transformRemoteTreeRecursive: mass = %f, type = %d\n", node->moments.totalMass, type);
+  }*/
+}
+
+void TreePiece::printRemoteTreeRecursive(CkVec<CudaMultipoleMoments>* remoteMoments, int index, int indent) {
+//  if (index == -1 || indent > 5) {
+  if (index == -1) {
+      return;
+  }
+  for (int i = 0; i < indent; i ++) {
+       printf("  ");
+  }
+  printf("nodeArrayIndex = %d, depth = %d, type = %d, mass = %f\n", 
+          index, indent, (*remoteMoments)[index].type, (*remoteMoments)[index].totalMass);
+  printRemoteTreeRecursive(remoteMoments, (*remoteMoments)[index].children[0], indent + 1);
+  printRemoteTreeRecursive(remoteMoments, (*remoteMoments)[index].children[1], indent + 1);
+}
+
 // This is invoked when a remote node is received from the CacheManager
 // It sets up a tree walk starting at node and initiates it
 void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source){
@@ -6111,6 +6319,9 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   Compute *compute;
   State *state;
 
+/*  if (this->getIndex() == 0)
+    printf("receiveNodeCallback is called by tp %d at %d, the root key is %d!\n", this->getIndex(), targetBucket, node->getKey());
+*/
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_BUCKET_START_FIN
   if(source){
     int start, end;
@@ -6133,29 +6344,83 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   compute = a.c;
   state = a.s;
 
-  // reassociate objects with each other
-  tw->reassoc(compute);
-  compute->reassoc(source, activeRung, a.o);
+  // GPU_REMOTE_TREE_WALK
+//  if (this->getIndex() == 0) {
+//    compute->nodeRecvdEvent(this,chunk,state,targetBucket);
+//    return;
+//  }
 
-  // resume walk
-  tw->resumeWalk(node, state, chunk, reqID, awi);
+    // reassociate objects with each other
+    tw->reassoc(compute);
+    compute->reassoc(source, activeRung, a.o);
 
-  // we need source to update the counters in all buckets
-  // underneath the source. note that in the interlist walk,
-  // the computeEntity of the compute will likely  have changed as the walk continued.
-  // however, the resumeWalk function takes care to set it back to 'source'
-  // after it is done walking.
-  compute->nodeRecvdEvent(this,chunk,state,targetBucket);
+    // resume walk
+    tw->resumeWalk(node, state, chunk, reqID, awi);
+
+  if (tw->getSelfType() > 0) {
+    // we need source to update the counters in all buckets
+    // underneath the source. note that in the interlist walk,
+    // the computeEntity of the compute will likely  have changed as the walk continued.
+    // however, the resumeWalk function takes care to set it back to 'source'
+    // after it is done walking.
+    compute->nodeRecvdEvent(this, chunk, state, targetBucket);
+
+    return;
+  }
+  
+  if (node->getType() == CachedEmpty) {
+    return;
+  }
+
+  GPURemoteWalkState* grState = (GPURemoteWalkState*) state;
+  CkVec<GenericTreeNode*> leaves;
+  grState->receivedRoots->push_back(grState->receivedNodes->size());
+
+  GenericTreeNode *parent = node->parent;
+  if (parent == NULL) {
+    KeyType pkey(node->getParentKey());
+    parent = keyToNode(pkey);
+  }
+
+  CudaMultipoleMoments cmm(parent->moments);
+  cmm.lesser_corner = parent->boundingBox.lesser_corner;
+  cmm.greater_corner = parent->boundingBox.greater_corner;
+  cmm.type = parent->getType();
+  cmm.key = parent->getKey();
+  cmm.particleCount = parent->particleCount;
+  grState->rootParents->push_back(cmm);
+
+  serializeRecvdRemoteTree(node, grState->receivedNodes, &leaves);
+/*  if (this->getIndex() == 0) {
+    printf("TP %d: receivedNodes->size() = %d, receivedRoots->size() = %d, root = %d, parent = %d\n", 
+      this->getIndex(), grState->receivedNodes->size(), grState->receivedRoots->size(), node->getKey(), parent->getKey());
+  }*/
+
+  if (grState->nodeOffloadReady()) {
+    ((ListCompute *)compute)->sendRemoteTreeWalkNodeTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, 
+                                                                 grState->receivedNodes, grState->receivedRoots, grState->rootParents);
+    grState->receivedNodes->clear();
+    grState->rootParents->clear();
+    grState->receivedRoots->clear();
+  }
+//    nodesToBeSent.clear();
+  leaves.clear();
+  compute->finishNodeProcessEvent(this, state);
 }
+
+typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
 
 void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source){
   Compute *c;
   State *state;
 
   CkAssert(awi < maxAwi);
-  
+
+//  printf("TP %d got a particle message back!\n", this->getIndex());
+
   // retrieve the activewalk record
   ActiveWalk &a = activeWalks[awi];
+  Compute *compute = a.c;
   //tw = a.tw;
   c = a.c;
   state = a.s;
@@ -6198,7 +6463,86 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
       }
   
   c->reassoc(source, activeRung, a.o);
-  c->recvdParticles(egp,num,chunk,reqID,state,this, remoteBucket);
+
+  if (a.tw->getSelfType() > 0) {  
+    c->recvdParticles(egp,num,chunk,reqID,state,this, remoteBucket);
+    return;
+  }
+
+  // Store the bucket node
+  // Store the particles
+  // send trigger to GPU
+  NodeKey key = remoteBucket >> 1;
+
+  cacheType *wholeNodeCache = cacheNode.ckLocalBranch()->getCache();
+  cacheType *ctNode = &wholeNodeCache[chunk];
+  cacheType::iterator p = ctNode->find(key);
+  GenericTreeNode *node = NULL;
+  //  if (p == ctNode->end() || !p->second->replyRecvd) {
+  if (p != ctNode->end()) {
+    node = (GenericTreeNode *)p->second->data;
+  } else {
+    node = keyToNode(key);
+    if (node == NULL) {
+      CkAssert(0);
+    }
+  }
+
+  // If the node's particleCount is smaller than "nMinParticleNode",
+  // we use its ancestor node who owns more than "nMinParticleNode" particles instead.
+  // Otherwise, we directly use the real bucketNode containing the particles in this message.
+  const int nMinParticleNode = 6;
+  while (node->particleCount <= nMinParticleNode) {
+    GenericTreeNode *parent = node->parent;
+    if (parent == NULL) {
+      KeyType pkey(node->getParentKey());
+      parent = keyToNode(pkey);
+    }
+    node = parent;
+  }
+
+  GPURemoteWalkState *grState = (GPURemoteWalkState *)state;
+
+  /* Here is a very subtle trick: we create a fake node from the combination the "node" and this message.
+    the node has the same spatial information as the "node", but its type if constrained to be "CudaCachedBucket"
+    and only contain "num" particles. Note that the "node" may be in "CudaCached" type and contain more particles.
+
+    The reason why we do this is that ChaNGa's openCriterion always open a bucketnode if has few particles.
+    We know each particle message represent the content of a remote bucketnode. 
+    Since GPU remote walk broadcasts every particle message to all the particles in the local tree piece, 
+    local particles may open these remote messages just because they belong to some small remote bucket nodes, 
+    even though they don't need to. This causes accuracy issues.
+
+    To fix this, we use the ancestor node whose particleCount is beyond the threshold. The logic is that,
+    if a local particle REALLY want to open the message, it must be willing to open the ancestor node first.
+  */
+  CudaMultipoleMoments cmm(node->moments);
+  cmm.lesser_corner = node->boundingBox.lesser_corner;
+  cmm.greater_corner = node->boundingBox.greater_corner;
+  cmm.type = CudaCachedBucket;
+  cmm.key = key;
+  cmm.nodeArrayIndex = grState->bucketNodes->length();
+  cmm.particleCount = node->particleCount;
+  cmm.bucketStart = grState->receivedParticles->length();
+  cmm.bucketSize = num;
+
+  grState->bucketNodes->push_back(cmm);
+
+  for (int i = 0; i < num; ++i) {
+    grState->receivedParticles->push_back(CompactPartData(egp[i]));
+  }
+
+/*  if (this->getIndex() == 0)
+    printf("TP %d: receivedParticles.size() = %d, bucketNodes.size() = %d, receive num = %d, expected num = %d, node key = %d, type = %d\n", 
+      this->getIndex(), grState->receivedParticles->size(), grState->bucketNodes->size(), cmm.particleCount, node->particleCount, node->getKey(), cmm.type);
+*/
+  if (grState->particleOffloadReady()) {
+    ((ListCompute *)compute)->sendRemoteTreeWalkParticleTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, grState->receivedParticles, grState->bucketNodes);
+    grState->bucketNodes->clear();
+    grState->receivedParticles->clear();
+  }
+
+  compute->finishNodeProcessEvent(this, state);
 }
 
 void TreePiece::receiveParticlesFullCallback(GravityParticle *gp, int num,

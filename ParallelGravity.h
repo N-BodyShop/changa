@@ -873,14 +873,6 @@ class TreePiece : public CBase_TreePiece {
         int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
 
-#ifdef GPU_REMOTE_TREE_WALK
-        int numCacheNodeRequest;
-        int numCacheParticleRequest;
-
-        int numRemoteNodeRequest;
-        int numRemoteParticleRequest;
-#endif
-
         int getNumBuckets(){
         	return numBuckets;
         }
@@ -1457,14 +1449,6 @@ public:
 #ifdef CUDA
           numActiveBuckets = -1;
 
-#ifdef GPU_REMOTE_TREE_WALK
-          numCacheNodeRequest = 0;
-          numCacheParticleRequest = 0;
-
-          numRemoteNodeRequest = 0;
-          numRemoteParticleRequest = 0;
-#endif
-
 #ifdef CUDA_STATS
           localNodeInteractions = 0;
           localPartInteractions = 0;
@@ -2023,6 +2007,12 @@ public:
         GenericTreeNode *nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi, void *source);
 
         ExternalGravityParticle *particlesMissed(Tree::NodeKey &key, int chunk, int remoteIndex, int firstParticle, int lastParticle, int reqID, bool isPrefetch, int awi, void *source);
+
+        #ifdef GPU_REMOTE_TREE_WALK
+        void serializeRecvdRemoteTree(GenericTreeNode *root, CkVec<CudaMultipoleMoments>* buffer, CkVec<GenericTreeNode*>* leaves);
+        void transformRemoteTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>* remoteMoments, CkVec<GenericTreeNode*>* leaves, int depth);
+        void printRemoteTreeRecursive(CkVec<CudaMultipoleMoments>* remoteMoments, int index, int indent);
+        #endif
 
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);

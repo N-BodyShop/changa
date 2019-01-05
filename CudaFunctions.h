@@ -23,6 +23,41 @@ __global__ void gpuLocalTreeWalk(
     cudatype fperiodZ);
 #endif //GPU_LOCAL_TREE_WALK
 
+#ifdef GPU_REMOTE_TREE_WALK
+__global__ void gpuRemoteTreeWalkForNodes(
+    CompactPartData *particleCores,
+    VariablePartData *particleVars,
+    CudaMultipoleMoments *moments,
+    CudaMultipoleMoments *recvdMoments,
+    int *rootsIndices,
+    CudaMultipoleMoments *parents,
+    int firstParticle,
+    int lastParticle,
+    cudatype theta,
+    cudatype thetaMono,
+    int nReplicas,
+    cudatype fperiod,
+    cudatype fperiodY,
+    cudatype fperiodZ,
+    int numMessages);
+
+__global__ void gpuRemoteTreeWalkForParticles(
+    CompactPartData *particleCores,
+    VariablePartData *particleVars,
+    CudaMultipoleMoments *moments,
+    CompactPartData *recvdParticles,
+    CudaMultipoleMoments *bucketNodes,
+    int firstParticle,
+    int lastParticle,
+    cudatype theta,
+    cudatype thetaMono,
+    int nReplicas,
+    cudatype fperiod,
+    cudatype fperiodY,
+    cudatype fperiodZ,
+    int numBuckets);
+#endif //GPU_REMOTE_TREE_WALK
+
 __global__ void nodeGravityComputation(
 		CompactPartData *particleCores,
 		VariablePartData *particleVars,

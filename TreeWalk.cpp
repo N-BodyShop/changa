@@ -22,6 +22,10 @@ void TreeWalk::reassoc(Compute *c){
 }
 
 void TopDownTreeWalk::walk(GenericTreeNode *startNode, State *state, int chunk, int reqID, int awi){
+/*  if (ownerTP->getIndex() == 0) {
+    printf("TopDownTreeWalk::walk is called by remote tree walk!\n");
+  }*/
+
 #ifdef BENCHMARK_TIME_WALK
   double startTime = CmiWallTimer();
 #endif
@@ -299,6 +303,10 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 #if INTERLIST_VER > 0
 void LocalTargetWalk::walk(GenericTreeNode *ancestor, State *state, int chunk, int targetBucketIndex, int awi){
 
+/*  if (ownerTP->getIndex() == 0 && comp->getOptType() == Remote) {
+    printf("LocalTargetWalk::walk is called by remote tree walk!\n");
+  }*/
+
     targetKey = ownerTP->getBucket(targetBucketIndex)->getKey();
     // construct lists
     int ancestorLevel = ancestor->getLevel(ancestor->getKey());
@@ -438,6 +446,10 @@ bool LocalTargetWalk::processNode(
 // This walk interprets what is otherwise the 'reqID' argument as the targetBucketIndex
 void LocalTargetWalk::resumeWalk(GenericTreeNode *node, State *state_, int chunk, int reqID, int activeWalkIndex){
 	DoubleWalkState *state = (DoubleWalkState *)state_;
+
+/*  if (ownerTP->getIndex() == 0) {
+    printf("LocalTargetWalk::resumeWalk is called!\n");
+  }*/
 
     // initial target
 	int targetBucket = decodeReqID(reqID);

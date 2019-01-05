@@ -230,4 +230,25 @@ class DoubleWalkState : public State {
 class NullState : public State {
 };
 
+class GPURemoteWalkState : public State {
+  public:
+
+  int nodeThreshold = 6400;
+  CkVec<CudaMultipoleMoments> *receivedNodes;
+  CkVec<int> *receivedRoots;
+  CkVec<CudaMultipoleMoments> *rootParents;
+
+  int partThreshold = 64000;
+  CkVec<CompactPartData> *receivedParticles;
+  CkVec<CudaMultipoleMoments> *bucketNodes;
+
+  bool nodeOffloadReady(){
+    return receivedNodes->size() >= nodeThreshold;
+  }
+
+  bool particleOffloadReady() {
+    return receivedParticles->size() >= partThreshold;
+  }
+};
+
 #endif
