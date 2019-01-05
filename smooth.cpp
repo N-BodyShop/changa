@@ -105,7 +105,7 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
 				    node->remoteIndex, 
 				    node->firstParticle, 
 				    node->lastParticle, 
-				    reqID, awi, computeEntity, false);
+				    reqID, awi, computeEntity);
 	if(part) {
 	    // Particles available; Search for contained.
 	    for(int i = node->firstParticle; i <= node->lastParticle; i++) {

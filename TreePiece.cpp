@@ -33,22 +33,22 @@
 #include "PETreeMerger.h"
 #include "IntraNodeLBManager.h"
 #include "CkLoopAPI.h"
+#include "formatted_string.h"
 
 #if !CMK_LB_USER_DATA
 #error "Please recompile charm with --enable-lbuserdata"
 #endif
 
 #ifdef CUDA
-#ifdef CUDA_INSTRUMENT_WRS
-#define GPU_INSTRUMENT_WRS
-#include "wr.h"
+#ifdef HAPI_INSTRUMENT_WRS
+#include "hapi.h"
 #endif
 #endif
 
 /*
 // uncomment when using cuda version of charm but running without GPUs
-struct workRequest; 
-void kernelSelect(workRequest *wr) {
+struct hapiWorkRequest; 
+void kernelSelect(hapiWorkRequest* wr) {
 }
 */
 
@@ -176,8 +176,8 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	}
 
 #if COSMO_DEBUG > 1
-  char fout[100];
-  sprintf(fout,"tree.%d.%d.before",thisIndex,iterationNo);
+  auto file_name = make_formatted_string("tree.%d.%d.before",thisIndex,iterationNo);
+  char const* fout = file_name.c_str();
   ofstream ofs(fout);
   for (int i=1; i<=myNumParticles; ++i)
     ofs << keyBits(myParticles[i].key,KeyBits) << " " << myParticles[i].position[0] << " "
@@ -2582,8 +2582,8 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
 {
 
 #if COSMO_DEBUG > 1
-  char fout[100];
-  sprintf(fout,"tree.%d.%d.after",thisIndex,iterationNo);
+  auto file_name = make_formatted_string("tree.%d.%d.after",thisIndex,iterationNo);
+  char const* fout = file_name.c_str();
   ofstream ofs(fout);
   for (int i=1; i<=myNumParticles; ++i)
     ofs << keyBits(myParticles[i].key,KeyBits) << " " << myParticles[i].position[0] << " "
@@ -3083,11 +3083,13 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
         // Then construct the local parts of the tree
         LocalTreeBuilder w2(this);
         traversal.dft(root,&w2,0);
-
 #else
-        start = CmiWallTimer();
-	buildOctTree(root, 0);
-        traceUserBracketEvent(tbRecursiveUE,start,CmiWallTimer());
+        /*
+         * This should not happen since the tree build type is guaranteed to be specified
+         * at configure-time. If, however, the Makefile is manually modified, then we want
+         * to catch that error here.
+         */
+        #error "No valid tree build type specified"
 #endif
 
 	}
@@ -3256,181 +3258,32 @@ bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &la
   return (myPlace >= firstOwner && myPlace <= lastOwner);
 }
 
-/** A recursive algorithm for building my tree.
-    Examines successive bits in the particles' keys, looking for splits.
-    Each bit is a level of nodes in the tree.  We keep going down until
-    we can bucket the particles.
-*/
-void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
-
-#ifdef TREE_BREADTH_FIRST
-  CkQ<GenericTreeNode*> *queue = new CkQ<GenericTreeNode*>(1024);
-  CkQ<GenericTreeNode*> *queueNext = new CkQ<GenericTreeNode*>(1024);
-  queue->enq(node);
-
-  GenericTreeNode *rootNode = node;
-  while (1) {
-    node = queue->deq();
-    if (node == NULL) {
-      node = queueNext->deq();
-      CkQ<GenericTreeNode*> *tmp = queue;
-      queue = queueNext;
-      queueNext = tmp;
-      level++;
-    }
-    if (node == NULL) break;
-#endif
-
-  if (level == NodeKeyBits-2) {
-    ckerr << thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
-    ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
-    ckerr << "Left key : " << keyBits((myParticles[node->firstParticle]).key, KeyBits).c_str() << endl;
-    ckerr << "Right key: " << keyBits((myParticles[node->lastParticle]).key, KeyBits).c_str() << endl;
-    ckerr << "Node type: " << node->getType() << endl;
-    ckerr << "myNumParticles: " << myNumParticles << endl;
-    CkAbort("Tree is too deep!");
-    return;
-  }
-
-  CkAssert(node->getType() == Boundary || node->getType() == Internal);
-
-  node->makeOctChildren(myParticles, myNumParticles, level, pTreeNodes);
-  // The boundingBox was used above to determine the spacially equal
-  // split between the children.  Now reset it so it can be calculated
-  // from the particle positions.
-  node->boundingBox.reset();
-  node->rungs = 0;
-
-  GenericTreeNode *child;
-#if INTERLIST_VER > 0
-  int bucketsBeneath = 0;
-#endif
-  for (unsigned int i=0; i<node->numChildren(); ++i) {
-    child = node->getChildren(i);
-    CkAssert(child != NULL);
-#if INTERLIST_VER > 0
-    child->startBucket=numBuckets;
-#endif
-    nodeLookupTable[child->getKey()] = child;
-    if (child->getType() == NonLocal) {
-      // find a remote index for the node
-      int first, last;
-      bool isShared = nodeOwnership(child->getKey(), first, last);
-      if (last < first) {
-	// the node is really empty because falling between two TreePieces
-	child->makeEmpty();
-	child->remoteIndex = thisIndex;
-      } else {
-	child->remoteIndex = getResponsibleIndex(first, last);
-	// if we have a remote child, the node is a Boundary. Thus count that we
-	// have to receive one more message for the NonLocal node
-	node->remoteIndex --;
-	// request the remote chare to fill this node with the Moments
-        CkEntryOptions opts;
-        opts.setPriority((unsigned int) -110000000);
-	streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex, &opts);
-      }
-    } else if (child->getType() == Internal
-              && (child->lastParticle - child->firstParticle < maxBucketSize
-                  || level >= NodeKeyBits-3)) {
-       if(level >= NodeKeyBits-3
-	  && child->lastParticle - child->firstParticle >= maxBucketSize)
-           ckerr << "Truncated tree with "
-                 << child->lastParticle - child->firstParticle
-                 << " particle bucket" << endl;
-       
-      CkAssert(child->firstParticle != 0 && child->lastParticle != myNumParticles+1);
-      child->remoteIndex = thisIndex;
-      child->makeBucket(myParticles);
-      bucketList.push_back(child);
-#if INTERLIST_VER > 0
-      child->startBucket=numBuckets;
-#endif
-      numBuckets++;
-      if (node->getType() != Boundary) {
-        node->moments += child->moments;
-        node->boundingBox.grow(child->boundingBox);
-        node->bndBoxBall.grow(child->bndBoxBall);
-	node->iParticleTypes |= child->iParticleTypes;
-        node->nSPH += child->nSPH;
-      }
-      if (child->rungs > node->rungs) node->rungs = child->rungs;
-    } else if (child->getType() == Empty) {
-      child->remoteIndex = thisIndex;
-    } else {
-      if (child->getType() == Internal) child->remoteIndex = thisIndex;
-      // else the index is already 0
-#ifdef TREE_BREADTH_FIRST
-      queueNext->enq(child);
-#else
-      buildOctTree(child, level+1);
-#endif
-      // if we have a Boundary child, we will have to compute it's multipole
-      // before we can compute the multipole of the current node (and we'll do
-      // it in receiveRemoteMoments)
-      if (child->getType() == Boundary) node->remoteIndex --;
-#ifndef TREE_BREADTH_FIRST
-      if (node->getType() != Boundary) {
-        node->moments += child->moments;
-        node->boundingBox.grow(child->boundingBox);
-        node->bndBoxBall.grow(child->bndBoxBall);
-	node->iParticleTypes |= child->iParticleTypes;
-        node->nSPH += child->nSPH;
-      }
-      // for the rung information we can always do now since it is a local property
-      if (child->rungs > node->rungs) node->rungs = child->rungs;
-#endif
-    }
-
-#if INTERLIST_VER > 0
-    bucketsBeneath += child->numBucketsBeneath;
-#endif
-  }
-
-#if INTERLIST_VER > 0
-  node->numBucketsBeneath = bucketsBeneath;
-#endif
-
-  /* The old version collected Boundary nodes, the new version collects NonLocal nodes */
-
-#ifndef TREE_BREADTH_FIRST
-  if (node->getType() == Internal) {
-    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
-  }
-#endif
-
-#ifdef TREE_BREADTH_FIRST
-  }
-  growBottomUp(rootNode);
-#endif
-}
-
-#ifdef TREE_BREADTH_FIRST
-void TreePiece::growBottomUp(GenericTreeNode *node) {
-  GenericTreeNode *child;
-  for (unsigned int i=0; i<node->numChildren(); ++i) {
-    child = node->getChildren(i);
-    if (child->getType() == NonLocal ||
-        (child->getType() == Bucket) ||
-        child->getType() == Empty) continue;
-    growBottomUp(child);
-    if (node->getType() != Boundary) {
-      node->moments += child->moments;
-      node->boundingBox.grow(child->boundingBox);
-      node->bndBoxBall.grow(child->bndBoxBall);
-      node->iParticleTypes |= child->iParticleTypes;
-      node->nSPH += child->nSPH;
-    }
-    if (child->rungs > node->rungs) node->rungs = child->rungs;
-  }
-  if (node->getType() == Internal) {
-    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
-  }
-}
-#endif
-
-/// When the node is found to be null, forward it to the neighbor 
+/// When the node is found to be null, find the owner and forward the request.
 bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
+    // Find the true owner
+    int first, last;
+    bool bIsShared = nodeOwnership(msg->key, first, last);
+    if(verbosity > 0) {
+        CkPrintf("fillRequest empty piece %d: %d %d %d %llx\n", thisIndex,
+            first, last, bIsShared, msg->key);
+        CkPrintf("fillRequest resp. pieces %d: %d %d\n", thisIndex,
+                   getResponsibleIndex(first, first),
+                   getResponsibleIndex(last, last));
+    }
+    int iResp = getResponsibleIndex(first, last);
+    // Handle the case where the chosen "owner" happens to be empty.
+    if (iResp == thisIndex)
+        iResp = getResponsibleIndex(first, first);
+    if (iResp == thisIndex)
+        iResp = getResponsibleIndex(last, last);
+    if(iResp != thisIndex) {
+        treeProxy[iResp].fillRequestNode(msg);
+        return true;
+    }
+
+    // Last ditch effort to find the node
+    CkAssert(myNumParticles > 0);
+
   Tree::NodeKey key = msg->key;
   KeyType firstKey = KeyType(key);
   KeyType lastKey = KeyType(key + 1);
@@ -3445,15 +3298,18 @@ bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
 
   // If the firstkey of the requested key is greater than the last particle key,
   // then this node may be with the right neighbor
-  if (myParticles[myNumParticles].key < firstKey) {
-    streamingProxy[thisIndex+1].fillRequestNode(msg);
-    return true;
+  if (myParticles[myNumParticles].key < firstKey
+      && thisIndex < numTreePieces-1) {
+      int iNextIndex = dm->responsibleIndex[myPlace + 1];
+      treeProxy[iNextIndex].fillRequestNode(msg);
+      return true;
   }
   // If the lastkey of the requested key is less than the first particle key,
   // then this node may be with the left neighbor
-  if (myParticles[1].key > lastKey) {
-    streamingProxy[thisIndex-1].fillRequestNode(msg);
-    return true;
+  else if (myParticles[1].key > lastKey && thisIndex > 0) {
+      int iPrevIndex = dm->responsibleIndex[myPlace - 1];
+      treeProxy[iPrevIndex].fillRequestNode(msg);
+      return true;
   }
   return false;
 }
@@ -3990,8 +3846,8 @@ void TreePiece::continueWrapUp(){
 
 void TreePiece::doAllBuckets(){
 #if COSMO_DEBUG > 0
-  char fout[100];
-  sprintf(fout,"tree.%d.%d",thisIndex,iterationNo);
+  auto file_name = make_formatted_string("tree.%d.%d",thisIndex,iterationNo);
+  char const* fout = file_name.c_str();
   ofstream ofs(fout);
   printTree(root,ofs);
   ofs.close();
@@ -4028,7 +3884,7 @@ void TreePiece::doAllBuckets(){
   thisProxy[thisIndex].nextBucket(msg);
 #endif //GPU_LOCAL_TREE_WALK
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
   ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
 #endif
@@ -4365,7 +4221,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   CmiMemoryCheck();
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   ((DoubleWalkState *)sRemoteGravityState)->nodeListConstructionTimeStart();
   ((DoubleWalkState *)sRemoteGravityState)->partListConstructionTimeStart();
   ((DoubleWalkState *)sInterListStateRemoteResume)->nodeListConstructionTimeStart();
@@ -4632,28 +4488,12 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
 
       if(lc && ds){
-        bool nodeDummy = false;
-        bool partDummy = true;
-
         if(ds->nodeLists.totalNumInteractions > 0){
-          nodeDummy = true;
-        }
-        else if(ds->particleLists.totalNumInteractions > 0){
-          partDummy = true;
-        }
-
-        if(nodeDummy && partDummy){
           lc->sendNodeInteractionsToGpu(ds, this);
-          lc->sendPartInteractionsToGpu(ds, this, true);
-          lc->resetCudaNodeState(ds);
-          lc->resetCudaPartState(ds);
-        }
-        else if(nodeDummy){
-          lc->sendNodeInteractionsToGpu(ds, this,true);
           lc->resetCudaNodeState(ds);
         }
-        else if(partDummy){
-          lc->sendPartInteractionsToGpu(ds, this, true);
+        if(ds->particleLists.totalNumInteractions > 0){
+          lc->sendPartInteractionsToGpu(ds, this);
           lc->resetCudaPartState(ds);
         }
       }
@@ -5157,38 +4997,11 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
   initBuckets();
 
-  switch(domainDecomposition){
-    case Oct_dec:
-    case ORB_dec:
-    case ORB_space_dec:
-      //Prefetch Roots for Oct
-      prefetchReq[0].reset();
-      for (unsigned int i=1; i<=myNumParticles; ++i) {
-        if (myParticles[i].rung >= activeRung) {
-          prefetchReq[0].grow(myParticles[i].position);
-        }
+  prefetchReq.reset();
+  for (unsigned int i=1; i<=myNumParticles; ++i) {
+      if (myParticles[i].rung >= activeRung) {
+          prefetchReq.grow(myParticles[i].position);
       }
-      break;
-    default:
-      //Prefetch Roots for SFC
-      prefetchReq[0].reset();
-      for (unsigned int i=1; i<=myNumParticles; ++i) {
-	  // set to first active particle
-        if (myParticles[i].rung >= activeRung) {
-          prefetchReq[0].grow(myParticles[i].position);
-	  break;
-	}
-      }
-      prefetchReq[1].reset();
-      for (unsigned int i=myNumParticles; i>=1; --i) {
-	  // set to last active particle
-        if (myParticles[i].rung >= activeRung) {
-	    prefetchReq[1].grow(myParticles[i].position);
-	    break;
-	}
-      }
-
-      break;
   }
 
 #if CHANGA_REFACTOR_DEBUG > 0
@@ -5259,7 +5072,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   // (i.e. all buckets have finished their RNR/Local walks)
 #ifdef CUDA
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   instrumentId = dm->initInstrumentation();
 
   localNodeListConstructionTime = 0.0;
@@ -5337,7 +5150,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   }
 #endif // CUDA
 
-#if CUDA_STATS
+#if HAPI_TRACE
   localNodeInteractions = 0;
   localPartInteractions = 0;
   remoteNodeInteractions = 0;
@@ -5409,9 +5222,12 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #endif
 }
 
-// Starts the prefetching of the specified chunk; once the 
-// given chunk has been completely prefetched, the prefetch
-// compute invokes startRemoteChunk() 
+/// Starts the prefetching of the specified chunk; once the 
+/// given chunk has been completely prefetched, the prefetch
+/// compute invokes startRemoteChunk().  Chunks in this context is a
+/// division of the remote walk so that remote computation can start
+/// before all remote prefetches are finished.  By default there is
+/// only one chunk: the prefetch is done all at once.
 void TreePiece::initiatePrefetch(int chunk){
 #ifdef DISABLE_NODE_TREE
   GenericTreeNode *child = keyToNode(prefetchRoots[chunk]);
@@ -5429,7 +5245,7 @@ void TreePiece::initiatePrefetch(int chunk){
           child = requestNode(dm->responsibleIndex[(first+last)>>1],
               prefetchRoots[chunk], chunk,
               encodeOffset(0, x, y, z),
-              prefetchAwi, (void *)0, true);
+              prefetchAwi, (void *)0);
         }
         if (child != NULL) {
 #if CHANGA_REFACTOR_DEBUG > 1
@@ -5487,7 +5303,6 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   // start prefetching next chunk
   if (++sPrefetchState->currentBucket < numChunks) {
     // Nothing needs to be changed for this chunk -
-    // the prefetchReqs and their number remains the same
     // We only need to reassociate the tree walk with the
     // prefetch compute object and the prefetch object wiht
     // the prefetch opt object
@@ -5612,7 +5427,8 @@ const GravityParticle *TreePiece::lookupParticles(int begin) {
   return &myParticles[begin];
 }
 
-GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int chunk, int reqID, int awi, void *source, bool isPrefetch) {
+GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
+                       int chunk, int reqID, int awi, void *source) {
 
   CkAssert(remoteIndex < (int) numTreePieces);
   CkAssert(chunk < numChunks);
@@ -5656,7 +5472,7 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int 
   return NULL;
 }
 
-ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source, bool isPrefetch) {
+ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source) {
   if (_cache) {
     CProxyElement_ArrayElement thisElement(thisProxy[thisIndex]);
     CkCacheUserData userData;
@@ -5705,8 +5521,7 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
 
 GravityParticle *
 TreePiece::requestSmoothParticles(Tree::NodeKey key,int chunk,int remoteIndex,
-				  int begin,int end,int reqID, int awi, void *source,
-				  bool isPrefetch) {
+				  int begin,int end,int reqID, int awi, void *source) {
   if (_cache) {
     CProxyElement_ArrayElement thisElement(thisProxy[thisIndex]);
     CkCacheUserData userData;
@@ -5941,22 +5756,6 @@ void TreePiece::pup(PUP::er& p) {
   if (p.isUnpacking()) {
     particleInterRemote = NULL;
     nodeInterRemote = NULL;
-
-    switch(domainDecomposition) {
-    case SFC_dec:
-    case SFC_peano_dec:
-    case SFC_peano_dec_3D:
-    case SFC_peano_dec_2D:
-      numPrefetchReq = 2;
-      break;
-    case Oct_dec:
-    case ORB_dec:
-    case ORB_space_dec:
-      numPrefetchReq = 1;
-      break;
-    default:
-      CmiAbort("Pupper has wrong domain decomposition type!\n");
-    }
   }
 
   p | myPlace;
@@ -6280,15 +6079,6 @@ checkWalkCorrectness();
 #endif
 }
 
-GenericTreeNode *TreePiece::nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi, void *source){
-  GenericTreeNode *gtn = requestNode(remoteIndex, key, chunk, reqID, awi, source, isPrefetch);
-  return gtn;
-}
-
-ExternalGravityParticle *TreePiece::particlesMissed(Tree::NodeKey &key, int chunk, int remoteIndex, int firstParticle, int lastParticle, int reqID, bool isPrefetch, int awi, void *source){
-  return requestParticles(key, chunk, remoteIndex,firstParticle,lastParticle,reqID, awi, source, isPrefetch);
-}
-
 // This is invoked when a remote node is received from the CacheManager
 // It sets up a tree walk starting at node and initiates it
 void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source){
@@ -6520,65 +6310,64 @@ void TreePiece::finishWalk()
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
-  RequestTimeInfo *rti1 = hapi_queryInstrument(instrumentId, DM_TRANSFER_LOCAL, activeRung);
-  RequestTimeInfo *rti2 = hapi_queryInstrument(instrumentId, DM_TRANSFER_REMOTE_CHUNK, activeRung);
-  RequestTimeInfo *rti3 = hapi_queryInstrument(instrumentId, DM_TRANSFER_BACK, activeRung);
-  RequestTimeInfo *rti4 = hapi_queryInstrument(instrumentId, DM_TRANSFER_FREE_LOCAL, activeRung);
-  RequestTimeInfo *rti5 = hapi_queryInstrument(instrumentId, DM_TRANSFER_FREE_REMOTE_CHUNK, activeRung);
-  
-  RequestTimeInfo *rti6 = hapi_queryInstrument(instrumentId, TP_GRAVITY_LOCAL, activeRung);
-  RequestTimeInfo *rti7 = hapi_queryInstrument(instrumentId, TP_GRAVITY_REMOTE, activeRung);
-  RequestTimeInfo *rti8 = hapi_queryInstrument(instrumentId, TP_GRAVITY_REMOTE_RESUME, activeRung);
-  
-  RequestTimeInfo *rti9 = hapi_queryInstrument(instrumentId,TP_PART_GRAVITY_LOCAL_SMALLPHASE, activeRung);
-  RequestTimeInfo *rti10 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_LOCAL, activeRung);
-  RequestTimeInfo *rti11 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE, activeRung);
-  RequestTimeInfo *rti12 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE_RESUME, activeRung);
+#ifdef HAPI_INSTRUMENT_WRS
+  hapiRequestTimeInfo *rti1 = hapiQueryInstrument(instrumentId, DM_TRANSFER_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti2 = hapiQueryInstrument(instrumentId, DM_TRANSFER_REMOTE_CHUNK, activeRung);
+  hapiRequestTimeInfo *rti3 = hapiQueryInstrument(instrumentId, DM_TRANSFER_BACK, activeRung);
+  hapiRequestTimeInfo *rti4 = hapiQueryInstrument(instrumentId, DM_TRANSFER_FREE_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti5 = hapiQueryInstrument(instrumentId, DM_TRANSFER_FREE_REMOTE_CHUNK, activeRung);
 
-  RequestTimeInfo *rti13 = hapi_queryInstrument(instrumentId, TOP_EWALD_KERNEL, activeRung);
-  RequestTimeInfo *rti14 = hapi_queryInstrument(instrumentId, BOTTOM_EWALD_KERNEL, activeRung);
+  hapiRequestTimeInfo *rti6 = hapiQueryInstrument(instrumentId, TP_GRAVITY_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti7 = hapiQueryInstrument(instrumentId, TP_GRAVITY_REMOTE, activeRung);
+  hapiRequestTimeInfo *rti8 = hapiQueryInstrument(instrumentId, TP_GRAVITY_REMOTE_RESUME, activeRung);
+
+  hapiRequestTimeInfo *rti9 = hapiQueryInstrument(instrumentId,TP_PART_GRAVITY_LOCAL_SMALLPHASE, activeRung);
+  hapiRequestTimeInfo *rti10 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti11 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE, activeRung);
+  hapiRequestTimeInfo *rti12 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE_RESUME, activeRung);
+
+  hapiRequestTimeInfo *rti13 = hapiQueryInstrument(instrumentId, EWALD_KERNEL, activeRung);
 
   if(rti6 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localnode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti6->transferTime/rti6->n,
-        rti6->kernelTime/rti6->n,
-        rti6->cleanupTime/rti6->n, rti6->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS localnode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti6->transfer_time/rti6->n,
+        rti6->kernel_time/rti6->n,
+        rti6->cleanup_time/rti6->n, rti6->n);
   }
   if(rti7 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti7->transferTime/rti7->n,
-        rti7->kernelTime/rti7->n,
-        rti7->cleanupTime/rti7->n, rti7->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remotenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti7->transfer_time/rti7->n,
+        rti7->kernel_time/rti7->n,
+        rti7->cleanup_time/rti7->n, rti7->n);
   }
   if(rti8 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti8->transferTime/rti8->n,
-        rti8->kernelTime/rti8->n,
-        rti8->cleanupTime/rti8->n, rti8->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remoteresumenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti8->transfer_time/rti8->n,
+        rti8->kernel_time/rti8->n,
+        rti8->cleanup_time/rti8->n, rti8->n);
   }
 
   if(rti10 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localpart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti10->transferTime/rti10->n,
-        rti10->kernelTime/rti10->n,
-        rti10->cleanupTime/rti10->n, rti10->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS localpart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti10->transfer_time/rti10->n,
+        rti10->kernel_time/rti10->n,
+        rti10->cleanup_time/rti10->n, rti10->n);
   }
   if(rti11 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti11->transferTime/rti11->n,
-        rti11->kernelTime/rti11->n,
-        rti11->cleanupTime/rti11->n, rti11->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remotepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti11->transfer_time/rti11->n,
+        rti11->kernel_time/rti11->n,
+        rti11->cleanup_time/rti11->n, rti11->n);
   }
   if(rti12 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti12->transferTime/rti12->n,
-        rti12->kernelTime/rti12->n,
-        rti12->cleanupTime/rti12->n, rti12->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remoteresumepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti12->transfer_time/rti12->n,
+        rti12->kernel_time/rti12->n,
+        rti12->cleanup_time/rti12->n, rti12->n);
   }
 
   if(nLocalNodeReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction local node reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction local node reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nLocalNodeReqs,
@@ -6586,7 +6375,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemoteNodeReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote node reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote node reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemoteNodeReqs,
@@ -6594,7 +6383,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemoteResumeNodeReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote resume node reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote resume node reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemoteResumeNodeReqs,
@@ -6602,7 +6391,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nLocalPartReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction local part reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction local part reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nLocalPartReqs,
@@ -6610,7 +6399,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemotePartReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote part reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote part reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemotePartReqs,
@@ -6618,7 +6407,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemoteResumePartReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote resume part reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote resume part reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemoteResumePartReqs,
@@ -6627,13 +6416,13 @@ void TreePiece::finishWalk()
   }
 
 #endif
-#ifdef CUDA_STATS
-  CkPrintf("[%d] (%d) CUDA_STATS localnode: %ld\n", thisIndex, activeRung, localNodeInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remotenode: %ld\n", thisIndex, activeRung, remoteNodeInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remoteresumenode: %ld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS localpart: %ld\n", thisIndex, activeRung, localPartInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remotepart: %ld\n", thisIndex, activeRung, remotePartInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remoteresumepart: %ld\n", thisIndex, activeRung, remoteResumePartInteractions);
+#ifdef HAPI_TRACE
+  CkPrintf("[%d] (%d) HAPI_TRACE localnode: %ld\n", thisIndex, activeRung, localNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remotenode: %ld\n", thisIndex, activeRung, remoteNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumenode: %ld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE localpart: %ld\n", thisIndex, activeRung, localPartInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remotepart: %ld\n", thisIndex, activeRung, remotePartInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumepart: %ld\n", thisIndex, activeRung, remoteResumePartInteractions);
   
 #endif
 

@@ -1,12 +1,10 @@
+#ifdef HEXADECAPOLE
+
 #ifdef CUDA_UNIT_TEST
 # include "CUDAMoments.h"
 #else
 # include "cuda_typedef.h"
 #endif
-
-#ifdef GPU_LOCAL_TREE_WALK
-#include "codes.h"
-#endif //GPU_LOCAL_TREE_WALK
 
 #ifdef CUDA_UNIT_TEST
 __global__ void
@@ -109,6 +107,11 @@ CUDA_momEvalFmomrcm(const CudaMultipoleMoments* _m,
   out->y += dir*(xy + xxy + ty - y*g0);
   out->z += dir*(xz + xxz + tz - z*g0);
 }
+#endif
+
+#ifdef GPU_LOCAL_TREE_WALK
+#include "codes.h"
+#endif //GPU_LOCAL_TREE_WALK
 
 #ifdef GPU_LOCAL_TREE_WALK
 

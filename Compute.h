@@ -18,16 +18,6 @@ class DoubleWalkState;
 class TreeWalk;
 class Opt;
 
-/// this is the computeEntity for PrefetchComputes
-/// it holds an array of prefetch root bounding boxes
-/// and the number of elements in this array
-
-struct PrefetchRequestStruct{
-  OrientedBox<double> *prefetchReq;
-  int numPrefetchReq;
-  PrefetchRequestStruct(OrientedBox<double> *p, int n) : prefetchReq(p), numPrefetchReq(n) {}
-};
-
 /// @brief Base clase for all tree based computations.
 ///
 /// The Compute object determines what work is to be done at each
@@ -194,8 +184,8 @@ class ListCompute : public Compute{
 #ifdef GPU_LOCAL_TREE_WALK
   void sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int startBucket, int endBucket);
 #endif //GPU_LOCAL_TREE_WALK
-  void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
-  void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);
+  void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
+  void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
 #endif
 
   private:

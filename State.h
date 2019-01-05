@@ -145,7 +145,7 @@ class DoubleWalkState : public State {
   GenericList<ILCell> nodeLists;
   GenericList<ILPart> particleLists;
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   double nodeListTime;
   double partListTime;
 #endif
@@ -181,7 +181,7 @@ class DoubleWalkState : public State {
     return particleLists.totalNumInteractions >= partThreshold;
   }
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   void updateNodeThreshold(int t){
     nodeThreshold = t;
   }
@@ -206,7 +206,7 @@ class DoubleWalkState : public State {
 #endif
   }
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   void nodeListConstructionTimeStart(){
     nodeListTime = CmiWallTimer();
   }
