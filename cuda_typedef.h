@@ -24,7 +24,7 @@ typedef cosmoType hosttype;
 #define NODE_INTERACTIONS_PER_REQUEST_RR 1.0
 #define PART_INTERACTIONS_PER_REQUEST_RR 0.1
 
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
 #define CUDA_SER_TREE 9900
 #define CUDA_SER_LIST 9901
 
@@ -260,11 +260,6 @@ typedef struct VariablePartData{
   CudaVector3D a;
   cudatype potential;
   cudatype dtGrav;
-
-#ifdef GPU_LOCAL_TREE_WALK
-  int numOfNodesTraversed;
-  int numOfParticlesTraversed;
-#endif //GPU_LOCAL_TREE_WALK
 }VariablePartData;
 
 

@@ -11,10 +11,7 @@
 #include "Sph.h"
 #include "SphUtils.h"
 #include "physconst.h"
-
-#ifndef MAXPATHLEN
-#define MAXPATHLEN PATH_MAX
-#endif
+#include "formatted_string.h"
 
 #include <float.h>
 
@@ -194,8 +191,8 @@ int Main::ReadASCII(char *extension, int nDataPerLine, double *dDataOut)
 	    dData = dDataOut;
 	
 	CkAssert(nDataPerLine > 0 && nDataPerLine <= 10);
-	char achFile[MAXPATHLEN];
-	sprintf(achFile, "%s.%s", param.achOutName, extension);
+	auto file_name = make_formatted_string("%s.%s", param.achOutName, extension);
+	char const* achFile = file_name.c_str();
 	fp = fopen(achFile,"r");
 	if (!fp) {
             CkPrintf("WARNING: Could not open .%s input file:%s\n",
