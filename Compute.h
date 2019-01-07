@@ -244,6 +244,10 @@ class PrefetchCompute : public Compute{
   virtual int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
   int openCriterion(TreePiece *ownerTP, GenericTreeNode *node, int reqIDD, State *state);
 
+#ifdef GPU_REMOTE_TREE_WALK
+  void nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp);
+#endif // GPU_REMOTE_TREE_WALK
+
   // book-keeping on notifications
   void startNodeProcessEvent(State *state);
   void finishNodeProcessEvent(TreePiece *owner, State *state);

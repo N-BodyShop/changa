@@ -236,6 +236,12 @@ void GravityCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePie
   }
 }
 
+#ifdef GPU_REMOTE_TREE_WALK
+void PrefetchCompute::nodeMissedEvent(int reqID, int chunk, State *state, TreePiece *tp){
+  state->counterArrays[0][0]++;
+}
+#endif // GPU_REMOTE_TREE_WALK
+
 void PrefetchCompute::startNodeProcessEvent(State *state){
   //return owner->incPrefetchWaiting();
   state->counterArrays[0][0]++;
@@ -1598,7 +1604,7 @@ void cudaCallbackForRemoteTreeWalk(void *param, void *msg) {
   DoubleWalkState *state = (DoubleWalkState *)data->state;
   int bucket;
 
-//  printf("ListCompute::cudaCallbackForRemoteTreeWalk is called!\n");
+//  printf("ListCompute::cudaCallbackForRemoteTreeWalk is called! affectedBuckets[0] = %d\n", affectedBuckets[0]);
 
   int numBucketsDone = data->numBucketsPlusOne-1;
 
@@ -1606,7 +1612,7 @@ void cudaCallbackForRemoteTreeWalk(void *param, void *msg) {
   //
   for(int i = 0; i < numBucketsDone; i++){
     bucket = affectedBuckets[i];
-    state->counterArrays[0][i]--;
+    state->counterArrays[0][bucket]--;
     tp->finishBucket(bucket);
   }
 
@@ -1649,10 +1655,9 @@ void ListCompute::sendRemoteTreeWalkNodeTriggerToGpu(State *state, TreePiece *tp
 
   // Set up a series of dummy parameters to match existing function interfaces
   int dummyCurBucket = 0;
-
   for (int i = startBucket; i < endBucket; ++i) {
     if (tp->bucketList[i]->rungs >= activeRung) {
-      state->counterArrays[0][i] ++;
+      state->counterArrays[0][i]++;
       affectedBuckets[dummyCurBucket] = i;
       dummyCurBucket++;
     }
@@ -1728,7 +1733,6 @@ void ListCompute::sendRemoteTreeWalkParticleTriggerToGpu(State *state, TreePiece
 
   // Set up a series of dummy parameters to match existing function interfaces
   int dummyCurBucket = 0;
-
   for (int i = startBucket; i < endBucket; ++i) {
     if (tp->bucketList[i]->rungs >= activeRung) {
       state->counterArrays[0][i]++;

@@ -5328,7 +5328,7 @@ void TreePiece::startRemoteChunk() {
 
   traceUserEvent(prefetchDoneUE);
 
-#ifdef CUDA
+#if defined(CUDA) && not defined(GPU_REMOTE_TREE_WALK)
   // dm counts until all treepieces have acknowledged prefetch completion
   // it then flattens the tree on the processor, sends it to the device
   // and sends messages to each of the registered treepieces to continueStartRemoteChunk()
@@ -5357,7 +5357,7 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   GPURemoteWalkState *state = (GPURemoteWalkState *)sPrefetchState;
 
   if (state->receivedNodes->length() > 0) {
-    printf("TP: %d. we are cleaning up %d nodes!\n", this->getIndex(), state->receivedNodes->length());
+    printf("TP: %d. we are cleaning up %d node msg with %d nodes!\n", this->getIndex(), state->receivedRoots->size(), state->receivedNodes->length());
     listcompute->sendRemoteTreeWalkNodeTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets,
                                                     state->receivedNodes, state->receivedRoots, state->rootParents);
     state->receivedNodes->clear();
@@ -5366,7 +5366,7 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   }
 
   if (state->receivedParticles->length() > 0) {
-    printf("TP: %d. we are cleaning up %d particles!\n", this->getIndex(), state->receivedParticles->length());
+    printf("TP: %d. we are cleaning up %d particle msg with %d particles!\n", this->getIndex(), state->bucketNodes->size(), state->receivedParticles->length());
     listcompute->sendRemoteTreeWalkParticleTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, state->receivedParticles, state->bucketNodes);
     state->bucketNodes->clear();
     state->receivedParticles->clear();
@@ -6319,7 +6319,7 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   Compute *compute;
   State *state;
 
-/*  if (this->getIndex() == 0)
+/*  if (this->getIndex() == 1)
     printf("receiveNodeCallback is called by tp %d at %d, the root key is %d!\n", this->getIndex(), targetBucket, node->getKey());
 */
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_BUCKET_START_FIN
@@ -6369,8 +6369,12 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   }
   
   if (node->getType() == CachedEmpty) {
+    compute->finishNodeProcessEvent(this, state);
     return;
   }
+
+//  if (this->getIndex() == 0)
+//    printf("receiveNodeCallback is called by tp %d at %d, the root key is %d! counterArrays[0][0] = %d\n", this->getIndex(), targetBucket, node->getKey(), state->counterArrays[0][0]);
 
   GPURemoteWalkState* grState = (GPURemoteWalkState*) state;
   CkVec<GenericTreeNode*> leaves;
@@ -6397,6 +6401,8 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   }*/
 
   if (grState->nodeOffloadReady()) {
+    // Note that we're sending "sRemoteGravityState" to the trigger, 
+    // because the remote walk bookkeeping work should link with sRemoteGravityState.
     ((ListCompute *)compute)->sendRemoteTreeWalkNodeTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, 
                                                                  grState->receivedNodes, grState->receivedRoots, grState->rootParents);
     grState->receivedNodes->clear();
@@ -6416,14 +6422,15 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
 
   CkAssert(awi < maxAwi);
 
-//  printf("TP %d got a particle message back!\n", this->getIndex());
-
   // retrieve the activewalk record
   ActiveWalk &a = activeWalks[awi];
   Compute *compute = a.c;
   //tw = a.tw;
   c = a.c;
   state = a.s;
+
+//  if (this->getIndex() == 0)
+//    printf("TP %d got a particle message back with key = %d, state->counterArrays[0][0] = %d!\n", this->getIndex(), remoteBucket >> 1, state->counterArrays[0][0]);
 
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_BUCKET_START_FIN
   if(source){
@@ -6514,8 +6521,7 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
     even though they don't need to. This causes accuracy issues.
 
     To fix this, we use the ancestor node whose particleCount is beyond the threshold. The logic is that,
-    if a local particle REALLY want to open the message, it must be willing to open the ancestor node first.
-  */
+    if a local particle REALLY want to open the message, it must be willing to open the ancestor node first. */
   CudaMultipoleMoments cmm(node->moments);
   cmm.lesser_corner = node->boundingBox.lesser_corner;
   cmm.greater_corner = node->boundingBox.greater_corner;
@@ -6537,6 +6543,8 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
       this->getIndex(), grState->receivedParticles->size(), grState->bucketNodes->size(), cmm.particleCount, node->particleCount, node->getKey(), cmm.type);
 */
   if (grState->particleOffloadReady()) {
+    // Note that we're sending "sRemoteGravityState" to the trigger, 
+    // because the remote walk bookkeeping work should link with sRemoteGravityState.
     ((ListCompute *)compute)->sendRemoteTreeWalkParticleTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, grState->receivedParticles, grState->bucketNodes);
     grState->bucketNodes->clear();
     grState->receivedParticles->clear();

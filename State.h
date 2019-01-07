@@ -233,12 +233,12 @@ class NullState : public State {
 class GPURemoteWalkState : public State {
   public:
 
-  int nodeThreshold = 6400;
+  int nodeThreshold = 3200;
   CkVec<CudaMultipoleMoments> *receivedNodes;
   CkVec<int> *receivedRoots;
   CkVec<CudaMultipoleMoments> *rootParents;
 
-  int partThreshold = 64000;
+  int partThreshold = 32000;
   CkVec<CompactPartData> *receivedParticles;
   CkVec<CudaMultipoleMoments> *bucketNodes;
 
