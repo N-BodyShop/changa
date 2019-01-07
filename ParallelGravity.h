@@ -605,9 +605,12 @@ typedef struct ewaldTable {
 // jetley
 class MissRecord;
 class State;
+#ifdef GPU_REMOTE_TREE_WALK
+class GPURemoteWalkState;
+#endif // GPU_REMOTE_TREE_WALK
 
-///Remote Cell interaction lists for all tree levels
-typedef struct OffsetNodeStruct
+    ///Remote Cell interaction lists for all tree levels
+    typedef struct OffsetNodeStruct
 {
       GenericTreeNode *node;
       int offsetID;

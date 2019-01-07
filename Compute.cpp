@@ -31,8 +31,10 @@ State *Compute::getNewState(int dim1, int dim2){
   s->receivedNodes = new CkVec<CudaMultipoleMoments>();
   s->receivedRoots = new CkVec<int>();
   s->rootParents = new CkVec<CudaMultipoleMoments>();
+  s->nodeReqIDs = new CkVec<int>();
   s->receivedParticles = new CkVec<CompactPartData>();
   s->bucketNodes = new CkVec<CudaMultipoleMoments>();
+  s->particleReqIDs = new CkVec<int>();
   // 2 arrays of counters
   // 0. numAdditionalRequests[] - sized numBuckets, init to numChunks
   // 1. remaining Chunk[] - sized numChunks
@@ -48,14 +50,16 @@ State *Compute::getNewState(int dim1, int dim2){
 
 State *Compute::getNewState(int dim1){
   // 0. local component of numAdditionalRequests, init to 1
-  
-//  State *s = new State();
+
+  //  State *s = new State();
   GPURemoteWalkState *s = new GPURemoteWalkState();
   s->receivedNodes = new CkVec<CudaMultipoleMoments>();
   s->receivedRoots = new CkVec<int>();
   s->rootParents = new CkVec<CudaMultipoleMoments>();
+  s->nodeReqIDs = new CkVec<int>();
   s->receivedParticles = new CkVec<CompactPartData>();
   s->bucketNodes = new CkVec<CudaMultipoleMoments>();
+  s->particleReqIDs = new CkVec<int>();
 
   s->counterArrays[0] = new int [dim1];
   s->counterArrays[1] = 0;
@@ -1634,9 +1638,8 @@ void cudaCallbackForRemoteTreeWalk(void *param, void *msg) {
  * To make minor change to existing ChaNGa code, we mimic a nodeGravityCompute
  * request. This request will eventually call our GPU local tree walk kernel.
  */
-void ListCompute::sendRemoteTreeWalkNodeTriggerToGpu(State *state, TreePiece *tp,
-  int activeRung, int startBucket, int endBucket, CkVec<CudaMultipoleMoments>* nodesToBeSent,
-  CkVec<int>* rootsToBeSent, CkVec<CudaMultipoleMoments> *parentsOfRoots) {  
+void ListCompute::sendRemoteTreeWalkNodeTriggerToGpu(State *rState, TreePiece *tp,
+  int activeRung, int startBucket, int endBucket, GPURemoteWalkState *grState){  
   int numFilledBuckets = 0;
   for (int i = startBucket; i < endBucket; ++i) {
     if (tp->bucketList[i]->rungs >= activeRung) {
@@ -1646,7 +1649,8 @@ void ListCompute::sendRemoteTreeWalkNodeTriggerToGpu(State *state, TreePiece *tp
 
   // No necessary to call GPU kernel if there is no active bucket in
   // current tree piece
-  if (numFilledBuckets == 0 || nodesToBeSent == NULL || rootsToBeSent == NULL) {
+  if (numFilledBuckets == 0 || grState->receivedNodes->length() == 0 ||
+      grState->receivedRoots->length() == 0) {
     printf("The sendRemoteTreeWalkTriggerToGpu is skipped due to invalid input!\n");
     return;
   }
@@ -1657,7 +1661,7 @@ void ListCompute::sendRemoteTreeWalkNodeTriggerToGpu(State *state, TreePiece *tp
   int dummyCurBucket = 0;
   for (int i = startBucket; i < endBucket; ++i) {
     if (tp->bucketList[i]->rungs >= activeRung) {
-      state->counterArrays[0][i]++;
+      rState->counterArrays[0][i]++;
       affectedBuckets[dummyCurBucket] = i;
       dummyCurBucket++;
     }
@@ -1668,7 +1672,7 @@ void ListCompute::sendRemoteTreeWalkNodeTriggerToGpu(State *state, TreePiece *tp
   request->numBucketsPlusOne = numFilledBuckets+1;
   request->affectedBuckets = affectedBuckets;
   request->tp = (void *)tp;
-  request->state = (void *)state;
+  request->state = (void *)rState;
   request->node = true;
   request->remote = false;
   request->callDummy = false;
@@ -1691,27 +1695,22 @@ void ListCompute::sendRemoteTreeWalkNodeTriggerToGpu(State *state, TreePiece *tp
   request->bucketSizes = NULL;
   request->numInteractions = 0;
 
-  OptType type = getOptType();
+  CkAssert(grState->receivedNodes->getVec());
+  CkAssert(grState->receivedRoots->getVec());
+  CkAssert(grState->rootParents->getVec());
+  CkAssert(grState->nodeReqIDs->getVec());
 
-  CudaMultipoleMoments *missedNodes = nodesToBeSent->getVec();
-  int numNodes = nodesToBeSent->length();
-
-  int *missedRoots = rootsToBeSent->getVec();
-  int numRoots = rootsToBeSent->length();
-
-  CudaMultipoleMoments *parents = parentsOfRoots->getVec();
-
-  CkAssert(missedNodes);
-  CkAssert(missedRoots);
-  CkAssert(parents);
-  CkAssert(parentsOfRoots->length() == numRoots);
-//  printf("TreePieceGPURemoteTreeWalkNodeDataTransfer is going to be called! tp %d, numNodes = %d, numRoots = %d\n", tp->getIndex(), numNodes, numRoots);
-  TreePieceGPURemoteTreeWalkNodeDataTransfer(request, missedNodes, numNodes, missedRoots, numRoots, parents);
-
+  CkAssert(grState->receivedRoots->length() == grState->rootParents->length());
+  CkAssert(grState->receivedRoots->length() == grState->nodeReqIDs->length());
+  printf("TreePieceGPURemoteTreeWalkNodeDataTransfer is going to be called! tp %d, numNodes = %d, numRoots = %d\n", tp->getIndex(), grState->receivedNodes->length(), grState->receivedRoots->length());
+  TreePieceGPURemoteTreeWalkNodeDataTransfer(request, grState->receivedNodes->length(), 
+                                             grState->receivedRoots->length(), grState->receivedNodes->getVec(),
+                                             grState->receivedRoots->getVec(), grState->rootParents->getVec(),
+                                             grState->nodeReqIDs->getVec());
 }
 
-void ListCompute::sendRemoteTreeWalkParticleTriggerToGpu(State *state, TreePiece *tp, int activeRung, int startBucket, int endBucket, CkVec<CompactPartData> *particlesToBeSent,
-                                                         CkVec<CudaMultipoleMoments> *bucketNodes) {
+void ListCompute::sendRemoteTreeWalkParticleTriggerToGpu(State *rState, TreePiece *tp,
+  int activeRung, int startBucket, int endBucket, GPURemoteWalkState *grState) {
 
 //  printf("ListCompute::sendRemoteTreeWalkParticleTriggerToGpu is called!\n");
 
@@ -1724,7 +1723,8 @@ void ListCompute::sendRemoteTreeWalkParticleTriggerToGpu(State *state, TreePiece
 
   // No necessary to call GPU kernel if there is no active bucket in
   // current tree piece
-  if (numFilledBuckets == 0 || particlesToBeSent == NULL || bucketNodes == NULL) {
+  if (numFilledBuckets == 0 || grState->receivedParticles->length() == 0 || grState->bucketNodes->length() == 0)
+  {
     printf("The sendRemoteTreeWalkParticleTriggerToGpu is skipped due to invalid input!\n");
     return;
   }
@@ -1735,7 +1735,7 @@ void ListCompute::sendRemoteTreeWalkParticleTriggerToGpu(State *state, TreePiece
   int dummyCurBucket = 0;
   for (int i = startBucket; i < endBucket; ++i) {
     if (tp->bucketList[i]->rungs >= activeRung) {
-      state->counterArrays[0][i]++;
+      rState->counterArrays[0][i]++;
       affectedBuckets[dummyCurBucket] = i;
       dummyCurBucket++;
     }
@@ -1746,7 +1746,7 @@ void ListCompute::sendRemoteTreeWalkParticleTriggerToGpu(State *state, TreePiece
   request->numBucketsPlusOne = numFilledBuckets + 1;
   request->affectedBuckets = affectedBuckets;
   request->tp = (void *)tp;
-  request->state = (void *)state;
+  request->state = (void *)rState;
   request->node = true;
   request->remote = false;
   request->callDummy = false;
@@ -1769,19 +1769,17 @@ void ListCompute::sendRemoteTreeWalkParticleTriggerToGpu(State *state, TreePiece
   request->bucketSizes = NULL;
   request->numInteractions = 0;
 
-  CompactPartData* missedParticles = particlesToBeSent->getVec();
-  int numParticles = particlesToBeSent->length();
-
-  CudaMultipoleMoments* missedBuckets = bucketNodes->getVec();
-  int numBuckets = bucketNodes->length();
-
-  CkAssert(missedParticles);
-  CkAssert(missedBuckets);
-//  printf("TreePieceGPURemoteTreeWalkParticleDataTransfer is going to be called! tp %d, numParticles = %d, numBuckets = %d\n", tp->getIndex(), numParticles, numBuckets);
+  CkAssert(grState->receivedParticles->getVec());
+  CkAssert(grState->bucketNodes->getVec());
+  CkAssert(grState->particleReqIDs->getVec());
+  CkAssert(grState->bucketNodes->length() == grState->particleReqIDs->getVec());
+  //  printf("TreePieceGPURemoteTreeWalkParticleDataTransfer is going to be called! tp %d, numParticles = %d, numBuckets = %d\n", tp->getIndex(), numParticles, numBuckets);
   /*  for (int i = 0; i < numRoots; ++i) {
     printf("    The %dth subtree is rooted at %d\n", i, (*rootsToBeSent)[i]);
   }*/
-  TreePieceGPURemoteTreeWalkParticleDataTransfer(request, missedParticles, numParticles, missedBuckets, numBuckets);
+  TreePieceGPURemoteTreeWalkParticleDataTransfer(request, grState->receivedParticles->length(),
+                                                 grState->bucketNodes->length(), grState->receivedParticles->getVec(),
+                                                 grState->bucketNodes->getVec(), grState->particleReqIDs->getVec());
 }
 
 #endif //GPU_REMOTE_TREE_WALK

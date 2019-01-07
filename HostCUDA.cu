@@ -3088,11 +3088,11 @@ void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_PARTICLES(workRequest *wr, cudaStream_t
       (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
       (CompactPartData *)devBuffers[wr->bufferInfo[GPU_RECVD_PARTICLES_IDX].bufferID],
       (CudaMultipoleMoments *)devBuffers[wr->bufferInfo[IDX_OF_RECVD_BUCKETS].bufferID],
+      (int *)devBuffers[wr->bufferInfo[PARTICLE_MSG_REQ_IDS].bufferID],
       ptr->firstParticle,
       ptr->lastParticle,
       ptr->theta,
       ptr->thetaMono,
-      ptr->nReplicas,
       ptr->fperiod,
       ptr->fperiodY,
       ptr->fperiodZ,
@@ -3104,7 +3104,7 @@ void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_PARTICLES(workRequest *wr, cudaStream_t
   free((ParameterStruct *)ptr);
 }
 
-void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, CompactPartData *missedParticles, int numParticles, CudaMultipoleMoments *missedBuckets, int numBuckets){
+void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, int numParticles, int numBuckets, CompactPartData *missedParticles, CudaMultipoleMoments *missedBuckets, int *reqIDs) {
   int numBlocks = data->numBucketsPlusOne-1;
   int size;
 
@@ -3140,6 +3140,7 @@ void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, CompactPa
   ptr->numMessages        = numBuckets;
   gravityKernel.userData  = ptr;
 
+  // 1. copy the particles
   transfer = numParticles > 0;
   buffer = &(gravityKernel.bufferInfo[GPU_RECVD_PARTICLES_IDX]);
   buffer->bufferID = -1;
@@ -3157,6 +3158,7 @@ void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, CompactPa
     memcpy(buffer->hostBuffer, missedParticles, size);
   }
 
+  // 2. copy the parent node of the messages
   transfer = numBuckets > 0;
   buffer = &(gravityKernel.bufferInfo[IDX_OF_RECVD_BUCKETS]);
   buffer->bufferID = -1;
@@ -3172,6 +3174,24 @@ void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, CompactPa
     printf("TPRR 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
     memcpy(buffer->hostBuffer, missedBuckets, size);
+  }
+
+  // 3. copy the reqIDs
+  transfer = numBuckets > 0;
+  buffer = &(gravityKernel.bufferInfo[PARTICLE_MSG_REQ_IDS]);
+  buffer->bufferID = -1;
+  size = (numBuckets) * sizeof(int);
+  buffer->size = size;
+  buffer->transferToDevice = transfer;
+  buffer->freeBuffer = transfer;
+  buffer->transferFromDevice = false;
+
+  if(transfer){
+    CUDA_MALLOC(buffer->hostBuffer, size);
+#ifdef CUDA_PRINT_ERRORS
+    printf("TPRR 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+#endif
+    memcpy(buffer->hostBuffer, reqIDs, size);
   }
 
   gravityKernel.callbackFn = data->cb;
@@ -3198,11 +3218,11 @@ void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES(workRequest *wr, cudaStream_t ker
       (CudaMultipoleMoments *)devBuffers[wr->bufferInfo[GPU_RECVD_MOMENTS_IDX].bufferID],
       (int *)devBuffers[wr->bufferInfo[ROOTS_IDX_OF_RECVD_SUBTREES].bufferID],
       (CudaMultipoleMoments *)devBuffers[wr->bufferInfo[PARENTS_OF_ROOTS].bufferID],
+      (int *)devBuffers[wr->bufferInfo[NODE_MSG_REQ_IDS].bufferID],
       ptr->firstParticle,
       ptr->lastParticle,
       ptr->theta,
       ptr->thetaMono,
-      ptr->nReplicas,
       ptr->fperiod,
       ptr->fperiodY,
       ptr->fperiodZ,
@@ -3213,11 +3233,13 @@ void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES(workRequest *wr, cudaStream_t ker
   free((ParameterStruct *)ptr);
 }
 
-void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, CudaMultipoleMoments *missedMoments, int numMoments, int *missedRoots, int numRoots, CudaMultipoleMoments *parents){
+void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, int numMoments, int numRoots,
+                                                CudaMultipoleMoments *missedMoments, int *missedRoots, 
+                                                CudaMultipoleMoments *parents, int *reqIDs){
   int numBlocks = data->numBucketsPlusOne-1;
   int size;
 
-//  printf("  ==> TreePieceGPURemoteTreeWalkNodeDataTransfer is called!\n");
+  printf("  ==> TreePieceGPURemoteTreeWalkNodeDataTransfer is called!\n");
 
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -3303,6 +3325,24 @@ void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, CudaMultipole
     memcpy(buffer->hostBuffer, parents, size);
   }
 
+  // 4. Copy the reqIDs 
+  transfer = numRoots > 0;
+  buffer = &(gravityKernel.bufferInfo[NODE_MSG_REQ_IDS]);
+  buffer->bufferID = -1;
+  size = (numRoots) * sizeof(int);
+  buffer->size = size;
+  buffer->transferToDevice = transfer;
+  buffer->freeBuffer = transfer;
+  buffer->transferFromDevice = false;
+
+  if(transfer){
+    CUDA_MALLOC(buffer->hostBuffer, size);
+#ifdef CUDA_PRINT_ERRORS
+    printf("TPRR 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+#endif
+    memcpy(buffer->hostBuffer, reqIDs, size);
+  }
+
   gravityKernel.callbackFn = data->cb;
   gravityKernel.traceName = "remoteResume";
   gravityKernel.runKernel = run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES;
@@ -3322,11 +3362,11 @@ __global__ void gpuRemoteTreeWalkForNodes(
   CudaMultipoleMoments* recvdMoments,
   int *rootsIndices,
   CudaMultipoleMoments* parents,
+  int *reqIDs,
   int firstParticle,
   int lastParticle,
   cudatype theta,
   cudatype thetaMono,
-  int nReplicas,
   cudatype fperiod,
   cudatype fperiodY,
   cudatype fperiodZ,
@@ -3380,141 +3420,132 @@ __global__ void gpuRemoteTreeWalkForNodes(
 
     for (int msg = 0; msg < numMessages; ++msg) {
       int rootIdx = rootsIndices[msg];
-      for(int x = -nReplicas; x <= nReplicas; x++) {
-        for(int y = -nReplicas; y <= nReplicas; y++) {
-          for(int z = -nReplicas; z <= nReplicas; z++) {
-            // generate the offset for the periodic boundary conditions 
-            offset.x = x*fperiod;
-            offset.y = y*fperiodY;
-            offset.z = z*fperiodZ;
+      CUDA_decodeOffsets(reqIDs[msg], offset, fperiod, fperiodY, fperiodZ);
             
-            flag = 1;
-            critical = stackDepth;
-            cond = 1;
-            stackInit(SP, stk[WARP_INDEX], rootIdx);
+      flag = 1;
+      critical = stackDepth;
+      cond = 1;
+      stackInit(SP, stk[WARP_INDEX], rootIdx);
 
-            ldgTreeNode(TARGET_NODE, &parents[msg]);
-            addCudaVector3D(TARGET_NODE.cm, offset, TARGET_NODE.cm);
-            open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
-            action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
+      ldgTreeNode(TARGET_NODE, &parents[msg]);
+      addCudaVector3D(TARGET_NODE.cm, offset, TARGET_NODE.cm);
+      open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
+      action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
 /*            if (pidx == 1553 && lastParticle == 14599)
-              printf("bucket %d: msg = %d, key = %d, partCnt = %d, mass = %f, open = %d, action = %d\n", 
-                      nodePointer, msg, recvdMoments[STACK_TOP_INDEX].key, TARGET_NODE.particleCount, TARGET_NODE.totalMass, open, action);
+        printf("bucket %d: msg = %d, key = %d, partCnt = %d, mass = %f, open = %d, action = %d\n", 
+                nodePointer, msg, recvdMoments[STACK_TOP_INDEX].key, TARGET_NODE.particleCount, TARGET_NODE.totalMass, open, action);
 */
 //            if (action == KEEP_REMOTE_BUCKET || action == KEEP_LOCAL_BUCKET || action == COMPUTE) {
-            if (action != KEEP) {
-              SP = -1;
-            }  
-            while(SP >= 0) {
-              if (flag == 0 && critical >= SP) {
-                flag = 1;
-              }
+      if (action != KEEP) {
+        SP = -1;
+      }  
+      while(SP >= 0) {
+        if (flag == 0 && critical >= SP) {
+          flag = 1;
+        }
 
-              targetIndex = STACK_TOP_INDEX;
-              stackPop(SP);
+        targetIndex = STACK_TOP_INDEX;
+        stackPop(SP);
 
-              if (flag) {
-                ldgTreeNode(TARGET_NODE, &recvdMoments[targetIndex]);
-                // Each warp increases its own TARGET_NODE in the shared memory,
-                // so there is no actual data racing here.
-                addCudaVector3D(TARGET_NODE.cm, offset, TARGET_NODE.cm);
+        if (flag) {
+          ldgTreeNode(TARGET_NODE, &recvdMoments[targetIndex]);
+          // Each warp increases its own TARGET_NODE in the shared memory,
+          // so there is no actual data racing here.
+          addCudaVector3D(TARGET_NODE.cm, offset, TARGET_NODE.cm);
 
-                open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
-                action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
+          open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
+          action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
 
-                critical = SP;
-                cond = (action == KEEP);
+          critical = SP;
+          cond = (action == KEEP);
 
-                if (action == COMPUTE) {
-                  ++numRemoteNodes;
+          if (action == COMPUTE) {
+            ++numRemoteNodes;
 /*                  if (pidx == 1553 && lastParticle == 14599)
-                    printf("  node: pidx = %d, key = %d, partCnt = %d, mass = %f, open = %d, action = %d, msg = %d\n", 
-                            pidx, recvdMoments[targetIndex].key, TARGET_NODE.particleCount, TARGET_NODE.totalMass, open, action, msg);*/
-                  if (CUDA_openSoftening(TARGET_NODE, myNode)) {
-                    r.x = TARGET_NODE.cm.x - myParticle.position.x;
-                    r.y = TARGET_NODE.cm.y - myParticle.position.y;
-                    r.z = TARGET_NODE.cm.z - myParticle.position.z;
+              printf("  node: pidx = %d, key = %d, partCnt = %d, mass = %f, open = %d, action = %d, msg = %d\n", 
+                      pidx, recvdMoments[targetIndex].key, TARGET_NODE.particleCount, TARGET_NODE.totalMass, open, action, msg);*/
+            if (CUDA_openSoftening(TARGET_NODE, myNode)) {
+              r.x = TARGET_NODE.cm.x - myParticle.position.x;
+              r.y = TARGET_NODE.cm.y - myParticle.position.y;
+              r.z = TARGET_NODE.cm.z - myParticle.position.z;
 
-                    rsq = r.x*r.x + r.y*r.y + r.z*r.z;
-                    twoh = TARGET_NODE.soft + myParticle.soft;
-                    cudatype a, b;
-                    if (rsq != 0) {
-                      CUDA_SPLINE(rsq, twoh, a, b);
-                      idt2 = fmax(idt2, (myParticle.mass + TARGET_NODE.totalMass) * b);
+              rsq = r.x*r.x + r.y*r.y + r.z*r.z;
+              twoh = TARGET_NODE.soft + myParticle.soft;
+              cudatype a, b;
+              if (rsq != 0) {
+                CUDA_SPLINE(rsq, twoh, a, b);
+                idt2 = fmax(idt2, (myParticle.mass + TARGET_NODE.totalMass) * b);
 
-                      pot -= TARGET_NODE.totalMass * a;
+                pot -= TARGET_NODE.totalMass * a;
 
-                      acc.x += r.x*b*TARGET_NODE.totalMass;
-                      acc.y += r.y*b*TARGET_NODE.totalMass;
-                      acc.z += r.z*b*TARGET_NODE.totalMass;
-                    }
-                  } else {
-                    // compute with the node targetnode
-                    r.x = myParticle.position.x - TARGET_NODE.cm.x;
-                    r.y = myParticle.position.y - TARGET_NODE.cm.y;
-                    r.z = myParticle.position.z - TARGET_NODE.cm.z;
+                acc.x += r.x*b*TARGET_NODE.totalMass;
+                acc.y += r.y*b*TARGET_NODE.totalMass;
+                acc.z += r.z*b*TARGET_NODE.totalMass;
+              }
+            } else {
+              // compute with the node targetnode
+              r.x = myParticle.position.x - TARGET_NODE.cm.x;
+              r.y = myParticle.position.y - TARGET_NODE.cm.y;
+              r.z = myParticle.position.z - TARGET_NODE.cm.z;
 
-                    rsq = r.x*r.x + r.y*r.y + r.z*r.z;
-                    if (rsq != 0) {
-                      cudatype dir = rsqrt(rsq);
-  #if defined (HEXADECAPOLE)
-                      CUDA_momEvalFmomrcm(&recvdMoments[targetIndex], &r, dir, &acc, &pot);
-                      idt2 = fmax(idt2, (myParticle.mass +
-                                        recvdMoments[targetIndex].totalMass)*dir*dir*dir);
-  #else
-                      cudatype a, b, c, d;
-                      twoh = recvdMoments[targetIndex].soft + myParticle.soft;
-                      CUDA_SPLINEQ(dir, rsq, twoh, a, b, c, d);
+              rsq = r.x*r.x + r.y*r.y + r.z*r.z;
+              if (rsq != 0) {
+                cudatype dir = rsqrt(rsq);
+#if defined (HEXADECAPOLE)
+                CUDA_momEvalFmomrcm(&recvdMoments[targetIndex], &r, dir, &acc, &pot);
+                idt2 = fmax(idt2, (myParticle.mass +
+                                  recvdMoments[targetIndex].totalMass)*dir*dir*dir);
+#else
+                cudatype a, b, c, d;
+                twoh = recvdMoments[targetIndex].soft + myParticle.soft;
+                CUDA_SPLINEQ(dir, rsq, twoh, a, b, c, d);
 
-                      cudatype qirx = recvdMoments[targetIndex].xx*r.x +
-                                      recvdMoments[targetIndex].xy*r.y +
-                                      recvdMoments[targetIndex].xz*r.z;
-                      cudatype qiry = recvdMoments[targetIndex].xy*r.x +
-                                      recvdMoments[targetIndex].yy*r.y +
-                                      recvdMoments[targetIndex].yz*r.z;
-                      cudatype qirz = recvdMoments[targetIndex].xz*r.x +
-                                      recvdMoments[targetIndex].yz*r.y +
-                                      recvdMoments[targetIndex].zz*r.z;
-                      cudatype qir = 0.5 * (qirx*r.x + qiry*r.y + qirz*r.z);
-                      cudatype tr = 0.5 * (recvdMoments[targetIndex].xx +
-                                          recvdMoments[targetIndex].yy +
-                                          recvdMoments[targetIndex].zz);
-                      cudatype qir3 = b*recvdMoments[targetIndex].totalMass + d*qir - c*tr;
+                cudatype qirx = recvdMoments[targetIndex].xx*r.x +
+                                recvdMoments[targetIndex].xy*r.y +
+                                recvdMoments[targetIndex].xz*r.z;
+                cudatype qiry = recvdMoments[targetIndex].xy*r.x +
+                                recvdMoments[targetIndex].yy*r.y +
+                                recvdMoments[targetIndex].yz*r.z;
+                cudatype qirz = recvdMoments[targetIndex].xz*r.x +
+                                recvdMoments[targetIndex].yz*r.y +
+                                recvdMoments[targetIndex].zz*r.z;
+                cudatype qir = 0.5 * (qirx*r.x + qiry*r.y + qirz*r.z);
+                cudatype tr = 0.5 * (recvdMoments[targetIndex].xx +
+                                    recvdMoments[targetIndex].yy +
+                                    recvdMoments[targetIndex].zz);
+                cudatype qir3 = b*recvdMoments[targetIndex].totalMass + d*qir - c*tr;
 
-                      pot -= recvdMoments[targetIndex].totalMass * a + c*qir - b*tr;
-                      acc.x -= qir3*r.x - c*qirx;
-                      acc.y -= qir3*r.y - c*qiry;
-                      acc.z -= qir3*r.z - c*qirz;
-                      idt2 = fmax(idt2, (myParticle.mass +
-                                        recvdMoments[targetIndex].totalMass) * b);
-  #endif //HEXADECAPOLE
-                    }
-                  }
-                } else if (action == KEEP_REMOTE_BUCKET) {
-                  // Do nothing since there should be no particles here
-                }
-
-                if (!__any(cond)) {
-                  continue;
-                }
-
-                if (!cond) {
-                  flag = 0;
-                } else {
-                  if (TARGET_NODE.children[1] != -1) {
-                    stackPush(SP);
-                    STACK_TOP_INDEX = TARGET_NODE.children[1];
-                  }
-                  if (TARGET_NODE.children[0] != -1) {
-                    stackPush(SP);
-                    STACK_TOP_INDEX = TARGET_NODE.children[0];
-                  }
-                }
+                pot -= recvdMoments[targetIndex].totalMass * a + c*qir - b*tr;
+                acc.x -= qir3*r.x - c*qirx;
+                acc.y -= qir3*r.y - c*qiry;
+                acc.z -= qir3*r.z - c*qirz;
+                idt2 = fmax(idt2, (myParticle.mass +
+                                  recvdMoments[targetIndex].totalMass) * b);
+#endif //HEXADECAPOLE
               }
             }
-          } // z replicas
-        } // y replicas
-      } // x replicas
+          } else if (action == KEEP_REMOTE_BUCKET) {
+            // Do nothing since there should be no particles here
+          }
+
+          if (!__any(cond)) {
+            continue;
+          }
+
+          if (!cond) {
+            flag = 0;
+          } else {
+            if (TARGET_NODE.children[1] != -1) {
+              stackPush(SP);
+              STACK_TOP_INDEX = TARGET_NODE.children[1];
+            }
+            if (TARGET_NODE.children[0] != -1) {
+              stackPush(SP);
+              STACK_TOP_INDEX = TARGET_NODE.children[0];
+            }
+          }
+        }
+      }
     }
 
     particleVars[pidx].a.x += acc.x;
@@ -3533,11 +3564,11 @@ __global__ void gpuRemoteTreeWalkForParticles(
   CudaMultipoleMoments* moments,
   CompactPartData* recvdParticles,
   CudaMultipoleMoments *bucketNodes,
+  int *reqIDs,
   int firstParticle,
   int lastParticle,
   cudatype theta,
   cudatype thetaMono,
-  int nReplicas,
   cudatype fperiod,
   cudatype fperiodY,
   cudatype fperiodZ,
@@ -3577,56 +3608,46 @@ __global__ void gpuRemoteTreeWalkForParticles(
     }
 */
     for (int id = 0; id < numBuckets; ++id) {
-      for(int x = -nReplicas; x <= nReplicas; x++) {
-        for(int y = -nReplicas; y <= nReplicas; y++) {
-          for(int z = -nReplicas; z <= nReplicas; z++) {
-            // generate the offset for the periodic boundary conditions 
-            offset.x = x*fperiod;
-            offset.y = y*fperiodY;
-            offset.z = z*fperiodZ;
+      CUDA_decodeOffsets(reqIDs[id], offset, fperiod, fperiodY, fperiodZ);
+      ldgTreeNode(TARGET_NODE, &bucketNodes[id]);
+      // Each warp increases its own TARGET_NODE in the shared memory,
+      // so there is no actual data racing here.
+      addCudaVector3D(TARGET_NODE.cm, offset, TARGET_NODE.cm);
 
-            ldgTreeNode(TARGET_NODE, &bucketNodes[id]);
-            // Each warp increases its own TARGET_NODE in the shared memory,
-            // so there is no actual data racing here.
-            addCudaVector3D(TARGET_NODE.cm, offset, TARGET_NODE.cm);
+      int open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
+      int action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
 
-            int open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
-            int action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
-
-            if (action == KEEP_REMOTE_BUCKET) {
-              numRemoteParticles += TARGET_NODE.bucketSize;
-  /*            if (pidx == 1553 && lastParticle == 14599)
-                printf("part: pidx = %d, msg id = %d, key = %d, pCnt = %d, type = %d, start = %d, size = %d, open = %d, action = %d\n", 
-                  pidx, id, bucketNodes[id].key, TARGET_NODE.particleCount, TARGET_NODE.type, TARGET_NODE.bucketStart, TARGET_NODE.bucketSize, open, action);
+      if (action == KEEP_REMOTE_BUCKET) {
+        numRemoteParticles += TARGET_NODE.bucketSize;
+/*            if (pidx == 1553 && lastParticle == 14599)
+          printf("part: pidx = %d, msg id = %d, key = %d, pCnt = %d, type = %d, start = %d, size = %d, open = %d, action = %d\n", 
+            pidx, id, bucketNodes[id].key, TARGET_NODE.particleCount, TARGET_NODE.type, TARGET_NODE.bucketStart, TARGET_NODE.bucketSize, open, action);
 */              // compute with each particle contained by node targetnode
-              int target_firstparticle = TARGET_NODE.bucketStart;
-              int target_lastparticle = TARGET_NODE.bucketStart +
-                                        TARGET_NODE.bucketSize;
-              cudatype a, b;
-              for (int i = target_firstparticle; i < target_lastparticle; ++i) {
-                CompactPartData targetParticle = recvdParticles[i];
-                addCudaVector3D(targetParticle.position, offset, targetParticle.position);
+        int target_firstparticle = TARGET_NODE.bucketStart;
+        int target_lastparticle = TARGET_NODE.bucketStart +
+                                  TARGET_NODE.bucketSize;
+        cudatype a, b;
+        for (int i = target_firstparticle; i < target_lastparticle; ++i) {
+          CompactPartData targetParticle = recvdParticles[i];
+          addCudaVector3D(targetParticle.position, offset, targetParticle.position);
 
-                r.x = targetParticle.position.x - myParticle.position.x;
-                r.y = targetParticle.position.y - myParticle.position.y;
-                r.z = targetParticle.position.z - myParticle.position.z;
+          r.x = targetParticle.position.x - myParticle.position.x;
+          r.y = targetParticle.position.y - myParticle.position.y;
+          r.z = targetParticle.position.z - myParticle.position.z;
 
-                rsq = r.x*r.x + r.y*r.y + r.z*r.z;
-                twoh = targetParticle.soft + myParticle.soft;
-                if (rsq != 0) {
-                  CUDA_SPLINE(rsq, twoh, a, b);
-                  pot -= targetParticle.mass * a;
+          rsq = r.x*r.x + r.y*r.y + r.z*r.z;
+          twoh = targetParticle.soft + myParticle.soft;
+          if (rsq != 0) {
+            CUDA_SPLINE(rsq, twoh, a, b);
+            pot -= targetParticle.mass * a;
 
-                  acc.x += r.x*b*targetParticle.mass;
-                  acc.y += r.y*b*targetParticle.mass;
-                  acc.z += r.z*b*targetParticle.mass;
-                  idt2 = fmax(idt2, (myParticle.mass + targetParticle.mass) * b);
-                }
-              }
-            }
-          } // z replicas
-        } // y replicas
-      } // x replicas
+            acc.x += r.x*b*targetParticle.mass;
+            acc.y += r.y*b*targetParticle.mass;
+            acc.z += r.z*b*targetParticle.mass;
+            idt2 = fmax(idt2, (myParticle.mass + targetParticle.mass) * b);
+          }
+        }
+      }
     }
 
     particleVars[pidx].a.x += acc.x;

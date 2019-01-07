@@ -77,8 +77,10 @@
 #define GPU_RECVD_MOMENTS_IDX 0
 #define ROOTS_IDX_OF_RECVD_SUBTREES 1
 #define PARENTS_OF_ROOTS 2
+#define NODE_MSG_REQ_IDS 3
 #define GPU_RECVD_PARTICLES_IDX 0
 #define IDX_OF_RECVD_BUCKETS 1
+#define PARTICLE_MSG_REQ_IDS 2
 
 // node moments, particle cores, particle vars
 #define DM_TRANSFER_LOCAL_NBUFFERS 3
@@ -98,8 +100,8 @@
 #define TP_PART_GRAVITY_REMOTE_RESUME_NBUFFERS 5
 
 // GPU_REMOTE_TREE_WALK
-#define TP_GRAVITY_GPU_REMOTE_WALK_NODE_NBUFFERS 3
-#define TP_GRAVITY_GPU_REMOTE_WALK_PARTICLE_NBUFFERS 2
+#define TP_GRAVITY_GPU_REMOTE_WALK_NODE_NBUFFERS 4
+#define TP_GRAVITY_GPU_REMOTE_WALK_PARTICLE_NBUFFERS 3
 
 #define MAX_NBUFFERS 5
 
@@ -225,7 +227,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
 
 void DummyKernel(void *cb);
 
-void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, CompactPartData *missedParticles, int numParticles, CudaMultipoleMoments *missedBuckets, int numBuckets);
-void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, CudaMultipoleMoments *missedMoments, int numMoments, int *missedRoots, int numRoots, CudaMultipoleMoments *parents);
+void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, int numParticles, int numBuckets, CompactPartData *missedParticles, CudaMultipoleMoments *missedBuckets, int *reqIDs);
+void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, int numMoments, int numRoots, CudaMultipoleMoments *missedMoments, int *missedRoots, CudaMultipoleMoments *parents, int *reqIDs);
 
 #endif

@@ -192,8 +192,8 @@ class ListCompute : public Compute{
 #endif // GPU_LOCAL_TREE_WALK
 
 #ifdef GPU_REMOTE_TREE_WALK
-  void sendRemoteTreeWalkNodeTriggerToGpu(State *state, TreePiece *tp, int activeRung, int startBucket, int endBucket, CkVec<CudaMultipoleMoments> *nodesToBeSent, CkVec<int> *rootsToBeSent, CkVec<CudaMultipoleMoments> *parentsOfRoots);
-  void sendRemoteTreeWalkParticleTriggerToGpu(State *state, TreePiece *tp, int activeRung, int startBucket, int endBucket, CkVec<CompactPartData>* particlesToBeSent, CkVec<CudaMultipoleMoments>* bucketNodes);
+  void sendRemoteTreeWalkNodeTriggerToGpu(State *rState, TreePiece *tp, int activeRung, int startBucket, int endBucket, GPURemoteWalkState *grState);
+  void sendRemoteTreeWalkParticleTriggerToGpu(State *state, TreePiece *tp, int activeRung, int startBucket, int endBucket, GPURemoteWalkState *grState);
 #endif // GPU_REMOTE_TREE_WALK
 
   void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp, bool callDummy=false);

@@ -5358,18 +5358,19 @@ void TreePiece::continueStartRemoteChunk(int chunk){
 
   if (state->receivedNodes->length() > 0) {
     printf("TP: %d. we are cleaning up %d node msg with %d nodes!\n", this->getIndex(), state->receivedRoots->size(), state->receivedNodes->length());
-    listcompute->sendRemoteTreeWalkNodeTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets,
-                                                    state->receivedNodes, state->receivedRoots, state->rootParents);
+    listcompute->sendRemoteTreeWalkNodeTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, state);
     state->receivedNodes->clear();
     state->rootParents->clear();
     state->receivedRoots->clear();
+    state->nodeReqIDs->clear();
   }
 
   if (state->receivedParticles->length() > 0) {
     printf("TP: %d. we are cleaning up %d particle msg with %d particles!\n", this->getIndex(), state->bucketNodes->size(), state->receivedParticles->length());
-    listcompute->sendRemoteTreeWalkParticleTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, state->receivedParticles, state->bucketNodes);
+    listcompute->sendRemoteTreeWalkParticleTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, state);
     state->bucketNodes->clear();
     state->receivedParticles->clear();
+    state->particleReqIDs->clear();
   }
 
   // Set up the book keeping flags
@@ -6393,6 +6394,7 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   cmm.key = parent->getKey();
   cmm.particleCount = parent->particleCount;
   grState->rootParents->push_back(cmm);
+  grState->nodeReqIDs->push_back(reqID);
 
   serializeRecvdRemoteTree(node, grState->receivedNodes, &leaves);
 /*  if (this->getIndex() == 0) {
@@ -6403,11 +6405,11 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   if (grState->nodeOffloadReady()) {
     // Note that we're sending "sRemoteGravityState" to the trigger, 
     // because the remote walk bookkeeping work should link with sRemoteGravityState.
-    ((ListCompute *)compute)->sendRemoteTreeWalkNodeTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, 
-                                                                 grState->receivedNodes, grState->receivedRoots, grState->rootParents);
+    ((ListCompute *)compute)->sendRemoteTreeWalkNodeTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, grState);
     grState->receivedNodes->clear();
     grState->rootParents->clear();
     grState->receivedRoots->clear();
+    grState->nodeReqIDs->clear();
   }
 //    nodesToBeSent.clear();
   leaves.clear();
@@ -6533,6 +6535,7 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
   cmm.bucketSize = num;
 
   grState->bucketNodes->push_back(cmm);
+  grState->particleReqIDs->push_back(reqID);
 
   for (int i = 0; i < num; ++i) {
     grState->receivedParticles->push_back(CompactPartData(egp[i]));
@@ -6545,9 +6548,10 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
   if (grState->particleOffloadReady()) {
     // Note that we're sending "sRemoteGravityState" to the trigger, 
     // because the remote walk bookkeeping work should link with sRemoteGravityState.
-    ((ListCompute *)compute)->sendRemoteTreeWalkParticleTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, grState->receivedParticles, grState->bucketNodes);
+    ((ListCompute *)compute)->sendRemoteTreeWalkParticleTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, grState);
     grState->bucketNodes->clear();
     grState->receivedParticles->clear();
+    grState->particleReqIDs->clear();
   }
 
   compute->finishNodeProcessEvent(this, state);

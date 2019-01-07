@@ -190,6 +190,16 @@ CUDA_openSoftening(CUDATreeNode &node, CUDABucketNode &myNode) {
   return cuda_intersect(myNode, s);
 }
 
+
+__device__ inline void __attribute__(( always_inline ))
+CUDA_decodeOffsets(int &reqID, CudaVector3D &offset, 
+                   cudatype &fx, cudatype &fy, cudatype &fz) {
+  int offsetcode = reqID >> 22;
+  offset.x = fx * ((offsetcode & 0x7) - 3);
+  offset.y = fy * (((offsetcode >> 3) & 0x7) - 3);
+  offset.z = fz * (((offsetcode >> 6) & 0x7) - 3);
+}
+
 __device__ inline int __attribute__(( always_inline ))
 CUDA_openCriterionNode(CUDATreeNode &node,
                     CUDABucketNode &myNode,
