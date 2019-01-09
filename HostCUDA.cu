@@ -3431,14 +3431,15 @@ __global__ void gpuRemoteTreeWalkForNodes(
       addCudaVector3D(TARGET_NODE.cm, offset, TARGET_NODE.cm);
       open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
       action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
-/*            if (pidx == 1553 && lastParticle == 14599)
+/*      if (pidx == 0 && lastParticle == 14599)
         printf("bucket %d: msg = %d, key = %d, partCnt = %d, mass = %f, open = %d, action = %d\n", 
                 nodePointer, msg, recvdMoments[STACK_TOP_INDEX].key, TARGET_NODE.particleCount, TARGET_NODE.totalMass, open, action);
 */
-//            if (action == KEEP_REMOTE_BUCKET || action == KEEP_LOCAL_BUCKET || action == COMPUTE) {
       if (action != KEEP) {
-        SP = -1;
-      }  
+        // The SP and stk are shared. We need to change the private variables.
+        flag = 0;
+        critical = -1;
+      }
       while(SP >= 0) {
         if (flag == 0 && critical >= SP) {
           flag = 1;
@@ -3455,15 +3456,15 @@ __global__ void gpuRemoteTreeWalkForNodes(
 
           open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
           action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
-
+/*          if (pidx == 0 && lastParticle == 14599)
+            printf("  node: pidx = %d, key = %d, partCnt = %d, mass = %f, open = %d, action = %d, msg = %d\n", 
+                    pidx, recvdMoments[targetIndex].key, TARGET_NODE.particleCount, TARGET_NODE.totalMass, open, action, msg);
+*/
           critical = SP;
           cond = (action == KEEP);
 
           if (action == COMPUTE) {
             ++numRemoteNodes;
-/*                  if (pidx == 1553 && lastParticle == 14599)
-              printf("  node: pidx = %d, key = %d, partCnt = %d, mass = %f, open = %d, action = %d, msg = %d\n", 
-                      pidx, recvdMoments[targetIndex].key, TARGET_NODE.particleCount, TARGET_NODE.totalMass, open, action, msg);*/
             if (CUDA_openSoftening(TARGET_NODE, myNode)) {
               r.x = TARGET_NODE.cm.x - myParticle.position.x;
               r.y = TARGET_NODE.cm.y - myParticle.position.y;
