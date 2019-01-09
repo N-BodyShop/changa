@@ -264,10 +264,10 @@ typedef struct VariablePartData{
   cudatype potential;
   cudatype dtGrav;
 
-#ifdef GPU_LOCAL_TREE_WALK
+/*#ifdef GPU_REMOTE_TREE_WALK
   int numRemoteNodes;
   int numRemoteParticles;
-#endif //GPU_LOCAL_TREE_WALK
+#endif //GPU_REMOTE_TREE_WALK*/
 }VariablePartData;
 
 

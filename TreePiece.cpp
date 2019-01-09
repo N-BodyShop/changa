@@ -3786,15 +3786,15 @@ void TreePiece::updateParticles(intptr_t data, int partIndex) {
             myParticles[j].dtGrav = fmax(myParticles[j].dtGrav,
                                          deviceParticles[partIndex].dtGrav);
 #endif
-//            printf("TP %d, pt %d, acc.x = %f, y = %f, z = %f\n", this->getIndex(),
-//                    j-1, myParticles[j].treeAcceleration.x, myParticles[j].treeAcceleration.y, myParticles[j].treeAcceleration.z);
-            numRemoteNodesTotal += deviceParticles[partIndex].numRemoteNodes;
-            numRemoteParticlesTotal += deviceParticles[partIndex].numRemoteParticles;
+/*            printf("TP %d, pt %d, acc.x = %f, y = %f, z = %f\n", this->getIndex(),
+                    j-1, myParticles[j].treeAcceleration.x, myParticles[j].treeAcceleration.y, myParticles[j].treeAcceleration.z);*/
+/*            numRemoteNodesTotal += deviceParticles[partIndex].numRemoteNodes;
+            numRemoteParticlesTotal += deviceParticles[partIndex].numRemoteParticles;*/
             if(!largePhase()) partIndex++;
             }
         if(largePhase()) partIndex++;
         }
-    printf("TP %d, numRemoteNodesTotal = %lld, numRemoteParticlesTotal = %lld\n", this->getIndex(), numRemoteNodesTotal, numRemoteParticlesTotal);
+//    printf("TP %d, numRemoteNodesTotal = %lld, numRemoteParticlesTotal = %lld\n", this->getIndex(), numRemoteNodesTotal, numRemoteParticlesTotal);
 
 // added by CAMBRIDGE
 /*    for (int j = 0; j < this->numBuckets; ++j) {
@@ -4079,7 +4079,7 @@ void TreePiece::doParallelNextBucketWork(int idx, LoopParData* lpdata) {
 void TreePiece::calculateGravityLocal() {
 
 //  if (this->getIndex() == 0) {
-    printf("TP %d TreePiece::calculateGravityLocal() is called!\n", this->getIndex());
+//    printf("TP %d TreePiece::calculateGravityLocal() is called!\n", this->getIndex());
 //  }
 
   doAllBuckets();
@@ -5254,9 +5254,9 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   // though calculateGravityLocal can only come
   // afterwards.
   dm->serializeLocalTree();  
-  if (this->getIndex() == 0) {
+/*  if (this->getIndex() == 0) {
     printf("dm->serializeLocalTree() is done!\n");
-  }
+  }*/
 #else
   thisProxy[thisIndex].commenceCalculateGravityLocal();
 #endif
@@ -5324,7 +5324,7 @@ void TreePiece::startRemoteChunk() {
   CkPrintf("[%d] sending message to commence remote gravity\n", thisIndex);
 #endif
 
-  printf("TreePiece::startRemoteChunk is called!\n");
+//  printf("TreePiece::startRemoteChunk is called!\n");
 
   traceUserEvent(prefetchDoneUE);
 
@@ -5357,7 +5357,7 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   GPURemoteWalkState *state = (GPURemoteWalkState *)sPrefetchState;
 
   if (state->receivedNodes->length() > 0) {
-    printf("TP: %d. we are cleaning up %d node msg with %d nodes!\n", this->getIndex(), state->receivedRoots->size(), state->receivedNodes->length());
+//    printf("TP: %d. we are cleaning up %d node msg with %d nodes!\n", this->getIndex(), state->receivedRoots->size(), state->receivedNodes->length());
     listcompute->sendRemoteTreeWalkNodeTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, state);
     state->receivedNodes->clear();
     state->rootParents->clear();
@@ -5366,7 +5366,7 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   }
 
   if (state->receivedParticles->length() > 0) {
-    printf("TP: %d. we are cleaning up %d particle msg with %d particles!\n", this->getIndex(), state->bucketNodes->size(), state->receivedParticles->length());
+//    printf("TP: %d. we are cleaning up %d particle msg with %d particles!\n", this->getIndex(), state->bucketNodes->size(), state->receivedParticles->length());
     listcompute->sendRemoteTreeWalkParticleTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, state);
     state->bucketNodes->clear();
     state->receivedParticles->clear();

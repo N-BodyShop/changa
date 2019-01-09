@@ -3100,7 +3100,7 @@ void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_PARTICLES(workRequest *wr, cudaStream_t
     cudaChk(cudaPeekAtLastError());
 #endif
   }
-    printf("The particle kernel has been done!\n");
+//    printf("The particle kernel has been done!\n");
   free((ParameterStruct *)ptr);
 }
 
@@ -3239,7 +3239,7 @@ void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, int numMoment
   int numBlocks = data->numBucketsPlusOne-1;
   int size;
 
-  printf("  ==> TreePieceGPURemoteTreeWalkNodeDataTransfer is called!\n");
+//  printf("  ==> TreePieceGPURemoteTreeWalkNodeDataTransfer is called!\n");
 
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -3554,7 +3554,7 @@ __global__ void gpuRemoteTreeWalkForNodes(
     particleVars[pidx].a.z += acc.z;
     particleVars[pidx].potential += pot;
     particleVars[pidx].dtGrav = fmax(idt2,  particleVars[pidx].dtGrav);
-    particleVars[pidx].numRemoteNodes += numRemoteNodes;
+//    particleVars[pidx].numRemoteNodes += numRemoteNodes;
   }
 }
 
@@ -3656,7 +3656,7 @@ __global__ void gpuRemoteTreeWalkForParticles(
     particleVars[pidx].a.z += acc.z;
     particleVars[pidx].potential += pot;
     particleVars[pidx].dtGrav = fmax(idt2,  particleVars[pidx].dtGrav);
-    particleVars[pidx].numRemoteParticles += numRemoteParticles;
+//    particleVars[pidx].numRemoteParticles += numRemoteParticles;
   }
 }
 

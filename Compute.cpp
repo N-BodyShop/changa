@@ -256,7 +256,7 @@ void PrefetchCompute::finishNodeProcessEvent(TreePiece *owner, State *state){
   //int save = owner->decPrefetchWaiting();
   int save = --state->counterArrays[0][0];
   if(save == 0){
-    printf("finishNodeProcessEvent from TP %d\n", owner->getIndex());
+//    printf("finishNodeProcessEvent from TP %d\n", owner->getIndex());
     owner->startRemoteChunk();
   }
 }
@@ -1702,7 +1702,7 @@ void ListCompute::sendRemoteTreeWalkNodeTriggerToGpu(State *rState, TreePiece *t
 
   CkAssert(grState->receivedRoots->length() == grState->rootParents->length());
   CkAssert(grState->receivedRoots->length() == grState->nodeReqIDs->length());
-  printf("TreePieceGPURemoteTreeWalkNodeDataTransfer is going to be called! tp %d, numNodes = %d, numRoots = %d\n", tp->getIndex(), grState->receivedNodes->length(), grState->receivedRoots->length());
+//  printf("TreePieceGPURemoteTreeWalkNodeDataTransfer is going to be called! tp %d, numNodes = %d, numRoots = %d\n", tp->getIndex(), grState->receivedNodes->length(), grState->receivedRoots->length());
   TreePieceGPURemoteTreeWalkNodeDataTransfer(request, grState->receivedNodes->length(), 
                                              grState->receivedRoots->length(), grState->receivedNodes->getVec(),
                                              grState->receivedRoots->getVec(), grState->rootParents->getVec(),

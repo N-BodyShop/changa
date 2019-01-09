@@ -877,8 +877,8 @@ void DataManager::serializeLocal(GenericTreeNode *node){
         localParicalsVec[k].nodeId = id;
         // here we don't initialize the "numOfNodesTraversed" or "numOfParticlesTraversed"
         // because their value will be directly overwriten by GPU kernel
-        localParicalsVec[k].numRemoteNodes = 0;
-        localParicalsVec[k].numRemoteParticles = 0;
+//        localParicalsVec[k].numRemoteNodes = 0;
+//        localParicalsVec[k].numRemoteParticles = 0;
       }
     }
   }
