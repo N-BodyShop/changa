@@ -3761,8 +3761,8 @@ void TreePiece::finishBucket(int iBucket) {
       continueWrapUp();
 #endif
       // CAMBRIDGE
-      printf("WE are going to shut down the tree walk!\n");
-      fflush(stdout);
+//      printf("WE are going to shut down the tree walk!\n");
+//      fflush(stdout);
       finishedChunk(0);
     }
   }
