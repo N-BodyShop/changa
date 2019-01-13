@@ -166,6 +166,10 @@ class MultipoleMoments {
 	/// by an external function using some other information
 	cosmoType radius;
 public:
+#ifdef PARENT_GT_CHILD
+        /// radius that encloses the radii of the children
+        cosmoType childrenRadius;
+#endif
 	cosmoType soft;		/* Effective softening */
 
 	/// The total mass represented by this expansion
@@ -180,6 +184,9 @@ public:
 #endif
 	
 	MultipoleMoments() : radius(0), totalMass(0) { 
+#ifdef PARENT_GT_CHILD
+            childrenRadius = 0;
+#endif
 	    soft = 0;
 		cm.x = cm.y = cm.z = 0;
 		//clear higher order components here
@@ -330,6 +337,9 @@ public:
 	void clear() {
 	    soft = 0;
 		radius = 0;
+#ifdef PARENT_GT_CHILD
+                childrenRadius = 0;
+#endif
 		totalMass = 0;
 		cm.x = cm.y = cm.z = 0;
 		//clear higher order components here
@@ -340,7 +350,6 @@ public:
 #endif
 	}
 	inline cosmoType getRadius() const {return radius;}
-	inline cosmoType& getRadius() {return radius;}
 	friend void operator|(PUP::er& p, MultipoleMoments& m);
 	friend void calculateRadiusFarthestCorner(MultipoleMoments& m,
 					      const OrientedBox<double>& box);
@@ -358,6 +367,9 @@ public:
 
 inline void operator|(PUP::er& p, MultipoleMoments& m) {
 	p | m.radius;
+#ifdef PARENT_GT_CHILD
+	p | m.childrenRadius;
+#endif
 	p | m.totalMass;
 	p | m.soft;
 	p | m.cm;

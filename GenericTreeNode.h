@@ -245,6 +245,9 @@ class NodePool;
       if(particleCount > 1)
 	  calculateRadiusFarthestParticle(moments, &part[firstParticle],
 					  &part[lastParticle+1]);
+#ifdef PARENT_GT_CHILD
+      moments.childrenRadius = moments.getRadius();
+#endif
     }
 
     /// @brief initialize an empty node
@@ -1051,6 +1054,7 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
     }
   }
 
+#ifdef PARENT_GT_CHILD
 /// Calculate the radius of a node such that it encloses the radii of
 /// all children.
 inline void calculateRadiusChildNodes(GenericTreeNode *node)
@@ -1064,11 +1068,11 @@ inline void calculateRadiusChildNodes(GenericTreeNode *node)
                 radius = dr + child->moments.getRadius();
         }
     }
-#ifdef HEXADECAPOLE
-    momRescaleFmomr(&node->moments.mom, radius, node->moments.getRadius());
-#endif
-    node->moments.getRadius() = radius;
+    if(radius < node->moments.getRadius())
+        radius = node->moments.getRadius();
+    node->moments.childrenRadius = radius;
 }
+#endif
 
 } //close namespace Tree
 

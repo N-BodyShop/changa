@@ -2565,10 +2565,9 @@ void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
 	  }
     }
 
+    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
 #ifdef PARENT_GT_CHILD
     calculateRadiusChildNodes(node);
-#else
-    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
 #endif
 
     tp->deliverMomentsToClients(node);
