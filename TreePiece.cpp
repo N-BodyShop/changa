@@ -2772,9 +2772,10 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
   /* The old version collected Boundary nodes, the new version collects NonLocal nodes */
 
   if (node->getType() == Internal) {
-// Tom & CAMBRIDGE
-      calculateRadiusChildNodes(node);
-//    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+
+    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+    // Tom & CAMBRIDGE
+    calculateRadiusChildNodes(node);
   }
 
 }
@@ -3209,9 +3210,9 @@ void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
 
 #ifndef TREE_BREADTH_FIRST
   if (node->getType() == Internal) {
-// Tom & CAMBRIDGE
+    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+    // Tom & CAMBRIDGE
     calculateRadiusChildNodes(node);
-//    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
   }
 #endif
 
@@ -3239,10 +3240,11 @@ void TreePiece::growBottomUp(GenericTreeNode *node) {
     }
     if (child->rungs > node->rungs) node->rungs = child->rungs;
   }
-  if (node->getType() == Internal) {
-// Tom & CAMBRIDGE
+  if (node->getType() == Internal)
+  {
+    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
+    // Tom & CAMBRIDGE
     calculateRadiusChildNodes(node);
-//    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
   }
 }
 #endif
@@ -3429,9 +3431,9 @@ GenericTreeNode *TreePiece::boundaryParentReady(GenericTreeNode *parent){
     parent->particleCount += child->particleCount;
     accumulateMomentsFromChild(parent,child);
   }
-// Tom & CAMBRIDGE
+  calculateRadiusFarthestCorner(parent->moments, parent->boundingBox);
+  // Tom & CAMBRIDGE
   calculateRadiusChildNodes(parent);
-  //  calculateRadiusFarthestCorner(parent->moments, parent->boundingBox);
   // check if someone has requested this node
   MomentRequestType::iterator iter;
   if ((iter = momentRequests.find(parent->getKey())) != momentRequests.end()) {
@@ -3788,13 +3790,13 @@ void TreePiece::updateParticles(intptr_t data, int partIndex) {
 #endif
 /*            printf("TP %d, pt %d, acc.x = %f, y = %f, z = %f\n", this->getIndex(),
                     j-1, myParticles[j].treeAcceleration.x, myParticles[j].treeAcceleration.y, myParticles[j].treeAcceleration.z);*/
-/*            numRemoteNodesTotal += deviceParticles[partIndex].numRemoteNodes;
-            numRemoteParticlesTotal += deviceParticles[partIndex].numRemoteParticles;*/
+            numRemoteNodesTotal += deviceParticles[partIndex].numRemoteNodes;
+            numRemoteParticlesTotal += deviceParticles[partIndex].numRemoteParticles;
             if(!largePhase()) partIndex++;
             }
         if(largePhase()) partIndex++;
         }
-//    printf("TP %d, numRemoteNodesTotal = %lld, numRemoteParticlesTotal = %lld\n", this->getIndex(), numRemoteNodesTotal, numRemoteParticlesTotal);
+    printf("TP %d, numRemoteNodesTotal = %lld, numRemoteParticlesTotal = %lld\n", this->getIndex(), numRemoteNodesTotal, numRemoteParticlesTotal);
 
 // added by CAMBRIDGE
 /*    for (int j = 0; j < this->numBuckets; ++j) {
@@ -5357,20 +5359,25 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   GPURemoteWalkState *state = (GPURemoteWalkState *)sPrefetchState;
 
   if (state->receivedNodes->length() > 0) {
+    state->nodeParentsLen->push_back(state->rootParents->size());
 //    printf("TP: %d. we are cleaning up %d node msg with %d nodes!\n", this->getIndex(), state->receivedRoots->size(), state->receivedNodes->length());
     listcompute->sendRemoteTreeWalkNodeTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, state);
     state->receivedNodes->clear();
     state->rootParents->clear();
     state->receivedRoots->clear();
     state->nodeReqIDs->clear();
+    state->nodeParentsLen->clear();
   }
 
   if (state->receivedParticles->length() > 0) {
+    state->partParentsLen->push_back(state->bucketsParent->size());
 //    printf("TP: %d. we are cleaning up %d particle msg with %d particles!\n", this->getIndex(), state->bucketNodes->size(), state->receivedParticles->length());
     listcompute->sendRemoteTreeWalkParticleTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, state);
     state->bucketNodes->clear();
     state->receivedParticles->clear();
     state->particleReqIDs->clear();
+    state->bucketsParent->clear();
+    state->partParentsLen->clear();
   }
 
   // Set up the book keeping flags
@@ -6275,7 +6282,7 @@ void TreePiece::transformRemoteTreeRecursive(GenericTreeNode *node, CkVec<CudaMu
   } else if (type == Cached) {
     if (depth == _cacheLineDepth) {
       leaves->push_back(node);
-    }
+    } 
 
     for (int i = 0; i < 2; i ++) {
       (*remoteMoments)[node_index].children[i] = -1;
@@ -6289,7 +6296,7 @@ void TreePiece::transformRemoteTreeRecursive(GenericTreeNode *node, CkVec<CudaMu
         transformRemoteTreeRecursive(child, remoteMoments, leaves, depth + 1);   
       }
     }
-  }  
+  }
   
 /*  if ((registeredTreePieces[0].treePiece)->getIndex() == 0) {
     printf("TreePiece::transformRemoteTreeRecursive: mass = %f, type = %d\n", node->moments.totalMass, type);
@@ -6381,28 +6388,38 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
   CkVec<GenericTreeNode*> leaves;
   grState->receivedRoots->push_back(grState->receivedNodes->size());
 
-  GenericTreeNode *parent = node->parent;
-  if (parent == NULL) {
-    KeyType pkey(node->getParentKey());
-    parent = keyToNode(pkey);
+  GenericTreeNode *tmp = NULL, *parent = node;
+  grState->nodeParentsLen->push_back(grState->rootParents->size());
+  while (parent->getType() != Boundary) {
+    GenericTreeNode *tmp = parent->parent;
+    if (tmp == NULL) {
+      KeyType pkey(parent->getParentKey());
+      if (pkey > 1)
+        parent = keyToNode(pkey);
+      // else, do nothing, just use parent itself
+    } else {
+      parent = tmp;
+    }
+
+    CudaMultipoleMoments cmm(parent->moments);
+    cmm.lesser_corner = parent->boundingBox.lesser_corner;
+    cmm.greater_corner = parent->boundingBox.greater_corner;
+    cmm.type = parent->getType();
+    cmm.key = parent->getKey();
+    cmm.particleCount = parent->particleCount;
+    grState->rootParents->push_back(cmm);
   }
 
-  CudaMultipoleMoments cmm(parent->moments);
-  cmm.lesser_corner = parent->boundingBox.lesser_corner;
-  cmm.greater_corner = parent->boundingBox.greater_corner;
-  cmm.type = parent->getType();
-  cmm.key = parent->getKey();
-  cmm.particleCount = parent->particleCount;
-  grState->rootParents->push_back(cmm);
   grState->nodeReqIDs->push_back(reqID);
 
   serializeRecvdRemoteTree(node, grState->receivedNodes, &leaves);
 /*  if (this->getIndex() == 0) {
-    printf("TP %d: receivedNodes->size() = %d, receivedRoots->size() = %d, root = %d, parent = %d\n", 
-      this->getIndex(), grState->receivedNodes->size(), grState->receivedRoots->size(), node->getKey(), parent->getKey());
+    printf("TP %d: root = %d, parent = %d, grandparent = %d\n", 
+      this->getIndex(), node->getKey(), cmm.key, cmm1.key);
   }*/
 
   if (grState->nodeOffloadReady()) {
+    grState->nodeParentsLen->push_back(grState->rootParents->size());
     // Note that we're sending "sRemoteGravityState" to the trigger, 
     // because the remote walk bookkeeping work should link with sRemoteGravityState.
     ((ListCompute *)compute)->sendRemoteTreeWalkNodeTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, grState);
@@ -6410,6 +6427,7 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
     grState->rootParents->clear();
     grState->receivedRoots->clear();
     grState->nodeReqIDs->clear();
+    grState->nodeParentsLen->clear();
   }
 //    nodesToBeSent.clear();
   leaves.clear();
@@ -6502,12 +6520,12 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
   // Otherwise, we directly use the real bucketNode containing the particles in this message.
   const int nMinParticleNode = 6;
   while (node->particleCount <= nMinParticleNode) {
-    GenericTreeNode *parent = node->parent;
-    if (parent == NULL) {
+    GenericTreeNode *tmp = node->parent;
+    if (tmp == NULL) {
       KeyType pkey(node->getParentKey());
-      parent = keyToNode(pkey);
+      tmp = keyToNode(pkey);
     }
-    node = parent;
+    node = tmp;
   }
 
   GPURemoteWalkState *grState = (GPURemoteWalkState *)state;
@@ -6537,6 +6555,28 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
   grState->bucketNodes->push_back(cmm);
   grState->particleReqIDs->push_back(reqID);
 
+  GenericTreeNode *tmp = NULL, *parent = node;
+  grState->partParentsLen->push_back(grState->bucketsParent->size());
+  while (parent->getType() != Boundary) {
+    GenericTreeNode *tmp = parent->parent;
+    if (tmp == NULL) {
+      KeyType pkey(parent->getParentKey());
+      if (pkey > 1)
+        parent = keyToNode(pkey);
+      // else, do nothing, just use parent itself
+    } else {
+      parent = tmp;
+    }
+
+    CudaMultipoleMoments cmm1(parent->moments);
+    cmm1.lesser_corner = parent->boundingBox.lesser_corner;
+    cmm1.greater_corner = parent->boundingBox.greater_corner;
+    cmm1.type = parent->getType();
+    cmm1.key = parent->getKey();
+    cmm1.particleCount = parent->particleCount;
+    grState->bucketsParent->push_back(cmm1);
+  }
+
   for (int i = 0; i < num; ++i) {
     grState->receivedParticles->push_back(CompactPartData(egp[i]));
   }
@@ -6546,12 +6586,15 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
       this->getIndex(), grState->receivedParticles->size(), grState->bucketNodes->size(), cmm.particleCount, node->particleCount, node->getKey(), cmm.type);
 */
   if (grState->particleOffloadReady()) {
+    grState->partParentsLen->push_back(grState->bucketsParent->size());
     // Note that we're sending "sRemoteGravityState" to the trigger, 
     // because the remote walk bookkeeping work should link with sRemoteGravityState.
     ((ListCompute *)compute)->sendRemoteTreeWalkParticleTriggerToGpu(this->sRemoteGravityState, this, activeRung, 0, numBuckets, grState);
     grState->bucketNodes->clear();
     grState->receivedParticles->clear();
     grState->particleReqIDs->clear();
+    grState->bucketsParent->clear();
+    grState->partParentsLen->clear();
   }
 
   compute->finishNodeProcessEvent(this, state);

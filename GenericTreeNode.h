@@ -245,6 +245,8 @@ class NodePool;
       if(particleCount > 1)
 	  calculateRadiusFarthestParticle(moments, &part[firstParticle],
 					  &part[lastParticle+1]);
+      // Tom & CAMBRIDGE
+      moments.childrenRadius = moments.getRadius();
     }
 
     /// @brief initialize an empty node
@@ -1065,11 +1067,10 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
               radius = dr + child->moments.getRadius();
       }
     }
-#ifdef HEXADECAPOLE
-    momRescaleFmomr(&node->moments.mom, radius, node->moments.getRadius());
-#endif
-    node->moments.getRadius() = radius;
-}
+    if (radius < node->moments.getRadius())
+      radius = node->moments.getRadius();
+    node->moments.childrenRadius = radius;
+  }
 
 } //close namespace Tree
 

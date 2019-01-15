@@ -110,7 +110,9 @@ typedef struct CudaMultipoleMoments{
   int nodeArrayIndex;
   int children[2];
   int type;
-  int key;  // For debug
+  int key; // For debug
+  // Tom & CAMBRIDGE
+  cosmoType childrenRadius;
 #endif // GPU_LOCAL_TREE_WALK || GPU_REMOTE_TREE_WALK
 
 #ifdef HEXADECAPOLE
@@ -130,6 +132,11 @@ typedef struct CudaMultipoleMoments{
     radius = m.radius;
     soft = m.soft;
     totalMass = m.totalMass;
+
+#if defined(GPU_LOCAL_TREE_WALK) || defined(GPU_REMOTE_TREE_WALK)
+    // Tom & CAMBRIDGE
+    childrenRadius = m.childrenRadius;
+#endif // GPU_LOCAL_TREE_WALK || GPU_REMOTE_TREE_WALK
 
     cm = m.cm;
 #if ! defined(HEXADECAPOLE)
@@ -181,6 +188,8 @@ struct CUDATreeNode
   int particleCount;
   int children[2];
   int type;
+  // Tom & CAMBRIDGE
+  cosmoType childrenRadius;
 };
 
 struct CUDABucketNode
@@ -264,10 +273,10 @@ typedef struct VariablePartData{
   cudatype potential;
   cudatype dtGrav;
 
-/*#ifdef GPU_REMOTE_TREE_WALK
+#ifdef GPU_REMOTE_TREE_WALK
   int numRemoteNodes;
   int numRemoteParticles;
-#endif //GPU_REMOTE_TREE_WALK*/
+#endif //GPU_REMOTE_TREE_WALK
 }VariablePartData;
 
 

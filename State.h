@@ -239,10 +239,13 @@ public:
   CkVec<int> *receivedRoots;
   CkVec<CudaMultipoleMoments> *rootParents;
   CkVec<int> *nodeReqIDs;
+  CkVec<int> *nodeParentsLen;
 
   CkVec<CompactPartData> *receivedParticles;
   CkVec<CudaMultipoleMoments> *bucketNodes;
   CkVec<int> *particleReqIDs;
+  CkVec<CudaMultipoleMoments> *bucketsParent;
+  CkVec<int> *partParentsLen;
 
   bool nodeOffloadReady(){
     return receivedNodes->size() >= nodeThreshold;

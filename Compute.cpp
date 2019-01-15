@@ -32,9 +32,13 @@ State *Compute::getNewState(int dim1, int dim2){
   s->receivedRoots = new CkVec<int>();
   s->rootParents = new CkVec<CudaMultipoleMoments>();
   s->nodeReqIDs = new CkVec<int>();
+  s->nodeParentsLen = new CkVec<int>();
+
   s->receivedParticles = new CkVec<CompactPartData>();
   s->bucketNodes = new CkVec<CudaMultipoleMoments>();
   s->particleReqIDs = new CkVec<int>();
+  s->bucketsParent = new CkVec<CudaMultipoleMoments>();
+  s->partParentsLen = new CkVec<int>();
   // 2 arrays of counters
   // 0. numAdditionalRequests[] - sized numBuckets, init to numChunks
   // 1. remaining Chunk[] - sized numChunks
@@ -57,9 +61,12 @@ State *Compute::getNewState(int dim1){
   s->receivedRoots = new CkVec<int>();
   s->rootParents = new CkVec<CudaMultipoleMoments>();
   s->nodeReqIDs = new CkVec<int>();
+  s->nodeParentsLen = new CkVec<int>();
   s->receivedParticles = new CkVec<CompactPartData>();
   s->bucketNodes = new CkVec<CudaMultipoleMoments>();
   s->particleReqIDs = new CkVec<int>();
+  s->bucketsParent = new CkVec<CudaMultipoleMoments>();
+  s->partParentsLen = new CkVec<int>();
 
   s->counterArrays[0] = new int [dim1];
   s->counterArrays[1] = 0;
@@ -1703,10 +1710,10 @@ void ListCompute::sendRemoteTreeWalkNodeTriggerToGpu(State *rState, TreePiece *t
   CkAssert(grState->receivedRoots->length() == grState->rootParents->length());
   CkAssert(grState->receivedRoots->length() == grState->nodeReqIDs->length());
 //  printf("TreePieceGPURemoteTreeWalkNodeDataTransfer is going to be called! tp %d, numNodes = %d, numRoots = %d\n", tp->getIndex(), grState->receivedNodes->length(), grState->receivedRoots->length());
-  TreePieceGPURemoteTreeWalkNodeDataTransfer(request, grState->receivedNodes->length(), 
+  TreePieceGPURemoteTreeWalkNodeDataTransfer(request, grState->receivedNodes->length(),
                                              grState->receivedRoots->length(), grState->receivedNodes->getVec(),
-                                             grState->receivedRoots->getVec(), grState->rootParents->getVec(),
-                                             grState->nodeReqIDs->getVec());
+                                             grState->receivedRoots->getVec(), grState->rootParents->length(), grState->rootParents->getVec(),
+                                             grState->nodeReqIDs->getVec(), grState->nodeParentsLen->getVec());
 }
 
 void ListCompute::sendRemoteTreeWalkParticleTriggerToGpu(State *rState, TreePiece *tp,
@@ -1779,7 +1786,8 @@ void ListCompute::sendRemoteTreeWalkParticleTriggerToGpu(State *rState, TreePiec
   }*/
   TreePieceGPURemoteTreeWalkParticleDataTransfer(request, grState->receivedParticles->length(),
                                                  grState->bucketNodes->length(), grState->receivedParticles->getVec(),
-                                                 grState->bucketNodes->getVec(), grState->particleReqIDs->getVec());
+                                                 grState->bucketNodes->getVec(), grState->particleReqIDs->getVec(),
+                                                 grState->bucketsParent->length(), grState->bucketsParent->getVec(), grState->partParentsLen->getVec());
 }
 
 #endif //GPU_REMOTE_TREE_WALK
@@ -2872,9 +2880,9 @@ void LocalTreeBuilder::doneChildren(GenericTreeNode *node, int level){
 	  }
     }
 
+    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
     // Tom & CAMBRIDGE
     calculateRadiusChildNodes(node);
-    //    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
 
     tp->deliverMomentsToClients(node);
   }

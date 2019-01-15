@@ -1481,6 +1481,8 @@ void DummyKernel(void *cb){
 __device__ __forceinline__ void
 ldgTreeNode(CUDATreeNode &m, CudaMultipoleMoments *ptr) {
   m.radius        = __ldg(&(ptr->radius));
+	// Tom & CAMBRIDGE
+	m.childrenRadius=__ldg(&(ptr->childrenRadius));
   m.soft          = __ldg(&(ptr->soft));
   m.totalMass     = __ldg(&(ptr->totalMass));
   m.cm.x          = __ldg(&(ptr->cm.x));
@@ -3077,9 +3079,9 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
 void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_PARTICLES(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
   ParameterStruct *ptr = (ParameterStruct *)wr->userData;
 
-/*    printf("We are going to trigger the particle kernel! %d\n", wr->bufferInfo[GPU_RECVD_PARTICLES_IDX].transferToDevice);
+    printf("We are going to trigger the particle kernel! %d\n", wr->bufferInfo[GPU_RECVD_PARTICLES_IDX].transferToDevice);
     printf("ptr->firstParticle = %d, ptr->lastParticle = %d\n", ptr->firstParticle, ptr->lastParticle);
-    printf("wr->dimGrid = %d, wr->dimBlock = %d\n", wr->dimGrid, wr->dimBlock);*/
+    printf("wr->dimGrid = %d, wr->dimBlock = %d\n", wr->dimGrid, wr->dimBlock);
   if( wr->bufferInfo[GPU_RECVD_PARTICLES_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
     gpuRemoteTreeWalkForParticles<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
@@ -3089,6 +3091,8 @@ void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_PARTICLES(workRequest *wr, cudaStream_t
       (CompactPartData *)devBuffers[wr->bufferInfo[GPU_RECVD_PARTICLES_IDX].bufferID],
       (CudaMultipoleMoments *)devBuffers[wr->bufferInfo[IDX_OF_RECVD_BUCKETS].bufferID],
       (int *)devBuffers[wr->bufferInfo[PARTICLE_MSG_REQ_IDS].bufferID],
+      (CudaMultipoleMoments *)devBuffers[wr->bufferInfo[PARENT_OF_BUCKETS].bufferID],
+      (int *)devBuffers[wr->bufferInfo[PART_PARENTS_LEN].bufferID],
       ptr->firstParticle,
       ptr->lastParticle,
       ptr->theta,
@@ -3100,15 +3104,17 @@ void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_PARTICLES(workRequest *wr, cudaStream_t
     cudaChk(cudaPeekAtLastError());
 #endif
   }
-//    printf("The particle kernel has been done!\n");
+    printf("The particle kernel has been done!\n");
   free((ParameterStruct *)ptr);
 }
 
-void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, int numParticles, int numBuckets, CompactPartData *missedParticles, CudaMultipoleMoments *missedBuckets, int *reqIDs) {
+void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, int numParticles, int numBuckets, 
+                                                    CompactPartData *missedParticles, CudaMultipoleMoments *missedBuckets,
+                                                    int *reqIDs, int numParents, CudaMultipoleMoments *BucketParents, int* parentsLen) {
   int numBlocks = data->numBucketsPlusOne-1;
   int size;
 
-//  printf("  ==> TreePieceGPURemoteTreeWalkParticleDataTransfer is called!\n");
+  printf("  ==> TreePieceGPURemoteTreeWalkParticleDataTransfer is called! numParents = %d\n",  numParents);
 
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -3194,6 +3200,42 @@ void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, int numPa
     memcpy(buffer->hostBuffer, reqIDs, size);
   }
 
+  // 4. copy the parent of bucket nodes
+  transfer = numParents > 0;
+  buffer = &(gravityKernel.bufferInfo[PARENT_OF_BUCKETS]);
+  buffer->bufferID = -1;
+  size = (numParents) * sizeof(CudaMultipoleMoments);
+  buffer->size = size;
+  buffer->transferToDevice = transfer;
+  buffer->freeBuffer = transfer;
+  buffer->transferFromDevice = false;
+
+  if(transfer){
+    CUDA_MALLOC(buffer->hostBuffer, size);
+#ifdef CUDA_PRINT_ERRORS
+    printf("TPRR 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+#endif
+    memcpy(buffer->hostBuffer, BucketParents, size);
+  }
+
+  // 5. copy the length of parents
+  transfer = numBuckets > 0;
+  buffer = &(gravityKernel.bufferInfo[PART_PARENTS_LEN]);
+  buffer->bufferID = -1;
+  size = (numBuckets+1) * sizeof(int);
+  buffer->size = size;
+  buffer->transferToDevice = transfer;
+  buffer->freeBuffer = transfer;
+  buffer->transferFromDevice = false;
+
+  if(transfer){
+    CUDA_MALLOC(buffer->hostBuffer, size);
+#ifdef CUDA_PRINT_ERRORS
+    printf("TPRR 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+#endif
+    memcpy(buffer->hostBuffer, parentsLen, size);
+  }
+
   gravityKernel.callbackFn = data->cb;
   gravityKernel.traceName = "remoteResume";
   gravityKernel.runKernel = run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_PARTICLES;
@@ -3209,6 +3251,8 @@ void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, int numPa
 void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
   ParameterStruct *ptr = (ParameterStruct *)wr->userData;
 
+  printf("run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES is called!\n");
+
   if( wr->bufferInfo[GPU_RECVD_MOMENTS_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
     gpuRemoteTreeWalkForNodes<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
@@ -3219,6 +3263,7 @@ void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES(workRequest *wr, cudaStream_t ker
       (int *)devBuffers[wr->bufferInfo[ROOTS_IDX_OF_RECVD_SUBTREES].bufferID],
       (CudaMultipoleMoments *)devBuffers[wr->bufferInfo[PARENTS_OF_ROOTS].bufferID],
       (int *)devBuffers[wr->bufferInfo[NODE_MSG_REQ_IDS].bufferID],
+      (int *)devBuffers[wr->bufferInfo[NODE_PARENTS_LEN].bufferID],
       ptr->firstParticle,
       ptr->lastParticle,
       ptr->theta,
@@ -3231,15 +3276,16 @@ void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES(workRequest *wr, cudaStream_t ker
 #endif
   }
   free((ParameterStruct *)ptr);
+  printf("run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES is done!\n");
 }
 
 void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, int numMoments, int numRoots,
                                                 CudaMultipoleMoments *missedMoments, int *missedRoots, 
-                                                CudaMultipoleMoments *parents, int *reqIDs){
+                                                int numParents, CudaMultipoleMoments *parents, int *reqIDs, int* parentsLen){
   int numBlocks = data->numBucketsPlusOne-1;
   int size;
 
-//  printf("  ==> TreePieceGPURemoteTreeWalkNodeDataTransfer is called!\n");
+  printf("  ==> TreePieceGPURemoteTreeWalkNodeDataTransfer is called! numParents = %d\n",  numParents);
 
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -3308,10 +3354,10 @@ void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, int numMoment
   }
 
   // 3. Copy the parents of these roots
-  transfer = numRoots > 0;
+  transfer = numParents > 0;
   buffer = &(gravityKernel.bufferInfo[PARENTS_OF_ROOTS]);
   buffer->bufferID = -1;
-  size = (numRoots) * sizeof(CudaMultipoleMoments);
+  size = (numParents) * sizeof(CudaMultipoleMoments);
   buffer->size = size;
   buffer->transferToDevice = transfer;
   buffer->freeBuffer = transfer;
@@ -3343,6 +3389,24 @@ void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, int numMoment
     memcpy(buffer->hostBuffer, reqIDs, size);
   }
 
+  // 5. copy the length of parents
+  transfer = numRoots > 0;
+  buffer = &(gravityKernel.bufferInfo[NODE_PARENTS_LEN]);
+  buffer->bufferID = -1;
+  size = (numRoots+1) * sizeof(int);
+  buffer->size = size;
+  buffer->transferToDevice = transfer;
+  buffer->freeBuffer = transfer;
+  buffer->transferFromDevice = false;
+
+  if(transfer){
+    CUDA_MALLOC(buffer->hostBuffer, size);
+#ifdef CUDA_PRINT_ERRORS
+    printf("TPRR 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+#endif
+    memcpy(buffer->hostBuffer, parentsLen, size);
+  }
+
   gravityKernel.callbackFn = data->cb;
   gravityKernel.traceName = "remoteResume";
   gravityKernel.runKernel = run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES;
@@ -3363,6 +3427,7 @@ __global__ void gpuRemoteTreeWalkForNodes(
   int *rootsIndices,
   CudaMultipoleMoments* parents,
   int *reqIDs,
+  int *parentsLen,
   int firstParticle,
   int lastParticle,
   cudatype theta,
@@ -3372,7 +3437,7 @@ __global__ void gpuRemoteTreeWalkForNodes(
   cudatype fperiodZ,
   int numMessages) {
 
-//    return;
+  //  return;
 
   CUDABucketNode  myNode;
   CompactPartData myParticle;
@@ -3427,19 +3492,27 @@ __global__ void gpuRemoteTreeWalkForNodes(
       cond = 1;
       stackInit(SP, stk[WARP_INDEX], rootIdx);
 
-      ldgTreeNode(TARGET_NODE, &parents[msg]);
-      addCudaVector3D(TARGET_NODE.cm, offset, TARGET_NODE.cm);
-      open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
-      action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
+/*      if (pidx == 0) {
+        printf("NODE msg = %d, start from %d, end at %d\n", msg, parentsLen[msg], parentsLen[msg+1]);
+      }*/
+
+      for (int parentIdx = parentsLen[msg]; parentIdx < parentsLen[msg+1]; ++parentIdx) {
+        ldgTreeNode(TARGET_NODE, &parents[parentIdx]);
+        addCudaVector3D(TARGET_NODE.cm, offset, TARGET_NODE.cm);
+        open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
+        action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
+        if (action != KEEP) {
+          // The SP and stk are shared. We need to change the private variables.
+          flag = 0;
+          critical = -1;
+          break;
+        }
+      }
+
 /*      if (pidx == 0 && lastParticle == 14599)
         printf("bucket %d: msg = %d, key = %d, partCnt = %d, mass = %f, open = %d, action = %d\n", 
                 nodePointer, msg, recvdMoments[STACK_TOP_INDEX].key, TARGET_NODE.particleCount, TARGET_NODE.totalMass, open, action);
 */
-      if (action != KEEP) {
-        // The SP and stk are shared. We need to change the private variables.
-        flag = 0;
-        critical = -1;
-      }
       while(SP >= 0) {
         if (flag == 0 && critical >= SP) {
           flag = 1;
@@ -3464,6 +3537,12 @@ __global__ void gpuRemoteTreeWalkForNodes(
           cond = (action == KEEP);
 
           if (action == COMPUTE) {
+/*            open = CUDA_openCriterionNode2(TARGET_NODE, myNode, -1, theta, thetaMono);
+            action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
+            if (action != COMPUTE) {
+              cond = action == KEEP;
+              continue;
+            }*/
             ++numRemoteNodes;
             if (CUDA_openSoftening(TARGET_NODE, myNode)) {
               r.x = TARGET_NODE.cm.x - myParticle.position.x;
@@ -3554,7 +3633,7 @@ __global__ void gpuRemoteTreeWalkForNodes(
     particleVars[pidx].a.z += acc.z;
     particleVars[pidx].potential += pot;
     particleVars[pidx].dtGrav = fmax(idt2,  particleVars[pidx].dtGrav);
-//    particleVars[pidx].numRemoteNodes += numRemoteNodes;
+    particleVars[pidx].numRemoteNodes += numRemoteNodes;
   }
 }
 
@@ -3566,6 +3645,8 @@ __global__ void gpuRemoteTreeWalkForParticles(
   CompactPartData* recvdParticles,
   CudaMultipoleMoments *bucketNodes,
   int *reqIDs,
+  CudaMultipoleMoments *bucketsParent,
+  int *parentsLen,
   int firstParticle,
   int lastParticle,
   cudatype theta,
@@ -3596,6 +3677,7 @@ __global__ void gpuRemoteTreeWalkForParticles(
   cudatype rsq = 0;
   cudatype twoh = 0;
   int numRemoteParticles = 0;
+  int open = -1, action = -1;
 
   for(int pidx = blockIdx.x*blockDim.x + threadIdx.x + firstParticle;
       pidx <= lastParticle; pidx += gridDim.x*blockDim.x) {
@@ -3606,17 +3688,34 @@ __global__ void gpuRemoteTreeWalkForParticles(
 
 /*    if (pidx == 0) {
       printf("gpuRemoteTreeWalkForParticles has been executed! numBuckets = %d, firstParticle = %d, lastParticle = %d\n", numBuckets, firstParticle, lastParticle);
-    }
-*/
+    }*/
+
     for (int id = 0; id < numBuckets; ++id) {
       CUDA_decodeOffsets(reqIDs[id], offset, fperiod, fperiodY, fperiodZ);
+      int actionParent = -1;
+
+      bool CONT = true;
+      for (int parentIdx = parentsLen[id]; parentIdx < parentsLen[id+1]; ++parentIdx) {
+        ldgTreeNode(TARGET_NODE, &bucketsParent[parentIdx]);
+        addCudaVector3D(TARGET_NODE.cm, offset, TARGET_NODE.cm);
+        open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
+        actionParent = CUDA_RemoteOptAction(open, TARGET_NODE.type);
+        if (actionParent != KEEP) {
+          CONT = false;
+          break;
+        }
+      }
+      
+      if (CONT != true)
+        continue;
+
       ldgTreeNode(TARGET_NODE, &bucketNodes[id]);
       // Each warp increases its own TARGET_NODE in the shared memory,
       // so there is no actual data racing here.
       addCudaVector3D(TARGET_NODE.cm, offset, TARGET_NODE.cm);
 
       int open = CUDA_openCriterionNode(TARGET_NODE, myNode, -1, theta, thetaMono);
-      int action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
+      action = CUDA_RemoteOptAction(open, TARGET_NODE.type);
 
       if (action == KEEP_REMOTE_BUCKET) {
         numRemoteParticles += TARGET_NODE.bucketSize;
@@ -3656,7 +3755,7 @@ __global__ void gpuRemoteTreeWalkForParticles(
     particleVars[pidx].a.z += acc.z;
     particleVars[pidx].potential += pot;
     particleVars[pidx].dtGrav = fmax(idt2,  particleVars[pidx].dtGrav);
-//    particleVars[pidx].numRemoteParticles += numRemoteParticles;
+    particleVars[pidx].numRemoteParticles += numRemoteParticles;
   }
 }
 

@@ -877,8 +877,8 @@ void DataManager::serializeLocal(GenericTreeNode *node){
         localParicalsVec[k].nodeId = id;
         // here we don't initialize the "numOfNodesTraversed" or "numOfParticlesTraversed"
         // because their value will be directly overwriten by GPU kernel
-//        localParicalsVec[k].numRemoteNodes = 0;
-//        localParicalsVec[k].numRemoteParticles = 0;
+        localParicalsVec[k].numRemoteNodes = 0;
+        localParicalsVec[k].numRemoteParticles = 0;
       }
     }
   }
@@ -963,9 +963,15 @@ void DataManager::printTreeRecursive(GenericTreeNode *node, int indent) {
   }
 //  printf("nodeArrayIndex = %d, depth = %d, startBucket = %d, particleCount = %d, firstParticle = %d, lastParticle = %d, type = %d, mass = %f, key = %d\n",
 //         node->nodeArrayIndex, indent, node->startBucket, node->particleCount, node->firstParticle, node->lastParticle, node->getType(), node->moments.totalMass, node->getKey());
-  printf("nodeArrayIndex = %d, depth = %d, particleCount = %d, type = %d, mass = %f, key = %d, start = %d, end = %d\n",
+  printf("index = %d, depth = %d, particleCount = %d, type = %d, mass = %f, key = %d, start = %d, end = %d, radius = %f, childrenRadius = %f\n",
          node->nodeArrayIndex, indent, node->particleCount, node->getType(), node->moments.totalMass, node->getKey(),
-         node->firstParticle, node->lastParticle);
+         node->firstParticle, node->lastParticle, node->moments.getRadius(), node->moments.childrenRadius);
+/*  Vector3D<cosmoType> delta = node->boundingBox.greater_corner - node->boundingBox.lesser_corner;
+  printf("idx = %d, dp = %d, type = %d, key = %d, radius = %f, cm.x = %f, y = %f, z = %f, greater.x = %f, y = %f, z = %f, lesser.x = %f, y = %f, z = %f\n",
+         node->nodeArrayIndex, indent, node->getType(), node->getKey(), node->moments.getRadius(),
+         node->moments.cm.x, node->moments.cm.y, node->moments.cm.z,
+         node->boundingBox.greater_corner.x, node->boundingBox.greater_corner.y, node->boundingBox.greater_corner.z,
+         node->boundingBox.lesser_corner.x, node->boundingBox.lesser_corner.y, node->boundingBox.lesser_corner.z);*/
   printTreeRecursive((GenericTreeNode *)node->getChildren(0), indent + 1);
   printTreeRecursive((GenericTreeNode*) node->getChildren(1), indent + 1);
 }

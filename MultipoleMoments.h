@@ -165,7 +165,11 @@ class MultipoleMoments {
 	/// A physical size for this multipole expansion, calculated
 	/// by an external function using some other information
 	cosmoType radius;
-public:
+
+  public:
+	// Tom & CAMBRIDGE
+	cosmoType childrenRadius;
+
 	cosmoType soft;		/* Effective softening */
 
 	/// The total mass represented by this expansion
@@ -179,8 +183,10 @@ public:
 	double xx, xy, xz, yy, yz, zz;
 #endif
 	
-	MultipoleMoments() : radius(0), totalMass(0) { 
-	    soft = 0;
+	MultipoleMoments() : radius(0), totalMass(0) {
+	// Tom & CAMBRIDGE
+		childrenRadius = 0;
+		soft = 0;
 		cm.x = cm.y = cm.z = 0;
 		//clear higher order components here
 #ifdef HEXADECAPOLE
@@ -330,6 +336,9 @@ public:
 	void clear() {
 	    soft = 0;
 		radius = 0;
+	// Tom & CAMBRIDGE
+		childrenRadius = 0;
+
 		totalMass = 0;
 		cm.x = cm.y = cm.z = 0;
 		//clear higher order components here
@@ -340,8 +349,10 @@ public:
 #endif
 	}
 	inline cosmoType getRadius() const {return radius;}
-	// Tom & CAMBRIDGE
+
+  // Tom & CAMBRIDGE
 	inline cosmoType& getRadius() {return radius;}
+
 	friend void operator|(PUP::er& p, MultipoleMoments& m);
 	friend void calculateRadiusFarthestCorner(MultipoleMoments& m,
 					      const OrientedBox<double>& box);
@@ -359,6 +370,9 @@ public:
 
 inline void operator|(PUP::er& p, MultipoleMoments& m) {
 	p | m.radius;
+	// Tom & CAMBRIDGE
+	p | m.childrenRadius;
+	
 	p | m.totalMass;
 	p | m.soft;
 	p | m.cm;

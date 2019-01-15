@@ -249,6 +249,55 @@ CUDA_openCriterionNode(CUDATreeNode &node,
   }
 }
 
+__device__ inline int __attribute__(( always_inline ))
+CUDA_openCriterionNode2(CUDATreeNode &node,
+                    CUDABucketNode &myNode,
+                    int localIndex,
+                    cudatype theta,
+                    cudatype thetaMono) {
+  const int nMinParticleNode = 6;
+  const double openingGeometryFactor = 2.0 / sqrt(3.0);
+  
+  if(node.particleCount <= nMinParticleNode) {
+    return 1;
+  }
+
+  // Note that some of this could be pre-calculated into an "opening radius"
+  cudatype radius = openingGeometryFactor * node.childrenRadius / theta;
+
+  if(radius < node.childrenRadius) {
+    radius = node.childrenRadius;
+  }
+
+  CudaSphere s;
+  s.origin = node.cm;
+  s.radius = radius;
+
+  if(cuda_intersect(myNode, s)) {
+    return 1;
+  } else {
+#ifdef HEXADECAPOLE
+    // Well separated, now check softening
+    if(!CUDA_openSoftening(node, myNode)) {
+      return 0;   // passed both tests: will be a Hex interaction
+    } else {      // Open as monopole?
+      radius = openingGeometryFactor * node.childrenRadius / thetaMono;
+      CudaSphere sM;
+      sM.origin = node.cm;
+      sM.radius = radius;
+      if(cuda_intersect(myNode, sM)) {
+        return 1;
+      }
+      else {
+        return 0;
+      }
+    }
+#else
+    return 0;
+#endif //HEXADECAPOLE
+  }
+}
+
 __device__ inline void __attribute__(( always_inline ))
 CUDA_SPLINEQ(cudatype invr, cudatype r2, cudatype twoh, cudatype& a,
        cudatype& b,cudatype& c,cudatype& d) {
