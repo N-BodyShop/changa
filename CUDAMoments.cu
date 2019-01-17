@@ -249,7 +249,7 @@ CUDA_openCriterionNode(CUDATreeNode &node,
   }
 }
 
-__device__ inline int __attribute__(( always_inline ))
+/*__device__ inline int __attribute__(( always_inline ))
 CUDA_openCriterionNode2(CUDATreeNode &node,
                     CUDABucketNode &myNode,
                     int localIndex,
@@ -296,7 +296,7 @@ CUDA_openCriterionNode2(CUDATreeNode &node,
     return 0;
 #endif //HEXADECAPOLE
   }
-}
+}*/
 
 __device__ inline void __attribute__(( always_inline ))
 CUDA_SPLINEQ(cudatype invr, cudatype r2, cudatype twoh, cudatype& a,

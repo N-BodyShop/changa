@@ -189,7 +189,7 @@ struct CUDATreeNode
   int children[2];
   int type;
   // Tom & CAMBRIDGE
-  cosmoType childrenRadius;
+//  cosmoType childrenRadius;
 };
 
 struct CUDABucketNode
@@ -245,8 +245,6 @@ typedef struct CompactPartData{
 
 #ifdef GPU_LOCAL_TREE_WALK
   int nodeId;
-  int numRemoteNodes;
-  int numRemoteParticles;
 #endif
 
 #if __cplusplus && !defined __CUDACC__
@@ -274,8 +272,8 @@ typedef struct VariablePartData{
   cudatype dtGrav;
 
 #ifdef GPU_REMOTE_TREE_WALK
-  int numRemoteNodes;
-  int numRemoteParticles;
+/*  int numRemoteNodes;
+  int numRemoteParticles;*/
 #endif //GPU_REMOTE_TREE_WALK
 }VariablePartData;
 

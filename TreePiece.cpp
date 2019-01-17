@@ -3790,13 +3790,13 @@ void TreePiece::updateParticles(intptr_t data, int partIndex) {
 #endif
 /*            printf("TP %d, pt %d, acc.x = %f, y = %f, z = %f\n", this->getIndex(),
                     j-1, myParticles[j].treeAcceleration.x, myParticles[j].treeAcceleration.y, myParticles[j].treeAcceleration.z);*/
-            numRemoteNodesTotal += deviceParticles[partIndex].numRemoteNodes;
-            numRemoteParticlesTotal += deviceParticles[partIndex].numRemoteParticles;
+//            numRemoteNodesTotal += deviceParticles[partIndex].numRemoteNodes;
+//            numRemoteParticlesTotal += deviceParticles[partIndex].numRemoteParticles;
             if(!largePhase()) partIndex++;
             }
         if(largePhase()) partIndex++;
         }
-    printf("TP %d, numRemoteNodesTotal = %lld, numRemoteParticlesTotal = %lld\n", this->getIndex(), numRemoteNodesTotal, numRemoteParticlesTotal);
+//    printf("TP %d, numRemoteNodesTotal = %lld, numRemoteParticlesTotal = %lld\n", this->getIndex(), numRemoteNodesTotal, numRemoteParticlesTotal);
 
 // added by CAMBRIDGE
 /*    for (int j = 0; j < this->numBuckets; ++j) {

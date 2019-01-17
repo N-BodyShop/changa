@@ -1482,7 +1482,7 @@ __device__ __forceinline__ void
 ldgTreeNode(CUDATreeNode &m, CudaMultipoleMoments *ptr) {
   m.radius        = __ldg(&(ptr->radius));
 	// Tom & CAMBRIDGE
-	m.childrenRadius=__ldg(&(ptr->childrenRadius));
+//	m.childrenRadius=__ldg(&(ptr->childrenRadius));
   m.soft          = __ldg(&(ptr->soft));
   m.totalMass     = __ldg(&(ptr->totalMass));
   m.cm.x          = __ldg(&(ptr->cm.x));
@@ -3079,9 +3079,9 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
 void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_PARTICLES(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
   ParameterStruct *ptr = (ParameterStruct *)wr->userData;
 
-    printf("We are going to trigger the particle kernel! %d\n", wr->bufferInfo[GPU_RECVD_PARTICLES_IDX].transferToDevice);
+/*    printf("We are going to trigger the particle kernel! %d\n", wr->bufferInfo[GPU_RECVD_PARTICLES_IDX].transferToDevice);
     printf("ptr->firstParticle = %d, ptr->lastParticle = %d\n", ptr->firstParticle, ptr->lastParticle);
-    printf("wr->dimGrid = %d, wr->dimBlock = %d\n", wr->dimGrid, wr->dimBlock);
+    printf("wr->dimGrid = %d, wr->dimBlock = %d\n", wr->dimGrid, wr->dimBlock);*/
   if( wr->bufferInfo[GPU_RECVD_PARTICLES_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
     gpuRemoteTreeWalkForParticles<<<wr->dimGrid, wr->dimBlock, wr->smemSize, kernel_stream>>> (
@@ -3104,7 +3104,7 @@ void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_PARTICLES(workRequest *wr, cudaStream_t
     cudaChk(cudaPeekAtLastError());
 #endif
   }
-    printf("The particle kernel has been done!\n");
+//    printf("The particle kernel has been done!\n");
   free((ParameterStruct *)ptr);
 }
 
@@ -3114,7 +3114,7 @@ void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, int numPa
   int numBlocks = data->numBucketsPlusOne-1;
   int size;
 
-  printf("  ==> TreePieceGPURemoteTreeWalkParticleDataTransfer is called! numParents = %d\n",  numParents);
+//  printf("  ==> TreePieceGPURemoteTreeWalkParticleDataTransfer is called! numParents = %d\n",  numParents);
 
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -3251,7 +3251,7 @@ void TreePieceGPURemoteTreeWalkParticleDataTransfer(CudaRequest *data, int numPa
 void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES(workRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
   ParameterStruct *ptr = (ParameterStruct *)wr->userData;
 
-  printf("run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES is called!\n");
+//  printf("run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES is called!\n");
 
   if( wr->bufferInfo[GPU_RECVD_MOMENTS_IDX].transferToDevice ){
 #ifndef CUDA_NO_KERNELS
@@ -3276,7 +3276,7 @@ void run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES(workRequest *wr, cudaStream_t ker
 #endif
   }
   free((ParameterStruct *)ptr);
-  printf("run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES is done!\n");
+//  printf("run_TP_GRAVITY_GPU_REMOTE_TREE_WALK_NODES is done!\n");
 }
 
 void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, int numMoments, int numRoots,
@@ -3285,7 +3285,7 @@ void TreePieceGPURemoteTreeWalkNodeDataTransfer(CudaRequest *data, int numMoment
   int numBlocks = data->numBucketsPlusOne-1;
   int size;
 
-  printf("  ==> TreePieceGPURemoteTreeWalkNodeDataTransfer is called! numParents = %d\n",  numParents);
+//  printf("  ==> TreePieceGPURemoteTreeWalkNodeDataTransfer is called! numParents = %d\n",  numParents);
 
   workRequest gravityKernel;
   dataInfo *buffer;
@@ -3633,7 +3633,7 @@ __global__ void gpuRemoteTreeWalkForNodes(
     particleVars[pidx].a.z += acc.z;
     particleVars[pidx].potential += pot;
     particleVars[pidx].dtGrav = fmax(idt2,  particleVars[pidx].dtGrav);
-    particleVars[pidx].numRemoteNodes += numRemoteNodes;
+//    particleVars[pidx].numRemoteNodes += numRemoteNodes;
   }
 }
 
@@ -3755,7 +3755,7 @@ __global__ void gpuRemoteTreeWalkForParticles(
     particleVars[pidx].a.z += acc.z;
     particleVars[pidx].potential += pot;
     particleVars[pidx].dtGrav = fmax(idt2,  particleVars[pidx].dtGrav);
-    particleVars[pidx].numRemoteParticles += numRemoteParticles;
+//    particleVars[pidx].numRemoteParticles += numRemoteParticles;
   }
 }
 
