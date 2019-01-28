@@ -1,8 +1,12 @@
 #ifndef NOCOOLING
 
+// _DEFAULT_SOURCE is needed to get M_PI exported under --std=c99
+#define _DEFAULT_SOURCE
+#include <math.h>
+#undef _DEFAULT_SOURCE
+
 #include <stdlib.h>
 #include <stdio.h>
-#include <math.h>
 #include <assert.h>
 
 /*
