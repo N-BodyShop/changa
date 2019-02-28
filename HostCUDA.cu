@@ -2697,7 +2697,7 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
            * by cancellation of large terms.
            * N.B. The following uses expf(), erfcf(), etc. If these ever
            * get changed to use double precision, then fInner2 also needs
-           * to be changed. See line 480 in Ewald.C.
+           * to be changed. See line 480 in Ewald.cpp.
            */
 
           alphan = cachedData->ka;
