@@ -884,7 +884,6 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
 	void* bufferHostBuffer;
         size_t size;
-        ParameterStruct *ptr;
         bool transfer;
 
 #ifdef CUDA_2D_TB_KERNEL
@@ -991,7 +990,6 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartData *missedParts, int numMissedParts){
 	int numBlocks = data->numBucketsPlusOne-1;
         size_t size;
-        ParameterStruct *ptr;
         bool transfer;
 
 	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
@@ -1338,15 +1336,12 @@ __global__ void gpuLocalTreeWalk(
 #define STACK_TOP_INDEX stk[WARP_INDEX][SP]
 #define TARGET_NODE targetNode[WARP_INDEX]
 
-  // variable for current particle
-  CompactPartData p;
   CudaVector3D acc = {0,0,0};
   cudatype pot = 0;
   cudatype idt2 = 0;
   CudaVector3D offset = {0,0,0};
 
   int targetIndex = -1;
-  cudatype dsq = 0;
 
   // variables for CUDA_momEvalFmomrcm
   CudaVector3D r;
