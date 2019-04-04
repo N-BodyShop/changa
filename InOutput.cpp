@@ -1390,7 +1390,7 @@ void write_tipsy_star(Tipsy::TipsyWriter &w, GravityParticle &p,
     sp.tform = p.fTimeForm();
 
     if(!w.putNextStarParticle_t(sp)) {
-        CkError("[%d] Write dark failed, errno %d\n", CkMyPe(), errno);
+        CkError("[%d] Write star failed, errno %d\n", CkMyPe(), errno);
         CkAbort("Bad Write");
     }
 }
