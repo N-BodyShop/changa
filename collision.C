@@ -585,12 +585,21 @@ void Collision::doCollision(GravityParticle *p, const ColliderInfo &c, int bMerg
         Vector3D<double> posNew, aNew;
         mergeCalc(p->soft*2., p->mass, pAdv, p->velocity, p->treeAcceleration,
                   p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
-        CkPrintf("Merger info:\niorder1 iorder2 m1 m2 xNew vNew wNew\n");
-        CkPrintf("%d %d %g %g %g %g %g %g %g %g %g %g %g\n",
-                  p->iOrder, c.iOrder, p->mass, c.mass,
-                  posNew[0], posNew[1], posNew[2],
-                  vNew[0], vNew[1], vNew[2],
-                  wNew[0], wNew[1], wNew[2]);
+        CkPrintf("Merger info:\niorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y\
+                  x2z xNewx xNewy xNewz v1x v1y v1z v2x v2y v2z vNewx vNewy vNewz\
+                   w1x w1y w1z w2x w2y w2z wNewx wNewy wNewz\n");
+        CkPrintf("%d %d %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\
+                  %g %g %g %g %g %g %g %g %g %g %g %g\n",
+                p->iOrder, c.iOrder, p->mass, c.mass, p->soft*2, c.radius,
+                p->position.x, p->position.y, p->position.z,
+                c.position.x, c.position.y, c.position.z,
+                posNew.x, posNew.y, posNew.z,
+                p->velocity.x, p->velocity.y, p->velocity.z,
+                c.velocity.x, c.velocity.x, c.velocity.z,
+                vNew.x, vNew.y, vNew.z,
+                p->w.x, p->w.y, p->w.z,
+                c.w.x, c.w.y, c.w.z,
+                wNew.x, wNew.y, wNew.z);
         p->position = posNew;
         p->treeAcceleration = aNew;
         p->soft = radNew/2.;
