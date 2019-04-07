@@ -1738,24 +1738,24 @@ void Main::advanceBigCollStep(int iStep)
 
         if (iSub == nSubsteps) activeRung = 0;
 
-	ckout << "\nStep: " << (iStep + ((double) iSub)/nSubsteps)
-              << " Time: " << dTime
-              << " Rung: " << activeRung << " ";
+	    ckout << "\nStep: " << (iStep + ((double) iSub)/nSubsteps)
+                  << " Time: " << dTime
+                  << " Rung: " << activeRung << " ";
             
-	countActive(activeRung);
+    	countActive(activeRung);
 
-	// Domain decomposition
-	bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
-        startTime = CkWallTimer();
-	if (bDoDD) startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), bDoDD);
-	else {
-        CkReductionMsg *isTPEmpty;
-        treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread((void*&)isTPEmpty));
+    	// Domain decomposition
+    	bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
+            startTime = CkWallTimer();
+    	if (bDoDD) startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), bDoDD);
+    	else {
+            CkReductionMsg *isTPEmpty;
+            treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread((void*&)isTPEmpty));
 
-        if (*((int*)isTPEmpty->getData())) {
-            startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), bDoDD);
+            if (*((int*)isTPEmpty->getData())) {
+                startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), bDoDD);
+                }
             }
-        }
         timings[activeRung].tDD += CkWallTimer() - startTime;
 
          // Load balancing
