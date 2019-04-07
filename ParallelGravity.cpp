@@ -1791,8 +1791,6 @@ void Main::advanceBigCollStep(int iStep)
             }
         timings[activeRung].tGrav += CkWallTimer() - startTime;
 
-        waitForGravity(cbGravity, startTime, activeRung);
-
         // Closing kick
         kick(true, activeRung, activeRung, cbGravity, startTime);
 
