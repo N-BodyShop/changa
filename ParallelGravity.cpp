@@ -2666,7 +2666,7 @@ Main::restart(CkCheckpointStatusMsg *msg)
 void
 Main::initialForces()
 {
-  double startTime;
+  double startTime = CkWallTimer();
   timings.resize(PHASE_FEEDBACK+1);
 
   // DEBUGGING
@@ -2691,8 +2691,9 @@ Main::initialForces()
   
 #ifdef CUDA
   ckout << "Init. Accel. ...";
+  double dInitAccelTime = CkWallTimer();
   treeProxy.initAccel(0, CkCallbackResumeThread());
-  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+  ckout << " took " << (CkWallTimer() - dInitAccelTime) << " seconds."
         << endl;
 #endif
 
