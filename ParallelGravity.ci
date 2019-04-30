@@ -454,6 +454,7 @@ mainmodule ParallelGravity {
     entry void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
     entry void resetRungs(const CkCallback& cb);
     entry void getNeedCollStep(int collStepRung, const CkCallback& cb);
+    entry void makeFragments(Collision coll, const CkCallback& cb);
 #endif
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);

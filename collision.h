@@ -59,6 +59,7 @@ public:
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
     void doCollision(GravityParticle* p, const ColliderInfo &c, int bMerge);
+    GravityParticle* makeFragment();
     int checkMerger(const ColliderInfo &c1, const ColliderInfo &c2);
     double LastKickTime(int rung, double baseTime, double timeNow);
     void setMergerRung(GravityParticle *p, const ColliderInfo &c, const ColliderInfo &cMerge,

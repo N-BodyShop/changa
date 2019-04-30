@@ -222,7 +222,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
 
         // Velocities and positions may have changed, keep looking for collisions
         } while (bHasCollision);
-
+treeProxy.makeFragments(param.collision, CkCallbackResumeThread());
         // Clean up any merged particles
         addDelParticles();
     }
@@ -607,15 +607,60 @@ void Collision::doCollision(GravityParticle *p, const ColliderInfo &c, int bMerg
                   
         }
     else {
+        CkPrintf("Bounce info:\niorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y\
+                  x2z xNewx xNewy xNewz v1x v1y v1z v2x v2y v2z vNewx vNewy vNewz\
+                   w1x w1y w1z w2x w2y w2z wNewx wNewy wNewz\n");
+        CkPrintf("%d %d %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\
+                  %g %g %g %g %g %g %g %g %g %g %g %g\n",
+                p->iOrder, c.iOrder, p->mass, c.mass, p->soft*2, c.radius,
+                p->position.x, p->position.y, p->position.z,
+                c.position.x, c.position.y, c.position.z,
+                pAdv.x, pAdv.y, pAdv.z,
+                p->velocity.x, p->velocity.y, p->velocity.z,
+                c.velocity.x, c.velocity.x, c.velocity.z,
+                vNew.x, vNew.y, vNew.z,
+                p->w.x, p->w.y, p->w.z,
+                c.w.x, c.w.y, c.w.z,
+                wNew.x, wNew.y, wNew.z);
+
+       
         bounceCalc(p->soft*2., p->mass, pAdv, p->velocity, p->w, &vNew, &wNew, c);
+        makeFragment();
         }
+
     p->velocity = vNew;
     p->w = wNew;
 
     p->dtCol = DBL_MAX;
     }
+void TreePiece::makeFragments(Collision coll, const CkCallback& cb)
+{ GravityParticle *frag = coll.makeFragment();
+    newParticle (frag);
+    delete frag;
+    int counts[2] ;
+    counts[0] = 1; //number of particles formed
+    counts[1] = 0; //number of particles deleted
 
+    contribute(2*sizeof(int), counts, CkReduction::sum_int,cb);
+    }
+GravityParticle* Collision:: makeFragment()
+{
 
+    GravityParticle *frag = new GravityParticle();
+    frag->mass = 1e-50 ;
+    frag->position.x = 1.5; 
+    frag->position.y = 1.5;
+    frag->position.z = 0;
+    frag->velocity.x = 0; 
+    frag->velocity.y = 0;
+    frag->velocity.z = 0;
+    frag->soft = .1/2;
+TYPESet(frag, TYPE_DARK);
+
+    CkPrintf("make fragment\n");
+    
+return frag ;
+}
 /**
  * @brief Calculates the resulting velocity, spin and acceleration of a particle
  * as it merges with another particle.
