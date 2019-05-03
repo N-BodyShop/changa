@@ -385,8 +385,8 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 	if(p->isStar() && p->fTimeForm() >= 0.0) 
 	  fb.DoFeedback(p, dTime, dDeltaYr, fbTotals);
 	else if(p->isGas()){
-	  CkAssert(p->u() > 0.0);
-	  CkAssert(p->uPred() > 0.0);
+	  CkAssert(p->u() >= 0.0);
+	  CkAssert(p->uPred() >= 0.0);
 	  CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/fb.dErgPerGmUnit);
 	  CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/fb.dErgPerGmUnit);
 	  p->fESNrate() = 0.0;	/* reset SN heating rate of gas to zero */
