@@ -47,10 +47,8 @@ struct PendingBuffers {
   CkVec<CudaMultipoleMoments> *moments;
   CkVec<CompactPartData> *particles;
   int chunk;
-  //CudaMultipoleMoments *moments;
-  //int nMoments;
-  //CompactPartData *particles;
-  //int nParticles;
+    /// Pointer to callback so it can be freed.
+    CkCallback *cb;
 };
 
 #endif
@@ -121,6 +119,8 @@ protected:
 
         // This var will indicate if particle data has been loaded to the GPU
         bool gputransfer;
+        /// Callback pointer to pass to HAPI.
+        CkCallback *localTransferCallback;
         
         PendingBuffers *currentChunkBuffers;
         // queue that stores all pending chunk transfers
