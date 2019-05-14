@@ -4456,7 +4456,12 @@ void Main::addDelParticles()
 
 	nMaxOrderGas += counts[iPiece].nAddGas;
 	nMaxOrderDark += counts[iPiece].nAddDark;
+#ifdef COLLISION
+	CkPrintf("%d\n",counts[iPiece].nAddDark);
+	nMaxOrder += counts[iPiece].nAddDark;
+#else 
 	nMaxOrder += counts[iPiece].nAddStar;
+#endif
 	nTotalSPH += counts[iPiece].nAddGas - counts[iPiece].nDelGas;
 	nTotalDark += counts[iPiece].nAddDark - counts[iPiece].nDelDark;
 	nTotalStar += counts[iPiece].nAddStar - counts[iPiece].nDelStar;
