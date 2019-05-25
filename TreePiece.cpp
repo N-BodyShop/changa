@@ -3854,10 +3854,6 @@ void TreePiece::doAllBuckets(){
   report();
 #endif
 
-  dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
-  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-
 #ifdef GPU_LOCAL_TREE_WALK 
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
@@ -3878,9 +3874,13 @@ void TreePiece::doAllBuckets(){
   listcompute->resetCudaNodeState(state);
   listcompute->resetCudaPartState(state);
 
-// Completely bypass CPU local tree walk
-//  thisProxy[thisIndex].nextBucket(msg);
 #else
+  // Schedule a walk on the CPU
+
+  dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
+  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+
   thisProxy[thisIndex].nextBucket(msg);
 #endif //GPU_LOCAL_TREE_WALK
 
