@@ -1319,6 +1319,7 @@ private:
 
 #ifdef SPCUDA
   EwaldData *h_idata;
+  CkCallback *cbEwaldGPU;
 #endif
   void EwaldGPU(); 
   void EwaldGPUComplete();
