@@ -890,6 +890,9 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
     localMoments[node_index].type = (int)type;
     localMoments[node_index].nodeArrayIndex = node_index;
     localMoments[node_index].particleCount = node->particleCount;
+    if(type == NonLocalBucket) // NonLocalBucket has no particles on
+                               // the GPU.
+        localMoments[node_index].bucketSize = 0;
     for (int i = 0; i < 2; i ++) {
       localMoments[node_index].children[i] = -1;
     }
@@ -910,9 +913,7 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
       localMoments[node_index].children[i] = child_index;
       transformLocalTreeRecursive(child, localMoments);
 
-      // Here, it's very strange that child_index could be -1 when I run on a single machine
-      // I'm not sure why, probably that child could be the boundary?
-      // Another note: check whether the child is a local node by its size (nonLocalBucket node has zero content)
+      // child_index == -1 can indicate an empty node or a non-local node.
       if (child_index != -1 && localMoments[child_index].bucketSize > 0) {
         localMoments[node_index].bucketStart = std::min(localMoments[node_index].bucketStart, localMoments[child_index].bucketStart);
         localMoments[node_index].bucketSize += localMoments[child_index].bucketSize;
