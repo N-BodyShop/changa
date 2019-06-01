@@ -768,9 +768,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
         // Recognize (and ignore) gasoline compatibility parameters.
-        int iDummy = 0;
-	prmAddParam(prm, "bRestart", paramBool, &iDummy,
-		    sizeof(int),"restartg", "(IGNORED) gasoline compatible restart");
+        static int iDummy = 0;
 	prmAddParam(prm, "bRestart", paramBool, &iDummy,
 		    sizeof(int),"restartg", "(IGNORED) gasoline compatible restart");
 	prmAddParam(prm, "bDoSelfGravity", paramBool, &iDummy,
@@ -2666,7 +2664,7 @@ Main::restart(CkCheckpointStatusMsg *msg)
 void
 Main::initialForces()
 {
-  double startTime;
+  double startTime = CkWallTimer();
   timings.resize(PHASE_FEEDBACK+1);
 
   // DEBUGGING
@@ -2691,8 +2689,9 @@ Main::initialForces()
   
 #ifdef CUDA
   ckout << "Init. Accel. ...";
+  double dInitAccelTime = CkWallTimer();
   treeProxy.initAccel(0, CkCallbackResumeThread());
-  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+  ckout << " took " << (CkWallTimer() - dInitAccelTime) << " seconds."
         << endl;
 #endif
 

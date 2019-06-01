@@ -505,6 +505,7 @@ void DataManager::serializeLocalTree(){
 /// on the treepieces on this node.
 void DataManager::startLocalWalk() {
     gputransfer = true;
+    delete localTransferCallback;
     for(int i = 0; i < registeredTreePieces.length(); i++){
       if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
       int in = registeredTreePieces[i].treePiece->getIndex();
@@ -521,6 +522,7 @@ void DataManager::resumeRemoteChunk() {
   chunk = currentChunkBuffers->chunk;
   delete currentChunkBuffers->moments;
   delete currentChunkBuffers->particles;
+  delete currentChunkBuffers->cb;
   delete currentChunkBuffers;
 
     // resume each treepiece's startRemoteChunk, now that the nodes
@@ -556,11 +558,11 @@ void DataManager::donePrefetch(int chunk){
       gpuFree = false;
       lastChunkMoments = buffers->moments->length();
       lastChunkParticles = buffers->particles->length();
-      //CkPrintf("(%d) DM donePrefetch gpuFree, transferring 0x%x (%d); 0x%x (%d) \n", CkMyPe(), buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles);
 
-  CkCallback *remoteChunkTransferCallback
-      = new CkCallback(CkIndex_DataManager::resumeRemoteChunk(), CkMyNode(),
-                       dMProxy);
+      CkCallback *remoteChunkTransferCallback
+          = new CkCallback(CkIndex_DataManager::resumeRemoteChunk(), CkMyNode(),
+                           dMProxy);
+      buffers->cb = remoteChunkTransferCallback;
 
       // Transfer moments and particle cores to gpu
 #ifdef HAPI_INSTRUMENT_WRS
@@ -865,7 +867,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkPrintf("(%d): DM->GPU local tree\n", CkMyPe());
 #endif
 
-  CkCallback *localTransferCallback
+  localTransferCallback
       = new CkCallback(CkIndex_DataManager::startLocalWalk(), CkMyNode(), dMProxy);
 
   // Transfer moments and particle cores to gpu
@@ -888,6 +890,9 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
     localMoments[node_index].type = (int)type;
     localMoments[node_index].nodeArrayIndex = node_index;
     localMoments[node_index].particleCount = node->particleCount;
+    if(type == NonLocalBucket) // NonLocalBucket has no particles on
+                               // the GPU.
+        localMoments[node_index].bucketSize = 0;
     for (int i = 0; i < 2; i ++) {
       localMoments[node_index].children[i] = -1;
     }
@@ -908,9 +913,7 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
       localMoments[node_index].children[i] = child_index;
       transformLocalTreeRecursive(child, localMoments);
 
-      // Here, it's very strange that child_index could be -1 when I run on a single machine
-      // I'm not sure why, probably that child could be the boundary?
-      // Another note: check whether the child is a local node by its size (nonLocalBucket node has zero content)
+      // child_index == -1 can indicate an empty node or a non-local node.
       if (child_index != -1 && localMoments[child_index].bucketSize > 0) {
         localMoments[node_index].bucketStart = std::min(localMoments[node_index].bucketStart, localMoments[child_index].bucketStart);
         localMoments[node_index].bucketSize += localMoments[child_index].bucketSize;
@@ -967,6 +970,7 @@ void DataManager::initiateNextChunkTransfer(){
   CkCallback *remoteChunkTransferCallback
       = new CkCallback(CkIndex_DataManager::resumeRemoteChunk(), CkMyNode(),
                        dMProxy);
+      next->cb = remoteChunkTransferCallback;
 
     CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d, 0x%x (%d); 0x%x (%d) \n", CkMyPe(), next->moments->getVec(), lastChunkMoments, next->particles->getVec(), lastChunkParticles);
 #ifdef HAPI_INSTRUMENT_WRS
