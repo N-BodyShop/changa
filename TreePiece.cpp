@@ -3263,7 +3263,7 @@ bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
     // Find the true owner
     int first, last;
     bool bIsShared = nodeOwnership(msg->key, first, last);
-    if(verbosity > 0) {
+    if(verbosity > 1) {
         CkPrintf("fillRequest empty piece %d: %d %d %d %llx\n", thisIndex,
             first, last, bIsShared, msg->key);
         CkPrintf("fillRequest resp. pieces %d: %d %d\n", thisIndex,
