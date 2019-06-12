@@ -5141,9 +5141,13 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
 	  ((ListCompute *)sGravity)->initCudaState(state, numBuckets, remoteResumeNodesPerReq, remoteResumePartsPerReq, true);
 
-	  state->nodes = new CkVec<CudaMultipoleMoments>(100000);
+          // Preallocate vector of missed nodes.  This is probably an
+          // overestimate.
+          state->nodes = new CkVec<CudaMultipoleMoments>(numBuckets);
           state->nodes->length() = 0;
-	  state->particles = new CkVec<CompactPartData>(200000);
+          // Preallocate vector of missed particles.  This is probably an
+          // overestimate.
+          state->particles = new CkVec<CompactPartData>(myNumActiveParticles);
           state->particles->length() = 0;
           state->nodeMap.clear();
           state->partMap.clear();
