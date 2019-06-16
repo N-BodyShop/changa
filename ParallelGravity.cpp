@@ -2884,7 +2884,7 @@ Main::doSimulation()
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
           if(param.iBinaryOut == 6) {
               // Set up N-Chilada directory structure
-              if(safeMkdir(achFile.c_str()) != 0);
+              if(safeMkdir(achFile.c_str()) != 0)
                   CkAbort("Can't create N-Chilada directories\n");
               if(nTotalSPH > 0) {
                     string dirname(string(achFile) + "/gas");

@@ -3263,7 +3263,7 @@ bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
     // Find the true owner
     int first, last;
     bool bIsShared = nodeOwnership(msg->key, first, last);
-    if(verbosity > 0) {
+    if(verbosity > 1) {
         CkPrintf("fillRequest empty piece %d: %d %d %d %llx\n", thisIndex,
             first, last, bIsShared, msg->key);
         CkPrintf("fillRequest resp. pieces %d: %d %d\n", thisIndex,
@@ -5141,9 +5141,13 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
 	  ((ListCompute *)sGravity)->initCudaState(state, numBuckets, remoteResumeNodesPerReq, remoteResumePartsPerReq, true);
 
-	  state->nodes = new CkVec<CudaMultipoleMoments>(100000);
+          // Preallocate vector of missed nodes.  This is probably an
+          // overestimate.
+          state->nodes = new CkVec<CudaMultipoleMoments>(numBuckets);
           state->nodes->length() = 0;
-	  state->particles = new CkVec<CompactPartData>(200000);
+          // Preallocate vector of missed particles.  This is probably an
+          // overestimate.
+          state->particles = new CkVec<CompactPartData>(myNumActiveParticles);
           state->particles->length() = 0;
           state->nodeMap.clear();
           state->partMap.clear();
