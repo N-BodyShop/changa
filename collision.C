@@ -486,8 +486,8 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
 
     double r = c2.radius;
     double R = c1.radius;
-    double vRel = (c1.velocity - c2.velocity).length();
-    double pRel = (c1.position - c2.position).length();
+    Vector3D<double> vRel = (c1.velocity - c2.velocity);
+    Vector3D<double> pRel = (c1.position - c2.position);
     double cos_theta = costheta(vRel, pRel);
     double sintheta = sqrt(1-pow(cos_theta,2));
 
@@ -498,7 +498,7 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     double wMax = sqrt(Mtot/(radNew*radNew*radNew));
 
 
-    if (vRel > vEsc || wNew.length() > wMax) {
+    if (vRel.length() > vEsc || wNew.length() > wMax) {
         if (!bPerfectAcc) {
             CkPrintf("Merger rejected\n");
             return 0;
