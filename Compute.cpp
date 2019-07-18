@@ -1973,6 +1973,7 @@ void ListCompute::resetCudaPartState(DoubleWalkState *state){
   }
 }
 
+/// A group of node or particle interactions has been completed by the GPU.
 void cudaCallback(void *param, void *msg){
   CudaRequest *data = (CudaRequest *)param;
   // Paranoid about data corruption here.
@@ -2019,6 +2020,11 @@ void cudaCallback(void *param, void *msg){
   if(numBucketsDone > 0){
     delete [] data->affectedBuckets;
   }
+  freePinnedHostMemory(data->list);
+  freePinnedHostMemory(data->bucketMarkers);
+  freePinnedHostMemory(data->bucketStarts);
+  freePinnedHostMemory(data->bucketSizes);
+  
   delete ((CkCallback *)data->cb);
   delete data; 
 #ifdef CHANGA_REFACTOR_MEMCHECK

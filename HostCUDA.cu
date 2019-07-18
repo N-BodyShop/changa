@@ -107,26 +107,7 @@ void run_DM_TRANSFER_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,void*
   printf("cores: 0x%x\n", devBuffers[LOCAL_PARTICLE_CORES]);
   printf("vars: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
 #endif
-  if( wr->buffers[LOCAL_MOMENTS_IDX].transfer_to_device ){
-    hapiHostFree(wr->buffers[LOCAL_MOMENTS_IDX].host_buffer);
-  }
-#ifdef CUDA_PRINT_ERRORS
-  printf("DM_TRANSFER_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-  if( wr->buffers[LOCAL_PARTICLE_CORES_IDX].transfer_to_device ){
-	hapiHostFree(wr->buffers[LOCAL_PARTICLE_CORES_IDX].host_buffer);
-  }
-#ifdef CUDA_PRINT_ERRORS
-  printf("DM_TRANSFER_LOCAL 1: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-  if( wr->buffers[LOCAL_PARTICLE_VARS_IDX].transfer_to_device ){
-	hapiHostFree(wr->buffers[LOCAL_PARTICLE_VARS_IDX].host_buffer);
-  }
-#ifdef CUDA_PRINT_ERRORS
-  printf("DM_TRANSFER_LOCAL 2: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
 }
-
 
 void run_DM_TRANSFER_REMOTE_CHUNK(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
@@ -171,102 +152,28 @@ void run_DM_TRANSFER_FREE_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,
 /// @param nCompactParts
 /// @param mype Only used for debugging
 #ifdef HAPI_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
-                        CompactPartData *compactParts, int nCompactParts,
-                        int mype, char phase, void *wrCallback) {
+void DataManagerTransferLocalTree(void *moments, size_t sMoments,
+                                  void *compactParts, size_t sCompactParts,
+                                  void *varParts, size_t sVarParts,
+                                  int mype, char phase, void *wrCallback) {
 #else
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
-                        CompactPartData *compactParts, int nCompactParts,
-                        int mype, void *wrCallback) {
+void DataManagerTransferLocalTree(void *moments, size_t sMoments,
+                                  void *compactParts, size_t sCompactParts,
+                                  void *varParts, size_t sVarParts,
+                                  int mype, void *wrCallback) {
 #endif
 
 	hapiWorkRequest* transferKernel = hapiCreateWorkRequest();
-	void* bufHostBuffer;
-        size_t size;
 
-        size = (nMoments) * sizeof(CudaMultipoleMoments);
+        transferKernel->addBuffer(moments, sMoments, (sMoments > 0), false,
+                                  false, LOCAL_MOMENTS);
 
-#ifdef CUDA_PRINT_ERRORS
-        printf("(%d) DMLocal 0000: %s\n", mype, cudaGetErrorString( cudaGetLastError() ));
-#endif
-        if(size > 0){
-#ifdef HAPI_USE_CUDAMALLOCHOST
-#ifdef HAPI_MEMPOOL
-          bufHostBuffer = hapiPoolMalloc(size);
-#else
-          cudaMallocHost(&bufHostBuffer, size);
-#endif
-#else
-          bufHostBuffer = malloc(size);
-#endif
-        }
-        else{
-          bufHostBuffer = NULL;
-        }
+        transferKernel->addBuffer(compactParts, sCompactParts,
+                                  (sCompactParts > 0), false, false,
+                                  LOCAL_PARTICLE_CORES);
 
-#ifdef CUDA_PRINT_ERRORS
-        printf("(%d) DMLocal 0: %s hostBuf: 0x%x, size: %zu\n", mype, cudaGetErrorString( cudaGetLastError() ), bufHostBuffer, size );
-#endif
-        memcpy(bufHostBuffer, moments, size);
-
-        transferKernel->addBuffer(bufHostBuffer, size, (size > 0), false,
-                                      false, LOCAL_MOMENTS);
-
-        size = (nCompactParts)*sizeof(CompactPartData);
-
-        if(size > 0){
-#ifdef HAPI_USE_CUDAMALLOCHOST
-#ifdef HAPI_MEMPOOL
-          bufHostBuffer = hapiPoolMalloc(size);
-#else
-          cudaMallocHost(&bufHostBuffer, size);
-#endif
-#else
-          bufHostBuffer = malloc(size);
-#endif
-#ifdef CUDA_PRINT_ERRORS
-          printf("(%d) DMLocal 1: %s\n", mype, cudaGetErrorString( cudaGetLastError() ) );
-#endif
-          memcpy(bufHostBuffer, compactParts, size);
-        }
-        else{
-          bufHostBuffer = NULL;
-        }
-
-        transferKernel->addBuffer(bufHostBuffer, size, (size > 0), false,
-                                      false, LOCAL_PARTICLE_CORES);
-
-        VariablePartData *zeroArray;
-
-        size = (nCompactParts)*sizeof(VariablePartData);
-
-        if(size > 0){
-#ifdef HAPI_USE_CUDAMALLOCHOST
-#ifdef HAPI_MEMPOOL
-          bufHostBuffer = hapiPoolMalloc(size);
-#else
-          cudaMallocHost(&bufHostBuffer, size);
-#endif
-#else
-          bufHostBuffer = malloc(size);
-#endif
-#ifdef CUDA_PRINT_ERRORS
-          printf("(%d) DMLocal 2: %s\n", mype, cudaGetErrorString( cudaGetLastError() ));
-#endif
-          zeroArray = (VariablePartData *) bufHostBuffer;
-          for(int i = 0; i < nCompactParts; i++){
-            zeroArray[i].a.x = 0.0;
-            zeroArray[i].a.y = 0.0;
-            zeroArray[i].a.z = 0.0;
-            zeroArray[i].potential = 0.0;
-            zeroArray[i].dtGrav = 0.0;
-          }
-        }
-        else{
-          bufHostBuffer = NULL;
-        }
-
-	transferKernel->addBuffer(bufHostBuffer, size, (size > 0), false, false, LOCAL_PARTICLE_VARS);
+	transferKernel->addBuffer(varParts, sVarParts, (sVarParts > 0), false,
+                                  false, LOCAL_PARTICLE_VARS);
 
 	transferKernel->setDeviceToHostCallback(wrCallback);
 #ifdef HAPI_TRACE
@@ -368,6 +275,7 @@ void run_TP_GRAVITY_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,void**
       devBuffers[wr->buffers[ILCELL_IDX].id]
       );
 #endif
+printf("TP_GRAVITY_LOCAL stream %x\n", kernel_stream);
   if( wr->buffers[ILCELL_IDX].transfer_to_device ){
 #ifndef CUDA_NO_KERNELS
   #ifdef GPU_LOCAL_TREE_WALK
@@ -401,10 +309,6 @@ void run_TP_GRAVITY_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,void**
     cudaChk(cudaPeekAtLastError());
 #endif
     HAPI_TRACE_BEGIN();
-    hapiHostFree((ILCell *)wr->buffers[ILCELL_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[NODE_BUCKET_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[NODE_BUCKET_START_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[NODE_BUCKET_SIZES_IDX].host_buffer);
 
 #ifdef CUDA_PRINT_ERRORS
     printf("TP_GRAVITY_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
@@ -456,11 +360,6 @@ void run_TP_PART_GRAVITY_LOCAL_SMALLPHASE(hapiWorkRequest *wr, cudaStream_t kern
 
 
     HAPI_TRACE_BEGIN();
-    hapiHostFree((CompactPartData *)wr->buffers[MISSED_PARTS_IDX].host_buffer);
-    hapiHostFree(wr->buffers[ILPART_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_START_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_SIZES_IDX].host_buffer);
 
 #ifdef CUDA_PRINT_ERRORS
     printf("TP_PART_GRAVITY_LOCAL_SMALLPHASE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
@@ -479,6 +378,7 @@ void run_TP_PART_GRAVITY_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,v
       devBuffers[wr->buffers[ILPART_IDX].id]
       );
 #endif
+printf("TP_PART_GRAVITY_LOCAL stream %x\n", kernel_stream);
   if( wr->buffers[ILPART_IDX].transfer_to_device ){
 #ifndef CUDA_NO_KERNELS
 #ifdef CUDA_2D_TB_KERNEL
@@ -510,10 +410,6 @@ void run_TP_PART_GRAVITY_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,v
 #endif
 
     HAPI_TRACE_BEGIN();
-    hapiHostFree(wr->buffers[ILPART_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_START_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_SIZES_IDX].host_buffer);
 
 #ifdef CUDA_PRINT_ERRORS
     printf("TP_PART_GRAVITY_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
@@ -549,12 +445,7 @@ void run_TP_GRAVITY_REMOTE(hapiWorkRequest *wr, cudaStream_t kernel_stream,void*
     cudaChk(cudaPeekAtLastError());
 #endif
 
-
     HAPI_TRACE_BEGIN();
-    hapiHostFree((ILCell *)wr->buffers[ILCELL_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[NODE_BUCKET_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[NODE_BUCKET_START_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[NODE_BUCKET_SIZES_IDX].host_buffer);
 #ifdef CUDA_PRINT_ERRORS
     printf("TP_GRAVITY_REMOTE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -604,10 +495,6 @@ void run_TP_PART_GRAVITY_REMOTE(hapiWorkRequest *wr, cudaStream_t kernel_stream,
 
 
     HAPI_TRACE_BEGIN();
-    hapiHostFree(wr->buffers[ILPART_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_START_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_SIZES_IDX].host_buffer);
 
 #ifdef CUDA_PRINT_ERRORS
     printf("TP_PART_GRAVITY_REMOTE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
