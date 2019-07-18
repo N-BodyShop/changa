@@ -9,6 +9,7 @@
 #include "formatted_string.h"
 
 #ifdef CUDA
+#include "hapi.h"
 #include "cuda_typedef.h"
 #include "SFC.h"
 
@@ -52,6 +53,7 @@ void DataManager::init() {
 #endif
 
   gpuFree = true;
+  hapiCreateStreams();
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
@@ -511,6 +513,9 @@ void DataManager::startLocalWalk() {
       int in = registeredTreePieces[i].treePiece->getIndex();
       treePieces[in].commenceCalculateGravityLocal();
     }
+    freePinnedHostMemory(bufLocalMoments);
+    freePinnedHostMemory(bufLocalParts);
+    freePinnedHostMemory(bufLocalVars);
 }
 
 /// @brief Callback from remote data transfer to GPU.
@@ -870,11 +875,35 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   localTransferCallback
       = new CkCallback(CkIndex_DataManager::startLocalWalk(), CkMyNode(), dMProxy);
 
+  // XXX copies can be saved here.
+  size_t sLocalMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
+  allocatePinnedHostMemory((void **)&bufLocalMoments, sLocalMoments);
+  memcpy(bufLocalMoments, localMoments.getVec(), sLocalMoments);
+
+  size_t sLocalParts = localParticles.length()*sizeof(CompactPartData);
+  allocatePinnedHostMemory((void **)&bufLocalParts, sLocalParts);
+  memcpy(bufLocalParts, localParticles.getVec(), sLocalParts);
+
+  size_t sLocalVars = localParticles.length()*sizeof(VariablePartData);
+  allocatePinnedHostMemory((void **)&bufLocalVars, sLocalVars);
+  VariablePartData *zeroArray =  (VariablePartData *) bufLocalVars;
+// XXX This could be done on the GPU.
+  for(int i = 0; i < numParticles; i++){
+      zeroArray[i].a.x = 0.0;
+      zeroArray[i].a.y = 0.0;
+      zeroArray[i].a.z = 0.0;
+      zeroArray[i].potential = 0.0;
+      zeroArray[i].dtGrav = 0.0;
+      }
   // Transfer moments and particle cores to gpu
 #ifdef HAPI_INSTRUMENT_WRS
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, 0, activeRung, localTransferCallback);
+  DataManagerTransferLocalTree(bufLocalMoments, sLocalMoments, bufLocalParts,
+                               sLocalParts, bufLocalVars, sLocalVars, 0,
+                               activeRung, localTransferCallback);
 #else
-  DataManagerTransferLocalTree(localMoments.getVec(), localMoments.length(), localParticles.getVec(), partIndex, CkMyPe(), localTransferCallback);
+  DataManagerTransferLocalTree(bufLocalMoments, sLocalMoments, bufLocalParts,
+                               sLocalParts, bufLocalVars, sLocalVars,
+                               CkMyPe(), localTransferCallback);
 #endif
 }// end serializeLocal
 
@@ -987,8 +1016,6 @@ void DataManager::initiateNextChunkTransfer(){
 }
 
 void updateParticlesCallback(void *, void *);
-void allocatePinnedHostMemory(void **, size_t);
-void freePinnedHostMemory(void *);
 
 void DataManager::transferParticleVarsBack(){
   UpdateParticlesStruct *data;
