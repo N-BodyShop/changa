@@ -497,6 +497,15 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     double vEsc = sqrt(2.*Mint/(c1.radius + c2.radius));
     double wMax = sqrt(Mtot/(radNew*radNew*radNew));
 
+    double b = sintheta ;
+    double bcrit = (R) / (R+r) ;
+    if (b > bcrit) {
+        CkPrintf ("grazing collision\n");
+        } else  {
+            CkPrintf ('nongrazing collision\n') ;
+        }
+
+
 
     if (vRel.length() > vEsc || wNew.length() > wMax) {
         if (!bPerfectAcc) {
