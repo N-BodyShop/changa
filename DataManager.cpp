@@ -530,6 +530,11 @@ void DataManager::resumeRemoteChunk() {
   delete currentChunkBuffers->cb;
   delete currentChunkBuffers;
 
+  if(bufRemoteMoments != NULL)
+      freePinnedHostMemory(bufRemoteMoments);
+  if(bufRemoteParts != NULL)
+      freePinnedHostMemory(bufRemoteParts);
+
     // resume each treepiece's startRemoteChunk, now that the nodes
     // are properly labeled and the particles accounted for
     for(int i = 0; i < registeredTreePieces.length(); i++){
@@ -568,18 +573,36 @@ void DataManager::donePrefetch(int chunk){
           = new CkCallback(CkIndex_DataManager::resumeRemoteChunk(), CkMyNode(),
                            dMProxy);
       buffers->cb = remoteChunkTransferCallback;
+      // XXX copies can be saved here.
+      size_t sRemMoments = lastChunkMoments*sizeof(CudaMultipoleMoments);
+      if(sRemMoments > 0) {
+          allocatePinnedHostMemory((void **)&bufRemoteMoments, sRemMoments);
+          memcpy(bufRemoteMoments, buffers->moments->getVec(), sRemMoments);
+          }
+      else
+          bufRemoteMoments = NULL;
+      size_t sRemParts = lastChunkParticles*sizeof(CompactPartData);
+      if(sRemParts > 0) {
+          allocatePinnedHostMemory((void **)&bufRemoteParts, sRemParts);
+          memcpy(bufRemoteParts, buffers->particles->getVec(), sRemParts);
+          }
+      else
+          bufRemoteParts = NULL;
 
       // Transfer moments and particle cores to gpu
 #ifdef HAPI_INSTRUMENT_WRS
-  DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles, 0, activeRung, remoteChunkTransferCallback);
+      DataManagerTransferRemoteChunk(bufRemoteMoments, sRemMoments,
+                                     bufRemoteParts, sRemParts, 0, activeRung,
+                                     remoteChunkTransferCallback);
 #else
-  DataManagerTransferRemoteChunk(buffers->moments->getVec(), lastChunkMoments, buffers->particles->getVec(), lastChunkParticles, remoteChunkTransferCallback);
+      DataManagerTransferRemoteChunk(bufRemoteMoments, sRemMoments,
+                                     bufRemoteParts, sRemParts,
+                                     remoteChunkTransferCallback);
 #endif
 
     }
     else{
       // enqueue pendingbuffers
-      //CkPrintf("(%d) DM donePrefetch gpu not free, enqueuing\n", CkMyPe());
       pendingChunkTransferQ.enq(buffers);
     }
     
@@ -1001,16 +1024,35 @@ void DataManager::initiateNextChunkTransfer(){
                        dMProxy);
       next->cb = remoteChunkTransferCallback;
 
-    CkPrintf("(%d) DM initiateNextChunkTransfer chunk %d, 0x%x (%d); 0x%x (%d) \n", CkMyPe(), next->moments->getVec(), lastChunkMoments, next->particles->getVec(), lastChunkParticles);
-#ifdef HAPI_INSTRUMENT_WRS
-    DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length(), 0, activeRung, remoteChunkTransferCallback);
-#else
-    DataManagerTransferRemoteChunk(next->moments->getVec(), next->moments->length(), next->particles->getVec(), next->particles->length(), remoteChunkTransferCallback);
-#endif
+      // XXX copies can be saved here.
+      size_t sRemMoments = lastChunkMoments*sizeof(CudaMultipoleMoments);
+      if(sRemMoments > 0) {
+          allocatePinnedHostMemory((void **)&bufRemoteMoments, sRemMoments);
+          memcpy(bufRemoteMoments, next->moments->getVec(), sRemMoments);
+          }
+      else
+          bufRemoteMoments = NULL;
 
+      size_t sRemParts = lastChunkParticles*sizeof(CompactPartData);
+      if(sRemParts > 0) {
+          allocatePinnedHostMemory((void **)&bufRemoteParts, sRemParts);
+          memcpy(bufRemoteParts, next->particles->getVec(), sRemParts);
+          }
+      else
+          bufRemoteParts = NULL;
+
+      // Transfer moments and particle cores to gpu
+#ifdef HAPI_INSTRUMENT_WRS
+      DataManagerTransferRemoteChunk(bufRemoteMoments, sRemMoments,
+                                     bufRemoteParts, sRemParts, 0, activeRung,
+                                     remoteChunkTransferCallback);
+#else
+      DataManagerTransferRemoteChunk(bufRemoteMoments, sRemMoments,
+                                     bufRemoteParts, sRemParts,
+                                     remoteChunkTransferCallback);
+#endif
   }
   else{
-    //CkPrintf("(%d) DM initiateNextChunkTransfer no chunks found, gpu is free\n", CkMyPe());
     gpuFree = true;
   }
 }
