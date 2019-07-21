@@ -130,6 +130,10 @@ typedef struct _CudaRequest{
                                  *  this request */
         void *tp;               /**< Pointer to TreePiece that made
                                  * this request */
+        /// pointer to off-processor Node/Particle buffer.
+        void *missedNodes;
+        /// Size of the off-processor data buffer.
+        size_t sMissed;
 
 	/// these buckets were finished in this work request
 	int *affectedBuckets;
@@ -197,7 +201,9 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *varParts, size_t sVarParts,
                                   int mype, void *wrCallback);
-void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, void *wrCallback);
+void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
+                                  void *compactParts, size_t sCompactParts,
+                                  void *wrCallback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
 /** @brief Transfer forces from the GPU back to the host.

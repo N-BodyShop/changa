@@ -124,6 +124,10 @@ protected:
         // last remote chunk's size in moments and particles
         int lastChunkMoments;
         int lastChunkParticles;
+        /// host buffer to transfer remote moments to GPU
+        CudaMultipoleMoments *bufRemoteMoments;
+        /// host buffer to transfer remote particles to GPU
+        CompactPartData *bufRemoteParts;
 
         /// host buffer to transfer local moments to GPU
         CudaMultipoleMoments *bufLocalMoments;

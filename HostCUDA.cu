@@ -113,19 +113,6 @@ void run_DM_TRANSFER_REMOTE_CHUNK(hapiWorkRequest *wr, cudaStream_t kernel_strea
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("DM_TRANSFER_REMOTE_CHUNK, %d KERNELSELECT\n", wr->buffers[REMOTE_MOMENTS_IDX].transfer_to_device);
 #endif
-  if( wr->buffers[REMOTE_MOMENTS_IDX].transfer_to_device ){
-    hapiHostFree(wr->buffers[REMOTE_MOMENTS_IDX].host_buffer);
-#ifdef CUDA_PRINT_ERRORS
-    printf("DM_TRANSFER_REMOTE_CHUNK 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-  }
-
-  if( wr->buffers[REMOTE_PARTICLE_CORES_IDX].transfer_to_device ){
-    hapiHostFree(wr->buffers[REMOTE_PARTICLE_CORES_IDX].host_buffer);
-#ifdef CUDA_PRINT_ERRORS
-    printf("DM_TRANSFER_REMOTE_CHUNK 1: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-  }
 }
 
 
@@ -201,41 +188,22 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 }
 
 #ifdef HAPI_INSTRUMENT_WRS
-  void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase, void *wrCallback) {
+void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
+                                    void *compactParts, size_t sCompactParts,
+                                    int mype, char phase, void *wrCallback) {
 #else
-    void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, void *wrCallback) {
+void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
+                                    void *compactParts, size_t sCompactParts,
+                                    void *wrCallback) {
 #endif
 
   hapiWorkRequest* transferKernel = hapiCreateWorkRequest();
-  void* bufHostBuffer;
-  size_t size;
 
-  size = (nMoments) * sizeof(CudaMultipoleMoments);
-  
-  if(size > 0){
-    CUDA_MALLOC(bufHostBuffer, size);
-#ifdef CUDA_PRINT_ERRORS
-    printf("DMRemote 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-    memcpy(bufHostBuffer, moments, size);
-  }
-
-  transferKernel->addBuffer(bufHostBuffer, size, (size > 0), false, false,
+  transferKernel->addBuffer(moments, sMoments, (sMoments > 0), false, false,
                                 REMOTE_MOMENTS);
 
-  size = (nCompactParts)*sizeof(CompactPartData);  
-  //printf("DM remote cores: %f mbytes\n", 1.0*size/mill);
-
-  if(size > 0){
-    CUDA_MALLOC(bufHostBuffer, size);
-#ifdef CUDA_PRINT_ERRORS
-    printf("DMRemote 1: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-    memcpy(bufHostBuffer, compactParts, size);
-  }
-
-  transferKernel->addBuffer(bufHostBuffer, size, (size > 0), false, false,
-                                REMOTE_PARTICLE_CORES);
+  transferKernel->addBuffer(compactParts, sCompactParts, (sCompactParts > 0),
+                            false, false, REMOTE_PARTICLE_CORES);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) DM REMOTE CHUNK moments %zu (%d) partcores %zu (%d)\n",
@@ -533,11 +501,6 @@ void run_TP_GRAVITY_REMOTE_RESUME(hapiWorkRequest *wr, cudaStream_t kernel_strea
 
 
     HAPI_TRACE_BEGIN();
-    hapiHostFree((CudaMultipoleMoments *)wr->buffers[MISSED_MOMENTS_IDX].host_buffer);
-    hapiHostFree((ILCell *)wr->buffers[ILCELL_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[NODE_BUCKET_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[NODE_BUCKET_START_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[NODE_BUCKET_SIZES_IDX].host_buffer);
 #ifdef CUDA_PRINT_ERRORS
     printf("TP_GRAVITY_REMOTE_RESUME 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -667,7 +630,7 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 	hapiEnqueue(gravityKernel);
 }
 
-void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleMoments *missedMoments, int numMissedMoments){
+void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
   int numBlocks = data->numBucketsPlusOne-1;
   size_t size;
 
@@ -684,21 +647,13 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleM
   TreePieceCellListDataTransferBasic(data, gravityKernel);
   transfer = gravityKernel->buffers[ILCELL_IDX].transfer_to_device;
 
-  size = (numMissedMoments) * sizeof(CudaMultipoleMoments);
-
-  if(transfer){
-    CUDA_MALLOC(bufferHostBuffer, size);
-#ifdef CUDA_PRINT_ERRORS
-    printf("TPRR 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-    memcpy(bufferHostBuffer, missedMoments, size);
-  }
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) TRANSFER REMOTE RESUME CELL %d (%d)\n", CmiMyPe(),
         size, transfer);
 #endif
 
-  gravityKernel->addBuffer(bufferHostBuffer, size, transfer, false, transfer);
+  gravityKernel->addBuffer(data->missedNodes, data->sMissed, transfer, false,
+                           transfer);
 
   ParameterStruct *ptr = (ParameterStruct *)gravityKernel->getUserData();
 
