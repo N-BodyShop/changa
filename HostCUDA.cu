@@ -2281,8 +2281,12 @@ __global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *pa
 
 void run_EWALD_KERNEL_Large(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
   int *Ewaldptr = (int*)wr->getUserData();
-  cudaChk(cudaMemcpyToSymbol(cachedData, wr->buffers[EWALD_READ_ONLY_DATA_IDX].host_buffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice));
-  cudaChk(cudaMemcpyToSymbol(ewt, wr->buffers[EWALD_TABLE_IDX].host_buffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice));
+  cudaChk(cudaMemcpyToSymbolAsync(cachedData, wr->buffers[EWALD_READ_ONLY_DATA_IDX].host_buffer,
+                                  sizeof(EwaldReadOnlyData), 0,
+                                  cudaMemcpyHostToDevice, kernel_stream));
+  cudaChk(cudaMemcpyToSymbolAsync(ewt, wr->buffers[EWALD_TABLE_IDX].host_buffer,
+                                  NEWH * sizeof(EwtData), 0,
+                                  cudaMemcpyHostToDevice, kernel_stream));
   EwaldKernel<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
     ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
      (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
@@ -2296,8 +2300,12 @@ void run_EWALD_KERNEL_Large(hapiWorkRequest *wr, cudaStream_t kernel_stream,void
 
 void run_EWALD_KERNEL_Small(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
   int *Ewaldptr = (int*)wr->getUserData();
-  cudaChk(cudaMemcpyToSymbol(cachedData, wr->buffers[EWALD_READ_ONLY_DATA_IDX].host_buffer, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice));
-  cudaChk(cudaMemcpyToSymbol(ewt, wr->buffers[EWALD_TABLE_IDX].host_buffer, NEWH * sizeof(EwtData), 0, cudaMemcpyHostToDevice));
+  cudaChk(cudaMemcpyToSymbolAsync(cachedData, wr->buffers[EWALD_READ_ONLY_DATA_IDX].host_buffer,
+                                  sizeof(EwaldReadOnlyData), 0,
+                                  cudaMemcpyHostToDevice, kernel_stream));
+  cudaChk(cudaMemcpyToSymbolAsync(ewt, wr->buffers[EWALD_TABLE_IDX].host_buffer,
+                                  NEWH * sizeof(EwtData), 0,
+                                  cudaMemcpyHostToDevice, kernel_stream));
   EwaldKernel<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
     ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
      (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
@@ -2312,35 +2320,19 @@ void run_EWALD_KERNEL_Small(hapiWorkRequest *wr, cudaStream_t kernel_stream,void
 extern unsigned int timerHandle; 
 
 void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop, int largephase) {
-#ifdef HAPI_MEMPOOL
   if(largephase)
-    h_idata->EwaldMarkers = (int *) hapiPoolMalloc((nParticles)*sizeof(int));
+    allocatePinnedHostMemory((void **)&(h_idata->EwaldMarkers), nParticles*sizeof(int));
   else
     h_idata->EwaldMarkers = NULL;
-  h_idata->ewt = (EwtData *) hapiPoolMalloc((nEwhLoop)*sizeof(EwtData));
-  h_idata->cachedData = (EwaldReadOnlyData *) hapiPoolMalloc(sizeof(EwaldReadOnlyData));
-#else
-  if(largephase)
-    cudaMallocHost((void**)&(h_idata->EwaldMarkers), (nParticles)*sizeof(int));
-  else
-    h_idata->EwaldMarkers = NULL;
-  cudaMallocHost((void**)&(h_idata->ewt), nEwhLoop * sizeof(EwtData));
-  cudaMallocHost((void**)&(h_idata->cachedData), sizeof(EwaldReadOnlyData));
-#endif
+  allocatePinnedHostMemory((void **)&(h_idata->ewt), nEwhLoop*sizeof(EwtData));
+  allocatePinnedHostMemory((void **)&(h_idata->cachedData), sizeof(EwaldReadOnlyData));
 }
 
 void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
-#ifdef HAPI_MEMPOOL
   if(largephase)
-    hapiPoolFree(h_idata->EwaldMarkers);
-  hapiPoolFree(h_idata->ewt);
-      hapiPoolFree(h_idata->cachedData);
-#else
-  if(largephase)
-    cudaFreeHost(h_idata->EwaldMarkers); 
-  cudaFreeHost(h_idata->ewt); 
-  cudaFreeHost(h_idata->cachedData); 
-#endif
+    freePinnedHostMemory(h_idata->EwaldMarkers);
+  freePinnedHostMemory(h_idata->ewt);
+  freePinnedHostMemory(h_idata->cachedData);
 }
 
 /** @brief Set up CUDA kernels to perform Ewald sum.
