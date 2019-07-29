@@ -132,6 +132,7 @@ typedef struct _CudaRequest{
                                  * this request */
         /// pointer to off-processor Node/Particle buffer.
         void *missedNodes;
+        void *missedParts;
         /// Size of the off-processor data buffer.
         size_t sMissed;
 
@@ -223,13 +224,13 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *c
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
 void TreePieceCellListDataTransferRemote(CudaRequest *data);
-void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleMoments *missedMoments, int numMissedMoments);
+void TreePieceCellListDataTransferRemoteResume(CudaRequest *data);
 
 
 void TreePiecePartListDataTransferLocal(CudaRequest *data);
 void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *parts, int len);
 void TreePiecePartListDataTransferRemote(CudaRequest *data);
-void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartData *missedParticles, int numMissedParticles);
+void TreePiecePartListDataTransferRemoteResume(CudaRequest *data);
 
 void DummyKernel(void *cb);
 
