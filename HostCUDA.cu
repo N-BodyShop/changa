@@ -243,7 +243,6 @@ void run_TP_GRAVITY_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,void**
       devBuffers[wr->buffers[ILCELL_IDX].id]
       );
 #endif
-printf("TP_GRAVITY_LOCAL stream %x\n", kernel_stream);
   if( wr->buffers[ILCELL_IDX].transfer_to_device ){
 #ifndef CUDA_NO_KERNELS
   #ifdef GPU_LOCAL_TREE_WALK
@@ -346,7 +345,6 @@ void run_TP_PART_GRAVITY_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,v
       devBuffers[wr->buffers[ILPART_IDX].id]
       );
 #endif
-printf("TP_PART_GRAVITY_LOCAL stream %x\n", kernel_stream);
   if( wr->buffers[ILPART_IDX].transfer_to_device ){
 #ifndef CUDA_NO_KERNELS
 #ifdef CUDA_2D_TB_KERNEL
@@ -550,13 +548,7 @@ void run_TP_PART_GRAVITY_REMOTE_RESUME(hapiWorkRequest *wr, cudaStream_t kernel_
     cudaChk(cudaPeekAtLastError());
 #endif
 
-
     HAPI_TRACE_BEGIN();
-    hapiHostFree((CompactPartData *)wr->buffers[MISSED_PARTS_IDX].host_buffer);
-    hapiHostFree(wr->buffers[ILPART_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_START_MARKERS_IDX].host_buffer);
-    hapiHostFree((int *)wr->buffers[PART_BUCKET_SIZES_IDX].host_buffer);
 #ifdef CUDA_PRINT_ERRORS
     printf("TP_PART_GRAVITY_REMOTE_RESUME 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -632,10 +624,8 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 
 void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
   int numBlocks = data->numBucketsPlusOne-1;
-  size_t size;
 
   hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-  void* bufferHostBuffer;
   bool transfer;
 
 #ifdef CUDA_2D_TB_KERNEL
@@ -830,14 +820,12 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 	hapiEnqueue(gravityKernel);
 }
 
-void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartData *missedParts, int numMissedParts){
+void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
 	int numBlocks = data->numBucketsPlusOne-1;
-        size_t size;
         ParameterStruct *ptr;
         bool transfer;
 
 	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-	void* bufferHostBuffer;
 
 #ifdef CUDA_2D_TB_KERNEL
 	gravityKernel->setExecParams(numBlocks, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART));
@@ -848,8 +836,6 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
 	TreePiecePartListDataTransferBasic(data, gravityKernel);
         transfer = gravityKernel->buffers[ILPART_IDX].transfer_to_device;
 
-        size = (numMissedParts) * sizeof(CompactPartData);
-
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) TRANSFER REMOTE RESUME PART %zu (%d)\n",
             CmiMyPe(),
@@ -858,14 +844,8 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartDat
             );
 #endif
 
-        if(transfer){
-          CUDA_MALLOC(bufferHostBuffer, size);
-#ifdef CUDA_PRINT_ERRORS
-          printf("TPPartRR 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-          memcpy(bufferHostBuffer, missedParts, size);
-        }
-        gravityKernel->addBuffer(bufferHostBuffer, size, transfer, false, transfer);
+        gravityKernel->addBuffer(data->missedParts, data->sMissed, transfer,
+                                 false, transfer);
 
         ptr = (ParameterStruct *)gravityKernel->getUserData();
 
