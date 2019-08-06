@@ -355,9 +355,10 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
-	  p | treeAcceleration;
-	  p | fDensity;
-	  p | fBall;
+          p | treeAcceleration;
+          p | dtGrav;
+          p | fDensity;
+          p | fBall;
           p | iOrder;
           p | rung;
 	  p | iType;
