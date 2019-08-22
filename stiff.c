@@ -18,20 +18,20 @@
 #include <assert.h>
 #include "stiff.h"
 
-inline double max(double x, double y) 
+static inline double max(double x, double y) 
 {
     if(x > y) return x;
     else return y;
     }
 
-inline double min(double a, double b)
+static inline double min(double a, double b)
 {
     if(a < b) return a;
     else return b;
     }
 
 /* implement fortran sign function: return a with the sign of b */
-inline double sign(double a, double b) 
+static inline double sign(double a, double b) 
 {
     double aabs = fabs(a);
     if(b >= 0.0) return aabs;
