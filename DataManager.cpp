@@ -512,6 +512,11 @@ void DataManager::startLocalWalk() {
       if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
       int in = registeredTreePieces[i].treePiece->getIndex();
       treePieces[in].commenceCalculateGravityLocal();
+      dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+      // Make priority lower than gravity or smooth.
+      *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
+      CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+      treePieces[in].calculateEwald(msg);
     }
     freePinnedHostMemory(bufLocalMoments);
     freePinnedHostMemory(bufLocalParts);

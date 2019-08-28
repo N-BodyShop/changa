@@ -4096,12 +4096,11 @@ void TreePiece::calculateGravityLocal() {
 
 void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
-  if(dm->gputransfer){
+  if(dm->gputransfer && bEwaldInited){
     thisProxy[thisIndex].EwaldGPU();
-    delete msg;
-  }else{
-    thisProxy[thisIndex].calculateEwald(msg);
+    bEwaldInited = false;
   }
+  delete msg;
 #else
 
   bool useckloop = false;
