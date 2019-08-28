@@ -1196,6 +1196,8 @@ private:
 #ifdef HEXADECAPOLE
 	MOMC momcRoot;		/* complete moments of root */
 #endif
+        /// Have the Ewald h loop tables been calculated.
+        bool bEwaldInited;
 
 	int bGasCooling;
 #ifndef COOLING_NONE
@@ -1458,6 +1460,7 @@ public:
 	  prefetchRoots = NULL;
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
+          bEwaldInited = false;
 
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
@@ -1499,6 +1502,7 @@ public:
 	  prefetchRoots = NULL;
 	  //remaining Chunk = NULL;
           ewt = NULL;
+          bEwaldInited = false;
 	  root = NULL;
 	  pTreeNodes = NULL;
 
