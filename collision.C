@@ -482,7 +482,11 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     mergeCalc(c1.radius, c1.mass, pAdjust, c1.velocity, c1.acceleration,
               c1.w, &posNew, &vNew, &wNew, &aNew, &radNew, c2);
 
-    double Mtot = c1.mass + c2.mass;
+    double m = c2.mass;
+    double M = c1.mass;
+    double Mtot = M + m ;
+
+
 
     double r = c2.radius;
     double R = c1.radius;
@@ -502,9 +506,32 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     if (b > bcrit) {
         CkPrintf ("grazing collision\n");
         } else  {
-            CkPrintf ('nongrazing collision\n') ;
+            CkPrintf ("nongrazing collision\n") ;
         }
+    double density = 5.028e-28;
+    double RC1 = (Mtot)/(density);
 
+    double cs = 1;
+    double dDenFac = 4./3.* M_PI;
+    double row1 = Mtot/ (4/3* dDenFac* pow(r,3));
+    double QsRD = (cs) * (4/5)* dDenFac * row1 * (pow(RC1,2));
+    double Vsy = pow(32*dDenFac,.5)/5 * pow(row1,.5) * RC1;
+
+    //we defined alpha in line 700 upcoming is step c(idk what Mtarget is)
+    double Mp = pow(4*r,3);
+    double Mtarget = M ;
+    double mu = (M + m) / (M*m); 
+
+
+    // d 
+    double Vs = (QsRD) * (Vsy);
+
+    // e for equation 15  i dont understand it's exponet and how to do square root ex on eq16
+    double Vbars = sqrt(1/alpha * pow(Vs,2));  
+    double mubar = 1; //set by user
+    double QsRDa = 1/ alpha * QsRD * pow(Vbars/Vs,2-(3*mubar)) ;
+    double Vsa = sqrt((2*(QsRDa)* Mtot)/ mu );
+ 
 
 
     if (vRel.length() > vEsc || wNew.length() > wMax) {
