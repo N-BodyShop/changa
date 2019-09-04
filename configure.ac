@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([ChaNGa], [3.3], [changa-users@u.washington.edu])
+AC_INIT([ChaNGa], [3.4], [changa-users@u.washington.edu])
 AC_DEFINE_UNQUOTED([NBODY_PACKAGE_VERSION], [$PACKAGE_VERSION])
 AC_CONFIG_SRCDIR([Reductions.h])
 
