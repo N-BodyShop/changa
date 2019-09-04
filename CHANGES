@@ -1,3 +1,51 @@
+What's new in ChaNGa 3.4 (Since 3.3)
+
+===============================================================================
+
+General changes:
+
+- Move to Charm version 6.9.0
+  This move requires the use of a C++11 compliant compiler.  For GCC this is
+  version 4.8.1 or later.
+
+- C++ file rename to ".cpp".
+
+- Improved configure/make system.
+
+Physics Changes:
+
+- Molecular Hydrogen physics for star formation and feedback
+
+- Metal cooling
+
+- Protoplanetary disk cooling
+
+- Superbubble feedback
+
+- Early UV feedback
+
+- Supermassive Black Hole formation and feedback
+
+- Self-Interacting Dark Matter
+
+- Gas splitting
+
+Parallel performance changes:
+
+- Local tree walk can be performed on the GPU.
+
+- Better memory use in GPU code.
+
+- More even distribution of work across processors when multistepping
+
+Code cleanup:
+
+- Refactored Main timestepping routine.
+
+- Bug fixes.
+
+===============================================================================
+
 What's new in ChaNGa 3.3 (Since 3.2)
 
 ===============================================================================
