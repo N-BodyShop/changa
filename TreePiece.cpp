@@ -45,13 +45,6 @@
 #endif
 #endif
 
-/*
-// uncomment when using cuda version of charm but running without GPUs
-struct hapiWorkRequest; 
-void kernelSelect(hapiWorkRequest* wr) {
-}
-*/
-
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
 #endif
