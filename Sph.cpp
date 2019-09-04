@@ -1317,7 +1317,8 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTh
             fThermalCond = 0;
             fThermalCond2 = 0;
         }
-        double fSat = p->fDensity*p->c()*p->fThermalLength();
+        // conductivity is limited by propagation of electrons
+        double fSat = p->fDensity*p->c()*0.5*p->fBall;
         double fThermalCondSat = fSat*dThermalCondSatCoeff;
         double fThermalCond2Sat = fSat*dThermalCond2SatCoeff;
         p->fThermalCond() = (fThermalCond < fThermalCondSat ? fThermalCond : fThermalCondSat) +
@@ -1384,7 +1385,8 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
             fThermalCond = 0;
             fThermalCond2 = 0;
         }
-        double fSat = p->fDensity*p->c()*p->fThermalLength();
+        // conductivity is limitied by propagation of electrons
+        double fSat = p->fDensity*p->c()*0.5*p->fBall;
         double fThermalCondSat = fSat*dThermalCondSatCoeff;
         double fThermalCond2Sat = fSat*dThermalCond2SatCoeff;
         p->fThermalCond() = (fThermalCond < fThermalCondSat ? fThermalCond : fThermalCondSat) +
