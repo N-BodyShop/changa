@@ -943,6 +943,7 @@ void TreePiece::updateuDot(int activeRung,
 	    else { 
 		p->uDot() = ExternalHeating;
 		}
+            CkAssert(isfinite(p->uDot()));
 	    }
 	}
 #endif
@@ -1824,8 +1825,9 @@ void DistDeletedGasSmoothParams::combSmoothCache(GravityParticle *p1,
 	            fTCool = 1.01*p1->uPred()/p1->uDot(); 
 	        p1->u() = f1*p1->u() + f2*p2->u;
 	        p1->uPred() = f1*p1->uPred() + f2*p2->uPred;
-	        if(p1->uDot() < 0.0)
-	            p1->uDot() = p1->uPred()/fTCool;
+                if(p1->uDot() < 0.0 && fabs(fTCool*p1->uDot()) > p1->uPred())
+                    p1->uDot() = p1->uPred()/fTCool;
+                CkAssert(isfinite(p1->uDot()));
 	    }
 #endif
 	    p1->mass = m_new;
@@ -1925,12 +1927,15 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	q->fMFracIron() = f1*q->fMFracIron() + f2*p->fMFracIron();
 	q->fMFracOxygen() = f1*q->fMFracOxygen() + f2*p->fMFracOxygen();
 #ifndef COOLING_NONE
-	if(q->uDot() < 0.0) /* margin of 1% to avoid roundoff error */
-	    fTCool = 1.01*q->uPred()/q->uDot(); 
+        if(q->uDot() < 0.0) /* margin of 1% to avoid roundoff error */
+            fTCool = 1.01*q->uPred()/q->uDot();
 	q->u() = f1*q->u()+f2*p->u();
 	q->uPred() = f1*q->uPred()+f2*p->uPred();
-	if(q->uDot() < 0.0) /* make sure we don't shorten cooling time */
+        /* make sure we don't shorten cooling time; N.B.: fTCool is a
+           negative number */
+        if(q->uDot() < 0.0 && fabs(fTCool*q->uDot()) > q->uPred())
 	    q->uDot() = q->uPred()/fTCool;
+        CkAssert(isfinite(q->uDot()));
 #endif
         }
     }
