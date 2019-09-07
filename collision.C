@@ -531,6 +531,19 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     double mubar = 1; //set by user
     double QsRDa = 1/ alpha * QsRD * pow(Vbars/Vs,2-(3*mubar)) ;
     double Vsa = sqrt((2*(QsRDa)* Mtot)/ mu );
+
+    //step 5 
+    // find qr
+
+    double Mir = M;
+    double mtot = M + m;
+    double QR = ((QsRD
+     - 1) * ( Mir/mtot - .5)) / -.5 ;
+
+    // finding Verosion = Vi = Vero changed name since we had defined it earlier..
+
+    double Vero = sqrt((mtot * QR) / (.5 * mu));
+
  
 
 
