@@ -417,7 +417,7 @@ mainmodule ParallelGravity {
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
 	const CkCallback& cb);
-    entry void getAdiabaticGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+    entry void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
         double dEvapMinTemp, double dDtCourantFac, const CkCallback &cb);
     entry void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
