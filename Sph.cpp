@@ -425,7 +425,7 @@ Main::restartGas()
 #ifdef SUPERBUBBLE
       // read hot mass
       if(nTotalSPH > 0)
-          nGas = ncGetCount(basefilename + "/gas/masshot");
+          nGas = ncGetCount(basefilename + "/gas/massHot");
       if(nGas == nTotalSPH) {
           MassHotOutputParams mHOut(basefilename, 6, 0.0);
           treeProxy.readFloatBinary(mHOut, param.bParaRead,
