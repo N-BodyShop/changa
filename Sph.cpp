@@ -736,6 +736,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 			CkCallbackResumeThread());
     double a = csmTime2Exp(param.csm, dTime);
     double dDtCourantFac = param.dEtaCourant*a*2.0/1.6;
+	double dTuFac = param.dGasConst/(param.dConstGamma-1)
+	    /param.dMeanMolWeight;
     if(param.bGasCooling)
     treeProxy.getCoolingGasPressure(param.dConstGamma, param.dConstGamma-1,
             param.dThermalCondCoeffCode*a, param.dThermalCond2CoeffCode*a,
@@ -745,7 +747,7 @@ Main::doSph(int activeRung, int bNeedDensity)
             CkCallbackResumeThread());
     else
 	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
-					param.dConstGamma-1, param.dThermalCondCoeffCode*a, param.dThermalCond2CoeffCode*a,
+					param.dConstGamma-1, dTuFac, param.dThermalCondCoeffCode*a, param.dThermalCond2CoeffCode*a,
                     param.dThermalCondSatCoeff/a, param.dThermalCond2SatCoeff/a, 
                     param.dEvapMinTemp,	dDtCourantFac, CkCallbackResumeThread());
 
@@ -1289,7 +1291,7 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
     }
 
 /* Note: Uses uPred */
-void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
         double dEvapMinTemp, double dtFacCourant, const CkCallback &cb)
 {
@@ -1309,7 +1311,7 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTh
         PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
         p->c() = sqrt(gamma*PoverRho);
         p->PoverRho2() = PoverRho/p->fDensity;
-        double Tp = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uPred(), p->fMetals());
+        double Tp = p->uPred() / dTuFac;
         double fThermalCond = dThermalCondCoeff*pow(p->uPred(),2.5);
         double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
         if (Tp < dEvapMinTemp)
