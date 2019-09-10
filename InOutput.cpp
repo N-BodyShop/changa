@@ -64,9 +64,8 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     p.dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
     p.uDot() = 0.0;  // Used in initial timestep
-#else
-    p.PdV() = 0.0;  // Used in initial timestep
 #endif
+    p.PdV() = 0.0;  // Used in initial timestep
 #endif
 #ifdef SUPERBUBBLE
     p.cpHotInit() = 0;
@@ -609,9 +608,8 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         myParts[i].dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
         myParts[i].uDot() = 0.0;  // Used in initial timestep
-#else
-        myParts[i].PdV() = 0.0;  // Used in initial timestep
 #endif
+        myParts[i].PdV() = 0.0;  // Used in initial timestep
 #endif
 #ifdef SUPERBUBBLE
         myParts[i].cpHotInit() = 0;
