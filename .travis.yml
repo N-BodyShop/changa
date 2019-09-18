@@ -1,0 +1,27 @@
+language: cpp
+
+cache: ccache
+
+env:
+  - CHARM_VERSION=charm-6.9.0
+
+matrix:
+  include:
+    - os: linux
+      name: "MPI-Linux SMP"
+      dist: xenial
+      script:
+        - wget http://charm.cs.illinois.edu/distrib/$CHARM_VERSION.tar.gz
+        - tar -xzf $CHARM_VERSION.tar.gz
+        - cd $CHARM_VERSION
+        - ./build ChaNGa mpi-linux-x86_64 smp --with-production --enable-error-checking -j4
+        - cd ..
+        - git clone git@github.com:N-BodyShop/utility.git
+        - export STRUCT_DIR=`pwd`/utility/structures
+        - export CHARM_DIR=`pwd`/$CHARM_VER
+        - ./configure
+        - make clean; make -j4
+        - cd teststep
+        - make clean; make
+        - cd ..
+        - make dist-clean
