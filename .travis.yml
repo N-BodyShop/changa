@@ -8,13 +8,13 @@ env:
 matrix:
   include:
     - os: linux
-      name: "MPI-Linux SMP"
+      name: "ChaNGa with NetLRTS-Linux SMP Charm++"
       dist: xenial
       script:
         - wget http://charm.cs.illinois.edu/distrib/$CHARM_VERSION.tar.gz
         - tar -xzf $CHARM_VERSION.tar.gz
         - cd $CHARM_VERSION
-        - ./build ChaNGa mpi-linux-x86_64 smp --with-production --enable-error-checking -j4
+        - ./build ChaNGa netlrts-linux-x86_64 smp --with-production --enable-error-checking -j4
         - cd ..
         - git clone git@github.com:N-BodyShop/utility.git
         - export STRUCT_DIR=`pwd`/utility/structures
