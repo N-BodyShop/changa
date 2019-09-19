@@ -45,13 +45,6 @@
 #endif
 #endif
 
-/*
-// uncomment when using cuda version of charm but running without GPUs
-struct hapiWorkRequest; 
-void kernelSelect(hapiWorkRequest* wr) {
-}
-*/
-
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
 #endif
@@ -1596,9 +1589,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                       p->CoolParticle() = p->CoolParticleHot();
                       p->cpHotInit() = 0;
               }
-              double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(), p->fMetals());
-              if(TpNC < dMultiPhaseMinTemp && p->uHotPred() > 0)//Check to make sure the hot phase is still actually hot
-              {
+              if(p->uHotPred() > 0) {
+                  double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(), p->fMetals());
+                  if(TpNC < dMultiPhaseMinTemp)//Check to make sure the hot phase is still actually hot
+                  {
                      p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
                      p->u() = (p->u()*(p->mass-p->massHot()) + p->uHot()*p->massHot())/p->mass;
                      p->uDot() = (p->uDot()*(p->mass-p->massHot()) + p->uHotDot()*p->massHot())/p->mass;
@@ -1609,6 +1603,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                      p->uHotPred() = 0;
                      p->CoolParticle() = p->CoolParticleHot();
                      p->cpHotInit() = 0;
+                  }
               }
                   
 #endif
@@ -1829,8 +1824,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 #ifdef SUPERBUBBLE
     /* Prevent rapid overconduction */
     if (p->fThermalCond() > 0 || (p->diff() > 0 && dDiffCoeff > 0)) {
-        //dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + p->fThermalCond()/p->fDensity);
-        dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + ph/p->fThermalLength()*p->fThermalCond()/p->fDensity);  
+        dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + p->fThermalCond()/p->fDensity);
         if (dt < dTIdeal) dTIdeal = dt;
     }
     double x = p->massHot()/p->mass;
