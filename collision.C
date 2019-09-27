@@ -540,9 +540,18 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     double QR = ((QsRD
      - 1) * ( Mir/mtot - .5)) / -.5 ;
 
-    // finding Verosion = Vi = Vero changed name since we had defined it earlier..
+    // finding Verosion = Vi = V_erosion changed name since we had defined it earlier..
 
-    double Vero = sqrt((mtot * QR) / (.5 * mu));
+    double V_erosion = sqrt((mtot * QR) / (.5 * mu));
+    double V_i = sqrt((Mtot*QR) / .5*mu ) 
+
+
+
+    //step 6
+    if (b > bcrit || vEsc < V_i < V_erosion) {
+            printf("Hit-and-run collision\n");
+            
+    }
 
  
 
