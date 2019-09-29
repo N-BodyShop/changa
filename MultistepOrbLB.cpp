@@ -45,7 +45,6 @@ void MultistepOrbLB::work(BaseLB::LDStats* stats)
 {
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
-  int count;
 
   int numActiveObjects = 0;
   int numInactiveObjects = 0;
@@ -114,7 +113,6 @@ void MultistepOrbLB::work(BaseLB::LDStats* stats)
   //printData(*stats, phase, NULL);
   CkPrintf("making active processor list\n");
 #endif
-  count = stats->count;
 
   // let the strategy take over on this modified instrumented data and processor information
   if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
