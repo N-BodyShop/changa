@@ -1017,7 +1017,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double ih2,r2,rs,fDensity;
 	double v[3],cs,fW,dv2,dv;
 	double mdot, mdotEdd, mdotCurr, dmq, dtEff;
-	int i, naccreted, ieat, ivmin;
+	int i, naccreted, ieat;
 	double mdotsum, weat;
 	double weight,wrs;
 	double aFac, dCosmoDenFac,dCosmoVel2Fac,aDot;
@@ -1052,7 +1052,6 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
 	    if (dvcosmo < dvmin) {
 	      dvmin=dvcosmo;
-	      ivmin = i;
 	    }
 	  }
 	}
@@ -1296,18 +1295,16 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	double ih2,r2,rs;
 	double mdot, mdotCurr, dmAvg, dm, dmq, dE, ifMass, dtEff;
-	double fNorm,fNorm_new,f2h2;
-	int i, counter,naccreted,ieat;
+	double fNorm,fNorm_new;
+	int i, counter,naccreted;
 	double weat;
 	double weight,fbweight; /* weight is for accretion, fbweight is for FB  */
-	double aFac, dCosmoDenFac,dCosmoVel2Fac,aDot;
+	double aFac, dCosmoDenFac,aDot;
 	double dvmin, dvx,dvy,dvz,dvcosmo;
-	int ivmin;
 
         weat = -1e37;
 	aFac = a;
 	dCosmoDenFac = aFac*aFac*aFac;
-        dCosmoVel2Fac = aFac*aFac;
 	aDot = aFac*H;
 
 	mdot = p->dMDot();	
@@ -1422,7 +1419,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
 	      if (dvcosmo < dvmin) {
 		dvmin=dvcosmo;
-		ivmin = i;
 	      }
 	    }
 	  }
@@ -1461,7 +1457,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      if (weight > weat) {
 		r2min = r2; /* note r2min is not really the min r2 anymore */
 		weat = weight;
-		ieat = i;
 		q = nnList[i].p;
 	      } 
 	    }
@@ -1559,7 +1554,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	  /* Recalculate Normalization */
 	  ih2 = invH2(p);
-	  f2h2 = p->fBall*p->fBall;
 	  fNorm_new = 0.0;
 	  fNorm = 0.5*M_1_PI*sqrt(ih2)*ih2;
 

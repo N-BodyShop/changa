@@ -397,7 +397,7 @@ void dfProjection( struct inDumpFrame *in, struct dfFrameSetup *fs, int nxPix, i
 
 void dfParseOptions( struct DumpFrameContext *df, char * filename ) {
 	FILE *fp;
-	int n,nitem;
+	int nitem;
 	char line[81],command[40],word[40];
 	char FileBaseName[81]="Frame";
 	char NumberingFormat[41]="";
@@ -428,7 +428,6 @@ void dfParseOptions( struct DumpFrameContext *df, char * filename ) {
 
 	rewind( fp );
 
-	n=0;
 	for ( ;; ) {
 		if (fgets( line, 81, fp ) == NULL) break;
 		nitem = sscanf( line, "%s", command );
@@ -1398,7 +1397,6 @@ void dfRenderParticleTSC( struct inDumpFrame *in, void *vImage,
 	Vector3D<double> r=p->position;
 	double fMass=p->mass;
 	double fSoft=p->soft;
-	double fVar;
 	double fAge=0.0;
 	if (p->isStar()) fAge=(in->dTime-p->fTimeForm())*in->dYearUnit;
 
@@ -1517,7 +1515,6 @@ void dfRenderParticleSolid( struct inDumpFrame *in, void *vImage,
 	int hint,bNoMoreColCalc=0;
 	int j;
 	int xp,yp;
-	double fVar;
 	Vector3D<double> r=p->position;
 	double fMass=p->mass;
 	double fSoft=p->soft;

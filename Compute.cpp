@@ -275,7 +275,7 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
 
   GenericTreeNode* reqnode = tp->bucketList[reqIDlist];
 
-  int computed;
+  int computed = 0;
 #ifdef BENCHMARK_TIME_COMPUTE
   double startTime = CmiWallTimer();
 #endif
@@ -765,29 +765,13 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     // particles must be KEEP_*_BUCKETed
     // so we only need to add node to clist here
     didcomp = true;
-    int computed;
 
     // add to list
-    /*
-    Vector3D<double> v = tp->decodeOffset(reqID);
-    CkPrintf("[%d] added node %ld (%1.0f,%1.0f,%1.0f) to intlist\n", tp->getIndex(),
-                                                                   node->getKey(),
-                                                                   v.x, v.y, v.z);
-    */
     addNodeToInt(node, reqID, s);
     // all particles beneath this node have been
     // scheduled for computation
-    computed = node->lastParticle-node->firstParticle+1;
-    /*
-    if(getOptType() == Remote){
-      CkPrintf("[%d] adding %d to nodeinterremote\n", computed);
-      tp->addToNodeInterRemote(chunk, computed);
-    }
-    else if(getOptType() == Local){
-      CkPrintf("[%d] adding %d to nodeinterlocal\n", computed);
-      tp->addToNodeInterLocal(computed);
-    }
-    */
+    // int computed;
+    // computed = node->lastParticle-node->firstParticle+1;
     return DUMP;
   }
   else if(action == KEEP_LOCAL_BUCKET){
@@ -1240,8 +1224,6 @@ void GenericList<T>::push_back(int b, T &ilc, DoubleWalkState *state, TreePiece 
 void ListCompute::fillLists(State *state_, TreePiece *tp, int chunk, int start,
     int end, CkVec<OffsetNode>& clistforb, CkVec<RemotePartInfo>& rplistforb,
     CkVec<LocalPartInfo>& lplistforb) {
-  GravityParticle *particles = tp->getParticles();
-
   DoubleWalkState *state = (DoubleWalkState *)state_;
 
   GenericTreeNode *lowestNode = state->lowestNode;
@@ -1522,9 +1504,6 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
 /// Cells and particles from that level and above are processed
 /// on these buckets.
 void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start, int end){
-  int thisIndex = tp->getIndex();
-  GravityParticle *particles = tp->getParticles();
-
   DoubleWalkState *state = (DoubleWalkState *)state_;
 
 #ifdef CUDA
@@ -1653,7 +1632,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
           {
-
+          int thisIndex = tp->getIndex();
           if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
             Vector3D<cosmoType> vec = tp->decodeOffset(clist[i].offsetID);
             CkPrintf("[%d]: remote: %d resume: %d bucket %d with node %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex, getOptType() == Remote, state->resume, b, clist[i].node->getKey(), clist[i].node->nodeArrayIndex, vec.x, vec.y, vec.z);
@@ -1672,6 +1651,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
             tmpPart.soft = m.soft;
             tmpPart.position = m.cm;
 
+            GravityParticle *particles = tp->getParticles();
             partBucketForce(&tmpPart, bucketNode, particles,
                             tp->decodeOffset(clist[i].offsetID), activeRung);
             continue;
@@ -1695,6 +1675,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
             rrState = state;
           }
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
+          int thisIndex = tp->getIndex();
           if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
             CkPrintf("[%d]: pushing node 0x%x (%f,%f,%f,%f,%f,%f)\n", thisIndex, node, node->moments.soft, node->moments.totalMass, node->moments.radius, node->moments.cm.x, node->moments.cm.y, node->moments.cm.z);
           }
@@ -1704,7 +1685,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           CkAssert(index >= 0);
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
           {
-
+          int thisIndex = tp->getIndex();
           if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
             CkPrintf("[%d]: (-1) -> (%d)\n", thisIndex, index);
           }
@@ -1750,7 +1731,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           }
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
           {
-
+          int thisIndex = tp->getIndex();
           if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
             Vector3D<cosmoType> &vec = rpi.offset;
             CkPrintf("[%d]: remote: %d resume: %d bucket %d with remote part %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex, getOptType() == Remote, state->resume, b, key, gpuIndex, vec.x, vec.y, vec.z);
@@ -1817,6 +1798,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
               {
+                int thisIndex = tp->getIndex();
                 if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
                   Vector3D<cosmoType> &vec = lpi.offset;
                   CkPrintf("[%d]: remote: %d resume: %d bucket %d with local part %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex, getOptType() == Remote, state->resume, b, key, gpuIndex, vec.x, vec.y, vec.z);
@@ -1865,6 +1847,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
               {
+                int thisIndex = tp->getIndex();
                 if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
                   Vector3D<cosmoType> &vec = lpi.offset;
                   CkPrintf("[%d]: remote: %d resume: %d bucket %d with local part %ld (%d), (%1.0f,%1.0f,%1.0f)\n", thisIndex, getOptType() == Remote, state->resume, b, key, gpuIndex, vec.x, vec.y, vec.z);
@@ -1907,8 +1890,6 @@ void ListCompute::stateReadyPar(TreePiece *tp, int start, int end,
     CkVec<LocalPartInfo>& lpilist) {
 
 #ifndef CUDA
-  GravityParticle *particles = tp->getParticles();
-
   bool hasRemoteLists = rpilist.length() > 0 ? true : false;
   bool hasLocalLists = lpilist.length() > 0 ? true : false;
 
@@ -2255,8 +2236,8 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 
 void ListCompute::addChildrenToCheckList(GenericTreeNode *node, int reqID, int chunk, int awi, State *s, CheckList &chklist, TreePiece *tp){
 
-  Vector3D<cosmoType> vec = tp->decodeOffset(reqID);
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_LIST_STATE
+  Vector3D<cosmoType> vec = tp->decodeOffset(reqID);
   int bucket = decodeReqID(reqID);
 #endif
 
