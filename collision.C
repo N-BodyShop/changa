@@ -491,6 +491,7 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     double r = c2.radius;
     double R = c1.radius;
     Vector3D<double> vRel = (c1.velocity - c2.velocity);
+    double V_i =vRel.length();
     Vector3D<double> pRel = (c1.position - c2.position);
     double cos_theta = costheta(vRel, pRel);
     double sintheta = sqrt(1-pow(cos_theta,2));
@@ -543,18 +544,15 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     // finding Verosion = Vi = V_erosion changed name since we had defined it earlier..
 
     double V_erosion = sqrt((mtot * QR) / (.5 * mu));
-    double V_i = sqrt((Mtot*QR) / .5*mu ) 
+     
 
 
 
-    //step 6
+    //step 6 (need to check code)
     if (b > bcrit || vEsc < V_i < V_erosion) {
             printf("Hit-and-run collision\n");
             
     }
-
- 
-
 
     if (vRel.length() > vEsc || wNew.length() > wMax) {
         if (!bPerfectAcc) {
@@ -562,6 +560,37 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
             return 0;
             }
         }
+
+// step 7
+        double QRn = (((Mir/.1 *Mtot)-.5)/-.5)*QsRDa;
+        double Vsupercat = sqrt(QRn*2 /mtot)
+
+    if (V_i > V_erosion){
+        Ckprintf("erosion")
+    }
+    else if (V_i>Vsupercat){
+        CkPrintf("supercat collision")
+    }
+
+    else if (b <bcrit){
+         if (V_i>vEsc)
+            Ckprintf("disruption")
+        
+    } 
+    else if (b>bcrit){
+        if (V_i > Verosion)
+            Ckprintf("disruption Mlr < Mtarget")
+        else if (V_i<Verosion){
+
+        }
+
+
+    }
+double eta= -1.5
+double gammad= Mint/Mp
+double QRDDS = (.25*(((gammad+1)^2)/gammad))^(2/((3*mubar)-1))
+
+    
 
     // Mark the less massive particle to be consumed and deleted
     if (c1.mass < c2.mass) return -1;
