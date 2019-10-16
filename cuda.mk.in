@@ -31,7 +31,6 @@ CUDA_VERBOSE = $(VERBOSE)
 cuda_defines += -DCUDA -DSPCUDA
 cuda_defines += -DHAPI_MEMPOOL -DHAPI_USE_CUDAMALLOCHOST
 cuda_defines += -DCUDA_2D_TB_KERNEL
-cuda_defines += @FLAG_GPU_LOCAL_TREE_WALK@
 #cuda_defines += -DCUDA_2D_FLAT
 
 # Do the local treewalk on the GPU
