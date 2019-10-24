@@ -16,6 +16,7 @@
 #include "feedback.h"
 #include "smooth.h"
 #include "Sph.h"
+#include "lymanwerner.h"
 
 #define max(A,B) ((A) > (B) ? (A) : (B))
 ///
@@ -33,7 +34,11 @@ void Fdbk::AddParams(PRM prm)
     sn.dESN = 0.1e51;
     prmAddParam(prm,"dESN", paramDouble, &sn.dESN, sizeof(double), "snESN",
 		    "<Energy of supernova in ergs> = 0.1e51");
-    bSmallSNSmooth = 1;
+#ifdef SUPERBUBBLE
+    bSmallSNSmooth = 0; //Don't use the blastwave smoothing when using superbubble
+#else
+    bSmallSNSmooth = 1; 
+#endif
     prmAddParam(prm,"bSmallSNSmooth", paramBool, &bSmallSNSmooth, sizeof(int),
 		"bSmallSNSmooth",
 		"<smooth SN ejecta over blast or smoothing radius> = blast radius");
@@ -47,16 +52,48 @@ void Fdbk::AddParams(PRM prm)
     prmAddParam(prm,"dMaxGasMass", paramDouble, &dMaxGasMass,
 		sizeof(double), "stMaxGas",
 		"<Maximum mass of a gas particle> = FLT_MAX");
+#ifdef SUPERBUBBLE
+    bSNTurnOffCooling = 0; //Don't use cooling shutoffs with superbubble
+#else
     bSNTurnOffCooling = 1;
+#endif
     prmAddParam(prm,"bSNTurnOffCooling", paramBool, &bSNTurnOffCooling,
 		sizeof(int), "bSNTurnOffCooling", "<Do SN turn off cooling> = 1");
+#ifdef SUPERBUBBLE
+    nSmoothFeedback = 1; //Only use a single neighbour for superbubble feedback
+    prmAddParam(prm,"nSmoothFeedback", paramInt,&nSmoothFeedback, sizeof(int),
+		"s", "<number of particles to smooth feedback over> = 1");
+#else
     nSmoothFeedback = 64;
     prmAddParam(prm,"nSmoothFeedback", paramInt,&nSmoothFeedback, sizeof(int),
 		"s", "<number of particles to smooth feedback over> = 64");
+#endif
     dMaxCoolShutoff = 3.0e7;
     prmAddParam(prm,"dMaxCoolShutoff", paramDouble, &dMaxCoolShutoff,
 		sizeof(double), "fbMaxCoolOff",
 		"<Maximum time to shutoff cooling in years> = 3e7");
+    dEarlyFeedbackFrac = 0.0;
+    prmAddParam(prm,"dEarlyFeedbackFrac", paramDouble, &dEarlyFeedbackFrac,
+		sizeof(double), "fbEarlyFrac",
+		"<Fraction of SNII energy to put in early feedback> = 0.0");
+    dFBInitialMassLoad = 0.0;
+    prmAddParam(prm,"dFBInitialMassLoad", paramDouble, &dFBInitialMassLoad,
+		sizeof(double), "dFBIML",
+		"<Initial Mass Loading for Feedback Ejecta> = 0.0");
+	dMultiPhaseMinTemp = 1e5;
+	prmAddParam(prm,"dMultiPhaseMinTemp",paramDouble,&dMultiPhaseMinTemp,
+				sizeof(double),"multitmin",
+				"<Temperature threshold to use multiphase feedback> = 1e6");
+    dMultiPhaseMaxTime = 1e8;
+    prmAddParam(prm,"dMultiPhaseMaxTime",paramDouble,&dMultiPhaseMaxTime,
+                sizeof(double),"evaptmax",
+                "<Absolute maximum lifetime for multiphase (yrs)> = 1e8");
+#ifdef SPLITGAS
+	dInitGasMass = -1;
+	prmAddParam(prm,"dInitGasMass", paramDouble, &dInitGasMass,
+		    sizeof(double), "stInitGas",
+		    "<Initial mass of a gas particle> = -1");
+#endif
     bAGORAFeedback = 0;
     prmAddParam(prm, "bAGORAFeedback", paramBool, &bAGORAFeedback, sizeof(int),
             "bAGORAFeedback", "<Replace Type II and Ia supernovae with AGORA perscription> = 0");
@@ -72,10 +109,16 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     sn.imf = imf;
 
 #include "physconst.h"
+#ifndef SUPERBUBBLE
+    /*
+     * Make sure that the parameters are sensible for
+     * superbubble feedback.
+     */
     if(!prmSpecified(prm, "nSmoothFeedback"))
 	nSmoothFeedback = param.nSmooth;
     if (sn.dESN > 0.0) bSmallSNSmooth = 1;
     else bSmallSNSmooth = 0;
+#endif
     param.bDoGas = 1;
     dDeltaStarForm = param.stfm->dDeltaStarForm;
     dSecUnit = param.dSecUnit;
@@ -114,6 +157,14 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 	    pow(0.0001*GCGS*pow(MSOLG*param.dMsolUnit,2)/(pow(KPCCM*param.dKpcUnit,4)*KBOLTZ),-0.70);
 	}
     dMaxCoolShutoff *= SECONDSPERYEAR/param.dSecUnit;
+    dMultiPhaseMaxTime *= SECONDSPERYEAR/param.dSecUnit;
+    // Normalization of Early Feedback
+    /// Total SNe ergs/solar mass of stars
+    double dSNETotal = sn.dESN*(imf->CumNumber(sn.dMSNIImin)
+                         - imf->CumNumber(sn.dMSNIImax))/imf->CumMass(0.0);
+    
+    CkPrintf("SNII feedback: %g ergs/solar mass\n", dSNETotal);
+    dEarlyETotal = dSNETotal*dEarlyFeedbackFrac;
 #ifndef DTADJUST
     if (bAGORAFeedback) {
         CkAbort("DTADJUST must be enabled to use AGORA feedback\n");
@@ -238,7 +289,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     timings[PHASE_FEEDBACK].tAdjust += tFB;
     
     if(verbosity)
-      CkPrintf("Distribute Stellar Feedback ... ");
+      CkPrintf("Distribute Stellar Feedback ...\n ");
     // Need to build tree since we just did addDelParticle.
     //
     buildTree(PHASE_FEEDBACK);
@@ -247,6 +298,29 @@ void Main::StellarFeedback(double dTime, double dDelta)
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pDSFB, 0, param.feedback->nSmoothFeedback,
 			  dfBall2OverSoft2, CkCallbackResumeThread());
+
+#ifdef SPLITGAS
+    if(param.feedback->dInitGasMass > 0)
+    {
+        CkReductionMsg *msgCounts;
+        treeProxy.SplitGas(param.feedback->dInitGasMass, CkCallbackResumeThread((void*&)msgCounts));
+        int *dCounts = (int *)msgCounts->getData();
+        if(verbosity)
+        CkPrintf("%d Gas Particles Split\n", *dCounts);
+        delete msgCounts;
+    }
+#endif
+#ifdef SUPERBUBBLE
+    CkPrintf("Promote cold shell to hot... \n");
+    double a = csmTime2Exp(param.csm,dTime);
+    PromoteToHotGasSmoothParams pPHG(TYPE_GAS, 0, param.dEvapCoeffCode*a, param.dEvapMinTemp,
+            param.dErgPerGmUnit, param.dGmPerCcUnit, param.stfm->dDeltaStarForm, dTime);
+    treeProxy.startSmooth(&pPHG, 1, param.nSmooth,
+              dfBall2OverSoft2, CkCallbackResumeThread());
+    ShareWithHotGasSmoothParams pSHG(TYPE_GAS, 0, param.dEvapMinTemp,
+            param.dErgPerGmUnit, param.dGmPerCcUnit); 
+    treeProxy.startReSmooth(&pSHG, CkCallbackResumeThread());
+#endif
     treeProxy.finishNodeCache(CkCallbackResumeThread());
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
@@ -254,6 +328,9 @@ void Main::StellarFeedback(double dTime, double dDelta)
         dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
 #endif
 
+#ifdef SPLITGAS
+    addDelParticles();//Don't forget to run an addDelParticles after a split
+#endif
     double tDFB = CkWallTimer() - startTime;
     timings[PHASE_FEEDBACK].tuDot += tDFB; // Overload tuDot for feedback.
     CkPrintf("Stellar Feedback Calculated, Wallclock %f secs\n", tFB);
@@ -310,6 +387,8 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 	else if(p->isGas()){
 	  CkAssert(p->u() >= 0.0);
 	  CkAssert(p->uPred() >= 0.0);
+	  CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/fb.dErgPerGmUnit);
+	  CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/fb.dErgPerGmUnit);
 	  p->fESNrate() = 0.0;	/* reset SN heating rate of gas to zero */
 	}
     }
@@ -373,7 +452,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	    break;
 	case FB_UV:
 	    if (bAGORAFeedback) break;
-	    CalcUVFeedback(dTime, dDeltaYr, &fbEffects);
+	    CalcUVFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	break;
 	case FB_AGORA:
 	    if (!bAGORAFeedback) break;
@@ -418,10 +497,13 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     p->fSNMetals() = dTotMetals;
     p->fMIronOut() = dTotMIron;
     p->fMOxygenOut() = dTotMOxygen;
-
    // Convert to a rate, except if we are using AGORA feedback   
    if (!bAGORAFeedback)
         p->fStarESNrate() /= dDelta;
+
+#ifdef COOLING_MOLECULARH /* Calculates LW radiation from a stellar particle of a given age and mass (assumes Kroupa IMF), CC */
+    p->dStarLymanWerner() = CalcLWFeedback(&sfEvent, dTime, dDeltaYr);
+#endif /*COOLING_MOLECULARH*/
 }
 
 void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
@@ -477,17 +559,74 @@ void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 	    }
     }
 
-void Fdbk::CalcUVFeedback(double dTime, /* current time in years */
-			  double dDelta, /* length of timestep (years) */
-			  FBEffects *fbEffects) const
+/// This is currently used for the early feedback scheme: energy is
+/// injected before the first SNII go off.
+void Fdbk::CalcUVFeedback(SFEvent *sfEvent, /**< Star to process */
+                          double dTime, /**< current time in years */
+                          double dDelta, /**< length of timestep (years) */
+                          FBEffects *fbEffects /**< [out] effects */) const
 {
     fbEffects->dMassLoss = 0.0;
     fbEffects->dEnergy = 0.0;
     fbEffects->dMetals = 0.0;
     fbEffects->dMIron = 0.0;
     fbEffects->dMOxygen = 0.0;
+    /* stellar lifetimes corresponding to beginning and end of 
+       current timestep with respect to starbirth time in yrs */
+    double dStarLtimeMin = dTime - sfEvent->dTimeForm; 
+    double dStarLtimeMax = dStarLtimeMin + dDelta;
+    /* masses corresponding to these stellar lifetimes in solar masses */
+    double dMStarMin = pdva.StarMass(dStarLtimeMax, sfEvent->dMetals); 
+    double dMStarMax = pdva.StarMass(dStarLtimeMin, sfEvent->dMetals); 
+    
+    if(dMStarMax < sn.dMSNIImax)
+        return;                 // Supernove are going off.
+    double dEndEarlyTime = pdva.Lifetime(sn.dMSNIImax, sfEvent->dMetals);
+    if(dMStarMin < sn.dMSNIImax)
+        dStarLtimeMax = dEndEarlyTime;
+
+    double dEarlyRate = dEarlyETotal*sfEvent->dMass/dEndEarlyTime;
+    /// Energy injected during this step (in ergs)
+    double dEEarly = dEarlyRate*(dStarLtimeMax - dStarLtimeMin);
+    /// no mass is lost: use E = m c^2 and convert to Solar Masses
+    if(dEEarly > 0.0) {
+        fbEffects->dMassLoss = dEEarly/(MSOLG*LIGHTSPEED*LIGHTSPEED);
+        fbEffects->dEnergy = dEEarly/(MSOLG*fbEffects->dMassLoss);
+        }
     }
 
+#ifdef COOLING_MOLECULARH
+/*----  Lyman-Warner Radiation from young stars*/
+double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
+			    double dDelta /* length of timestep (years) */ ) const
+{
+    double dAge1log, dAge2log, dLW1log, dLW2log, dStarAge;
+    double dA0old =  70.908586,
+      dA1old = -4.0643123;
+
+    double temp, dAlog10;
+
+    dStarAge = dTime - sfEvent->dTimeForm;
+    if (dStarAge >= 0 ) { /*Test that it is not a Black Hole */
+      if (dStarAge != 0) {
+	dAge1log = log10(dStarAge);
+      }
+      else {
+	/*Avoids log of zero error*/
+	dAge1log = log10(dDelta);
+      }
+      if (dAge1log < 7) dAge1log = 7.0;
+      dAge2log = log10(dStarAge + dDelta);
+      if (dAge2log < 7) dAge2log = 7.0;
+      if (dAge1log < 9.0) dLW1log = calcLogSSPLymanWerner(dAge1log,log10(sfEvent->dMass*MSOLG/dGmUnit));
+      else dLW1log = dA0old + dA1old*dAge1log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
+      if (dAge2log < 9.0) dLW2log = calcLogSSPLymanWerner(dAge2log,log10(sfEvent->dMass*MSOLG/dGmUnit));
+      else dLW2log = dA0old + dA1old*dAge2log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
+      return log10((pow(10,dLW1log) + pow(10,dLW2log))/2);
+    }
+    else return 0;
+}
+#endif /*COOLING_MOLECULARH*/
 
 /*
  * Methods to distribute stellar feedback
@@ -504,6 +643,13 @@ void DistStellarFeedbackSmoothParams::initTreeParticle(GravityParticle *p1)
      */
     
     if(TYPETest(p1, TYPE_GAS)){
+#ifdef SUPERBUBBLE
+        /*
+         * We must scale the energy injection rate by the mass that contains it
+         */
+      if (p1->massHot() > 0) p1->fESNrate() *= p1->massHot();
+      else
+#endif
       p1->fESNrate() *= p1->mass;
       p1->fMetals() *= p1->mass;    
       p1->fMFracOxygen() *= p1->mass;    
@@ -526,6 +672,9 @@ void DistStellarFeedbackSmoothParams::initSmoothCache(GravityParticle *p1)
      * mass.  Note: original particle curlv's never modified.
      */
     p1->curlv().x = p1->mass;
+#ifdef SUPERBUBBLE
+    p1->curlv().y = p1->massHot();
+#endif
 
     /*
      * Zero out accumulated quantities.
@@ -548,8 +697,11 @@ void DistStellarFeedbackSmoothParams::combSmoothCache(GravityParticle *p1,
      * See kludgery notice above.
      */
     double fAddedMass = p2->mass - p2->curlv.x;
-    
     p1->mass += fAddedMass;
+#ifdef SUPERBUBBLE
+    double fAddedMassHot = p2->massHot - p2->curlv.y;
+    p1->massHot() += fAddedMassHot;
+#endif
     p1->fESNrate() += p2->fESNrate;
     p1->fMetals() += p2->fMetals;
     p1->fMFracOxygen() += p2->fMFracOxygen;
@@ -583,7 +735,11 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     for (i=0;i<nSmooth;++i) {
 	double fDist2 = nList[i].fKey;
 	r2 = fDist2*ih2;            
+#ifdef SUPERBUBBLE
+	rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 	rs = KERNEL(r2, nSmooth);
+#endif
 	q = nList[i].p;
 	if(q->mass > fb.dMaxGasMass) {
 	    nHeavy++;
@@ -619,7 +775,11 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	    }
 	double fDist2 = nList[i].fKey;
 	r2 = fDist2*ih2;            
+#ifdef SUPERBUBBLE
+	rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 	rs = KERNEL(r2, nSmooth);
+#endif
 	/* Remember: We are dealing with total energy rate and total metal
 	 * mass, not energy/gram or metals per gram.  
 	 * q->mass is in product to make units work for fNorm_u.
@@ -639,6 +799,24 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 	q->fMFracOxygen() += weight*p->fMOxygenOut();
 	q->fMFracIron() += weight*p->fMIronOut();
 	q->mass += weight*p->fMSN();
+    if(weight > 0) TYPESet(q, TYPE_FEEDBACK);
+#ifdef SUPERBUBBLE
+    CkAssert(q->uPred() < LIGHTSPEED*LIGHTSPEED/fb.dErgPerGmUnit);
+    double Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), fb.dErgPerGmUnit*q->uPred(), q->fMetals() );
+	if(Tq < fb.dMultiPhaseMinTemp && weight > 0 && p->fNSN() > 0.0) { //Only use the multiphase state for cooler particles
+		double massHot = q->massHot() + weight*p->fMSN();
+		double deltaMassLoad = weight*p->fMSN()*fb.dFBInitialMassLoad;
+		if (massHot+deltaMassLoad >= q->mass) { //If deltaMassLoad is bigger than the cold phase, make it all cold.
+			deltaMassLoad = q->mass - massHot;
+			massHot = q->mass;
+			}
+		else {
+			massHot += deltaMassLoad;
+		}
+		q->massHot() = massHot;
+		CkAssert(q->massHot() >= 0); //Make sure our hot phase has nonzero mass in it
+	}
+#endif
 	}
     }
 
@@ -674,7 +852,11 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     for (i=0;i<nSmooth;++i) {
 	double fDist2 = nList[i].fKey;
 	r2 = fDist2*ih2;            
+#ifdef SUPERBUBBLE
+	rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 	rs = KERNEL(r2, nSmooth);
+#endif
 	q = nList[i].p;
         CkAssert(TYPETest(q, TYPE_GAS));
 	fNorm_u += q->mass*rs;
@@ -731,7 +913,11 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	    if ( fDist2 < fmind ){imind = i; fmind = fDist2;}
             if ( !fb.bSmallSNSmooth || fDist2 < f2h2 ) {
 		r2 = fDist2*ih2;            
+#ifdef SUPERBUBBLE
+                rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 		rs = KERNEL(r2, nSmooth);
+#endif
 		q = nList[i].p;
 #ifdef VOLUMEFEEDBACK
 		fNorm_u += q->mass/q->fDensity*rs;
@@ -748,7 +934,11 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     if (fNorm_u ==0.0){
 	double fDist2 = nList[imind].fKey;
 	r2 = fDist2*ih2;            
+#ifdef SUPERBUBBLE
+	rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 	rs = KERNEL(r2, nSmooth);
+#endif
 	/*
 	 * N.B. This will be NEGATIVE, but that's OK since it will
 	 * cancel out down below.
@@ -778,7 +968,11 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 		
 		counter++;  
 		r2 = fDist2*ih2;
-		rs = KERNEL(r2, nSmooth);
+#ifdef SUPERBUBBLE
+                rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
+                rs = KERNEL(r2, nSmooth);
+#endif
 		/* Remember: We are dealing with total energy rate and total metal
 		 * mass, not energy/gram or metals per gram.  
 		 * q->mass is in product to make units work for fNorm_u.
@@ -793,7 +987,11 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	    } else {
 	    double fDist2 = nList[i].fKey;
 	    r2 = fDist2*ih2;  
+#ifdef SUPERBUBBLE
+            rs = 1.0; //Use a tophat kernel for superbubble feedback
+#else
 	    rs = KERNEL(r2, nSmooth);
+#endif
 	    /* Remember: We are dealing with total energy rate and total metal
 	     * mass, not energy/gram or metals per gram.  
 	     * q->mass is in product to make units work for fNorm_u.
@@ -824,6 +1022,10 @@ void DistStellarFeedbackSmoothParams::postTreeParticle(GravityParticle *p1)
        because we are done with our conservative calculations */
     
     if(p1->isGas()){
+#ifdef SUPERBUBBLE
+        if(p1->massHot() > 0) p1->fESNrate() /= p1->massHot();
+        else
+#endif
 	p1->fESNrate() /= p1->mass;
 	p1->fMetals() /= p1->mass;    
 	p1->fMFracIron() /= p1->mass;    
@@ -855,7 +1057,11 @@ TreePiece::massMetalsEnergyCheck(int bPreDist, const CkCallback& cb)
 	    dTotals[1] += p->mass*p->fMetals();
 	    dTotals[2] += p->mass*p->fMFracOxygen();
 	    dTotals[3] += p->mass*p->fMFracIron();
+#ifdef SUPERBUBBLE
+	    dTotals[4] += p->massHot()*p->fESNrate();
+#else
 	    dTotals[4] += p->mass*p->fESNrate();
+#endif
 	    }
 	if(p->isStar()) {
 	    dTotals[1] += p->mass*p->fStarMetals();
@@ -873,3 +1079,46 @@ TreePiece::massMetalsEnergyCheck(int bPreDist, const CkCallback& cb)
     contribute(sizeof(dTotals), dTotals, CkReduction::sum_double, cb);
     }
 
+#ifdef SPLITGAS
+void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
+{
+    int nFormed = 0;
+    double norm, uvar, vvar, ux, uy, uz;
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+        if(p->mass < 1.33*dInitGasMass) continue; //Don't split particles that are too small FOOL
+        if(!TYPETest(p, TYPE_GAS)) continue; //Only split heavy gas
+
+        nFormed++;
+        norm = 666; // \m/
+        while (norm>1.0){ //unit sphere point picking (Marsaglia 1972)
+            uvar=2.0*(rand()/(double)RAND_MAX)-1.0;  //#random number on [-1,1]
+            vvar=2.0*(rand()/(double)RAND_MAX)-1.0;
+            norm=(uvar*uvar+vvar*vvar);
+        }
+        norm = sqrt(1.0-norm); //only do one sqrt
+        ux=2.0*uvar*norm;
+        uy=2.0*vvar*norm;
+        uz=1.0-2.0*(uvar*uvar+vvar*vvar);
+        p->mass /= 2.0;
+#ifdef SUPERBUBBLE
+        p->massHot() /= 2.0;
+#endif
+        GravityParticle daughter = *p;
+        extraSPHData extra = *(extraSPHData *)p->extraData;
+        daughter.extraData = &extra;
+        TYPEReset(&daughter, TYPE_NbrOfACTIVE);
+        TYPESet(&daughter, TYPE_GAS);
+        daughter.position.x += 0.25*p->fBall*ux;
+        daughter.position.y += 0.25*p->fBall*uy;
+        daughter.position.z += 0.25*p->fBall*uz;
+        daughter.iSplitOrder() = p->iOrder;
+        p->position.x -= 0.25*p->fBall*ux;
+        p->position.y -= 0.25*p->fBall*uy;
+        p->position.z -= 0.25*p->fBall*uz;
+        newParticle(&daughter);
+    }
+    contribute(sizeof(int), &nFormed, CkReduction::sum_int, cb);
+
+}
+#endif

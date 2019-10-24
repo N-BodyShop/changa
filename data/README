@@ -2,5 +2,21 @@ This directory is for needed extra data files.
 
 Examples include opacity tables or tables of UV background radiation.
 
+Detail file descriptions:
+
+rosseland.abpoll.p3p5.amax1.dat: Rosseland mean opacity table from D'Alessio
+                                 et al, 2001, as described in Boley et al, 2010.
+                                 This assumes a 1 micron maximum grain size
+                                 and a power law grain size distribution with
+                                 index -3.5.
+                                 This is an ASCII table, one entry per line,
+                                 covering 100 values of pressure,
+                                 logarithmically spaced between -12.0 and 9.0
+                                 (log10(cgs units)), and 100 values of
+                                 temperature between 0.5 and 7.0
+                                 (log10(Kelvin)). See cooling_boley.c for how
+                                 this is read in.
+planck.abpoll.p3p5.amax1.dat: Same as above, but with Planck mean opacities.
+
 mri.director: an example director file to create an MRI of a cosmological
 volume.

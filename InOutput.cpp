@@ -52,18 +52,32 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     double gammam1 = gamma - 1.0;
     p.c() = sqrt(gamma*gammam1*p.uPred());
     p.vPred() = gp.vel;
-    p.fBallMax() = HUGE;
+    p.fBallMax() = FLT_MAX;     // N.B. don't use DOUBLE_MAX here:
+                                // fBallMax*fBallMax should not overflow.
     p.fESNrate() = 0.0;
     p.fTimeCoolIsOffUntil() = 0.0;
     p.dTimeFB() = 0.0;
-#ifdef DTADJUST
+#ifdef NEED_DT
     p.dt = FLT_MAX;
+#endif
+#ifdef DTADJUST
     p.dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
     p.uDot() = 0.0;  // Used in initial timestep
-#else
+#endif
     p.PdV() = 0.0;  // Used in initial timestep
 #endif
+#ifdef SUPERBUBBLE
+    p.cpHotInit() = 0;
+    p.uHot() = 0.0;
+    p.uHotPred() = 0.0;
+    p.uHotDot() = 0.0;
+    p.massHot() = 0.0;
+    p.fThermalCond() = 0.0;
+    p.fThermalLength() = 0.0;
+    p.fPromoteSum() = 0.0;
+    p.fPromoteSumuPred() = 0.0;
+    p.fPromoteuPredInit() = 0.0;
 #endif
 }
 
@@ -108,6 +122,9 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
     p.fStarMFracIron() = 0.098*sp.metals;
     p.fMassForm() = sp.mass;
     p.fTimeForm() = sp.tform;
+#ifdef COOLING_MOLECULARH 
+    p.dStarLymanWerner() = 0.0;
+#endif
 }
 
 
@@ -132,21 +149,6 @@ void TreePiece::loadTipsy(const std::string& filename,
 	nTotalDark = tipsyHeader.ndark;
 	nTotalStar = tipsyHeader.nstar;
 	dStartTime = tipsyHeader.time;
-
-	switch (domainDecomposition) {
-	case SFC_dec:
-        case SFC_peano_dec:
-	case SFC_peano_dec_3D:
-	case SFC_peano_dec_2D:
-	    numPrefetchReq = 2;
-	case Oct_dec:
-	case ORB_dec:
-	case ORB_space_dec:
-	    numPrefetchReq = 1;
-	    break;
-	default:
-	    CkAbort("Invalid domain decomposition requested");
-	    }
 
         bool skipLoad = false;
         int numLoadingPEs = CkNumPes();
@@ -303,9 +305,16 @@ void TreePiece::loadTipsy(const std::string& filename,
                         load_tipsy_star<double,double>(r, myParticles[i+1]);
                     iStar++;
 		}
+#ifdef SIDMINTERACT
+		myParticles[i+1].iNSIDMInteractions = 0;
+#endif
 		myParticles[i+1].rung = 0;
 		myParticles[i+1].fBall = 0.0;
 		myParticles[i+1].iOrder = i + startParticle;
+#ifdef SPLITGAS
+		if(myParticles[i+1].iOrder < tipsyHeader.nsph) myParticles[i+1].iSplitOrder() = i + startParticle;
+		if(myParticles[i+1].iOrder >= tipsyHeader.nsph) myParticles[i+1].iOrder +=  tipsyHeader.nsph;
+#endif
 #if COSMO_STATS > 1
 		myParticles[i+1].intcellmass = 0;
 		myParticles[i+1].intpartmass = 0;
@@ -355,15 +364,25 @@ void TreePiece::readTipsyArray(OutputParams& params, const CkCallback& cb)
     xdr_destroy(&xdrs);
     if(iDum == nTotalParticles) { // We've got a binary file; read it
         int64_t seek_pos;
-        seek_pos = sizeof(iDum) + nStartRead*(int64_t)sizeof(float);
+        if(params.bVector)
+            seek_pos = sizeof(iDum) + nStartRead*(int64_t)sizeof(float)*3;
+        else
+            seek_pos = sizeof(iDum) + nStartRead*(int64_t)sizeof(float);
         fseek(infile, seek_pos, SEEK_SET);
         xdrstdio_create(&xdrs, infile, XDR_DECODE);
         for(unsigned int i = 0; i < myNumParticles; ++i) {
             if(params.bFloat) {
-                float dValue;
-                xdr_float(&xdrs, &dValue);
-                params.setDValue(&myParticles[i+1], dValue);
+                if(params.bVector) {
+                    Vector3D<float> vValue;
+                    xdr_template(&xdrs, &vValue);
+                    params.setVValue(&myParticles[i+1], vValue);
                 }
+                else {
+                    float dValue;
+                    xdr_float(&xdrs, &dValue);
+                    params.setDValue(&myParticles[i+1], dValue);
+                }
+            }
             else {
                 int iValue;
                 xdr_template(&xdrs, &iValue);
@@ -378,26 +397,40 @@ void TreePiece::readTipsyArray(OutputParams& params, const CkCallback& cb)
         int nread;
         nread = fscanf(infile, "%ld\n", &nTot);
         CkAssert(nread == 1);
-        for(int i = 0; i < nStartRead; i++) {
-            double dummy;
-            nread = fscanf(infile, "%lf\n", &dummy);
-            CkAssert(nread == 1);
+        int nDim = 1;           // Dimensions to read
+        if(params.bVector) {
+            nDim = 3;
+            CkAssert(packed == 0);
+        }
+        for(int iDim = 0; iDim < nDim; iDim++) {
+            for(int i = 0; i < nStartRead; i++) {
+                double dummy;
+                nread = fscanf(infile, "%lf\n", &dummy);
+                CkAssert(nread == 1);
             }
-        for(int i = 0; i < myNumParticles; i++) {
-            if(params.bFloat) {
-                double dDummy;
-                nread = fscanf(infile, "%lf\n", &dDummy);
-                CkAssert(nread == 1);
-                params.setDValue(&myParticles[i+1], dDummy);
+            for(int i = 0; i < myNumParticles; i++) {
+                if(params.bFloat) {
+                    double dDummy;
+                    nread = fscanf(infile, "%lf\n", &dDummy);
+                    CkAssert(nread == 1);
+                    if(params.bVector) {
+                        Vector3D<double> vDummy
+                            = params.vValue(&myParticles[i+1]);
+                        vDummy[iDim] = dDummy;
+                        params.setVValue(&myParticles[i+1], vDummy);
+                    }
+                    else
+                        params.setDValue(&myParticles[i+1], dDummy);
                 }
-            else {
-                int64_t iDummy;
-                nread = fscanf(infile, "%ld\n", &iDummy);
-                CkAssert(nread == 1);
-                params.setIValue(&myParticles[i+1], iDummy);
+                else {
+                    int64_t iDummy;
+                    nread = fscanf(infile, "%ld\n", &iDummy);
+                    CkAssert(nread == 1);
+                    params.setIValue(&myParticles[i+1], iDummy);
                 }
             }
         }
+    }
         
     CmiFclose(infile);
     contribute(cb);
@@ -566,18 +599,32 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
     for(int i = 0; i < myNumSPH; ++i) {
         myParts[i].iType = TYPE_GAS;
         myParts[i].extraData = &mySPHParts[i];
-        myParts[i].fBallMax() = HUGE;
+        myParts[i].fBallMax() = FLT_MAX;  // N.B. don't use DOUBLE_MAX here:
+                                          // fBallMax*fBallMax should not overflow.
         myParts[i].fESNrate() = 0.0;
         myParts[i].fTimeCoolIsOffUntil() = 0.0;
         myParts[i].dTimeFB() = 0.0;
-#ifdef DTADJUST
+#ifdef NEED_DT
         myParts[i].dt = FLT_MAX;
+#endif
+#ifdef DTADJUST
         myParts[i].dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
         myParts[i].uDot() = 0.0;  // Used in initial timestep
-#else
+#endif
         myParts[i].PdV() = 0.0;  // Used in initial timestep
 #endif
+#ifdef SUPERBUBBLE
+        myParts[i].cpHotInit() = 0;
+        myParts[i].uHot() = 0.0;
+        myParts[i].uHotPred() = 0.0;
+        myParts[i].uHotDot() = 0.0;
+        myParts[i].massHot() = 0.0;
+        myParts[i].fThermalCond() = 0.0;
+        myParts[i].fThermalLength() = 0.0;
+        myParts[i].fPromoteSum() = 0.0;
+        myParts[i].fPromoteSumuPred() = 0.0;
+        myParts[i].fPromoteuPredInit() = 0.0;
 #endif
         }
 
@@ -757,6 +804,9 @@ static void load_NC_star(std::string filename, int64_t startParticle,
     deleteField(fh, data);
     for(int i = 0; i < myNumStar; ++i) {
         myParts[i].fMassForm() = myParts[i].mass;
+#ifdef COOLING_MOLECULARH 
+        myParts[i].dStarLymanWerner() = 0.0;
+#endif
         }
 }
 
@@ -773,21 +823,6 @@ void TreePiece::loadNChilada(const std::string& filename,
         if(nTotalParticles <= 0)
             CkAbort("No particles can be read.  Check file permissions\n");
 	dStartTime = fh_time;
-
-	switch (domainDecomposition) {
-	case SFC_dec:
-        case SFC_peano_dec:
-	case SFC_peano_dec_3D:
-	case SFC_peano_dec_2D:
-	    numPrefetchReq = 2;
-	case Oct_dec:
-	case ORB_dec:
-	case ORB_space_dec:
-	    numPrefetchReq = 1;
-	    break;
-	default:
-	    CkAbort("Invalid domain decomposition requested");
-	    }
 
         bool skipLoad = false;
         int numLoadingPEs = CkNumPes();
@@ -919,6 +954,13 @@ void TreePiece::loadNChilada(const std::string& filename,
             myParticles[i+1].rung = 0;
             myParticles[i+1].fBall = 0.0;
             myParticles[i+1].iOrder = i + nStartRead;
+#ifdef SIDMINTERACT
+            myParticles[i+1].iNSIDMInteractions = 0;
+#endif
+#ifdef SPLITGAS
+            if(myParticles[i+1].iOrder < nTotalSPH) myParticles[i+1].iSplitOrder() = i + nStartRead;
+            if(myParticles[i+1].iOrder >= nTotalSPH) myParticles[i+1].iOrder  += nTotalSPH;
+#endif
             boundingBox.grow(myParticles[i+1].position);
         }
         
@@ -1352,7 +1394,7 @@ void write_tipsy_star(Tipsy::TipsyWriter &w, GravityParticle &p,
     sp.tform = p.fTimeForm();
 
     if(!w.putNextStarParticle_t(sp)) {
-        CkError("[%d] Write dark failed, errno %d\n", CkMyPe(), errno);
+        CkError("[%d] Write star failed, errno %d\n", CkMyPe(), errno);
         CkAbort("Bad Write");
     }
 }

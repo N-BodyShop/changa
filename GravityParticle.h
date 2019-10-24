@@ -10,7 +10,7 @@
 #include "SFC.h"
 #include <vector>
 
-#ifdef DTADJUST
+#if defined(DTADJUST) || defined(SUPERBUBBLE)
 #define NEED_DT
 #endif
 
@@ -52,6 +52,9 @@ class extraSPHData
  private:
     double _u;			/* Internal Energy */
     double _fMetals;		/* Metalicity */
+#ifdef SPLITGAS
+    int64_t _iSplitOrder;	/* Gas from which this particle split*/
+#endif
     double _fMFracOxygen;	/* Oxygen mass fraction  */
     double _fMFracIron;		/* Iron mass fraction  */
     double _fESNrate;		/* SN energy rate  */
@@ -93,9 +96,26 @@ class extraSPHData
     double _fMFracOxygenPred;
     double _fMFracIronPred;
 #endif
+#ifdef SUPERBUBBLE
+    COOLPARTICLE _CoolParticleHot;	
+    int _cpHotInit; /* Do we need to initialize the Hot Coolparticle? */
+    double _uHot; /* Hot phase energy */
+    double _uHotDot; /* Hot phase rate of energy change */
+    double _uHotPred; /* Hot phase predicted energy */
+    double _massHot; /* Hot phase mass*/
+    double _fDensityU; /* Energy-scaled density */
+    double _fThermalCond; /* Conduction rate */
+    double _fThermalLength; /* Conduction length */
+    double _fPromoteSum; /* Total evaporated mass */
+    double _fPromoteSumuPred; /* Total evaporating energy */
+    double _fPromoteuPredInit; /* Original energy pre-evaporation */
+#endif
     
  public:
     inline double& u() {return _u;}
+#ifdef SPLITGAS
+    inline int64_t& iSplitOrder() {return _iSplitOrder;}
+#endif
     inline double& fMetals() {return _fMetals;}
     inline double& fMFracOxygen() {return _fMFracOxygen;}
     inline double& fMFracIron() {return _fMFracIron;}
@@ -136,9 +156,26 @@ class extraSPHData
     inline double& fMFracIronDot() {return _fMFracIronDot;}
     inline double& fMFracIronPred() {return _fMFracIronPred;}
 #endif
+#ifdef SUPERBUBBLE
+    inline COOLPARTICLE& CoolParticleHot() {return _CoolParticleHot;}
+    inline int& cpHotInit() {return _cpHotInit;}
+    inline double& uHot() {return _uHot;}
+    inline double& uHotPred() {return _uHotPred;}
+    inline double& uHotDot() {return _uHotDot;}
+    inline double& massHot() {return _massHot;}
+    inline double& fDensityU() {return _fDensityU;}
+    inline double& fThermalCond() {return _fThermalCond;}
+    inline double& fThermalLength() {return _fThermalLength;}
+    inline double& fPromoteSum() {return _fPromoteSum;}
+    inline double& fPromoteSumuPred() {return _fPromoteSumuPred;}
+    inline double& fPromoteuPredInit() {return _fPromoteuPredInit;}
+#endif
 #ifdef __CHARMC__
     void pup(PUP::er &p) {
 	p | _u;
+#ifdef SPLITGAS
+	p | _iSplitOrder;
+#endif
 	p | _fMetals;
 	p | _fMFracIron;
 	p | _fMFracOxygen;
@@ -178,6 +215,20 @@ class extraSPHData
 	p| _fMFracIronDot;
 	p| _fMFracIronPred;
 #endif
+#ifdef SUPERBUBBLE
+	p((char *) &_CoolParticleHot, sizeof(_CoolParticleHot)); /* PUPs as bytes */
+    p| _cpHotInit;
+    p| _uHot;
+    p| _uHotDot;
+    p| _uHotPred;
+    p| _massHot;
+    p| _fDensityU;
+    p| _fThermalCond;
+    p| _fThermalLength;
+    p| _fPromoteSum;
+    p| _fPromoteSumuPred;
+    p| _fPromoteuPredInit;
+#endif
 	}
 #endif
     };
@@ -201,6 +252,9 @@ class extraStarData
     int64_t _iEaterOrder;	/* iOrder for merging black holes */
     double _dMDot;		/* Accretion rate of black holes */
     double _dDeltaM;		/* Actual Mass Accreted on black holes */
+#ifdef COOLING_MOLECULARH
+    double _dStarLymanWerner;	/* Lyman Werner radiation emmited from star particles */
+#endif /*COOLING_MOLECULARH*/
  public:
     inline double& fMetals() {return _fMetals;}
     inline double& fTimeForm() {return _fTimeForm;}
@@ -217,6 +271,10 @@ class extraStarData
     inline int64_t& iEaterOrder() {return _iEaterOrder;}
     inline double& dMDot() {return _dMDot;}
     inline double& dDeltaM() {return _dDeltaM;}
+#ifdef COOLING_MOLECULARH
+    inline const double dStarLymanWerner() const {return _dStarLymanWerner;} 
+    inline double& dStarLymanWerner() {return _dStarLymanWerner;} 
+#endif /*COOLING_MOLECULARH*/
     void pup(PUP::er &p) {
 	p | _fMetals;
 	p | _fTimeForm;
@@ -233,6 +291,9 @@ class extraStarData
 	p | _iEaterOrder;
 	p | _dMDot;
 	p | _dDeltaM;
+#ifdef COOLING_MOLECULARH
+	p | _dStarLymanWerner;
+#endif /*COOLINg_MOLECULARH*/
 	}
     };
 
@@ -258,6 +319,9 @@ public:
         int64_t iOrder;	///< Input order of particles; unique particle ID
         int rung;  ///< the current rung (greater means faster)
         unsigned int iType;	///< Bitmask to hold particle type information
+#ifdef SIDMINTERACT
+        int iNSIDMInteractions; // SIDM number of interactions
+#endif
 #ifdef CHANGESOFT
 	cosmoType fSoft0;
 #endif
@@ -291,12 +355,16 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
-	  p | treeAcceleration;
-	  p | fDensity;
-	  p | fBall;
+          p | treeAcceleration;
+          p | dtGrav;
+          p | fDensity;
+          p | fBall;
           p | iOrder;
           p | rung;
 	  p | iType;
+#ifdef SIDMINTERACT
+          p | iNSIDMInteractions; // SIDM
+#endif
 #ifdef CHANGESOFT
 	  p | fSoft0;
 #endif
@@ -327,6 +395,9 @@ public:
 	/// @brief Get quantities needed for SPH smooths.
 	ExternalSmoothParticle getExternalSmoothParticle();
 	inline double& u() { IMAGAS; return (((extraSPHData*)extraData)->u());}
+#ifdef SPLITGAS
+	inline int64_t& iSplitOrder() { IMAGAS; return (((extraSPHData*)extraData)->iSplitOrder());}
+#endif
 	inline double& fMetals() { IMAGAS; return (((extraSPHData*)extraData)->fMetals());}
 	inline double& fMFracOxygen() {IMAGAS; return (((extraSPHData*)extraData)->fMFracOxygen());}
 	inline double& fMFracIron() {IMAGAS; return (((extraSPHData*)extraData)->fMFracIron());}
@@ -351,7 +422,7 @@ public:
         inline double& dvds_old() {IMAGAS; return (((extraSPHData*)extraData)->dvds_old());}
 #endif
 #ifdef DTADJUST
-        inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
+	inline double& dtNew() { IMAGAS; return (((extraSPHData*)extraData)->dtNew());}
 #endif
 	inline double& dTimeFB() { IMAGAS; return (((extraSPHData*)extraData)->dTimeFB());}
 #ifndef COOLING_NONE
@@ -366,6 +437,20 @@ public:
 	inline double& fMFracIronDot() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronDot());}
 	inline double& fMFracOxygenPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracOxygenPred());}
 	inline double& fMFracIronPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronPred());}
+#endif
+#ifdef SUPERBUBBLE
+	inline COOLPARTICLE& CoolParticleHot() { IMAGAS; return (((extraSPHData*)extraData)->CoolParticleHot());}
+	inline int& cpHotInit() { IMAGAS; return (((extraSPHData*)extraData)->cpHotInit());}
+	inline double& uHot() { IMAGAS; return (((extraSPHData*)extraData)->uHot());}
+	inline double& uHotPred() { IMAGAS; return (((extraSPHData*)extraData)->uHotPred());}
+	inline double& uHotDot() { IMAGAS; return (((extraSPHData*)extraData)->uHotDot());}
+	inline double& massHot() { IMAGAS; return (((extraSPHData*)extraData)->massHot());}
+	inline double& fDensityU() { IMAGAS; return (((extraSPHData*)extraData)->fDensityU());}
+	inline double& fThermalCond() { IMAGAS; return (((extraSPHData*)extraData)->fThermalCond());}
+	inline double& fThermalLength() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
+	inline double& fPromoteSum() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteSum());}
+	inline double& fPromoteSumuPred() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteSumuPred());}
+	inline double& fPromoteuPredInit() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteuPredInit());}
 #endif
 	// Access Star Quantities
 	// XXX Beware overlaps with SPH; we could fix this by aligning
@@ -385,6 +470,10 @@ public:
 	inline int64_t& iEaterOrder() { IMASTAR; return (((extraStarData*)extraData)->iEaterOrder());}
 	inline double& dDeltaM() { IMASTAR; return (((extraStarData*)extraData)->dDeltaM());}
 	inline double& dMDot() { IMASTAR; return (((extraStarData*)extraData)->dMDot());}
+#ifdef COOLING_MOLECULARH
+	inline const double dStarLymanWerner() const { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());}	
+	inline double& dStarLymanWerner() { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());} 
+#endif /*COOLING_MOLECULARH*/
 
 // See above debugging macros
 #undef IMAGAS
@@ -405,7 +494,9 @@ public:
 #define TYPE_SINK              (1<<7)
 #define TYPE_SINKING           (1<<8)
 #define TYPE_NEWSINKING        (1<<9)
-#define TYPE_MAXTYPE           (1<<10)
+#define TYPE_PROMOTED          (1<<10)
+#define TYPE_FEEDBACK          (1<<11)
+#define TYPE_MAXTYPE           (1<<12)
 
 	inline bool isDark() const { return TYPETest(this, TYPE_DARK);}
 	inline bool isGas() const { return TYPETest(this, TYPE_GAS);}
@@ -507,6 +598,19 @@ class ExternalSmoothParticle {
   double fMFracOxygenDot;
   double fMFracIronDot;
 #endif
+#ifdef SUPERBUBBLE
+  COOLPARTICLE CoolParticle;	
+  double uHot;
+  double uHotDot;
+  double uHotPred;
+  double massHot;
+  double fDensityU;
+  double fThermalCond;
+  double fThermalLength;
+  double fPromoteSum;
+  double fPromoteSumuPred;
+  double fPromoteuPredInit;
+#endif
   double fNSN;
   int64_t iEaterOrder;
   double dTimeFB;
@@ -556,9 +660,22 @@ class ExternalSmoothParticle {
 	      fMFracOxygenDot = p->fMFracOxygenDot();
 	      fMFracIronDot = p->fMFracIronDot();
 #endif	      
+#ifdef SUPERBUBBLE
+          CoolParticle = p->CoolParticle();
+          uHot = p->uHot();
+          uHotPred = p->uHotPred();
+          uHotDot = p->uHotDot();
+          massHot = p->massHot();
+          fDensityU = p->fDensityU();
+          fThermalCond = p->fThermalCond();
+          fThermalLength = p->fThermalLength();
+          fPromoteSum = p->fPromoteSum();
+          fPromoteSumuPred = p->fPromoteSumuPred();
+          fPromoteuPredInit = p->fPromoteuPredInit();
+#endif
 #ifdef DTADJUST
-              dt = p->dt;
-              dtNew = p->dtNew();
+          dt = p->dt;
+          dtNew = p->dtNew();
 #endif
 	      dTimeFB = p->dTimeFB();
 	      }
@@ -610,9 +727,22 @@ class ExternalSmoothParticle {
 	  tmp->fMFracOxygenDot() = fMFracOxygenDot;
 	  tmp->fMFracIronDot() = fMFracIronDot;
 #endif
+#ifdef SUPERBUBBLE
+      tmp->CoolParticle() = CoolParticle;
+      tmp->uHot() = uHot;
+      tmp->uHotPred() = uHotPred;
+      tmp->uHotDot() = uHotDot;
+      tmp->massHot() = massHot;
+      tmp->fDensityU() = fDensityU;
+      tmp->fThermalCond() = fThermalCond;
+      tmp->fThermalLength() = fThermalLength;
+      tmp->fPromoteSum() = fPromoteSum;
+      tmp->fPromoteSumuPred() = fPromoteSumuPred;
+      tmp->fPromoteuPredInit() = fPromoteuPredInit;
+#endif
 #ifdef DTADJUST
-          tmp->dt = dt;
-          tmp->dtNew() = dtNew;
+      tmp->dt = dt;
+      tmp->dtNew() = dtNew;
 #endif
 	  tmp->dTimeFB() = dTimeFB;
 	  }
@@ -664,6 +794,19 @@ class ExternalSmoothParticle {
     p | fMetalsDot;
     p | fMFracOxygenDot;
     p | fMFracIronDot;
+#endif
+#ifdef SUPERBUBBLE
+	p((char *) &CoolParticle, sizeof(CoolParticle)); /* PUPs as bytes */
+    p | uHot;
+    p | uHotPred;
+    p | uHotDot;
+    p | massHot;
+    p | fDensityU;
+    p | fThermalCond;
+    p | fThermalLength;
+    p | fPromoteSum;
+    p | fPromoteSumuPred;
+    p | fPromoteuPredInit;
 #endif
     p | fNSN;
     p | iEaterOrder;

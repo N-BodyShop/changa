@@ -47,10 +47,14 @@ class Fdbk : public PUP::able {
     Fdbk& operator=(const Fdbk& fb);
     void CalcWindFeedback(SFEvent *sfEvent, double dTime, 
                           double dDelta, FBEffects *fbEffects) const;
-    void CalcUVFeedback(double dTime, double dDelta, FBEffects *fbEffects) const;
+    void CalcUVFeedback(SFEvent *sfEvent, double dTime, double dDelta,
+                        FBEffects *fbEffects) const;
+#ifdef COOLING_MOLECULARH
+    double CalcLWFeedback(SFEvent *sfEvent, double dTime, double dDelta) const;
+#endif /*COOLING_MOLECULARH*/
 
     char achIMF[32];	        /* initial mass function */
-    double dErgPerGmUnit;	/* system specific energy in ergs/gm */
+    int iRandomSeed;		/* seed for stochastic quantized feedback */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dErgUnit;		/* system energy in ergs */
@@ -58,8 +62,12 @@ class Fdbk : public PUP::able {
  public:
     mutable SN sn;
     double dDeltaStarForm;
+    double dErgPerGmUnit;	/* system specific energy in ergs/gm */
     double dSecUnit;		/* system time in seconds */
     double dMaxGasMass;		/* Maximum mass of a gas particle */
+#ifdef SPLITGAS
+    double dInitGasMass;    /* Original mass of a gas particle */
+#endif
     int bSNTurnOffCooling;      /* turn off cooling or not */
     int bSmallSNSmooth;	/* smooth SN energy only over blast radius */
     int bShortCoolShutoff;      /* use snowplow time */
@@ -69,6 +77,11 @@ class Fdbk : public PUP::able {
     double dTimePreFactor;      /* McKee + Ostriker time constant in system units */
     int nSmoothFeedback;	/* number of particles to smooth feedback over*/
     double dMaxCoolShutoff;     /* Maximum length of time to shutoff cooling */
+    double dEarlyFeedbackFrac;  /* Fraction of SNe II to put in early feedback */
+    double dFBInitialMassLoad;  /* Initial Mass Loading in Superbubble feedback*/
+    double dMultiPhaseMinTemp;
+    double dMultiPhaseMaxTime;
+    double dEarlyETotal;  /* Total E in early FB per solar mass of stars */
     IMF *imf;
 
     void AddParams(PRM prm);
@@ -98,6 +111,9 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     dErgUnit = fb.dErgUnit;
     dSecUnit = fb.dSecUnit;
     dMaxGasMass = fb.dMaxGasMass;
+#ifdef SPLITGAS
+    dInitGasMass = fb.dInitGasMass;
+#endif
     bSNTurnOffCooling = fb.bSNTurnOffCooling;
     bSmallSNSmooth = fb.bSmallSNSmooth;
     bShortCoolShutoff = fb.bShortCoolShutoff;
@@ -107,6 +123,11 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     dTimePreFactor = fb.dTimePreFactor;
     nSmoothFeedback = fb.nSmoothFeedback;
     dMaxCoolShutoff = fb.dMaxCoolShutoff;
+    dEarlyFeedbackFrac = fb.dEarlyFeedbackFrac;
+    dFBInitialMassLoad = fb.dFBInitialMassLoad;
+    dMultiPhaseMinTemp = fb.dMultiPhaseMinTemp;
+    dMultiPhaseMaxTime = fb.dMultiPhaseMaxTime;
+    dEarlyETotal = fb.dEarlyETotal;
     sn = fb.sn;
     pdva = fb.pdva;
     imf = fb.imf->clone();
@@ -121,6 +142,9 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dErgUnit;
     p | dSecUnit;
     p | dMaxGasMass;
+#ifdef SPLITGAS
+    p | dInitGasMass;
+#endif
     p | bSNTurnOffCooling;
     p | bSmallSNSmooth;
     p | bShortCoolShutoff;
@@ -130,6 +154,11 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dTimePreFactor;
     p | nSmoothFeedback;
     p | dMaxCoolShutoff;
+    p | dEarlyFeedbackFrac;
+    p | dFBInitialMassLoad;
+    p | dMultiPhaseMinTemp;
+    p | dMultiPhaseMaxTime;
+    p | dEarlyETotal;
     p | sn;
     p | pdva;
     p | imf;

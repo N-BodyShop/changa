@@ -1,4 +1,4 @@
-/// @file CacheInterface.C
+/// @file CacheInterface.cpp
 ///
 /// Implementation of the interfaces used by the CacheManager.
 ///

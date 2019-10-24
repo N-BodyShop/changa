@@ -172,6 +172,13 @@ public:
 	cosmoType totalMass;
 	/// The center of mass (zeroth order multipole)
 	Vector3D<cosmoType> cm;
+
+#ifdef COOLING_MOLECULARH
+	double totalLW, totalgas;
+	Vector3D<double> cLW, cgas;
+	double xxgas, yygas, zzgas;
+#endif /*COOLING_MOLECULARH*/
+
 #ifdef HEXADECAPOLE
 	FMOMR mom;
 #else						\
@@ -182,6 +189,12 @@ public:
 	MultipoleMoments() : radius(0), totalMass(0) { 
 	    soft = 0;
 		cm.x = cm.y = cm.z = 0;
+#ifdef COOLING_MOLECULARH
+		totalLW = 0, totalgas = 0;
+		cLW.x = cLW.y = cLW.z = 0;
+		cgas.x = cgas.y = cgas.z = 0;
+		xxgas = yygas = zzgas = 0;
+#endif /*COOLING_MOLECULARH*/		
 		//clear higher order components here
 #ifdef HEXADECAPOLE
 		momClearFmomr(&mom);
@@ -209,6 +222,28 @@ public:
 		soft = (m1*soft + m.totalMass*m.soft)/totalMass;
 		Vector3D<cosmoType> cm1 = cm;
 		cm = (m1*cm + m.totalMass*m.cm)/totalMass;
+#ifdef COOLING_MOLECULARH
+		double totalLW1 = totalLW;
+		if (m.totalLW != 0) { /*except this is log, so I'll have to figure out another way to mark this, CC*/
+		  totalLW = log10(pow(10,totalLW - 30.0) + pow(10,m.totalLW - 30.0)) + 30.0; /*The thirty is just there to keep numbers in bounds*/
+		  cLW = (pow(10,totalLW1 - 30.0)*cLW + pow(10,m.totalLW - 30.0)*m.cLW)/pow(10,totalLW - 30.0);
+		}
+		
+		double totalgas1 = totalgas;
+		totalgas += m.totalgas;
+		Vector3D<double> cgas1 = cgas;
+		if (totalgas != 0) {
+		  cgas = (totalgas1*cgas1 + m.totalgas*m.cgas)/totalgas;
+		}		 
+		Vector3D<double> drgas = cgas1 - cgas; /*Distance between previous center and new center*/
+		xxgas += totalgas1*drgas[0]*drgas[0];
+		yygas += totalgas1*drgas[1]*drgas[1];
+		zzgas += totalgas1*drgas[2]*drgas[2];
+		drgas = m.cgas - cgas; /*Distance between added node center and new center*/
+		xxgas += m.xxgas + m.totalgas*drgas[0]*drgas[0];
+		yygas += m.yygas + m.totalgas*drgas[1]*drgas[1];
+		zzgas += m.zzgas + m.totalgas*drgas[2]*drgas[2];
+#endif /*COOLING_MOLECULARH*/
 #ifdef HEXADECAPOLE
 		Vector3D<cosmoType> dr = cm1 - cm;
 		momShiftFmomr(&mom, radius, dr.x, dr.y, dr.z);
@@ -249,6 +284,37 @@ public:
 		soft = (m1*soft + p.mass*p.soft)/totalMass;
 		Vector3D<cosmoType> cm1 = cm;
 		cm = (m1*cm + p.mass * p.position)/totalMass;
+#ifdef COOLING_MOLECULARH 
+		double totalLW1 = totalLW;
+		if (p.isStar()) {
+		  if (p.dStarLymanWerner() != 0) { /*except this is log, so I'll have to figure out another way to mark this*/
+		    totalLW = log10(pow(10,totalLW - 30.0) + pow(10,p.dStarLymanWerner() - 30.0)) + 30.0; /*The thirty is just there to keep numbers in bounds*/
+		    cLW = (pow(10,totalLW1 - 30.0)*cLW + pow(10,p.dStarLymanWerner() - 30.0)*p.position)/pow(10,totalLW - 30.0);
+		  }
+		 }
+
+		double totalgas1 = totalgas;
+		Vector3D<double> cgas1 = cgas;
+		if (p.isGas()) {
+		  totalgas += p.mass;
+		  if (totalgas!= 0) {
+		    cgas = (totalgas1*cgas1 + p.mass * p.position)/totalgas;
+		  }
+
+		  Vector3D<double> drgas = cgas1 - cgas;
+
+		  xxgas += totalgas1*drgas[0]*drgas[0];
+		  yygas += totalgas1*drgas[1]*drgas[1];
+		  zzgas += totalgas1*drgas[2]*drgas[2];
+
+		  drgas = p.position - cgas;
+
+		  xxgas += p.mass*drgas[0]*drgas[0];
+		  yygas += p.mass*drgas[1]*drgas[1];
+		  zzgas += p.mass*drgas[2]*drgas[2];
+		 }
+
+#endif /*COOLING_MOLECULARH*/
 #ifdef HEXADECAPOLE
 		// XXX this isn't the most efficient way, but it
 		// retains the semantics of this function.  It would
@@ -360,6 +426,15 @@ inline void operator|(PUP::er& p, MultipoleMoments& m) {
 	p | m.totalMass;
 	p | m.soft;
 	p | m.cm;
+#ifdef COOLING_MOLECULARH
+	p | m.totalLW;
+	p | m.totalgas;
+	p | m.cLW;
+	p | m.cgas;
+	p | m.xxgas;
+	p | m.yygas;
+	p | m.zzgas;
+#endif /*COOLING_MOLECULARH*/
 #ifdef HEXADECAPOLE
 	p((char *) &m.mom, sizeof(m.mom)); /* PUPs as bytes */
 #else

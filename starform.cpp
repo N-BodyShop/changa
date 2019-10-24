@@ -11,6 +11,7 @@
 #include "starform.h"
 #include "smooth.h"
 #include "Sph.h"
+#include "lymanwerner.h"
 
 ///
 /// @brief initialize parameters for star formation
@@ -60,6 +61,12 @@ void Stfm::AddParams(PRM prm)
     iStarFormRung = 0;
     prmAddParam(prm,"iStarFormRung", paramInt, &iStarFormRung,
 		sizeof(int), "iStarFormRung", "<Star Formation Rung> = 0");
+#ifdef COOLING_MOLECULARH
+    dStarFormEfficiencyH2 = 1.0; /* Set such that SF depends on H2 abundance. Usually 1 to make SF efficiency based off of H2 abundance.  Set to zero for standard, non-H2 SF recipe.*/
+    prmAddParam(prm,"dStarFormEfficiencyH2", paramDouble, &dStarFormEfficiencyH2,
+		sizeof(double), "dStarFormEfficiencyH2",
+		"<Star Formation efficiency as a function of H2> = 0");
+#endif
     // Blackhole formation parameters
     bBHForm = 0;
     prmAddParam(prm,"bBHForm",paramBool,&bBHForm,
@@ -205,7 +212,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
     int nFormed = 0;
     int nDeleted = 0;
     double dMassFormed = 0.0;
-    double TempForm;
+    double TempForm, H2FractionForm;
     
     // clear indices into starlog table
     iSeTab.clear();
@@ -216,7 +223,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 	if(p->isGas()) {
 	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
 						   dDelta, dCosmoFac, 
-						   &TempForm);
+						   &TempForm,&H2FractionForm);
 	    
 	    if(starp != NULL) {
 		nFormed++;
@@ -226,7 +233,11 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		CmiLock(dm->lockStarLog);
                 // Record current spot in seTab
                 iSeTab.push_back(dm->starLog->seTab.size());
+#ifdef COOLING_MOLECULARH
+		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm,H2FractionForm));
+#else
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm));
+#endif
 		CmiUnlock(dm->lockStarLog);
 		delete (extraStarData *)starp->extraData;
 		delete starp;
@@ -251,7 +262,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 */
 GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 				double dDelta,  // drift timestep
-				double dCosmoFac, double *T) 
+				double dCosmoFac, double *T, double *H2FractionForm) 
 {
     /*
      * Determine dynamical time.
@@ -277,12 +288,31 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     if(*T > dTempMax)
 	return NULL;
 
+#ifdef SUPERBUBBLE
+    /*
+     *  Multiphase particles shouldn't form stars.  
+     */
+    if (p->massHot() > 0)  
+    return NULL;
+#endif
+
     if(p->fDensity < dOverDenMin || p->fDensity/dCosmoFac < dPhysDenMin)
 	return NULL;
 
     double tform = tdyn;
     double dTimeStarForm = (dDelta > dDeltaStarForm ? dDelta : dDeltaStarForm);
+
+#ifdef COOLING_MOLECULARH
+    double yH;
+    double dMprob;
+    if (dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
+    else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
+    			    dStarFormEfficiencyH2*p->CoolParticle().f_H2);    
+    *H2FractionForm = p->CoolParticle().f_H2;
+#else /* COOLING_MOLECULARH */ 
     double dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform);
+    *H2FractionForm = 0;   
+#endif /* COOLING_MOLECULARH */ 
 
     /*
      * Decrement mass of particle.
@@ -342,6 +372,9 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     if(p->mass < dMinGasMass) {
 	deleteParticle(p);
 	}
+#ifdef COOLING_MOLECULARH /*Initialize LW radiation for a star particle of that mass and 10^7 (the minimum) years old*/
+    starp->dStarLymanWerner() = calcLogSSPLymanWerner(7,log10(dDeltaM));
+#endif /*COOLING_MOLECULARH*/
 
     /* NB: It is important that the star inherit special
        properties of the gas particle such as being a target
@@ -444,6 +477,9 @@ void StarLog::flush(void) {
 	    xdr_double(&xdrs, &(pSfEv->massForm));
 	    xdr_double(&xdrs, &(pSfEv->rhoForm));
 	    xdr_double(&xdrs, &(pSfEv->TForm));
+#ifdef COOLING_MOLECULARH 
+	    xdr_double(&xdrs, &(pSfEv->H2FracForm));
+#endif
 	    }
 	xdr_destroy(&xdrs);
 	int result = CmiFclose(outfile);

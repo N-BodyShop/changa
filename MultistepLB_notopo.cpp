@@ -5,13 +5,14 @@
 #include "ParallelGravity.h"
 #include "Vector3D.h"
 #include <queue>
+#include "formatted_string.h"
 
 extern CProxy_TreePiece treeProxy;
 CkpvExtern(int, _lb_obj_index);
 using namespace std;
 //#define ORB3DLB_NOTOPO_DEBUG CkPrintf
 
-CreateLBFunc_Def(MultistepLB_notopo, "Works best with multistepped runs; uses Orb3D_notopo for larger steps, greedy otherwise");
+CreateLBFunc_Def(MultistepLB_notopo, "Works best with multistepped runs; uses Orb3D_notopo");
 
 void MultistepLB_notopo::init() {
   lbname = "MultistepLB_notopo";
@@ -51,12 +52,8 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
 }
 #endif
 
-/// Threshold between ORB3D (large) and greedy (small) as fraction of
-/// active particles
-#define LARGE_PHASE_THRESHOLD 0.0001
-
-/// @brief Implement load balancing: store loads and decide between
-/// ORB3D and greedy.
+/// @brief Implement load balancing: store loads and determine active
+/// processors and objects, then call ORB3D.
 void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 {
 #if CMK_LBDB_ON
@@ -65,9 +62,8 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 
   if(_lb_args.debug() >= 2 && step() > 0) {
       // Write out "particle file" of measured load balance information
-      char achFileName[1024];
-      sprintf(achFileName, "lb_a.%d.sim", step()-1);
-      FILE *fp = fopen(achFileName, "w");
+      auto achFileName = make_formatted_string("lb_a.%d.sim", step()-1);
+      FILE *fp = fopen(achFileName.c_str(), "w");
       CkAssert(fp != NULL);
 
       int num_migratables = stats->n_objs;
@@ -93,15 +89,11 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 	  }
       fclose(fp);
       }
-  float *ratios = new float[stats->n_objs];
-  // save pointers to centroids of treepieces
 
   int numActiveObjects = 0;
   int numInactiveObjects = 0;
-
-  // to calculate ratio of active particles in phase
-  int64_t numActiveParticles = 0;
-  int64_t totalNumParticles = 0;
+  int minActiveProc = INT_MAX;
+  int maxActiveProc = 0;
 
   for(int i = 0; i < stats->n_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];
@@ -113,56 +105,37 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
     LDObjData &odata = stats->objData[i];
     TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
 
-    numActiveParticles += udata->numActiveParticles;
-    totalNumParticles += udata->myNumParticles;
-
     if(udata->numActiveParticles == 0){
       numInactiveObjects++;
-      if(stats->objData[i].migratable){
-        stats->objData[i].migratable = 0;
-#ifdef MCLBMSV
-        CkPrintf("marking object %d non-migratable (inactive)\n", i);
-#endif
-        stats->n_migrateobjs--;
-      }
     }
     else{
       numActiveObjects++;
+      if(minActiveProc > stats->from_proc[i])
+          minActiveProc = stats->from_proc[i];
+      if(maxActiveProc < stats->from_proc[i])
+          maxActiveProc = stats->from_proc[i];
     }
   }
   CkPrintf("numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects,
       numInactiveObjects);
-  if(numInactiveObjects < 1.0*numActiveObjects) {
-    // insignificant number of inactive objects; migrate them anyway
+  CkPrintf("active PROC range: %d to %d\n", minActiveProc, maxActiveProc);
+  if(numActiveObjects < 0.1*numInactiveObjects) {
+    // only a small number of active objects, only migrate them
     for(int i = 0; i < stats->n_objs; i++){
       if (!stats->objData[i].migratable) continue;
 
       LDObjData &odata = stats->objData[i];
       TaggedVector3D* udata =
         (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
-      if(!stats->objData[i].migratable && udata->myNumParticles > 0) {
-        stats->objData[i].migratable = 1;
-        stats->n_migrateobjs++;
-        numActiveObjects++;
-        numInactiveObjects--;
+      if(udata->numActiveParticles == 0) {
+          stats->objData[i].migratable = 0;
+          stats->n_migrateobjs--;
       }
     }
+  }
+  else {
     CkPrintf("Migrating all: numActiveObjects: %d, numInactiveObjects: %d\n", numActiveObjects, numInactiveObjects);
   }
-
-  /*
-  CkPrintf("**********************************************\n");
-  CkPrintf("Object load predictions phase %d\n", phase);
-  CkPrintf("**********************************************\n");
-  for(int i = 0; i < stats->n_objs; i++){
-      int tp = tpCentroids[i].tp;
-      int lb = tpCentroids[i].tag;
-    CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
-  }
-  CkPrintf("**********************************************\n");
-  CkPrintf("Done object load predictions phase %d\n", prevPhase);
-  CkPrintf("**********************************************\n");
-  */
 
   // select processors
 #ifdef MCLBMSV
@@ -173,15 +146,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   count = stats->count;
 
   // let the strategy take over on this modified instrumented data and processor information
-  if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
-    if (_lb_args.debug()>=2) {
-      CkPrintf("******** BIG STEP *********!\n");
-    }
-    work2(stats,count);
-  }     // end if phase == 0
-  else{
-    // greedy(stats,count,phase,prevPhase);
-  }
+  work2(stats,count);
 #endif //CMK_LDB_ON
 
 }
@@ -190,82 +155,6 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 // ORB3DLB functions
 //**************************************
 //
-void MultistepLB_notopo::greedy(BaseLB::LDStats *stats, int count){
-
-  int numobjs = stats->n_objs;
-  int nmig = stats->n_migrateobjs;
-  CkPrintf("[GREEDY] objects total %d active %d\n", numobjs,nmig);
-
-  TPObject *tp_array = new TPObject[nmig];
-  int j = 0;
-  for(int i = 0; i < stats->n_objs; i++){
-    if(!stats->objData[i].migratable) continue;
-
-    tp_array[j].migratable = stats->objData[i].migratable;
-    LDObjData &odata = stats->objData[i];
-    TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
-    if(step() == 0){
-      tp_array[j].load = udata->myNumParticles;
-    }
-    else{
-      tp_array[j].load = stats->objData[i].wallTime;
-    }
-    tp_array[j].lbindex = i;
-    j++;
-  }
-  mapping = &stats->to_proc;
-
-  CkAssert(j==nmig);
-
-  std::priority_queue<TPObject> objects;
-  std::priority_queue<Processor> processors;
-
-  for(int i = 0; i < nmig; i++){
-    objects.push(tp_array[i]);
-  }
-
-  for(int i = 0; i < count; i++){
-    processors.push(Processor(i));
-  }
-
-  while(!objects.empty()){
-    TPObject obj = objects.top();
-    objects.pop();
-
-    Processor p = processors.top();
-    processors.pop();
-
-    p.load += obj.load;
-    (*mapping)[obj.lbindex] = p.t;
-
-    processors.push(p);
-  }
-
-  // diagnostics
-  /*
-  CkPrintf("**********************************\n");
-  CkPrintf("GREEDY CPU LOAD PREDICTIONS phase %d\n", phase);
-  CkPrintf("**********************************\n");
-  while(!processors.empty()){
-    Processor p = processors.top();
-    processors.pop();
-    CkPrintf("proc %d load %f\n", p.t, p.load);
-  }
-  */
-
-  CkPrintf("**********************************\n");
-  CkPrintf("GREEDY MEASURED CPU LOAD prev %d\n");
-  CkPrintf("**********************************\n");
-  for(int i = 0; i < stats->count; i++){
-    CkPrintf("[pestats] %d %g %g\n",
-                               i,
-                               stats->procs[i].total_walltime,
-                               stats->procs[i].idletime);
-  }
-
-
-  delete []tp_array;
-}
 
 /// @brief ORB3D load balance.
 void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count){
@@ -322,9 +211,8 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count){
 
   if(_lb_args.debug() >= 2) {
       // Write out "particle file" of load balance information
-      char achFileName[1024];
-      sprintf(achFileName, "lb.%d.sim", step());
-      FILE *fp = fopen(achFileName, "w");
+      auto achFileName = make_formatted_string("lb.%d.sim", step());
+      FILE *fp = fopen(achFileName.c_str(), "w");
       CkAssert(fp != NULL);
 
       int num_migratables = numobjs;

@@ -33,24 +33,17 @@
 #include "PETreeMerger.h"
 #include "IntraNodeLBManager.h"
 #include "CkLoopAPI.h"
+#include "formatted_string.h"
 
 #if !CMK_LB_USER_DATA
 #error "Please recompile charm with --enable-lbuserdata"
 #endif
 
 #ifdef CUDA
-#ifdef CUDA_INSTRUMENT_WRS
-#define GPU_INSTRUMENT_WRS
-#include "wr.h"
+#ifdef HAPI_INSTRUMENT_WRS
+#include "hapi.h"
 #endif
 #endif
-
-/*
-// uncomment when using cuda version of charm but running without GPUs
-struct workRequest; 
-void kernelSelect(workRequest *wr) {
-}
-*/
 
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
@@ -155,8 +148,9 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	      // Make the bounding box cubical.
 	      //
 	      Vector3D<float> bcenter = boundingBox.center();
-	      const float fEps = 1.0 + 9.5e-7;  // slop to ensure keys fall
-						// between 0 and 1.
+              // The magic number below is approximately 2^(-19)
+              const float fEps = 1.0 + 1.91e-6;  // slop to ensure keys fall
+                                                 // between 0 and 1.
 	      bsize = Vector3D<float>(fEps*0.5*max);
 	      boundingBox = OrientedBox<float>(bcenter-bsize, bcenter+bsize);
 	      if(thisIndex == 0 && verbosity > 1)
@@ -175,8 +169,8 @@ void TreePiece::assignKeys(CkReductionMsg* m) {
 	}
 
 #if COSMO_DEBUG > 1
-  char fout[100];
-  sprintf(fout,"tree.%d.%d.before",thisIndex,iterationNo);
+  auto file_name = make_formatted_string("tree.%d.%d.before",thisIndex,iterationNo);
+  char const* fout = file_name.c_str();
   ofstream ofs(fout);
   for (int i=1; i<=myNumParticles; ++i)
     ofs << keyBits(myParticles[i].key,KeyBits) << " " << myParticles[i].position[0] << " "
@@ -1456,7 +1450,12 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 	dEnergy[2] += p->mass*p->potential;
 	L += p->mass*cross(p->position, p->velocity);
 	if (TYPETest(p, TYPE_GAS))
+#ifdef SUPERBUBBLE
+        /* Include hot phase energy */
+	    dEnergy[6] += p->massHot()*p->uHot()+(p->mass-p->massHot())*p->u();
+#else
 	    dEnergy[6] += p->mass*p->u();
+#endif
 	}
     dEnergy[0] *= 0.5;
     dEnergy[2] *= 0.5;
@@ -1467,11 +1466,19 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
     contribute(7*sizeof(double), dEnergy, CkReduction::sum_double, cb);
 }
 
+#include "physconst.h"
+
 void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bClosing, // Are we at the end of a timestep
 		     int bNeedVPred, // do we need to update vpred
 		     int bGasIsothermal, // Isothermal EOS
+             double dMaxEnergy, // Maximum internal energy of gas.
 		     double duDelta[MAXRUNG+1], // dts for energy
+             double gammam1, // Adiabatic index - 1
+             double dThermalCondSatCoeff, //Saturated conduction coefficient
+             double dMultiPhaseMaxTime, //Maximum time to stay multiphase
+             double dMultiPhaseMinTemp, //Minimum temperature to stay multiphase
+             double dEvapCoeff, //Thermal evaporation coefficient
 		     const CkCallback& cb) {
   // LBTurnInstrumentOff();
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -1496,7 +1503,110 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  p->u() = uold*exp(p->PdV()*duDelta[p->rung]/uold);
 			  }
 #endif /* COOLING_NONE */
+                      if(p->u() > dMaxEnergy)
+                          p->u() = dMaxEnergy;
 		      p->uPred() = p->u();
+#ifdef SUPERBUBBLE
+              /*
+               * Calculate the rate of internal evaporation for multiphase particles
+               */
+              p->uHot() = p->uHot() + p->uHotDot()*duDelta[p->rung];
+              if (p->uHot() < 0) { // Update the hot phase energy
+                  double uold = p->uHot() - p->uHotDot()*duDelta[p->rung];
+                  p->uHot() = uold*exp(p->uHotDot()*duDelta[p->rung]/uold);
+              }
+              p->uHotPred() = p->uHot();
+              double fDensity=0;
+              double ph = p->fBall*0.5;
+              double frac = p->massHot()/p->mass;
+              double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
+              if (p->uHot() != 0)
+              {
+                 fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
+                 if (p->cpHotInit()) {
+                     double E = p->uHot();
+                     double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
+                     CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, TpNC, p->fMetals());
+                     p->cpHotInit() = 0;
+                 }
+              }
+              double upnc52, up52, massFlux;
+              upnc52 = pow(p->uHotPred(), 2.5);
+              up52 = pow(p->uPred(), 2.5);
+              double fFactor = duDelta[p->rung]*dEvapCoeff*ph*3.1415;
+              /* The Saturation Coefficient S is related to the evaporation Coefficient C by:
+               * C_{saturation} = \frac{6}{25}S \rho c_s h
+               */
+              double massFluxSat = 0.24*(duDelta[p->rung]*dThermalCondSatCoeff*fDensity*sqrt((gammam1+1.0)*PoverRho)*ph*ph*3.1415);
+              if (p->uHotPred() > 0) CkAssert(massFluxSat > 0);
+              massFlux = fFactor*(upnc52-up52);
+              massFlux = (massFlux < massFluxSat ? massFlux : massFluxSat);
+              /*
+               * Make sure that the flow is in the right direction
+               * If all the mass becomes hot, switch to being single-phase
+               */
+              if(massFlux > 0) { 
+                  if(dMultiPhaseMaxTime > 0 && p->massHot() < (0.5*p->mass)) {
+                      double massFluxMin = duDelta[p->rung]*p->mass/dMultiPhaseMaxTime;
+                      massFlux = (massFlux > massFluxMin ? massFlux : massFluxMin);
+                  }
+                  if(massFlux > (p->mass-p->massHot())) {
+                      p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
+                      p->u() = (p->u()*(p->mass-p->massHot()) + p->uHot()*p->massHot())/p->mass;
+                      p->uDot() = (p->uDot()*(p->mass-p->massHot()) + p->uHotDot()*p->massHot())/p->mass;
+                      p->fESNrate() *= p->massHot()/p->mass; //scaled uDot()
+                      p->massHot() = 0;
+                      p->uHot() = 0;
+                      p->uHotDot() = 0;
+                      p->uHotPred() = 0;
+                      p->CoolParticle() = p->CoolParticleHot();
+                      p->cpHotInit() = 0;
+                  }
+                  else {
+                      p->uHotPred() = (p->uPred()*massFlux + p->uHotPred()*p->massHot())/(massFlux+p->massHot());
+                      p->uHot() = (p->u()*massFlux + p->uHot()*p->massHot())/(massFlux+p->massHot());
+                      p->fESNrate() *= p->massHot()/(p->massHot()+massFlux);
+                      p->massHot() += massFlux;
+                      CkAssert(p->massHot() >= 0);
+                      CkAssert(p->uPred() >= 0);
+                      CkAssert(p->uHotPred() >= 0);
+                      CkAssert(p->u() >= 0);
+                      CkAssert(p->uHot() >= 0);
+                  }
+              }
+               /*
+                * No sense in keeping the noncooling mass around if it is much colder than the regular mass
+                */
+              else if (p->uPred() > p->uHotPred() && p->uHotPred() > 0) { 
+                      p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
+                      p->u() = (p->u()*(p->mass-p->massHot()) + p->uHot()*p->massHot())/p->mass;
+                      p->uDot() = (p->uDot()*(p->mass-p->massHot()) + p->uHotDot()*p->massHot())/p->mass;
+                      p->fESNrate() *= p->massHot()/p->mass;
+                      p->massHot() = 0;
+                      p->uHot() = 0;
+                      p->uHotDot() = 0;
+                      p->uHotPred() = 0;
+                      p->CoolParticle() = p->CoolParticleHot();
+                      p->cpHotInit() = 0;
+              }
+              if(p->uHotPred() > 0) {
+                  double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(), p->fMetals());
+                  if(TpNC < dMultiPhaseMinTemp)//Check to make sure the hot phase is still actually hot
+                  {
+                     p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
+                     p->u() = (p->u()*(p->mass-p->massHot()) + p->uHot()*p->massHot())/p->mass;
+                     p->uDot() = (p->uDot()*(p->mass-p->massHot()) + p->uHotDot()*p->massHot())/p->mass;
+                     p->fESNrate() *= p->massHot()/p->mass;
+                     p->massHot() = 0;
+                     p->uHot() = 0;
+                     p->uHotDot() = 0;
+                     p->uHotPred() = 0;
+                     p->CoolParticle() = p->CoolParticleHot();
+                     p->cpHotInit() = 0;
+                  }
+              }
+                  
+#endif
 		      }
 #ifdef DIFFUSION
 		  p->fMetals() += p->fMetalsDot()*duDelta[p->rung];
@@ -1525,6 +1635,24 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  p->u() = uold*exp(p->PdV()*duDelta[p->rung]/uold);
 			  }
 #endif /* COOLING_NONE */
+#ifdef SUPERBUBBLE
+              // update hot phase temperatures.
+		      p->uHotPred() = p->uHot();
+		      p->uHot() = p->uHot() + p->uHotDot()*duDelta[p->rung];
+              if (p->cpHotInit()) {
+                 double E = p->uHot();
+                 double frac = p->massHot()/p->mass;
+                 double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
+                 double fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
+                 double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
+                 CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, TpNC, p->fMetals());
+                 p->cpHotInit() = 0;
+              }
+		      if (p->uHot() < 0) {
+			  double uold = p->uHot() - p->uHotDot()*duDelta[p->rung];
+			  p->uHot() = uold*exp(p->uHotDot()*duDelta[p->rung]/uold);
+			  }
+#endif
 		      }
 #ifdef DIFFUSION
 		  p->fMetalsPred() = p->fMetals();
@@ -1537,6 +1665,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  }
 	      CkAssert(p->u() >= 0.0);
 	      CkAssert(p->uPred() >= 0.0);
+#ifndef COOLING_NONE
+              CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+              CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+#endif
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
 	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
@@ -1558,6 +1690,17 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
     bBucketsInited = true;
     contribute(cb);
     }
+
+#ifdef COOLING_MOLECULARH
+void TreePiece::distribLymanWerner(const CkCallback& cb) 
+{
+  /*copied more or less from startOctTreeBuild*/
+  LocalTreeTraversal traversal;
+  LocalLymanWernerDistributor localLymanWernerDistributor(this);
+  traversal.dft(root,&localLymanWernerDistributor,0);
+  contribute(cb);
+}
+#endif/*COOLING_MOLECULARH*/
 
 /**
  * Adjust timesteps of active particles.
@@ -1677,6 +1820,20 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      if (dt < dTIdeal) 
 		  dTIdeal = dt;
 	      }
+          dTEdot = dt;
+#ifdef SUPERBUBBLE
+    /* Prevent rapid overconduction */
+    if (p->fThermalCond() > 0 || (p->diff() > 0 && dDiffCoeff > 0)) {
+        dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + p->fThermalCond()/p->fDensity);
+        if (dt < dTIdeal) dTIdeal = dt;
+    }
+    double x = p->massHot()/p->mass;
+	double uTotDot = p->uHotDot()*x+p->uDot()*(1-x);
+    if (uTotDot > 0 && p->dt < FLT_MAX) {
+        dt = dEtaCourant*dCosmoFac*ph/sqrt(4*(p->c()*p->c()+1.6667*uTotDot*p->dt));
+        if (dt < dTIdeal) dTIdeal = dt;
+    }
+#else
 #ifdef DIFFUSION
 	  /* h^2/(2.77Q) Linear stability from Brookshaw */
 	  if (p->diff() > 0 && dDiffCoeff > 0) {
@@ -1685,6 +1842,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      }
 #endif
           dTEdot = dt;
+#endif
 	  }
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
@@ -1802,6 +1960,9 @@ void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
             p->velocity = p->vPred();
 #ifndef COOLING_NONE
             p->u() = p->uPred();
+#ifdef SUPERBUBBLE
+            p->uHot() = p->uHotPred();
+#endif
 #endif
 #ifdef DIFFUSION
             p->fMetals() = p->fMetalsPred();
@@ -1814,7 +1975,7 @@ void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
 #else
     CkAbort("emergency adjust called without DTADJUST defined");
 #endif
-    }
+}
 
 /// @brief assign domain number to each particle for diagnostic
 void TreePiece::assignDomain(const CkCallback &cb)
@@ -1836,6 +1997,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 				      // in place
 		      bool buildTree, // is a treebuild happening before the
 				      // next drift?
+                      double dMaxEnergy, // Maximum internal energy of gas.
 		      const CkCallback& cb) {
   callback = cb;		// called by assignKeys()
   deleteTree();
@@ -1891,6 +2053,21 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  // of timescale u/uDot.
 		  else p->uPred() = uold*exp(p->uDot()*duDelta/uold);
 		  }
+#ifdef SUPERBUBBLE
+              p->uHotPred() += p->uHotDot()*duDelta;
+	      if (p->uHotPred() < 0) {
+		  // Backout the update to upred
+                  double uold = p->uHotPred() - p->uHotDot()*duDelta;
+		  // uold could be negative because of round-off
+		  // error.  If this is the case then uDot*Delta/u is
+		  // large, the final uHotPred will be zero.
+                  if(uold <= 0.0) p->uHotPred() = 0.0;
+		  // Cooling rate is large: use an exponential decay
+		  // of timescale u/uDot.
+                  else p->uHotPred() = uold*exp(p->uHotDot()*duDelta/uold);
+		  }
+              CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+#endif
 #else
 	      p->uPred() += p->PdV()*duDelta;
 	      if (p->uPred() < 0) {
@@ -1898,7 +2075,12 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  p->uPred() = uold*exp(p->PdV()*duDelta/uold);
 		  }
 #endif
+              if(p->uPred() > dMaxEnergy)
+                  p->uPred() = dMaxEnergy;
               CkAssert(p->uPred() >= 0.0);
+#ifndef COOLING_NONE
+              CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+#endif
 	      }
 #ifdef DIFFUSION
 	  p->fMetalsPred() += p->fMetalsDot()*duDelta;
@@ -2394,8 +2576,8 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
 {
 
 #if COSMO_DEBUG > 1
-  char fout[100];
-  sprintf(fout,"tree.%d.%d.after",thisIndex,iterationNo);
+  auto file_name = make_formatted_string("tree.%d.%d.after",thisIndex,iterationNo);
+  char const* fout = file_name.c_str();
   ofstream ofs(fout);
   for (int i=1; i<=myNumParticles; ++i)
     ofs << keyBits(myParticles[i].key,KeyBits) << " " << myParticles[i].position[0] << " "
@@ -2895,11 +3077,13 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
         // Then construct the local parts of the tree
         LocalTreeBuilder w2(this);
         traversal.dft(root,&w2,0);
-
 #else
-        start = CmiWallTimer();
-	buildOctTree(root, 0);
-        traceUserBracketEvent(tbRecursiveUE,start,CmiWallTimer());
+        /*
+         * This should not happen since the tree build type is guaranteed to be specified
+         * at configure-time. If, however, the Makefile is manually modified, then we want
+         * to catch that error here.
+         */
+        #error "No valid tree build type specified"
 #endif
 
 	}
@@ -3068,181 +3252,32 @@ bool TreePiece::nodeOwnership(const Tree::NodeKey nkey, int &firstOwner, int &la
   return (myPlace >= firstOwner && myPlace <= lastOwner);
 }
 
-/** A recursive algorithm for building my tree.
-    Examines successive bits in the particles' keys, looking for splits.
-    Each bit is a level of nodes in the tree.  We keep going down until
-    we can bucket the particles.
-*/
-void TreePiece::buildOctTree(GenericTreeNode * node, int level) {
-
-#ifdef TREE_BREADTH_FIRST
-  CkQ<GenericTreeNode*> *queue = new CkQ<GenericTreeNode*>(1024);
-  CkQ<GenericTreeNode*> *queueNext = new CkQ<GenericTreeNode*>(1024);
-  queue->enq(node);
-
-  GenericTreeNode *rootNode = node;
-  while (1) {
-    node = queue->deq();
-    if (node == NULL) {
-      node = queueNext->deq();
-      CkQ<GenericTreeNode*> *tmp = queue;
-      queue = queueNext;
-      queueNext = tmp;
-      level++;
-    }
-    if (node == NULL) break;
-#endif
-
-  if (level == NodeKeyBits-2) {
-    ckerr << thisIndex << ": TreePiece: This piece of tree has exhausted all the bits in the keys.  Super double-plus ungood!" << endl;
-    ckerr << "Left particle: " << (node->firstParticle) << " Right particle: " << (node->lastParticle) << endl;
-    ckerr << "Left key : " << keyBits((myParticles[node->firstParticle]).key, KeyBits).c_str() << endl;
-    ckerr << "Right key: " << keyBits((myParticles[node->lastParticle]).key, KeyBits).c_str() << endl;
-    ckerr << "Node type: " << node->getType() << endl;
-    ckerr << "myNumParticles: " << myNumParticles << endl;
-    CkAbort("Tree is too deep!");
-    return;
-  }
-
-  CkAssert(node->getType() == Boundary || node->getType() == Internal);
-
-  node->makeOctChildren(myParticles, myNumParticles, level, pTreeNodes);
-  // The boundingBox was used above to determine the spacially equal
-  // split between the children.  Now reset it so it can be calculated
-  // from the particle positions.
-  node->boundingBox.reset();
-  node->rungs = 0;
-
-  GenericTreeNode *child;
-#if INTERLIST_VER > 0
-  int bucketsBeneath = 0;
-#endif
-  for (unsigned int i=0; i<node->numChildren(); ++i) {
-    child = node->getChildren(i);
-    CkAssert(child != NULL);
-#if INTERLIST_VER > 0
-    child->startBucket=numBuckets;
-#endif
-    nodeLookupTable[child->getKey()] = child;
-    if (child->getType() == NonLocal) {
-      // find a remote index for the node
-      int first, last;
-      bool isShared = nodeOwnership(child->getKey(), first, last);
-      if (last < first) {
-	// the node is really empty because falling between two TreePieces
-	child->makeEmpty();
-	child->remoteIndex = thisIndex;
-      } else {
-	child->remoteIndex = getResponsibleIndex(first, last);
-	// if we have a remote child, the node is a Boundary. Thus count that we
-	// have to receive one more message for the NonLocal node
-	node->remoteIndex --;
-	// request the remote chare to fill this node with the Moments
-        CkEntryOptions opts;
-        opts.setPriority((unsigned int) -110000000);
-	streamingProxy[child->remoteIndex].requestRemoteMoments(child->getKey(), thisIndex, &opts);
-      }
-    } else if (child->getType() == Internal
-              && (child->lastParticle - child->firstParticle < maxBucketSize
-                  || level >= NodeKeyBits-3)) {
-       if(level >= NodeKeyBits-3
-	  && child->lastParticle - child->firstParticle >= maxBucketSize)
-           ckerr << "Truncated tree with "
-                 << child->lastParticle - child->firstParticle
-                 << " particle bucket" << endl;
-       
-      CkAssert(child->firstParticle != 0 && child->lastParticle != myNumParticles+1);
-      child->remoteIndex = thisIndex;
-      child->makeBucket(myParticles);
-      bucketList.push_back(child);
-#if INTERLIST_VER > 0
-      child->startBucket=numBuckets;
-#endif
-      numBuckets++;
-      if (node->getType() != Boundary) {
-        node->moments += child->moments;
-        node->boundingBox.grow(child->boundingBox);
-        node->bndBoxBall.grow(child->bndBoxBall);
-	node->iParticleTypes |= child->iParticleTypes;
-        node->nSPH += child->nSPH;
-      }
-      if (child->rungs > node->rungs) node->rungs = child->rungs;
-    } else if (child->getType() == Empty) {
-      child->remoteIndex = thisIndex;
-    } else {
-      if (child->getType() == Internal) child->remoteIndex = thisIndex;
-      // else the index is already 0
-#ifdef TREE_BREADTH_FIRST
-      queueNext->enq(child);
-#else
-      buildOctTree(child, level+1);
-#endif
-      // if we have a Boundary child, we will have to compute it's multipole
-      // before we can compute the multipole of the current node (and we'll do
-      // it in receiveRemoteMoments)
-      if (child->getType() == Boundary) node->remoteIndex --;
-#ifndef TREE_BREADTH_FIRST
-      if (node->getType() != Boundary) {
-        node->moments += child->moments;
-        node->boundingBox.grow(child->boundingBox);
-        node->bndBoxBall.grow(child->bndBoxBall);
-	node->iParticleTypes |= child->iParticleTypes;
-        node->nSPH += child->nSPH;
-      }
-      // for the rung information we can always do now since it is a local property
-      if (child->rungs > node->rungs) node->rungs = child->rungs;
-#endif
-    }
-
-#if INTERLIST_VER > 0
-    bucketsBeneath += child->numBucketsBeneath;
-#endif
-  }
-
-#if INTERLIST_VER > 0
-  node->numBucketsBeneath = bucketsBeneath;
-#endif
-
-  /* The old version collected Boundary nodes, the new version collects NonLocal nodes */
-
-#ifndef TREE_BREADTH_FIRST
-  if (node->getType() == Internal) {
-    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
-  }
-#endif
-
-#ifdef TREE_BREADTH_FIRST
-  }
-  growBottomUp(rootNode);
-#endif
-}
-
-#ifdef TREE_BREADTH_FIRST
-void TreePiece::growBottomUp(GenericTreeNode *node) {
-  GenericTreeNode *child;
-  for (unsigned int i=0; i<node->numChildren(); ++i) {
-    child = node->getChildren(i);
-    if (child->getType() == NonLocal ||
-        (child->getType() == Bucket) ||
-        child->getType() == Empty) continue;
-    growBottomUp(child);
-    if (node->getType() != Boundary) {
-      node->moments += child->moments;
-      node->boundingBox.grow(child->boundingBox);
-      node->bndBoxBall.grow(child->bndBoxBall);
-      node->iParticleTypes |= child->iParticleTypes;
-      node->nSPH += child->nSPH;
-    }
-    if (child->rungs > node->rungs) node->rungs = child->rungs;
-  }
-  if (node->getType() == Internal) {
-    calculateRadiusFarthestCorner(node->moments, node->boundingBox);
-  }
-}
-#endif
-
-/// When the node is found to be null, forward it to the neighbor 
+/// When the node is found to be null, find the owner and forward the request.
 bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
+    // Find the true owner
+    int first, last;
+    bool bIsShared = nodeOwnership(msg->key, first, last);
+    if(verbosity > 1) {
+        CkPrintf("fillRequest empty piece %d: %d %d %d %llx\n", thisIndex,
+            first, last, bIsShared, msg->key);
+        CkPrintf("fillRequest resp. pieces %d: %d %d\n", thisIndex,
+                   getResponsibleIndex(first, first),
+                   getResponsibleIndex(last, last));
+    }
+    int iResp = getResponsibleIndex(first, last);
+    // Handle the case where the chosen "owner" happens to be empty.
+    if (iResp == thisIndex)
+        iResp = getResponsibleIndex(first, first);
+    if (iResp == thisIndex)
+        iResp = getResponsibleIndex(last, last);
+    if(iResp != thisIndex) {
+        treeProxy[iResp].fillRequestNode(msg);
+        return true;
+    }
+
+    // Last ditch effort to find the node
+    CkAssert(myNumParticles > 0);
+
   Tree::NodeKey key = msg->key;
   KeyType firstKey = KeyType(key);
   KeyType lastKey = KeyType(key + 1);
@@ -3257,15 +3292,18 @@ bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
 
   // If the firstkey of the requested key is greater than the last particle key,
   // then this node may be with the right neighbor
-  if (myParticles[myNumParticles].key < firstKey) {
-    streamingProxy[thisIndex+1].fillRequestNode(msg);
-    return true;
+  if (myParticles[myNumParticles].key < firstKey
+      && thisIndex < numTreePieces-1) {
+      int iNextIndex = dm->responsibleIndex[myPlace + 1];
+      treeProxy[iNextIndex].fillRequestNode(msg);
+      return true;
   }
   // If the lastkey of the requested key is less than the first particle key,
   // then this node may be with the left neighbor
-  if (myParticles[1].key > lastKey) {
-    streamingProxy[thisIndex-1].fillRequestNode(msg);
-    return true;
+  else if (myParticles[1].key > lastKey && thisIndex > 0) {
+      int iPrevIndex = dm->responsibleIndex[myPlace - 1];
+      treeProxy[iPrevIndex].fillRequestNode(msg);
+      return true;
   }
   return false;
 }
@@ -3802,17 +3840,13 @@ void TreePiece::continueWrapUp(){
 
 void TreePiece::doAllBuckets(){
 #if COSMO_DEBUG > 0
-  char fout[100];
-  sprintf(fout,"tree.%d.%d",thisIndex,iterationNo);
+  auto file_name = make_formatted_string("tree.%d.%d",thisIndex,iterationNo);
+  char const* fout = file_name.c_str();
   ofstream ofs(fout);
   printTree(root,ofs);
   ofs.close();
   report();
 #endif
-
-  dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
-  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
 #ifdef GPU_LOCAL_TREE_WALK 
   ListCompute *listcompute = (ListCompute *) sGravity;
@@ -3834,13 +3868,17 @@ void TreePiece::doAllBuckets(){
   listcompute->resetCudaNodeState(state);
   listcompute->resetCudaPartState(state);
 
-// Completely bypass CPU local tree walk
-//  thisProxy[thisIndex].nextBucket(msg);
 #else
+  // Schedule a walk on the CPU
+
+  dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
+  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+
   thisProxy[thisIndex].nextBucket(msg);
 #endif //GPU_LOCAL_TREE_WALK
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
   ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
 #endif
@@ -4052,12 +4090,11 @@ void TreePiece::calculateGravityLocal() {
 
 void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
-  if(dm->gputransfer){
+  if(dm->gputransfer && bEwaldInited){
     thisProxy[thisIndex].EwaldGPU();
-    delete msg;
-  }else{
-    thisProxy[thisIndex].calculateEwald(msg);
+    bEwaldInited = false;
   }
+  delete msg;
 #else
 
   bool useckloop = false;
@@ -4177,7 +4214,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   CmiMemoryCheck();
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   ((DoubleWalkState *)sRemoteGravityState)->nodeListConstructionTimeStart();
   ((DoubleWalkState *)sRemoteGravityState)->partListConstructionTimeStart();
   ((DoubleWalkState *)sInterListStateRemoteResume)->nodeListConstructionTimeStart();
@@ -4953,38 +4990,11 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
   initBuckets();
 
-  switch(domainDecomposition){
-    case Oct_dec:
-    case ORB_dec:
-    case ORB_space_dec:
-      //Prefetch Roots for Oct
-      prefetchReq[0].reset();
-      for (unsigned int i=1; i<=myNumParticles; ++i) {
-        if (myParticles[i].rung >= activeRung) {
-          prefetchReq[0].grow(myParticles[i].position);
-        }
+  prefetchReq.reset();
+  for (unsigned int i=1; i<=myNumParticles; ++i) {
+      if (myParticles[i].rung >= activeRung) {
+          prefetchReq.grow(myParticles[i].position);
       }
-      break;
-    default:
-      //Prefetch Roots for SFC
-      prefetchReq[0].reset();
-      for (unsigned int i=1; i<=myNumParticles; ++i) {
-	  // set to first active particle
-        if (myParticles[i].rung >= activeRung) {
-          prefetchReq[0].grow(myParticles[i].position);
-	  break;
-	}
-      }
-      prefetchReq[1].reset();
-      for (unsigned int i=myNumParticles; i>=1; --i) {
-	  // set to last active particle
-        if (myParticles[i].rung >= activeRung) {
-	    prefetchReq[1].grow(myParticles[i].position);
-	    break;
-	}
-      }
-
-      break;
   }
 
 #if CHANGA_REFACTOR_DEBUG > 0
@@ -5055,7 +5065,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   // (i.e. all buckets have finished their RNR/Local walks)
 #ifdef CUDA
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   instrumentId = dm->initInstrumentation();
 
   localNodeListConstructionTime = 0.0;
@@ -5124,16 +5134,20 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
 	  ((ListCompute *)sGravity)->initCudaState(state, numBuckets, remoteResumeNodesPerReq, remoteResumePartsPerReq, true);
 
-	  state->nodes = new CkVec<CudaMultipoleMoments>(100000);
+          // Preallocate vector of missed nodes.  This is probably an
+          // overestimate.
+          state->nodes = new CkVec<CudaMultipoleMoments>(numBuckets);
           state->nodes->length() = 0;
-	  state->particles = new CkVec<CompactPartData>(200000);
+          // Preallocate vector of missed particles.  This is probably an
+          // overestimate.
+          state->particles = new CkVec<CompactPartData>(myNumActiveParticles);
           state->particles->length() = 0;
           state->nodeMap.clear();
           state->partMap.clear();
   }
 #endif // CUDA
 
-#if CUDA_STATS
+#if HAPI_TRACE
   localNodeInteractions = 0;
   localPartInteractions = 0;
   remoteNodeInteractions = 0;
@@ -5228,7 +5242,7 @@ void TreePiece::initiatePrefetch(int chunk){
           child = requestNode(dm->responsibleIndex[(first+last)>>1],
               prefetchRoots[chunk], chunk,
               encodeOffset(0, x, y, z),
-              prefetchAwi, (void *)0, true);
+              prefetchAwi, (void *)0);
         }
         if (child != NULL) {
 #if CHANGA_REFACTOR_DEBUG > 1
@@ -5286,7 +5300,6 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   // start prefetching next chunk
   if (++sPrefetchState->currentBucket < numChunks) {
     // Nothing needs to be changed for this chunk -
-    // the prefetchReqs and their number remains the same
     // We only need to reassociate the tree walk with the
     // prefetch compute object and the prefetch object wiht
     // the prefetch opt object
@@ -5411,7 +5424,8 @@ const GravityParticle *TreePiece::lookupParticles(int begin) {
   return &myParticles[begin];
 }
 
-GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int chunk, int reqID, int awi, void *source, bool isPrefetch) {
+GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
+                       int chunk, int reqID, int awi, void *source) {
 
   CkAssert(remoteIndex < (int) numTreePieces);
   CkAssert(chunk < numChunks);
@@ -5455,7 +5469,7 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key, int 
   return NULL;
 }
 
-ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source, bool isPrefetch) {
+ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source) {
   if (_cache) {
     CProxyElement_ArrayElement thisElement(thisProxy[thisIndex]);
     CkCacheUserData userData;
@@ -5504,8 +5518,7 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
 
 GravityParticle *
 TreePiece::requestSmoothParticles(Tree::NodeKey key,int chunk,int remoteIndex,
-				  int begin,int end,int reqID, int awi, void *source,
-				  bool isPrefetch) {
+				  int begin,int end,int reqID, int awi, void *source) {
   if (_cache) {
     CProxyElement_ArrayElement thisElement(thisProxy[thisIndex]);
     CkCacheUserData userData;
@@ -5740,22 +5753,6 @@ void TreePiece::pup(PUP::er& p) {
   if (p.isUnpacking()) {
     particleInterRemote = NULL;
     nodeInterRemote = NULL;
-
-    switch(domainDecomposition) {
-    case SFC_dec:
-    case SFC_peano_dec:
-    case SFC_peano_dec_3D:
-    case SFC_peano_dec_2D:
-      numPrefetchReq = 2;
-      break;
-    case Oct_dec:
-    case ORB_dec:
-    case ORB_space_dec:
-      numPrefetchReq = 1;
-      break;
-    default:
-      CmiAbort("Pupper has wrong domain decomposition type!\n");
-    }
   }
 
   p | myPlace;
@@ -6079,15 +6076,6 @@ checkWalkCorrectness();
 #endif
 }
 
-GenericTreeNode *TreePiece::nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi, void *source){
-  GenericTreeNode *gtn = requestNode(remoteIndex, key, chunk, reqID, awi, source, isPrefetch);
-  return gtn;
-}
-
-ExternalGravityParticle *TreePiece::particlesMissed(Tree::NodeKey &key, int chunk, int remoteIndex, int firstParticle, int lastParticle, int reqID, bool isPrefetch, int awi, void *source){
-  return requestParticles(key, chunk, remoteIndex,firstParticle,lastParticle,reqID, awi, source, isPrefetch);
-}
-
 // This is invoked when a remote node is received from the CacheManager
 // It sets up a tree walk starting at node and initiates it
 void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source){
@@ -6319,65 +6307,64 @@ void TreePiece::finishWalk()
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
-  RequestTimeInfo *rti1 = hapi_queryInstrument(instrumentId, DM_TRANSFER_LOCAL, activeRung);
-  RequestTimeInfo *rti2 = hapi_queryInstrument(instrumentId, DM_TRANSFER_REMOTE_CHUNK, activeRung);
-  RequestTimeInfo *rti3 = hapi_queryInstrument(instrumentId, DM_TRANSFER_BACK, activeRung);
-  RequestTimeInfo *rti4 = hapi_queryInstrument(instrumentId, DM_TRANSFER_FREE_LOCAL, activeRung);
-  RequestTimeInfo *rti5 = hapi_queryInstrument(instrumentId, DM_TRANSFER_FREE_REMOTE_CHUNK, activeRung);
-  
-  RequestTimeInfo *rti6 = hapi_queryInstrument(instrumentId, TP_GRAVITY_LOCAL, activeRung);
-  RequestTimeInfo *rti7 = hapi_queryInstrument(instrumentId, TP_GRAVITY_REMOTE, activeRung);
-  RequestTimeInfo *rti8 = hapi_queryInstrument(instrumentId, TP_GRAVITY_REMOTE_RESUME, activeRung);
-  
-  RequestTimeInfo *rti9 = hapi_queryInstrument(instrumentId,TP_PART_GRAVITY_LOCAL_SMALLPHASE, activeRung);
-  RequestTimeInfo *rti10 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_LOCAL, activeRung);
-  RequestTimeInfo *rti11 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE, activeRung);
-  RequestTimeInfo *rti12 = hapi_queryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE_RESUME, activeRung);
+#ifdef HAPI_INSTRUMENT_WRS
+  hapiRequestTimeInfo *rti1 = hapiQueryInstrument(instrumentId, DM_TRANSFER_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti2 = hapiQueryInstrument(instrumentId, DM_TRANSFER_REMOTE_CHUNK, activeRung);
+  hapiRequestTimeInfo *rti3 = hapiQueryInstrument(instrumentId, DM_TRANSFER_BACK, activeRung);
+  hapiRequestTimeInfo *rti4 = hapiQueryInstrument(instrumentId, DM_TRANSFER_FREE_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti5 = hapiQueryInstrument(instrumentId, DM_TRANSFER_FREE_REMOTE_CHUNK, activeRung);
 
-  RequestTimeInfo *rti13 = hapi_queryInstrument(instrumentId, TOP_EWALD_KERNEL, activeRung);
-  RequestTimeInfo *rti14 = hapi_queryInstrument(instrumentId, BOTTOM_EWALD_KERNEL, activeRung);
+  hapiRequestTimeInfo *rti6 = hapiQueryInstrument(instrumentId, TP_GRAVITY_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti7 = hapiQueryInstrument(instrumentId, TP_GRAVITY_REMOTE, activeRung);
+  hapiRequestTimeInfo *rti8 = hapiQueryInstrument(instrumentId, TP_GRAVITY_REMOTE_RESUME, activeRung);
+
+  hapiRequestTimeInfo *rti9 = hapiQueryInstrument(instrumentId,TP_PART_GRAVITY_LOCAL_SMALLPHASE, activeRung);
+  hapiRequestTimeInfo *rti10 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_LOCAL, activeRung);
+  hapiRequestTimeInfo *rti11 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE, activeRung);
+  hapiRequestTimeInfo *rti12 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE_RESUME, activeRung);
+
+  hapiRequestTimeInfo *rti13 = hapiQueryInstrument(instrumentId, EWALD_KERNEL, activeRung);
 
   if(rti6 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localnode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti6->transferTime/rti6->n,
-        rti6->kernelTime/rti6->n,
-        rti6->cleanupTime/rti6->n, rti6->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS localnode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti6->transfer_time/rti6->n,
+        rti6->kernel_time/rti6->n,
+        rti6->cleanup_time/rti6->n, rti6->n);
   }
   if(rti7 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti7->transferTime/rti7->n,
-        rti7->kernelTime/rti7->n,
-        rti7->cleanupTime/rti7->n, rti7->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remotenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti7->transfer_time/rti7->n,
+        rti7->kernel_time/rti7->n,
+        rti7->cleanup_time/rti7->n, rti7->n);
   }
   if(rti8 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti8->transferTime/rti8->n,
-        rti8->kernelTime/rti8->n,
-        rti8->cleanupTime/rti8->n, rti8->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remoteresumenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti8->transfer_time/rti8->n,
+        rti8->kernel_time/rti8->n,
+        rti8->cleanup_time/rti8->n, rti8->n);
   }
 
   if(rti10 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS localpart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti10->transferTime/rti10->n,
-        rti10->kernelTime/rti10->n,
-        rti10->cleanupTime/rti10->n, rti10->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS localpart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti10->transfer_time/rti10->n,
+        rti10->kernel_time/rti10->n,
+        rti10->cleanup_time/rti10->n, rti10->n);
   }
   if(rti11 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remotepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti11->transferTime/rti11->n,
-        rti11->kernelTime/rti11->n,
-        rti11->cleanupTime/rti11->n, rti11->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remotepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti11->transfer_time/rti11->n,
+        rti11->kernel_time/rti11->n,
+        rti11->cleanup_time/rti11->n, rti11->n);
   }
   if(rti12 != NULL){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS remoteresumepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti12->transferTime/rti12->n,
-        rti12->kernelTime/rti12->n,
-        rti12->cleanupTime/rti12->n, rti12->n);
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remoteresumepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
+        rti12->transfer_time/rti12->n,
+        rti12->kernel_time/rti12->n,
+        rti12->cleanup_time/rti12->n, rti12->n);
   }
 
   if(nLocalNodeReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction local node reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction local node reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nLocalNodeReqs,
@@ -6385,7 +6372,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemoteNodeReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote node reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote node reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemoteNodeReqs,
@@ -6393,7 +6380,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemoteResumeNodeReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote resume node reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote resume node reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemoteResumeNodeReqs,
@@ -6401,7 +6388,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nLocalPartReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction local part reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction local part reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nLocalPartReqs,
@@ -6409,7 +6396,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemotePartReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote part reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote part reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemotePartReqs,
@@ -6417,7 +6404,7 @@ void TreePiece::finishWalk()
               );
   }
   if(nRemoteResumePartReqs > 0){
-    CkPrintf("[%d] (%d) CUDA_INSTRUMENT_WRS construction remote resume part reqs: %d, avg: %f\n", 
+    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote resume part reqs: %d, avg: %f\n", 
               thisIndex, 
               activeRung,
               nRemoteResumePartReqs,
@@ -6426,13 +6413,13 @@ void TreePiece::finishWalk()
   }
 
 #endif
-#ifdef CUDA_STATS
-  CkPrintf("[%d] (%d) CUDA_STATS localnode: %ld\n", thisIndex, activeRung, localNodeInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remotenode: %ld\n", thisIndex, activeRung, remoteNodeInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remoteresumenode: %ld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS localpart: %ld\n", thisIndex, activeRung, localPartInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remotepart: %ld\n", thisIndex, activeRung, remotePartInteractions);
-  CkPrintf("[%d] (%d) CUDA_STATS remoteresumepart: %ld\n", thisIndex, activeRung, remoteResumePartInteractions);
+#ifdef HAPI_TRACE
+  CkPrintf("[%d] (%d) HAPI_TRACE localnode: %ld\n", thisIndex, activeRung, localNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remotenode: %ld\n", thisIndex, activeRung, remoteNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumenode: %ld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE localpart: %ld\n", thisIndex, activeRung, localPartInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remotepart: %ld\n", thisIndex, activeRung, remotePartInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumepart: %ld\n", thisIndex, activeRung, remoteResumePartInteractions);
   
 #endif
 

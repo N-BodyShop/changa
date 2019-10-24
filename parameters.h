@@ -73,6 +73,7 @@ typedef struct parameters {
     int bGasCooling;
     int nSmooth;
     COOLPARAM CoolParam;
+    double dMaxEnergy;
     double dhMinOverSoft;
     double dResolveJeans;
     double dMsolUnit;
@@ -104,11 +105,25 @@ typedef struct parameters {
     Stfm *stfm;
     int bFeedback;
     Fdbk *feedback;
+    double dThermalCondCoeff;
+    double dThermalCondSatCoeff;
+    double dThermalCond2Coeff;
+    double dThermalCond2SatCoeff;
+    double dThermalCondCoeffCode;
+    double dThermalCond2CoeffCode;
+    double dEvapMinTemp;
+    double dEvapCoeff;
+    double dEvapCoeffCode;
     int bDoExternalGravity;
     ExternalGravity externalGravity;
     int iRandomSeed;
     
     Sinks sinks;
+
+    //SIDM
+    int iSIDMSelect;
+    double dSIDMSigma;
+    double dSIDMVariable;
     
     //
     // Output parameters
@@ -133,6 +148,7 @@ typedef struct parameters {
     int bDoSoftOutput;
     int bDohOutput;
     int bDoCSound;
+    int bDoStellarLW;
     int cacheLineDepth;
     double dExtraStore;
     double dMaxBalance;
@@ -202,6 +218,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dFracFastGas;
     p|param.bViscosityLimiter;
     p|param.iViscosityLimiter;
+    p|param.dMaxEnergy;
     p|param.dhMinOverSoft;
     p|param.dResolveJeans;
     p|param.dMsolUnit;
@@ -231,10 +248,22 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|*param.stfm;
     p|param.bFeedback;
     p|param.feedback;
+    p|param.dThermalCondCoeff;
+    p|param.dThermalCondSatCoeff;
+    p|param.dThermalCond2Coeff;
+    p|param.dThermalCond2SatCoeff;
+    p|param.dThermalCondCoeffCode;
+    p|param.dThermalCond2CoeffCode;
+    p|param.dEvapMinTemp;
+    p|param.dEvapCoeff;
+    p|param.dEvapCoeffCode;
     p|param.bDoExternalGravity;
     p|param.externalGravity;
     p|param.iRandomSeed;
     p|param.sinks;
+    p|param.dSIDMSigma;
+    p|param.iSIDMSelect;
+    p|param.dSIDMVariable;
     p|param.bStandard;
     p|param.bDoublePos;
     p|param.bDoubleVel;
@@ -255,6 +284,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bDoSoftOutput;
     p|param.bDohOutput;
     p|param.bDoCSound;
+    p|param.bDoStellarLW;
     p|param.cacheLineDepth;
     p|param.dExtraStore;
     p|param.dMaxBalance;

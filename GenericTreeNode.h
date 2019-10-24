@@ -741,7 +741,7 @@ public:
 
     }
 
-    // implemented in the .C
+    // implemented in the .cpp
     GenericTreeNode *clone() const;
 
 /// @brief Get a number of top level NodeKeys which together make a

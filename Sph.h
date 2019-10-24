@@ -243,4 +243,110 @@ class DistDeletedGasSmoothParams : public SmoothParams
 	}
     };
 
+#ifdef SUPERBUBBLE
+///
+/// @brief SmoothParams class for the sub-grid evaporation,
+/// promoting cold neighbours to hot.
+///
+/// This method selects which particles cold particles are 
+/// to be evaporated.
+///
+class PromoteToHotGasSmoothParams : public SmoothParams
+{
+    double dEvapCoeff;
+    double dEvapMinTemp;
+    double dErgPerGmUnit;
+    double dGmPerCcUnit;
+    double dDeltaStarForm;
+    double dTime;
+    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
+			   pqSmoothNode *nList);
+    virtual int isSmoothActive(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) ;
+    virtual void initTreeParticle(GravityParticle *p) ;
+    virtual void postTreeParticle(GravityParticle *p) {}
+    virtual void initSmoothCache(GravityParticle *p);
+    virtual void combSmoothCache(GravityParticle *p1,
+				 ExternalSmoothParticle *p2) ;
+ public:
+    PromoteToHotGasSmoothParams() {}
+    /// @param _iType Type of particles to smooth
+    /// @param am Active rung
+    /// @param _dEvapCoeff evaporation/conduction rate coefficient 
+    /// @param _dEvapMinTemp lowest temperature to allow evaporation
+    /// @param _dErgPerGmUnit specific energy in code units
+    /// @param _dGmPerCcUnit density in code units
+    /// @param _dDeltaStarForm starformation timestep
+    /// @param _dTime Current time
+    PromoteToHotGasSmoothParams(int _iType, int am, double _dEvapCoeff, double _dEvapMinTemp,
+            double _dErgPerGmUnit, double _dGmPerCcUnit, double _dDeltaStarForm, double _dTime) {
+        iType = _iType;
+        activeRung = am;
+        bUseBallMax = 0;
+        dEvapCoeff = _dEvapCoeff;
+        dEvapMinTemp = _dEvapMinTemp;
+        dErgPerGmUnit = _dErgPerGmUnit;
+        dGmPerCcUnit = _dGmPerCcUnit;
+        dDeltaStarForm = _dDeltaStarForm;
+        dTime = _dTime;
+	}
+    PUPable_decl(PromoteToHotGasSmoothParams);
+    PromoteToHotGasSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
+    virtual void pup(PUP::er &p) {
+        SmoothParams::pup(p);//Call base class
+        p|dEvapCoeff;
+        p|dEvapMinTemp;
+        p|dErgPerGmUnit;
+        p|dGmPerCcUnit;
+        p|dDeltaStarForm;
+        p|dTime;
+	}
+};
+///
+/// @brief SmoothParams class for the sub-grid evaporation,
+/// promoting cold neighbours to hot.
+///
+/// This method takes cold particles marked to be promoted,
+/// and averages their internal energy with the hot promoter.
+///
+class ShareWithHotGasSmoothParams : public SmoothParams
+{
+    double dEvapMinTemp;
+    double dErgPerGmUnit;
+    double dGmPerCcUnit;
+    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
+			   pqSmoothNode *nList);
+    virtual int isSmoothActive(GravityParticle *p);
+    virtual void initSmoothParticle(GravityParticle *p) {}
+    virtual void initTreeParticle(GravityParticle *p) {}
+    virtual void postTreeParticle(GravityParticle *p) {}
+    virtual void initSmoothCache(GravityParticle *p);
+    virtual void combSmoothCache(GravityParticle *p1,
+				 ExternalSmoothParticle *p2) ;
+ public:
+    ShareWithHotGasSmoothParams() {}
+    /// @param _iType Type of particles to smooth
+    /// @param am Active rung
+    /// @param _dEvapMinTemp lowest temperature to allow evaporation
+    /// @param _dErgPerGmUnit specific energy in code units
+    /// @param _dGmPerCcUnit density in code units
+    ShareWithHotGasSmoothParams(int _iType, int am, double _dEvapMinTemp,
+            double _dErgPerGmUnit, double _dGmPerCcUnit ){
+        iType = _iType;
+        activeRung = am;
+        bUseBallMax = 0;
+        dEvapMinTemp = _dEvapMinTemp;
+        dErgPerGmUnit = _dErgPerGmUnit;
+        dGmPerCcUnit = _dGmPerCcUnit;
+	}
+    PUPable_decl(ShareWithHotGasSmoothParams);
+    ShareWithHotGasSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
+    virtual void pup(PUP::er &p) {
+        SmoothParams::pup(p);//Call base class
+        p|dEvapMinTemp;
+        p|dErgPerGmUnit;
+        p|dGmPerCcUnit;
+	}
+};
+#endif
 #endif

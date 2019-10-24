@@ -373,8 +373,8 @@ void TreePiece::EwaldInit()
 			}
 		}
 	nEwhLoop = i;
+        bEwaldInited = true;
 
-	//contribute(cb);
 	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
         // Make priority lower than gravity or smooth.
 	*((int *)CkPriorityPtr(msg)) = 3*numTreePieces * numChunks + thisIndex + 1;
@@ -514,22 +514,19 @@ void TreePiece::EwaldGPU() {
  */
   roData->fInner2 = (cudatype) 1.1e-2*L*L;
 
-  CkCallback *cb; 
   CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
-  cb = new CkCallback(CkIndex_TreePiece::EwaldGPUComplete(), myIndex, 
-		      thisArrayID); 
+  cbEwaldGPU = new CkCallback(CkIndex_TreePiece::EwaldGPUComplete(), myIndex,
+                              thisArrayID);
 
-  
-  //CkPrintf("[%d] in EwaldGPU, calling EwaldHost\n", thisIndex);
-#ifdef CUDA_INSTRUMENT_WRS
-  EwaldHost(h_idata, (void *) cb, instrumentId, activeRung, largephase); 
+#ifdef HAPI_INSTRUMENT_WRS
+  EwaldHost(h_idata, (void *) cbEwaldGPU, instrumentId, activeRung, largephase);
 #else
   int myLocalIndex;
   for(myLocalIndex = 0; this != dm->registeredTreePieces[myLocalIndex].treePiece;
       myLocalIndex++);
   CkAssert(myLocalIndex < dm->registeredTreePieces.length());
-  
-  EwaldHost(h_idata, (void *) cb, myLocalIndex, largephase); 
+
+  EwaldHost(h_idata, (void *) cbEwaldGPU, myLocalIndex, largephase);
 #endif
 
 #endif
@@ -544,6 +541,7 @@ void TreePiece::EwaldGPUComplete() {
   int largephase = largePhase(); 
   EwaldHostMemoryFree(h_idata, largephase); 
   free(h_idata); 
+  delete cbEwaldGPU;
 
   /* indicate completion of ewald */
   

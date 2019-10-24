@@ -59,6 +59,7 @@ typedef struct CoolingParametersStruct {
 /** @brief per-particle cooling data */
 typedef struct CoolingParticleStruct {
 	double Y_HI,Y_HeI,Y_HeII;	/* Abundance of ions */
+        double     dLymanWerner; /* Flux of Lyman Werner radiation at the gas particle.  Temporary CC */
 	} COOLPARTICLE;
 
 /** @brief abundance of various species in particles/baryon */

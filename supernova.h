@@ -10,6 +10,8 @@ class FBEffects;
 /// Methods for calculating the number and feedback effects of supernova.
 class SN 
 {
+    friend class Fdbk;
+    
     double AGORAgasLossPerSN;   /* Amount of gas (in Msun) to be ejected for one supernova */
     double AGORAmetalLossPerSN; /* Amount of metals (in Msun) to be ejected for one supernova */
     double AGORAmetalFracO;     /* Metal fraction of oxygen to be ejected during the event */

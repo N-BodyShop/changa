@@ -172,7 +172,6 @@ extern int networkProgressUE;
 extern int nodeForceUE;
 extern int partForceUE;
 
-extern int tbRecursiveUE;
 extern int tbFlushRequestsUE;
 extern int prefetchDoneUE;
 
@@ -592,6 +591,7 @@ public:
 	void memoryStatsCache();
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
+        void doSIDM(double dTime,double dDelta, int activeRung); /* SIDM */
 };
 
 /* IBM brain damage */
@@ -880,7 +880,7 @@ class TreePiece : public CBase_TreePiece {
         void callFreeRemoteChunkMemory(int chunk);
 
         int getActiveRung(){ return activeRung; }
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int getInstrumentId(){ return instrumentId; }
 #endif
         // returns either all particles or only active particles,
@@ -970,7 +970,7 @@ class TreePiece : public CBase_TreePiece {
         void clearMarkedBuckets(CkVec<GenericTreeNode *> &markedBuckets);
         void clearMarkedBucketsAll();
 
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
         long long localNodeInteractions;
         long long localPartInteractions;
         long long remoteNodeInteractions;
@@ -979,7 +979,7 @@ class TreePiece : public CBase_TreePiece {
         long long remoteResumePartInteractions;
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int instrumentId;
 
         double localNodeListConstructionTime;
@@ -1196,6 +1196,8 @@ private:
 #ifdef HEXADECAPOLE
 	MOMC momcRoot;		/* complete moments of root */
 #endif
+        /// Have the Ewald h loop tables been calculated.
+        bool bEwaldInited;
 
 	int bGasCooling;
 #ifndef COOLING_NONE
@@ -1215,9 +1217,8 @@ private:
 	//u_int64_t prefetchWaiting;
 	/// Array of keys that will be the root of the prefetching chunks
 	Tree::NodeKey *prefetchRoots;
-	/// Placeholder for particles used for prefetching
-	OrientedBox<double> prefetchReq[2];
-	unsigned int numPrefetchReq;
+        /// Bounding box to use for prefetching
+        OrientedBox<cosmoType> prefetchReq;
 
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
@@ -1320,6 +1321,7 @@ private:
 
 #ifdef SPCUDA
   EwaldData *h_idata;
+  CkCallback *cbEwaldGPU;
 #endif
   void EwaldGPU(); 
   void EwaldGPUComplete();
@@ -1359,13 +1361,6 @@ private:
             }
         }
     }
-
-	/// Recursive call to build the subtree with root "node", level
-	/// specifies the level at which "node" resides inside the tree
-	void buildOctTree(GenericTreeNode* node, int level);
-#ifdef TREE_BREADTH_FIRST
-	void growBottomUp(GenericTreeNode* node);
-#endif
 
 	/// Compute all the moments for the nodes that are NonLocal, so that
 	/// during the tree traversal, they contain useful information to decide
@@ -1448,7 +1443,7 @@ public:
 #endif
 #ifdef CUDA
           numActiveBuckets = -1;
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
           localNodeInteractions = 0;
           localPartInteractions = 0;
           remoteNodeInteractions = 0;
@@ -1463,9 +1458,9 @@ public:
 	  // temporarely set to -1, it will updated after the tree is built
 	  numChunks=-1;
 	  prefetchRoots = NULL;
-	  numPrefetchReq = 0;
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
+          bEwaldInited = false;
 
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
@@ -1507,6 +1502,7 @@ public:
 	  prefetchRoots = NULL;
 	  //remaining Chunk = NULL;
           ewt = NULL;
+          bEwaldInited = false;
 	  root = NULL;
 	  pTreeNodes = NULL;
 
@@ -1693,12 +1689,17 @@ public:
   /*****************************/
 
   void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
-	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
-	    const CkCallback& cb);
+	    int bNeedVPred, int bGasIsothermal, double dMaxEnergy, double duDelta[MAXRUNG+1],
+        double gammam1, double dThermalCondSatCoeff,
+        double dMultiPhaseMaxTime, double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
-	     double duDelta, int nGrowMass, bool buildTree,
+             double duDelta, int nGrowMass, bool buildTree, double dMaxEnergy,
 	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
+#ifdef COOLING_MOLECULARH
+  void distribLymanWerner(const CkCallback& cb);
+#endif /*COOLING_MOLECULARH*/
+
   void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
 /**
  * @brief Apply an external gravitational force
@@ -1777,22 +1778,25 @@ public:
 	void physicalSoft(const double dSoftMax, const double dFac,
 			  const int bSoftMaxMul, const CkCallback& cb);
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
-	void InitEnergy(double dTuFac, double z, double dTime,
+	void InitEnergy(double dTuFac, double z, double dTime, double gammam1,
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, const CkCallback& cb);
+			int bUpdateState, double gammam1, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
-	void getAdiabaticGasPressure(double gamma, double gammam1,
-                                     double dDtCourantFac,
-				     const CkCallback &cb);
-	void getCoolingGasPressure(double gamma, double gammam1,
-                                   double dDtCourantFac,
-                                   double dResolveJeans,
-				   const CkCallback &cb);
-        /// @brief initialize random seed for star formation
-        void initRand(int iRand, const CkCallback &cb);
+    void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
+        double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
+        double dEvapMinTemp, double dDtCourantFac, const CkCallback &cb);
+    void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+        double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
+        double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);
+#ifdef SPLITGAS
+	void SplitGas(double dInitGasMass, const CkCallback& cb);
+#endif
+	inline COOL* Cool() {return dm->Cool;}
+	/// @brief initialize random seed for star formation
+	void initRand(int iRand, const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void flushStarLog(const CkCallback& cb);
@@ -1892,15 +1896,10 @@ public:
   void startMarkSmooth(SmoothParams *p, const CkCallback& cb);
 
   void finishNodeCache(const CkCallback& cb);
-	/// Function called by the CacheManager to send out request for needed
-	/// remote data, so that the later computation will hit.
-	void prefetch(GenericTreeNode *node, int offsetID);
-	void prefetch(ExternalGravityParticle *part);
 
-	/// @brief Retrieve the remote node, goes through the cache if present
-        //GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, bool isPrefetch=false);
-
-        GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, int awi, void *source, bool isPrefetch);
+    /// @brief Retrieve the remote node, goes through the cache if present
+    GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey,
+                                 int chunk, int reqID, int awi, void *source);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
 	void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
@@ -1935,10 +1934,13 @@ public:
 			     int level,int chunk);
 #endif
 
-        ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source, bool isPrefetch=false);
-	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
-				    int remoteIndex, int begin,int end,
-				    int reqID, int awi, void *source, bool isPrefetch);
+    ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,
+                                              int remoteIndex,int begin,
+                                              int end,int reqID, int awi,
+                                              void *source);
+    GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
+                                            int remoteIndex, int begin,int end,
+                                            int reqID, int awi, void *source);
 	void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
 	void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
 	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
@@ -2002,10 +2004,6 @@ public:
 
 	    return offset;
 	    }
-
-        GenericTreeNode *nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi, void *source);
-
-        ExternalGravityParticle *particlesMissed(Tree::NodeKey &key, int chunk, int remoteIndex, int firstParticle, int lastParticle, int reqID, bool isPrefetch, int awi, void *source);
 
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);

@@ -5,9 +5,9 @@
 #include <cuda_runtime.h>
 #include "cuda_typedef.h"
 
-#ifdef CUDA_USE_CUDAMALLOCHOST
-# ifdef CUDA_MEMPOOL
-#  define CUDA_MALLOC(ptr,sz) ptr = hapi_poolMalloc(size)
+#ifdef HAPI_USE_CUDAMALLOCHOST
+# ifdef HAPI_MEMPOOL
+#  define CUDA_MALLOC(ptr,sz) ptr = hapiPoolMalloc(size)
 # else
 #  define CUDA_MALLOC(ptr,sz) cudaMallocHost(&(ptr), size)
 # endif
@@ -112,27 +112,43 @@ enum kernels {
 };
 
 
+/** @brief Data and parameters for requesting gravity calculations on
+ * the GPU. */
 typedef struct _CudaRequest{
-        // can either be a ILCell* or an ILPart*
+        /// can either be a ILCell* or an ILPart*
 	void *list;
-	int *bucketMarkers;
-	int *bucketStarts;
-	int *bucketSizes;
-	int numInteractions;
-	int numBucketsPlusOne;
-        void *tp;
+	int *bucketMarkers;     /**< index in the cell or particle
+                                 * list for the cells/particles for a
+                                 * given bucket */
+	int *bucketStarts;      /**< index in the particle array on
+                                 * the GPU of the bucket */
+	int *bucketSizes;       /**< number of particles in a bucket
+                                 * on the GPU  */
+	int numInteractions;    /**< Total number of interactions in
+                                 * this request  */
+	int numBucketsPlusOne;  /**< Number of buckets affected by
+                                 *  this request */
+        void *tp;               /**< Pointer to TreePiece that made
+                                 * this request */
+        /// pointer to off-processor Node/Particle buffer.
+        void *missedNodes;
+        void *missedParts;
+        /// Size of the off-processor data buffer.
+        size_t sMissed;
 
-	// these buckets were finished in this work request
+	/// these buckets were finished in this work request
 	int *affectedBuckets;
-        void *cb;
-        void *state;
-        cudatype fperiod;
+        void *cb;               /**< Callback  */
+        void *state;            /**< Pointer to state of walk that
+                                 * created this request  */
+        cudatype fperiod;       /**< Size of periodic volume  */
 
-        // TODO: remove these later. is this a node or particle computation request?
+        // TODO: remove these later if we don't use COSMO_PRINT_BK.
+        /// is this a node or particle computation request?
         bool node;
-        // is this a remote or local computation 
+        /// is this a remote or local computation?
         bool remote;
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int tpIndex;
         char phase;
 #endif
@@ -148,12 +164,12 @@ typedef struct _CudaRequest{
 #endif //GPU_LOCAL_TREE_WALK
 }CudaRequest;
 
+/** @brief Parameters for the GPU gravity calculations */
 typedef struct _ParameterStruct{
-  int numInteractions;
-  int numBucketsPlusOne;
-  int numMissedCores;
-  int numEntities;// TODO: can be removed later on
-  cudatype fperiod;
+  int numInteractions;          /**< Size of the interaction list  */
+  int numBucketsPlusOne;        /**< Number of buckets affected (+1
+                                 * for fencepost)  */
+  cudatype fperiod;             /**< Period of the volume  */
 #ifdef GPU_LOCAL_TREE_WALK
   int firstParticle;
   int lastParticle;
@@ -166,19 +182,29 @@ typedef struct _ParameterStruct{
 #endif //GPU_LOCAL_TREE_WALK
 }ParameterStruct;
 
-#ifdef CUDA_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
-                        CompactPartData *compactParts, int nCompactParts,
+void allocatePinnedHostMemory(void **, size_t);
+void freePinnedHostMemory(void *);
+
+#ifdef HAPI_INSTRUMENT_WRS
+void DataManagerTransferLocalTree(void *moments, size_t sMoments,
+                        void *compactParts, size_t sCompactParts,
+                        void *varParts, size_t sVarParts,
                         int mype, char phase, void *wrCallback);
-void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, int mype, char phase);
+void DataManagerTransferRemoteChunk(void *moments, size_t sMoments, 
+                                    void *compactParts, size_t sCompactParts,
+                                    void *varParts, size_t sVarParts,
+                                    mype, char phase, void *wrCallback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int pe, char phase);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart, int pe, char phase);
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb, bool, bool, bool, bool, int pe, char phase);
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb, bool, bool, bool, bool, int pe, char phase);
 #else
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
-                        CompactPartData *compactParts, int nCompactParts,
-                        int mype, void *wrCallback);
-void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, void *wrCallback);
+void DataManagerTransferLocalTree(void *moments, size_t sMoments,
+                                  void *compactParts, size_t sCompactParts,
+                                  void *varParts, size_t sVarParts,
+                                  int mype, void *wrCallback);
+void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
+                                  void *compactParts, size_t sCompactParts,
+                                  void *wrCallback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
 /** @brief Transfer forces from the GPU back to the host.
@@ -192,19 +218,19 @@ void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart)
  *  @param freeRemotePart Boolean: free device buffer with remote
  *  particle data.
  */
-void TransferParticleVarsBack(VariablePartData *hostBuffer, int size, void *cb,
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart);
 #endif
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
 void TreePieceCellListDataTransferRemote(CudaRequest *data);
-void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleMoments *missedMoments, int numMissedMoments);
+void TreePieceCellListDataTransferRemoteResume(CudaRequest *data);
 
 
 void TreePiecePartListDataTransferLocal(CudaRequest *data);
 void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *parts, int len);
 void TreePiecePartListDataTransferRemote(CudaRequest *data);
-void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartData *missedParticles, int numMissedParticles);
+void TreePiecePartListDataTransferRemoteResume(CudaRequest *data);
 
 void DummyKernel(void *cb);
 

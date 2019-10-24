@@ -1,6 +1,10 @@
 #ifndef __COMPUTE_H__
 #define __COMPUTE_H__
 
+#ifdef COOLING_MOLECULARH
+#include "Vector3D.h"
+#endif /*COOLING_MOLECULARH*/
+
 #include "codes.h"
 #include "ParallelGravity.h"
 
@@ -13,16 +17,6 @@ class DoubleWalkState;
 
 class TreeWalk;
 class Opt;
-
-/// this is the computeEntity for PrefetchComputes
-/// it holds an array of prefetch root bounding boxes
-/// and the number of elements in this array
-
-struct PrefetchRequestStruct{
-  OrientedBox<double> *prefetchReq;
-  int numPrefetchReq;
-  PrefetchRequestStruct(OrientedBox<double> *p, int n) : prefetchReq(p), numPrefetchReq(n) {}
-};
 
 /// @brief Base clase for all tree based computations.
 ///
@@ -349,5 +343,23 @@ class LocalTreePrinter : public TreeNodeWorker {
   bool work(GenericTreeNode *node, int level);
   void doneChildren(GenericTreeNode *node, int level);
 };
+
+#ifdef COOLING_MOLECULARH
+class LocalLymanWernerDistributor : public TreeNodeWorker {
+  /*Defining a new class inherited from TreeNodeWorker to use while distributing LW over a depth-first walk */
+  TreePiece *tp; /*Defined in ParallelGravity.h.  Fundamental structure that holds particle and tree data.*/
+
+ public:
+ /*Constructor.  Only argment is the TreePiece*/
+ LocalLymanWernerDistributor(TreePiece *owner) :
+  tp(owner)
+  {}
+
+  bool work(GenericTreeNode *node, int level); /*virtually defined in TreeNodeWorker Class (Compute.h)*/
+  void doneChildren(GenericTreeNode *node, int level); /*virtually defined in TreeNodeWorker Class*/
+
+  private:
+};
+#endif /*COOLING_MOLECULARH*/
 
 #endif

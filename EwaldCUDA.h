@@ -7,16 +7,11 @@
 
 #define EWALD_READ_ONLY_DATA  0
 #define EWALD_TABLE           1
-/* This has to be larger than the first two because there will be one
- * of these for each Chare on the node. */
-#define PARTICLE_TABLE        2 
 
-/* Defines for place in the bufferInfo array */
+/* Defines for place in the hapiBufferInfo array */
 #define PARTICLE_TABLE_IDX    0 
 #define EWALD_READ_ONLY_DATA_IDX  1
 #define EWALD_TABLE_IDX           2
-
-#define BUFFERS_PER_CHARE     3
 
 #define NEWH 80
 #define BLOCK_SIZE 128
@@ -66,16 +61,18 @@ typedef struct {
 
 } EwaldReadOnlyData; 
 
+/// @brief structure to hold information specific to GPU Ewald
 typedef struct {
-  int EwaldRange[2];
-  int *EwaldMarkers;
-  EwtData *ewt; 
-  EwaldReadOnlyData *cachedData;
+  int EwaldRange[2];            /**< First and last particle on the
+                                 * GPU; only used for small phase  */
+  int *EwaldMarkers;            /**< indices of active particles  */
+  EwtData *ewt;                 /**< h-loop table  */
+  EwaldReadOnlyData *cachedData; /**< Root moment and other Ewald parameters  */
 } EwaldData; 
 
 void EwaldHostMemorySetup(EwaldData *h_idata, int size, int nEwhLoop, int largephase); 
 void EwaldHostMemoryFree(EwaldData *h_idata, int largephase); 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase); 
 #else
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase); 

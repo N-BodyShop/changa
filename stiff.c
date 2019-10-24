@@ -18,20 +18,20 @@
 #include <assert.h>
 #include "stiff.h"
 
-inline double max(double x, double y) 
+static inline double max(double x, double y) 
 {
     if(x > y) return x;
     else return y;
     }
 
-inline double min(double a, double b)
+static inline double min(double a, double b)
 {
     if(a < b) return a;
     else return b;
     }
 
 /* implement fortran sign function: return a with the sign of b */
-inline double sign(double a, double b) 
+static inline double sign(double a, double b) 
 {
     double aabs = fabs(a);
     if(b >= 0.0) return aabs;
@@ -383,6 +383,9 @@ cd
 	*/
 	if(dt <= dtmin + 1.0e-16*tn) {
 	    fprintf(stderr, "stiffchem: step size too small\n");
+	    printf("y[0]: %e, y[1]: %e, y[2]: %e, y[3]: %e, y[4]: %e",y[0],y[1],y[2],y[3],y[4]);
+	    printf("q[0]: %e, q[1]: %e, q[2]: %e, q[3]: %e, q[4]: %e",q[0],q[1],q[2],q[3],q[4]);
+	    printf("d[0]: %e, d[1]: %e, d[2]: %e, d[3]: %e, d[4]: %e",d[0],d[1],d[2],d[3],d[4]);
 	    assert(0);
 	    }
 	/*

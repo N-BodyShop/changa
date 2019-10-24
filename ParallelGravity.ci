@@ -60,7 +60,6 @@ mainmodule ParallelGravity {
   readonly int nodeForceUE;
   readonly int partForceUE;
 
-  readonly int tbRecursiveUE;
   readonly int tbFlushRequestsUE;
   readonly int prefetchDoneUE;
 
@@ -128,6 +127,16 @@ mainmodule ParallelGravity {
   PUPable Kroupa93;
   PUPable Kroupa01;
 
+#ifdef SUPERBUBBLE
+  PUPable PromoteToHotGasSmoothParams;
+  PUPable ShareWithHotGasSmoothParams;
+  PUPable uHotOutputParams;
+  PUPable uOutputParams;
+  PUPable MassHotOutputParams;
+  PUPable TempEffOutputParams;
+#endif
+  //SIDM
+  PUPable SIDMSmoothParams;
   PUPable MassOutputParams;
   PUPable PosOutputParams;
   PUPable VelOutputParams;
@@ -149,6 +158,9 @@ mainmodule ParallelGravity {
   PUPable Cool1OutputParams;
   PUPable Cool2OutputParams;
   PUPable Cool3OutputParams;
+#ifdef COOLING_MOLECULARH
+  PUPable LWOutputParams;
+#endif /*COOLING_MOLECULARH*/
   PUPable OxOutputParams;
   PUPable FeOutputParams;
   PUPable MetalsOutputParams;
@@ -168,6 +180,8 @@ mainmodule ParallelGravity {
   PUPable RungOutputParams;
   PUPable IOrderOutputParams;
   PUPable IGasOrderOutputParams;
+  PUPable iNSIDMOutputParams;
+
 
   mainchare [migratable] Main {
     entry Main(CkArgMsg*);
@@ -348,12 +362,16 @@ mainmodule ParallelGravity {
     entry void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
 
     entry void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
-	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
-	    const CkCallback& cb);
+	    int bNeedVPred, int bGasIsothermal, double dMaxEnergy, double duDelta[MAXRUNG+1],
+        double gammam1, double dThermalCondSatCoeff,
+        double dMultiPhaseMaxTime, double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
     entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
     entry void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
+#ifdef COOLING_MOLECULARH
+    entry void distribLymanWerner(const CkCallback& cb);
+#endif
     entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      int bSphStep, int bViscosityLimitdt,
 	      double dEta, double dEtaCourant, double dEtauDot,
@@ -379,7 +397,7 @@ mainmodule ParallelGravity {
     entry void assignDomain(const CkCallback &cb);
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
 		     double dvDelta, double duDelta, int nGrowMass,
-		     bool buildTree, const CkCallback& cb);
+		     bool buildTree, double dMaxEnergy, const CkCallback& cb);
     entry void starCenterOfMass(const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void colNParts(const CkCallback &cb);
@@ -391,21 +409,23 @@ mainmodule ParallelGravity {
     entry void physicalSoft(const double dSoftMax, const double dFac,
         const int bSoftMaxMul, const CkCallback& cb);
     entry void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
-    entry void InitEnergy(double dTuFac, double z, double dTime,
+    entry void InitEnergy(double dTuFac, double z, double dTime, double gammam1,
 			const CkCallback& cb);
     entry void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
     	       		double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, const CkCallback& cb);
+			int bUpdateState, double gammam1, const CkCallback& cb);
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
 	const CkCallback& cb);
-    entry void getAdiabaticGasPressure(double gamma, double gammam1,
-                                    double dDtCourantFac,
-					const CkCallback &cb);
-    entry void getCoolingGasPressure(double gamma, double gammam1,
-                                    double dDtCourantFac,
-                                   double dResolveJeans,
-				   const CkCallback &cb);
+    entry void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
+        double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
+        double dEvapMinTemp, double dDtCourantFac, const CkCallback &cb);
+    entry void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+        double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
+        double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);
+#ifdef SPLITGAS
+    entry void SplitGas(double dInitGasMass,const CkCallback& cb);
+#endif
     entry void initRand(int iRand, const CkCallback &cb);
     entry void FormStars(Stfm param, double dTime, double dDelta, 
     	       		 double dCosmoFac, const CkCallback& cb);
@@ -446,10 +466,10 @@ mainmodule ParallelGravity {
     entry void finishNodeCache(const CkCallback &cb);
 
     entry
-#ifndef MERGE_REMOTE_REQUESTS 
-    	  [inline]
+#ifndef MERGE_REMOTE_REQUESTS
+          [inline]
 #endif
-	  void requestRemoteMoments(Tree::NodeKey key, int sender);
+          void requestRemoteMoments(const Tree::NodeKey key, int sender);
     entry void receiveRemoteMoments(Tree::NodeKey key, Tree::NodeType type,
       int firstParticle, int numParticles, int remIdx, MultipoleMoments& moments,
       OrientedBox<double>& box, OrientedBox<double>& boxBall,

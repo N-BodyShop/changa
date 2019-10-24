@@ -318,7 +318,10 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 
         if (nodeKeys.size() == 0) {
           nodeKeys.reserve(numInitialBins);
-          nodeKeys.resize(numInitialBins>>1, 0);
+          numInitialBins = numInitialBins >> 1;  // start with half of
+                                                 // the available bins
+          if(numInitialBins == 0) numInitialBins = 1;
+          nodeKeys.resize(numInitialBins, 0);
           NodeKey *tmp = &(*nodeKeys.begin());
           rt->getChunks(nodeKeys.size(),tmp);
         }
@@ -564,14 +567,23 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
       }
 
       root->makeSubTree(depth, leaves);
-      // CkPrintf("num leaves: %d numDecompRoots: %d\n", leaves->length(), numDecompRoots);
 
-      for (unsigned int i = 0; i < leaves->length(); i++) {
-        (*leaves)[i]->nchildren = OctDecompNode::maxNumChildren;
-        (*leaves)[i]->children = new OctDecompNode[OctDecompNode::maxNumChildren];
-        for (int j = 0; j < OctDecompNode::maxNumChildren; j++) {
-          (*leaves)[i]->children[j] = decompRoots[i * OctDecompNode::maxNumChildren + j];
-        }
+      if(leaves->length() == numDecompRoots) {
+          for (unsigned int i = 0; i < leaves->length(); i++) {
+              *(*leaves)[i] = decompRoots[i];
+          }
+      }
+      else{
+          CkAssert(numDecompRoots
+              == leaves->length()*OctDecompNode::maxNumChildren);
+
+          for (unsigned int i = 0; i < leaves->length(); i++) {
+            (*leaves)[i]->nchildren = OctDecompNode::maxNumChildren;
+            (*leaves)[i]->children = new OctDecompNode[OctDecompNode::maxNumChildren];
+            for (int j = 0; j < OctDecompNode::maxNumChildren; j++) {
+              (*leaves)[i]->children[j] = decompRoots[i * OctDecompNode::maxNumChildren + j];
+            }
+          }
       }
 
       delete leaves;
@@ -667,6 +679,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 int OctDecompNode::maxNumChildren = 2;
 int OctDecompNode::lgMaxNumChildren = 1;
 
+/// @brief Make a balanced subtree of OctDecompNode
+/// @param refineLevel depth of subtree
+/// @param active CkVec of leaves
 void OctDecompNode::makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active){
   if(refineLevel == 0){
     active->push_back(this);
@@ -803,7 +818,9 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 
 	if(verbosity >= 4)
 		ckout << "Sorter: On iteration " << numIterations << endl;
-	CkAssert(numIterations < 1000);  // Sorter has not converged.
+        if(numIterations >= 1000) { // Sorter has not converged.
+            CkAbort("SFC Domain decomposition has not converged\n");
+        }
 	
 	//sum up the individual bin counts, so each bin has the count of it and all preceding
 	partial_sum(binCounts.begin(), binCounts.end(), binCounts.begin());

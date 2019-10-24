@@ -105,7 +105,7 @@ int SmoothCompute::doWork(GenericTreeNode *node, // Node to test
 				    node->remoteIndex, 
 				    node->firstParticle, 
 				    node->lastParticle, 
-				    reqID, awi, computeEntity, false);
+				    reqID, awi, computeEntity);
 	if(part) {
 	    // Particles available; Search for contained.
 	    for(int i = node->firstParticle; i <= node->lastParticle; i++) {
@@ -561,11 +561,19 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
       // Find maximum of nearest neighbors
       //
       double drMax2 = 0.0;
+#ifdef NSMOOTHINNER
+      int nInner = 0;
+      CkVec<double> isort;
+#endif
       for(int k = firstQueue; k < lastQueue; k++) 
 	  {
 	      if(!TYPETest(&tp->myParticles[k], params->iType))
 		  continue;
-              Vector3D<double> dr = tp->myParticles[k].position - p->position;
+          Vector3D<double> dr = tp->myParticles[k].position - p->position;
+#ifdef NSMOOTHINNER
+          if(dr.lengthSquared() <= 0.5*p->fBall) nInner++;
+          isort.push_back(dr.lengthSquared());
+#endif
 	      if(dr.lengthSquared() > drMax2) {
 		  drMax2 = dr.lengthSquared();
 		  }
@@ -576,6 +584,21 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 	  pqNew.fKey = drMax2;
       else
 	  pqNew.fKey = dSearchMax;
+#ifdef NSMOOTHINNER
+#error NSMOOTHINNER is not fully implemented
+      if (nInner < 0.2828*nSmooth)
+      {
+          isort.quickSort();
+          if (isort.length() > 0.3536*nSmooth)
+          {
+              pqNew.fKey = 2*isort[(int) (0.3536*nSmooth-1)];
+          }
+          else
+          {
+              pqNew.fKey = 2*isort[isort.length()-1];
+          }
+      }
+#endif
       //
       // For FastGas, we have a limit on the size of the search ball.
       //
