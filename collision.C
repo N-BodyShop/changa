@@ -536,10 +536,10 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     //step 5 
     // find qr
 
-    double Mir = M;
+    double Mlr = M;
     double mtot = M + m;
     double QR = ((QsRD
-     - 1) * ( Mir/mtot - .5)) / -.5 ;
+     - 1) * ( Mlr/mtot - .5)) / -.5 ;
 
     // finding Verosion = Vi = V_erosion changed name since we had defined it earlier..
 
@@ -562,40 +562,35 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
         }
 
 // step 7
-        double QRn = (((Mir/.1 *Mtot)-.5)/-.5)*QsRDa;
+        double QRn = (((Mlr/.1 *Mtot)-.5)/-.5)*QsRDa;
         double Vsupercat = sqrt(QRn*2 /mtot)
 
-    if (V_i > V_erosion){
-        Ckprintf("erosion")
+    if (V_i > V_erosion &&V_i<Vsupercat){
+        Ckprintf("disruption")
     }
-    else if (V_i>Vsupercat){
-        CkPrintf("supercat collision")
-    }
+    //Ckprintf("%g",)
 
-    else if (b <bcrit){
-         if (V_i>vEsc)
-            Ckprintf("disruption")
+    double mass_Mlr = QR/QsRDa
+    double beta = 2.85
+    double Mslr = Mtot*((3-beta)*(1-(Mlr/Mtot))/(2*beta)
+    double C = (beta*(((3-beta)*(Mtot-mass_Mlr)/(4/3)*3.14*row1*2*beta)^(beta/3)
         
-    } 
-    else if (b>bcrit){
-        if (V_i > Verosion)
-            Ckprintf("disruption Mlr < Mtarget")
-        else if (V_i<Verosion){
-
-        }
 
 
-    }
-double eta= -1.5
+    
+
 double gammad= Mint/Mp
 double QRDDS = (.25*(((gammad+1)^2)/gammad))^(2/((3*mubar)-1))
-
+    double Mslr = m;
+    double Mlr = M ;
     
 
     // Mark the less massive particle to be consumed and deleted
     if (c1.mass < c2.mass) return -1;
     else return 1;
-    }
+    
+    
+        
 
 /**
  * @brief Determine the time since a particle on a given rung received a kick
