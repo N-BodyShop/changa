@@ -45,13 +45,6 @@
 #endif
 #endif
 
-/*
-// uncomment when using cuda version of charm but running without GPUs
-struct hapiWorkRequest; 
-void kernelSelect(hapiWorkRequest* wr) {
-}
-*/
-
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
 #endif
@@ -1596,9 +1589,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                       p->CoolParticle() = p->CoolParticleHot();
                       p->cpHotInit() = 0;
               }
-              double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(), p->fMetals());
-              if(TpNC < dMultiPhaseMinTemp && p->uHotPred() > 0)//Check to make sure the hot phase is still actually hot
-              {
+              if(p->uHotPred() > 0) {
+                  double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(), p->fMetals());
+                  if(TpNC < dMultiPhaseMinTemp)//Check to make sure the hot phase is still actually hot
+                  {
                      p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
                      p->u() = (p->u()*(p->mass-p->massHot()) + p->uHot()*p->massHot())/p->mass;
                      p->uDot() = (p->uDot()*(p->mass-p->massHot()) + p->uHotDot()*p->massHot())/p->mass;
@@ -1609,6 +1603,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                      p->uHotPred() = 0;
                      p->CoolParticle() = p->CoolParticleHot();
                      p->cpHotInit() = 0;
+                  }
               }
                   
 #endif
@@ -1829,8 +1824,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 #ifdef SUPERBUBBLE
     /* Prevent rapid overconduction */
     if (p->fThermalCond() > 0 || (p->diff() > 0 && dDiffCoeff > 0)) {
-        //dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + p->fThermalCond()/p->fDensity);
-        dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + ph/p->fThermalLength()*p->fThermalCond()/p->fDensity);  
+        dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + p->fThermalCond()/p->fDensity);
         if (dt < dTIdeal) dTIdeal = dt;
     }
     double x = p->massHot()/p->mass;
@@ -3263,7 +3257,7 @@ bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
     // Find the true owner
     int first, last;
     bool bIsShared = nodeOwnership(msg->key, first, last);
-    if(verbosity > 0) {
+    if(verbosity > 1) {
         CkPrintf("fillRequest empty piece %d: %d %d %d %llx\n", thisIndex,
             first, last, bIsShared, msg->key);
         CkPrintf("fillRequest resp. pieces %d: %d %d\n", thisIndex,
@@ -3854,10 +3848,6 @@ void TreePiece::doAllBuckets(){
   report();
 #endif
 
-  dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
-  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-
 #ifdef GPU_LOCAL_TREE_WALK 
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
@@ -3878,9 +3868,13 @@ void TreePiece::doAllBuckets(){
   listcompute->resetCudaNodeState(state);
   listcompute->resetCudaPartState(state);
 
-// Completely bypass CPU local tree walk
-//  thisProxy[thisIndex].nextBucket(msg);
 #else
+  // Schedule a walk on the CPU
+
+  dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
+  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+
   thisProxy[thisIndex].nextBucket(msg);
 #endif //GPU_LOCAL_TREE_WALK
 
@@ -4096,12 +4090,11 @@ void TreePiece::calculateGravityLocal() {
 
 void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
-  if(dm->gputransfer){
+  if(dm->gputransfer && bEwaldInited){
     thisProxy[thisIndex].EwaldGPU();
-    delete msg;
-  }else{
-    thisProxy[thisIndex].calculateEwald(msg);
+    bEwaldInited = false;
   }
+  delete msg;
 #else
 
   bool useckloop = false;
@@ -5141,9 +5134,13 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
 	  ((ListCompute *)sGravity)->initCudaState(state, numBuckets, remoteResumeNodesPerReq, remoteResumePartsPerReq, true);
 
-	  state->nodes = new CkVec<CudaMultipoleMoments>(100000);
+          // Preallocate vector of missed nodes.  This is probably an
+          // overestimate.
+          state->nodes = new CkVec<CudaMultipoleMoments>(numBuckets);
           state->nodes->length() = 0;
-	  state->particles = new CkVec<CompactPartData>(200000);
+          // Preallocate vector of missed particles.  This is probably an
+          // overestimate.
+          state->particles = new CkVec<CompactPartData>(myNumActiveParticles);
           state->particles->length() = 0;
           state->nodeMap.clear();
           state->partMap.clear();
