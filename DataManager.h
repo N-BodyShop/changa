@@ -31,8 +31,6 @@ struct TreePieceDescriptor{
 };
 
 #ifdef CUDA
-extern void **gethostBuffers();
-extern void **getdevBuffers();
 
 struct UpdateParticlesStruct{
   CkCallback *cb;
@@ -47,10 +45,8 @@ struct PendingBuffers {
   CkVec<CudaMultipoleMoments> *moments;
   CkVec<CompactPartData> *particles;
   int chunk;
-  //CudaMultipoleMoments *moments;
-  //int nMoments;
-  //CompactPartData *particles;
-  //int nParticles;
+    /// Pointer to callback so it can be freed.
+    CkCallback *cb;
 };
 
 #endif
@@ -113,15 +109,14 @@ protected:
         // local particles that have been copied to the gpu
         //std::map<NodeKey, int> localPartsOnGpu;
 
-        //std::map<Tree::NodeKey, GenericTreeNode *> missedNodesOnGpu;
-        //std::map<Tree::NodeKey, ExternalGravityParticle *> missedPartsOnGpu;
-
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
 
         // This var will indicate if particle data has been loaded to the GPU
         bool gputransfer;
-        
+        /// Callback pointer to pass to HAPI.
+        CkCallback *localTransferCallback;
+
         PendingBuffers *currentChunkBuffers;
         // queue that stores all pending chunk transfers
         CkQ<PendingBuffers *> pendingChunkTransferQ;
@@ -129,6 +124,17 @@ protected:
         // last remote chunk's size in moments and particles
         int lastChunkMoments;
         int lastChunkParticles;
+        /// host buffer to transfer remote moments to GPU
+        CudaMultipoleMoments *bufRemoteMoments;
+        /// host buffer to transfer remote particles to GPU
+        CompactPartData *bufRemoteParts;
+
+        /// host buffer to transfer local moments to GPU
+        CudaMultipoleMoments *bufLocalMoments;
+        /// host buffer to transfer local particles to GPU
+        CompactPartData *bufLocalParts;
+        /// host buffer to transfer initial accelerations to GPU
+        VariablePartData *bufLocalVars;
 
 #ifdef HAPI_INSTRUMENT_WRS
         int activeRung;
