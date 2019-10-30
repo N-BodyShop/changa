@@ -1572,11 +1572,11 @@ __global__ void nodeGravityComputation(
       poten = pot;
       idt2max = idt2;
       for (int offset = NODES_PER_BLOCK/2; offset > 0; offset /= 2) {
-        sumx += __shfl_down(sumx, offset, NODES_PER_BLOCK);
-        sumy += __shfl_down(sumy, offset, NODES_PER_BLOCK);
-        sumz += __shfl_down(sumz, offset, NODES_PER_BLOCK);      
-        poten += __shfl_down(poten, offset, NODES_PER_BLOCK);
-        idt2max = fmax(idt2max, __shfl_down(idt2max, offset, NODES_PER_BLOCK));
+        sumx += __shfl_down_sync(sumx, offset, NODES_PER_BLOCK);
+        sumy += __shfl_down_sync(sumy, offset, NODES_PER_BLOCK);
+        sumz += __shfl_down_sync(sumz, offset, NODES_PER_BLOCK);
+        poten += __shfl_down_sync(poten, offset, NODES_PER_BLOCK);
+        idt2max = fmax(idt2max, __shfl_down_sync(idt2max, offset, NODES_PER_BLOCK));
       }
       // if(tidx == 0 && my_particle_idx < bucketSize){
       if (tidx == 0) {
@@ -2128,11 +2128,11 @@ __global__ void particleGravityComputation(
       poten = pot;
       idt2max = idt2;
       for(int offset = NODES_PER_BLOCK/2; offset > 0; offset /= 2){
-        sumx += __shfl_down(sumx, offset, NODES_PER_BLOCK_PART);
-        sumy += __shfl_down(sumy, offset, NODES_PER_BLOCK_PART);
-        sumz += __shfl_down(sumz, offset, NODES_PER_BLOCK_PART);
-        poten += __shfl_down(poten, offset, NODES_PER_BLOCK_PART);
-        idt2max = fmax(idt2max, __shfl_down(idt2max, offset, NODES_PER_BLOCK_PART));
+        sumx += __shfl_down_sync(sumx, offset, NODES_PER_BLOCK_PART);
+        sumy += __shfl_down_sync(sumy, offset, NODES_PER_BLOCK_PART);
+        sumz += __shfl_down_sync(sumz, offset, NODES_PER_BLOCK_PART);
+        poten += __shfl_down_sync(poten, offset, NODES_PER_BLOCK_PART);
+        idt2max = fmax(idt2max, __shfl_down_sync(idt2max, offset, NODES_PER_BLOCK_PART));
       }
 
       if(tx == 0){
