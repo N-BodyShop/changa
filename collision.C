@@ -538,8 +538,7 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
 
     double Mlr = M;
     double mtot = M + m;
-    double QR = ((QsRD
-     - 1) * ( Mlr/mtot - .5)) / -.5 ;
+    double QR = ((QsRD - 1) * ( Mlr/mtot - .5)) / -.5 ;
 
     // finding Verosion = Vi = V_erosion changed name since we had defined it earlier..
 
@@ -563,33 +562,46 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
 
 // step 7
         double QRn = (((Mlr/.1 *Mtot)-.5)/-.5)*QsRDa;
-        double Vsupercat = sqrt(QRn*2 /mtot)
+        double Vsupercat = sqrt(QRn*2 /mtot);
 
     if (V_i > V_erosion &&V_i<Vsupercat){
-        Ckprintf("disruption")
+        CkPrintf("disruption");
     }
     //Ckprintf("%g",)
 
-    double mass_Mlr = QR/QsRDa
-    double beta = 2.85
-    double Mslr = Mtot*((3-beta)*(1-(Mlr/Mtot))/(2*beta)
-    double C = (beta*(((3-beta)*(Mtot-mass_Mlr)/(4/3)*3.14*row1*2*beta)^(beta/3)
-        
+    double mass_Mlr = QR/QsRDa;
+    double beta = 2.85;
+    double Mslr = Mtot*(3-beta)*1-(Mlr/Mtot)/(2*beta);
+        //equation 35
+
+    double C = beta*pow((3-beta)*(Mtot-mass_Mlr)/ 4/3 *M_PI*row1*2*beta,beta/3);
 
 
     
 
-double gammad= Mint/Mp
-double QRDDS = (.25*(((gammad+1)^2)/gammad))^(2/((3*mubar)-1))
-    double Mslr = m;
-    double Mlr = M ;
-    
+double gammad= Mint/Mp;
+//equation23
+
+double QRDDS = pow(.25*pow(gammad+1,2)/gammad,2/((3*mubar)-1));
+ 
+
+double deltaV= 2e-3;
+double A = -.3*Mlr/Mtot+.3;
+double S = (pow(10,A))/ (log(10)*deltaV*((Mtot-Mlr)/Mtot));
+Vector3D<double> Vlr = M*c1.velocity + m*c2.velocity;
+double norm =((log10(Mslr*deltaV*S*log(10))-A)/-S)-(Vlr.length());
+
+
+double Vslr=((log10(Mslr*(deltaV/10)*S*log(10))-A)/-S)-norm;
+CkPrintf("%g \n ",Vslr);
+
+
 
     // Mark the less massive particle to be consumed and deleted
     if (c1.mass < c2.mass) return -1;
     else return 1;
     
-    
+    }
         
 
 /**
