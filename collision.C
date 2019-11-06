@@ -222,7 +222,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
 
         // Velocities and positions may have changed, keep looking for collisions
         } while (bHasCollision);
-treeProxy.makeFragments(param.collision, CkCallbackResumeThread());
+
         // Clean up any merged particles
         addDelParticles();
     }
