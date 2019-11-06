@@ -107,7 +107,7 @@ class CollisionSmoothParams : public SmoothParams
     int bAllowMergers;
     int bNearCollSearch;
     double dWallPos;
-    double dTime, dDelta;
+    double dTime, dTimeSub;
     Collision coll;
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
                pqSmoothNode *nList);
@@ -120,7 +120,7 @@ class CollisionSmoothParams : public SmoothParams
                  ExternalSmoothParticle *p2);
 public:
     CollisionSmoothParams() {}
-    CollisionSmoothParams(int _iType, int am, double _dTime, double _dDelta,
+    CollisionSmoothParams(int _iType, int am, double _dTime, double _dTimeSub,
                           int _bWall, double _dWallPos, int _bAllowMergers,
                           int _bNearCollSearch, Collision _coll) {
         coll = _coll;
@@ -128,7 +128,7 @@ public:
         activeRung = am;
         bUseBallMax = 0;
         dTime = _dTime;
-        dDelta = _dDelta;
+        dTimeSub = _dTimeSub;
         bWall = _bWall;
         dWallPos = _dWallPos;
         bAllowMergers = _bAllowMergers;
@@ -139,7 +139,7 @@ public:
     virtual void pup(PUP::er &p) {
         SmoothParams::pup(p);
         p | coll;
-        p | dDelta;
+        p | dTimeSub;
         p | dTime;
         p | bWall;
         p | bAllowMergers;

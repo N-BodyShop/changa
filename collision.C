@@ -900,7 +900,7 @@ void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
     double v = p->velocity.length();
     // Different particles can have different fBall sizes. This can potentially
     // cause problems where only 1 of 2 colliding particles detects the collision.
-    p->fBall = coll.dBallFac*dDelta*pow(2., activeRung)*v + 4.*p->soft;
+    p->fBall = coll.dBallFac*dTimeSub*pow(2., activeRung)*v + 4.*p->soft;
     }
 
 void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)
@@ -942,7 +942,6 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     double rq, sr, D, dt, rdotv, vRel2, dr2;
     p->dtCol = DBL_MAX;
     p->iOrderCol = -1;
-    double dTimeSub = RungToDt(dDelta, activeRung);
     if (TYPETest(p, TYPE_DELETED)) return;
     if (coll.bSkipP0) {
         if (p->iOrder == 0) return;
