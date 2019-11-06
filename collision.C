@@ -421,6 +421,14 @@ void TreePiece::unKickCollStep(int iKickRung, double dDeltaBase, const CkCallbac
     contribute(cb);
     }
 
+void TreePiece::placeOnCollRung(int iOrder, int collStepRung, const CkCallback& cb) {
+    for (unsigned int i = 1; i <= myNumParticles; ++i) {
+      GravityParticle*p = &myParticles[i];
+      if (p->iOrder == iOrder) p->rung = collStepRung;
+      }
+    contribute(cb);
+    }
+
 /**
  * @brief Place all particles back on rung 0
  *

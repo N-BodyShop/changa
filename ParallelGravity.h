@@ -1755,8 +1755,8 @@ public:
  * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
-  void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
-	      int bSphStep, int bViscosityLimitdt,
+  void adjust(int iKickRung, int bCollStep, int bEpsAccStep,
+          int bGravStep, int bSphStep, int bViscosityLimitdt,
 	      double dEta, double dEtaCourant, double dEtauDot,
               double dDiffCoeff, double dEtaDiffusion,
 	      double dDelta, double dAccFac,
@@ -1838,6 +1838,7 @@ public:
                           const CkCallback& cb);
     void resolveWallCollision(Collision coll, const ColliderInfo &c1, const CkCallback& cb);
     void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
+    void placeOnCollRung(int iOrder, int collStepRung, const CkCallback& cb);
     void resetRungs(const CkCallback& cb);
     void getNeedCollStep(int collStepRung, const CkCallback& cb);
     void makeFragments(Collision coll, const CkCallback& cb);

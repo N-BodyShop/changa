@@ -383,8 +383,8 @@ mainmodule ParallelGravity {
 #ifdef COOLING_MOLECULARH
     entry void distribLymanWerner(const CkCallback& cb);
 #endif
-    entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
-	      int bSphStep, int bViscosityLimitdt,
+    entry void adjust(int iKickRung, int bCollStep, int bEpsAccStep,
+          int bGravStep, int bSphStep, int bViscosityLimitdt,
 	      double dEta, double dEtaCourant, double dEtauDot,
               double dDiffCoeff, double dEtaDiffusion,
 	      double dDelta, double dAccFac,
@@ -452,6 +452,7 @@ mainmodule ParallelGravity {
         int bMerge, double baseStep, double timeNow, const CkCallback& cb);
     entry void resolveWallCollision(Collision coll, const ColliderInfo &c1, const CkCallback& cb);
     entry void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
+    entry void placeOnCollRung(int iOrder, int collStepRung, const CkCallback& cb);
     entry void resetRungs(const CkCallback& cb);
     entry void getNeedCollStep(int collStepRung, const CkCallback& cb);
     entry void makeFragments(Collision coll, const CkCallback& cb);

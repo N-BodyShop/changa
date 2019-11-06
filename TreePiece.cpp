@@ -1690,6 +1690,8 @@ void TreePiece::distribLymanWerner(const CkCallback& cb)
 /**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.
+ * @param bCollStep Check to see if particle rungs have already
+ *                  been set by collider search
  * @param bEpsAccStep Use sqrt(eps/acc) timestepping
  * @param bGravStep Use sqrt(r^3/GM) timestepping
  * @param bSphStep Use Courant condition
@@ -1707,8 +1709,8 @@ void TreePiece::distribLymanWerner(const CkCallback& cb)
  * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
-void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
-		       int bSphStep, int bViscosityLimitdt,
+void TreePiece::adjust(int iKickRung, int bCollStep, int bEpsAccStep,
+               int bGravStep, int bSphStep, int bViscosityLimitdt,
 		       double dEta, double dEtaCourant, double dEtauDot,
                        double dDiffCoeff, double dEtaDiffusion,
 		       double dDelta, double dAccFac,
@@ -1829,6 +1831,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
           dTEdot = dt;
 #endif
 	  }
+      if (bCollStep) dTIdeal = RungToDt(dDelta, p->rung);
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
       if(iNewRung > 29) {
