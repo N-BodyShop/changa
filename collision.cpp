@@ -132,6 +132,40 @@ void Main::doNearCollisions(double dTime, double dDelta, int activeRung)
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
     treeProxy.startSmooth(&pCS, 0, param.collision.nSmoothCollision,
           dfBall2OverSoft2, CkCallbackResumeThread());
+
+    // Need to ensure that both near-colliding particles end up on the collision rung
+    CkReductionMsg *msgChk;
+    treeProxy.getNearCollPartners(CkCallbackResumeThread((void*&)msgChk));
+    int numIords = msgChk->getSize()/sizeof(int);
+    int *data = (int *)msgChk->getData();
+
+    for (int i=0; i < numIords; i++) {
+        treeProxy.placeOnCollRung(data[i], param.collision.iCollStepRung, CkCallbackResumeThread());
+        }
+    }
+
+/**
+ * @brief Compile a list of every collision partner that has been identified
+ *
+ * The 'collision smooth' function only allows you to set properties of one
+ * of the two colliding particles. It is possible that particle a will
+ * identify an impending collision with particle b, but b will not identify
+ * a collision with a. This can cause problems with collision stepping, as
+ * only one of the two near-colliders will end up on the proper rung. This
+ * function constructs a list of the iorders of all of the collision partners
+ * so that we can go back and properly set their rung.
+ */
+void TreePiece::getNearCollPartners(const CkCallback& cb) {
+    std::vector<int> collPartners;
+    for (unsigned int i=1; i <= myNumParticles; i++) {
+        GravityParticle *p = &myParticles[i];
+        if (p->iOrderCol >= 0) {
+            collPartners.push_back(p->iOrderCol);
+            }
+        }
+
+    int* a = &collPartners[0];
+    contribute(sizeof(int)*collPartners.size(), a, CkReduction::concat, cb);
     }
 
 /**
@@ -974,11 +1008,17 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                vRel2 = vRel.lengthSquared();
                dr2 = dx.lengthSquared() - sr*sr;
                D = rdotv*rdotv - dr2*vRel2;
-               if (dx.length() < sr) p->rung = coll.iCollStepRung;
+               if (dx.length() < sr) {
+                   p->rung = coll.iCollStepRung;
+                   p->iOrderCol = q->iOrder;
+                   }
                else if (D > 0.) {
                    D = sqrt(D);
                    dt = (-rdotv - D)/vRel2;
-                   if (dt > 0. && dt < dTimeSub) p->rung = coll.iCollStepRung;
+                   if (dt > 0. && dt < dTimeSub) {
+                       p->rung = coll.iCollStepRung;
+                       p->iOrderCol = q->iOrder;
+                       }
                    }
                }
        } else {
