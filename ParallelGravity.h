@@ -1835,7 +1835,7 @@ public:
     void getCollInfo(const CkCallback& cb);
     void getCollInfo(int iOrder, const CkCallback& cb);
     void resolveCollision(Collision coll, const ColliderInfo &c1, const ColliderInfo &c2,
-                          int bMerge, double baseStep, double timeNow,
+                          double baseStep, double timeNow,
                           const CkCallback& cb);
     void resolveWallCollision(Collision coll, const ColliderInfo &c1, const CkCallback& cb);
     void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);

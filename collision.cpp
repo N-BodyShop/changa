@@ -235,22 +235,9 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
                     CkAbort("Warning: Collider pair mismatch\n");
                     }
                 nColl++;
-                
-                int bMerger = 0;
-                if (param.collision.bAllowMergers) {
-                    bMerger = param.collision.checkMerger(c[0], c[1]);
-                    }
-                if (bMerger != 0) {
-                    if (bMerger < 0) ckout << "Merge " << c[0].iOrder
-                                                  << " into " << c[1].iOrder << "\n";
-                    else ckout << "Merge " << c[1].iOrder <<  " into " << c[0].iOrder << "\n";
-                    treeProxy.resolveCollision(param.collision, c[0], c[1], 1,
-                                               dDelta, dTime, CkCallbackResumeThread());
-                    }
-                else {
-                    treeProxy.resolveCollision(param.collision, c[0], c[1], 0,
-                                               dDelta, dTime, CkCallbackResumeThread());
-                    }
+
+                treeProxy.resolveCollision(param.collision, c[0], c[1], dDelta,
+                                           dTime, CkCallbackResumeThread());
                 }
             }
 
@@ -380,59 +367,49 @@ void TreePiece::resolveWallCollision(Collision coll, const ColliderInfo &c1,
  * @param timeNow The current simulation time
  */
 void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
-                                 const ColliderInfo &c2, int bMerge, double baseStep,
+                                 const ColliderInfo &c2, double baseStep,
                                  double timeNow, const CkCallback& cb) {
-        GravityParticle *p;
-        // Look for the first collider particle on this tree piece
-        int bFoundP1 = 0;
-        for (unsigned int i=1; i <= myNumParticles; i++) {
-            p = &myParticles[i];
-            if (p->iOrder == c1.iOrder) {
-                bFoundP1 = 1;
-                break;
-               }
-            }
-
-       if (bFoundP1) {
-           if (bMerge) {
-               if (p->mass >= c2.mass) {
-                   coll.doCollision(p, c2, 1);
-                   coll.setMergerRung(p, c2, c1, baseStep, timeNow);
-                   }
-               else {
-                   deleteParticle(p);
-                   }
-               }
-           else {
-               coll.doCollision(p, c2, 0);
-               }
-           }
-
-        // Look for the second collider particle on this tree piece
-        int bFoundP2 = 0;
-        for (unsigned int i=1; i <= myNumParticles; i++) {
-            p = &myParticles[i];
-            if (p->iOrder == c2.iOrder) {
-                bFoundP2 = 1;
-                break;
+    GravityParticle *p;
+    int iCollResult;
+    // Colliders need to be handled individually because only one
+    // of the two could be on this tree piece
+    for (unsigned int i=1; i <= myNumParticles; i++) {
+        p = &myParticles[i];
+        if (p->iOrder == c1.iOrder) {
+            iCollResult = coll.doCollision(p, c2);
+            if (iCollResult == MERGE) {
+                if (c1.mass >= c2.mass) {
+                    CkPrintf("Merge %d into %d\n", p->iOrder, c2.iOrder);
+                    coll.setMergerRung(p, c2, c1, baseStep, timeNow);
+                }
+                else {
+                    CkPrintf("Delete %d\n", p->iOrder);
+                    deleteParticle(p);
                 }
             }
+            break;
+            }
+        }
 
-       if (bFoundP2) {
-           if (bMerge) {
-               if (p->mass > c1.mass) {
-                   coll.doCollision(p, c1, 1);
-                   coll.setMergerRung(p, c1, c2, baseStep, timeNow);
-                   }
-               else {
-                   deleteParticle(p);
-                   }
-               }
-           else {
-               coll.doCollision(p, c1, 0);
-               }
-           }
-    
+    for (unsigned int i=1; i <= myNumParticles; i++) {
+        p = &myParticles[i];
+        if (p->iOrder == c2.iOrder) {
+            iCollResult = coll.doCollision(p, c1);
+            if (iCollResult == MERGE) {
+                if (c2.mass > c1.mass) {
+                    CkPrintf("%g %g\n", p->mass, c1.mass);
+                    CkPrintf("Merge %d into %d\n", p->iOrder, c1.iOrder);
+                    coll.setMergerRung(p, c1, c2, baseStep, timeNow);
+                }
+                else {
+                    CkPrintf("Delete %d\n", p->iOrder);
+                    deleteParticle(p);
+                }
+            }
+            break;
+            }
+        }
+
     contribute(cb);
     }
 
@@ -714,10 +691,32 @@ void Collision::doWallCollision(GravityParticle *p) {
  *
  * @param p A reference to the particle that is undergoing a collision
  * @param c Contains information about the particle that p is colliding with
- * @param bMerge If true, merge the particles together
+ *
+ * @return The CollType of the collision
  */
-void Collision::doCollision(GravityParticle *p, const ColliderInfo &c, int bMerge)
+int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
 {
+    // Determine the collision type
+    int iCollType = MERGE;
+    // Calculate the post collision spin and velocity of the merged particle
+    Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
+    double radNew;
+    // Advance particle positions to moment of collision
+    pAdjust = p->position + c.velocity*c.dtCol;
+    mergeCalc(p->soft*2, p->mass, pAdjust, p->velocity, p->treeAcceleration,
+              p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
+    double Mtot = p->mass + c.mass;
+    double vEsc = sqrt(2.*Mtot/(p->soft*2 + c.radius));
+    double wMax = sqrt(Mtot/(radNew*radNew*radNew));
+
+    double vRel = (p->velocity - c.velocity).length();
+    if (vRel > vEsc || wNew.length() > wMax) {
+        if (!bPerfectAcc) {
+            CkPrintf("Merger rejected\n");
+            iCollType = BOUNCE;
+            }
+        }
+
     // If the particles are different sizes, p might not have its dtCol
     // field set. Fix this before going any further.
     p->dtCol = c.dtCol;
@@ -726,10 +725,7 @@ void Collision::doCollision(GravityParticle *p, const ColliderInfo &c, int bMerg
     Vector3D<double> pAdv;
     pAdv = p->position + p->velocity*p->dtCol;
 
-    Vector3D<double> vNew, wNew;
-    double radNew;
-    if (bMerge) {
-        Vector3D<double> posNew, aNew;
+    if (iCollType == MERGE) {
         mergeCalc(p->soft*2., p->mass, pAdv, p->velocity, p->treeAcceleration,
                   p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
         CkPrintf("Merger info:\niorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y\
@@ -779,6 +775,8 @@ void Collision::doCollision(GravityParticle *p, const ColliderInfo &c, int bMerg
     p->w = wNew;
 
     p->dtCol = DBL_MAX;
+
+    return iCollType;
     }
 void TreePiece::makeFragments(Collision coll, const CkCallback& cb)
 { GravityParticle *frag = coll.makeFragment();

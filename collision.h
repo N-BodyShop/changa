@@ -3,6 +3,12 @@
 
 #include <float.h>
 
+enum CollTypes {
+    BOUNCE = 0,
+    MERGE = 1,
+    FRAG = 2
+};
+
 /// @brief Used to pass information about collision partners between processes
 class ColliderInfo {
 public:
