@@ -1204,6 +1204,8 @@ private:
 #ifdef HEXADECAPOLE
 	MOMC momcRoot;		/* complete moments of root */
 #endif
+        /// Have the Ewald h loop tables been calculated.
+        bool bEwaldInited;
 
 	int bGasCooling;
 #ifndef COOLING_NONE
@@ -1466,6 +1468,7 @@ public:
 	  prefetchRoots = NULL;
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
+          bEwaldInited = false;
 
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
@@ -1507,6 +1510,7 @@ public:
 	  prefetchRoots = NULL;
 	  //remaining Chunk = NULL;
           ewt = NULL;
+          bEwaldInited = false;
 	  root = NULL;
 	  pTreeNodes = NULL;
 
@@ -1789,7 +1793,7 @@ public:
 			int bUpdateState, double gammam1, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
-    void getAdiabaticGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+    void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
         double dEvapMinTemp, double dDtCourantFac, const CkCallback &cb);
     void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,

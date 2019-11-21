@@ -1589,9 +1589,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                       p->CoolParticle() = p->CoolParticleHot();
                       p->cpHotInit() = 0;
               }
-              double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(), p->fMetals());
-              if(TpNC < dMultiPhaseMinTemp && p->uHotPred() > 0)//Check to make sure the hot phase is still actually hot
-              {
+              if(p->uHotPred() > 0) {
+                  double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(), p->fMetals());
+                  if(TpNC < dMultiPhaseMinTemp)//Check to make sure the hot phase is still actually hot
+                  {
                      p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
                      p->u() = (p->u()*(p->mass-p->massHot()) + p->uHot()*p->massHot())/p->mass;
                      p->uDot() = (p->uDot()*(p->mass-p->massHot()) + p->uHotDot()*p->massHot())/p->mass;
@@ -1602,6 +1603,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                      p->uHotPred() = 0;
                      p->CoolParticle() = p->CoolParticleHot();
                      p->cpHotInit() = 0;
+                  }
               }
                   
 #endif
@@ -4088,12 +4090,11 @@ void TreePiece::calculateGravityLocal() {
 
 void TreePiece::calculateEwald(dummyMsg *msg) {
 #ifdef SPCUDA
-  if(dm->gputransfer){
+  if(dm->gputransfer && bEwaldInited){
     thisProxy[thisIndex].EwaldGPU();
-    delete msg;
-  }else{
-    thisProxy[thisIndex].calculateEwald(msg);
+    bEwaldInited = false;
   }
+  delete msg;
 #else
 
   bool useckloop = false;

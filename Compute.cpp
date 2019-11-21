@@ -1028,7 +1028,6 @@ void ListCompute::addNodeToInt(GenericTreeNode *node, int offsetID, DoubleWalkSt
 #endif
 
 #ifdef CUDA
-void allocatePinnedHostMemory(void **, size_t);
 
 template<typename T>
 CudaRequest *GenericList<T>::serialize(TreePiece *tp){
@@ -1394,6 +1393,8 @@ template<class type> int calcParticleForces(TreePiece *tp, int b, int activeRung
 
 #ifdef GPU_LOCAL_TREE_WALK
 
+// XXX This appears to be identical to cudaCallback(), I think it can
+// be deleted --trq.
 void cudaCallbackForAllBuckets(void *param, void *msg) {
   CudaRequest *data = (CudaRequest *)param;
   int *affectedBuckets = data->affectedBuckets;
@@ -1415,6 +1416,11 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
   if(numBucketsDone > 0){
     delete [] data->affectedBuckets;
   }
+  freePinnedHostMemory(data->list);
+  freePinnedHostMemory(data->bucketMarkers);
+  freePinnedHostMemory(data->bucketStarts);
+  freePinnedHostMemory(data->bucketSizes);
+
   delete ((CkCallback *)data->cb);
   delete data;
 }
@@ -1449,6 +1455,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   int *dummyStarts = NULL;
   int *dummySizes = NULL;
 
+  // XXX I think this can be deleted --trq.
 #ifdef HAPI_USE_CUDAMALLOCHOST
   allocatePinnedHostMemory((void **)&dummyFlatlists, dummyTotalNumInteractions *
                                                     sizeof(ILCell));
@@ -1973,6 +1980,7 @@ void ListCompute::resetCudaPartState(DoubleWalkState *state){
   }
 }
 
+/// A group of node or particle interactions has been completed by the GPU.
 void cudaCallback(void *param, void *msg){
   CudaRequest *data = (CudaRequest *)param;
   // Paranoid about data corruption here.
@@ -2019,6 +2027,15 @@ void cudaCallback(void *param, void *msg){
   if(numBucketsDone > 0){
     delete [] data->affectedBuckets;
   }
+  freePinnedHostMemory(data->list);
+  freePinnedHostMemory(data->bucketMarkers);
+  freePinnedHostMemory(data->bucketStarts);
+  freePinnedHostMemory(data->bucketSizes);
+  if(data->missedNodes)
+      freePinnedHostMemory(data->missedNodes);
+  if(data->missedParts)
+      freePinnedHostMemory(data->missedParts);
+  
   delete ((CkCallback *)data->cb);
   delete data; 
 #ifdef CHANGA_REFACTOR_MEMCHECK
@@ -2042,6 +2059,8 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
   data->state = (void *)state;
   data->node = true;
   data->remote = (getOptType() == Remote);
+  data->missedNodes = NULL;
+  data->missedParts = NULL;
 
 #ifdef HAPI_INSTRUMENT_WRS
   data->tpIndex = tp->getInstrumentId();
@@ -2114,12 +2133,15 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
   }
   else if(type == Remote && state->resume){
     CudaMultipoleMoments *missedNodes = state->nodes->getVec();
-    int len = state->nodes->length();
+    size_t len = sizeof(CudaMultipoleMoments)*state->nodes->length();
     CkAssert(missedNodes);
+    allocatePinnedHostMemory(&data->missedNodes, len);
+    memcpy(data->missedNodes, missedNodes, len);
+    data->sMissed = len;
 #ifdef HAPI_TRACE
     tp->remoteResumeNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
-    TreePieceCellListDataTransferRemoteResume(data, missedNodes, len);
+    TreePieceCellListDataTransferRemoteResume(data);
 #ifdef HAPI_INSTRUMENT_WRS
     tp->remoteResumeNodeListConstructionTime += time;
     tp->nRemoteResumeNodeReqs++;
@@ -2150,6 +2172,8 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
   data->state = (void *)state;
   data->node = false;
   data->remote = (getOptType() == Remote);
+  data->missedNodes = NULL;
+  data->missedParts = NULL;
 
 #ifdef HAPI_INSTRUMENT_WRS
   data->tpIndex = tp->getInstrumentId();
@@ -2230,12 +2254,15 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
   }
   else if(type == Remote && state->resume){
     CompactPartData *missedParts = state->particles->getVec();
-    int len = state->particles->length();
+    size_t len = sizeof(CompactPartData)*state->particles->length();
     CkAssert(missedParts);
+    allocatePinnedHostMemory(&data->missedParts, len);
+    memcpy(data->missedParts, missedParts, len);
+    data->sMissed = len;
 #ifdef HAPI_TRACE
     tp->remoteResumePartInteractions += state->particleLists.totalNumInteractions;
 #endif
-    TreePiecePartListDataTransferRemoteResume(data, missedParts, len);
+    TreePiecePartListDataTransferRemoteResume(data);
 #ifdef HAPI_INSTRUMENT_WRS
     tp->remoteResumePartListConstructionTime += time;
     tp->nRemoteResumePartReqs++;

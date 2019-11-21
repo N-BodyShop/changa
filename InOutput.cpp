@@ -64,9 +64,8 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     p.dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
     p.uDot() = 0.0;  // Used in initial timestep
-#else
-    p.PdV() = 0.0;  // Used in initial timestep
 #endif
+    p.PdV() = 0.0;  // Used in initial timestep
 #endif
 #ifdef SUPERBUBBLE
     p.cpHotInit() = 0;
@@ -123,6 +122,9 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
     p.fStarMFracIron() = 0.098*sp.metals;
     p.fMassForm() = sp.mass;
     p.fTimeForm() = sp.tform;
+#ifdef COOLING_MOLECULARH 
+    p.dStarLymanWerner() = 0.0;
+#endif
 }
 
 
@@ -609,9 +611,8 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         myParts[i].dtNew() = FLT_MAX;
 #ifndef COOLING_NONE
         myParts[i].uDot() = 0.0;  // Used in initial timestep
-#else
-        myParts[i].PdV() = 0.0;  // Used in initial timestep
 #endif
+        myParts[i].PdV() = 0.0;  // Used in initial timestep
 #endif
 #ifdef SUPERBUBBLE
         myParts[i].cpHotInit() = 0;
@@ -803,6 +804,9 @@ static void load_NC_star(std::string filename, int64_t startParticle,
     deleteField(fh, data);
     for(int i = 0; i < myNumStar; ++i) {
         myParts[i].fMassForm() = myParts[i].mass;
+#ifdef COOLING_MOLECULARH 
+        myParts[i].dStarLymanWerner() = 0.0;
+#endif
         }
 }
 
