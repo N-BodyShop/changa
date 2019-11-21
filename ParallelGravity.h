@@ -473,6 +473,14 @@ class Main : public CBase_Main {
 	int64_t nActiveGrav;
 	int64_t nActiveSPH;
 
+        /// Track total mass from stellar feedback
+        double dTotalMassFeedback;
+        /// Track total metals from stellar feedback
+        double dTotalMetalFeedback;
+        /// Track total Oxygen from stellar feedback
+        double dTotalOxFeedback;
+        /// Track total Iron from stellar feedback
+        double dTotalFeFeedback;
 #ifdef CUDA
           double localNodesPerReqDouble;
           double remoteNodesPerReqDouble;

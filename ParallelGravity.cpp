@@ -222,6 +222,10 @@ Main::Main(CkArgMsg* m) {
         bHaveAlpha = 0;
 	bChkFirst = 1;
 	dSimStartTime = CkWallTimer();
+        dTotalMassFeedback = 0.0;
+        dTotalMetalFeedback = 0.0;
+        dTotalOxFeedback = 0.0;
+        dTotalFeFeedback = 0.0;
 
   int threadNum = CkMyNodeSize();
 
@@ -4102,6 +4106,10 @@ void Main::pup(PUP::er& p)
     p | bChkFirst;
     p | sorter;
     p | killAt;
+    p | dTotalMassFeedback;
+    p | dTotalMetalFeedback;
+    p | dTotalOxFeedback;
+    p | dTotalFeFeedback;
     }
 
 

@@ -158,6 +158,19 @@ void TreePiece::initRand(int iRand, const CkCallback &cb)
 ///
 void Main::FormStars(double dTime, double dDelta) 
 {
+    {
+    CkReductionMsg *msgChk0;
+    treeProxy.massMetalsEnergyCheck(0, CkCallbackResumeThread((void*&)msgChk0));
+    double *dTotals0 = (double *)msgChk0->getData();
+    int i;
+    for(i = 0; i < 5; i++) {
+	std::string labels[5] = {"Mass", "Metals", "Oxygen", "Iron", "Energy"};
+	if(verbosity > 0)
+	    CkPrintf("Total %s: %g\n", labels[i].c_str(), dTotals0[i]);
+        }
+    delete msgChk0;
+    }
+
     if(verbosity)
 	CkPrintf("Form Stars ... ");
     //

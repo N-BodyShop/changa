@@ -261,6 +261,18 @@ void AGORApreCheckSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmo
 ///
 void Main::StellarFeedback(double dTime, double dDelta) 
 {
+    {
+    CkReductionMsg *msgChk0;
+    treeProxy.massMetalsEnergyCheck(0, CkCallbackResumeThread((void*&)msgChk0));
+    double *dTotals0 = (double *)msgChk0->getData();
+    int i;
+    for(i = 0; i < 5; i++) {
+	std::string labels[5] = {"Mass", "Metals", "Oxygen", "Iron", "Energy"};
+	if(verbosity > 0)
+	    CkPrintf("Total %s: %g\n", labels[i].c_str(), dTotals0[i]);
+        }
+    delete msgChk0;
+    }
     if(verbosity)
 	CkPrintf("Stellar Feedback ... \n");
     double startTime = CkWallTimer();
@@ -270,16 +282,25 @@ void Main::StellarFeedback(double dTime, double dDelta)
 		       CkCallbackResumeThread((void*&)msgFeedback));
     double *dFeedback = (double *)msgFeedback->getData();
     
+    for(int i = 0; i < NFEEDBACKS; i++){
+        dTotalMassFeedback += dFeedback[i*5];
+        dTotalMetalFeedback += dFeedback[i*5 + 2];
+        dTotalOxFeedback += dFeedback[i*5 + 3];
+        dTotalFeFeedback += dFeedback[i*5 + 4];
+    }
     if(verbosity) 
       {
 	CkPrintf("Feedback totals: mass, energy, metalicity\n");
 	for(int i = 0; i < NFEEDBACKS; i++){
 	  CkPrintf("feedback %d: %g %g %g\n", i,
-		   dFeedback[i*3],
-		   dFeedback[i*3 + 1],
-		   dFeedback[i*3] != 0.0 ?
-		   dFeedback[i*3 + 2]/dFeedback[i*3] : 0.0);
+		   dFeedback[i*5],
+		   dFeedback[i*5 + 1],
+		   dFeedback[i*5] != 0.0 ?
+		   dFeedback[i*5 + 2]/dFeedback[i*5] : 0.0);
 	}
+	CkPrintf("Feedback cumulative totals: mass, metalicity, Ox, Fe: %g %g %g %g\n",
+            dTotalMassFeedback, dTotalMetalFeedback, dTotalOxFeedback,
+            dTotalFeFeedback);
       }
     delete msgFeedback;
     CkReductionMsg *msgChk;
@@ -342,7 +363,7 @@ void Main::StellarFeedback(double dTime, double dDelta)
     int i;
     for(i = 0; i < 5; i++) {
 	std::string labels[5] = {"Mass", "Metals", "Oxygen", "Iron", "Energy"};
-	if(verbosity > 1)
+	if(verbosity > 0)
 	    CkPrintf("Total %s: %g\n", labels[i].c_str(), dTotals[i]);
 
         // Supress energy conservation warning if AGORA feedback is enabled
@@ -375,8 +396,8 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 	fbTotals[i].dMassLoss = 0.0;
 	fbTotals[i].dEnergy = 0.0;
 	fbTotals[i].dMetals = 0.0;
-	fbTotals[i].dMIron = 0.0;
 	fbTotals[i].dMOxygen = 0.0;
+	fbTotals[i].dMIron = 0.0;
 	}
 
     /* loop through particles */
@@ -393,11 +414,13 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 	}
     }
 
-    double dFeedback[NFEEDBACKS*3];
+    double dFeedback[NFEEDBACKS*5];
     for(int i = 0; i < NFEEDBACKS; i++) {
-	dFeedback[i*3] = fbTotals[i].dMassLoss;
-	dFeedback[i*3 + 1] = fbTotals[i].dEnergy;
-	dFeedback[i*3 + 2] = fbTotals[i].dMetals;
+	dFeedback[i*5] = fbTotals[i].dMassLoss;
+	dFeedback[i*5 + 1] = fbTotals[i].dEnergy;
+	dFeedback[i*5 + 2] = fbTotals[i].dMetals;
+	dFeedback[i*5 + 3] = fbTotals[i].dMOxygen;
+	dFeedback[i*5 + 4] = fbTotals[i].dMIron;
     }
     contribute(sizeof(dFeedback),dFeedback, CkReduction::sum_double, cb);
 }
