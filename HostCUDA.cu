@@ -638,8 +638,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
   transfer = gravityKernel->buffers[ILCELL_IDX].transfer_to_device;
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("(%d) TRANSFER REMOTE RESUME CELL %d (%d)\n", CmiMyPe(),
-        size, transfer);
+  printf("(%d) TRANSFER REMOTE RESUME CELL (%d)\n", CmiMyPe(), transfer);
 #endif
 
   gravityKernel->addBuffer(data->missedNodes, data->sMissed, transfer, false,
@@ -837,9 +836,8 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
         transfer = gravityKernel->buffers[ILPART_IDX].transfer_to_device;
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER REMOTE RESUME PART %zu (%d)\n",
+        printf("(%d) TRANSFER REMOTE RESUME PART (%d)\n",
             CmiMyPe(),
-            size,
             transfer
             );
 #endif
