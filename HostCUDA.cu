@@ -24,6 +24,7 @@
 
 #include "hapi.h"
 #include "cuda_typedef.h"
+#include "cuda/intrinsics/shfl.hu"
 
 #ifdef GPU_LOCAL_TREE_WALK
 #include "codes.h"
@@ -1572,11 +1573,11 @@ __global__ void nodeGravityComputation(
       poten = pot;
       idt2max = idt2;
       for (int offset = NODES_PER_BLOCK/2; offset > 0; offset /= 2) {
-        sumx += __shfl_down_sync(FULL_MASK, sumx, offset, NODES_PER_BLOCK);
-        sumy += __shfl_down_sync(FULL_MASK, sumy, offset, NODES_PER_BLOCK);
-        sumz += __shfl_down_sync(FULL_MASK, sumz, offset, NODES_PER_BLOCK);
-        poten += __shfl_down_sync(FULL_MASK, poten, offset, NODES_PER_BLOCK);
-        idt2max = fmax(idt2max, __shfl_down_sync(FULL_MASK, idt2max, offset, NODES_PER_BLOCK));
+        sumx += shfl_down(sumx, offset, NODES_PER_BLOCK);
+        sumy += shfl_down(sumy, offset, NODES_PER_BLOCK);
+        sumz += shfl_down(sumz, offset, NODES_PER_BLOCK);
+        poten += shfl_down(poten, offset, NODES_PER_BLOCK);
+        idt2max = fmax(idt2max, shfl_down(idt2max, offset, NODES_PER_BLOCK));
       }
       // if(tidx == 0 && my_particle_idx < bucketSize){
       if (tidx == 0) {
@@ -2128,11 +2129,11 @@ __global__ void particleGravityComputation(
       poten = pot;
       idt2max = idt2;
       for(int offset = NODES_PER_BLOCK/2; offset > 0; offset /= 2){
-        sumx += __shfl_down_sync(FULL_MASK, sumx, offset, NODES_PER_BLOCK_PART);
-        sumy += __shfl_down_sync(FULL_MASK, sumy, offset, NODES_PER_BLOCK_PART);
-        sumz += __shfl_down_sync(FULL_MASK, sumz, offset, NODES_PER_BLOCK_PART);
-        poten += __shfl_down_sync(FULL_MASK, poten, offset, NODES_PER_BLOCK_PART);
-        idt2max = fmax(idt2max, __shfl_down_sync(FULL_MASK, idt2max, offset, NODES_PER_BLOCK_PART));
+        sumx += shfl_down(sumx, offset, NODES_PER_BLOCK_PART);
+        sumy += shfl_down(sumy, offset, NODES_PER_BLOCK_PART);
+        sumz += shfl_down(sumz, offset, NODES_PER_BLOCK_PART);
+        poten += shfl_down(poten, offset, NODES_PER_BLOCK_PART);
+        idt2max = fmax(idt2max, shfl_down(idt2max, offset, NODES_PER_BLOCK_PART));
       }
 
       if(tx == 0){
