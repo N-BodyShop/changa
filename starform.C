@@ -374,7 +374,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
                     dSumHMStars += new_star_unit;
                     iArrayLoc+=1;
                 }
-            } else if(fabs(dDeltaM - test_mass) < fabs(dDeltaM - mass_tally) ) {
+            } else if(fabs(dDeltaM - test_mass) < fabs(dDeltaM - mass_tally) && (dSumHMStars + new_star_unit < dDeltaM)) {
                 mass_tally += new_star;
                 if(new_star > dStochCut){
                     starp->rgfHMStars(iArrayLoc)=new_star;
