@@ -7,6 +7,7 @@
 #include "DataManager.h"
 #include "Reductions.h"
 #include "formatted_string.h"
+#include <iomanip>
 
 #ifdef CUDA
 #include "hapi.h"
@@ -117,7 +118,7 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
     std::vector<SFC::Key>::iterator iter3;
     CkPrintf("Keys:");
     for(iter3=boundaryKeys.begin();iter3!=boundaryKeys.end();iter3++){
-      CkPrintf("%016llx,",*iter3);
+      CkPrintf("%016llx,", static_cast<unsigned long long>(*iter3));
     }
     CkPrintf("\n");
   }
@@ -493,10 +494,10 @@ void DataManager::serializeLocalTree(){
     treePiecesDone = 0;
 
     if(verbosity > 1)
-        CkPrintf("[%d] Registered tree pieces length: %d\n", CkMyPe(), registeredTreePieces.length());
+        CkPrintf("[%d] Registered tree pieces length: %lu\n", CkMyPe(), registeredTreePieces.length());
     serializeLocal(root);
     if(verbosity > 1)
-        CkPrintf("[%d] Registered tree pieces length after serialize local: %d\n", CkMyPe(), registeredTreePieces.length());
+        CkPrintf("[%d] Registered tree pieces length after serialize local: %lu\n", CkMyPe(), registeredTreePieces.length());
   }
   CmiUnlock(__nodelock);
 
@@ -529,7 +530,7 @@ void DataManager::startLocalWalk() {
 /// The data for remote interactions is on the GPU, so continue the
 /// remote walk.
 void DataManager::resumeRemoteChunk() {
-  if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk registered: %d\n", CkMyPe(), registeredTreePieces.length());
+  if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk registered: %lu\n", CkMyPe(), registeredTreePieces.length());
   int chunk = 0;
   chunk = currentChunkBuffers->chunk;
   delete currentChunkBuffers->moments;

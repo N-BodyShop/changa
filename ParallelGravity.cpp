@@ -2032,7 +2032,7 @@ void Main::advanceBigStep(int iStep) {
 	nSink = *(int *) msgCnt->getData();
 	delete msgCnt;
 	if(nSink != 0)
-	    CkPrintf("Sink number of Sinks: nSink = %d\n", nSink);
+	    CkPrintf("Sink number of Sinks: nSink = %ld\n", nSink);
 	}
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)

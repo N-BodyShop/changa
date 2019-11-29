@@ -223,7 +223,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    startParticle += excess;
 	    }
 	if(startParticle >= nTotalParticles) {
-	    CkError("Bad startParticle: %d, nPart: %d, myIndex: %d, nLoading: %d\n",
+	    CkError("Bad startParticle: %ld, nPart: %ld, myIndex: %d, nLoading: %d\n",
 		    startParticle, nTotalParticles, myIndex, numLoadingPEs);
 	    }
 	CkAssert(startParticle < nTotalParticles);
@@ -890,7 +890,7 @@ void TreePiece::loadNChilada(const std::string& filename,
 	    startParticle += excess;
 	    }
 	if(startParticle >= nTotalParticles) {
-	    CkError("Bad startParticle: %d, nPart: %d, myIndex: %d, nLoading: %d\n",
+	    CkError("Bad startParticle: %ld, nPart: %ld, myIndex: %d, nLoading: %d\n",
 		    startParticle, nTotalParticles, myIndex, numLoadingPEs);
 	    }
 	CkAssert(startParticle < nTotalParticles);
@@ -1603,7 +1603,7 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 
 
 	    if (verbosity>=3)
-		CkPrintf("me:%d to:%d how many:%d\n",thisIndex, iPiece,
+		CkPrintf("me:%d to:%d how many:%ld\n",thisIndex, iPiece,
 			 (binEnd-binBegin));
 	    if(iPiece == thisIndex) {
 		ioAcceptSortedParticles(shuffleMsg);
