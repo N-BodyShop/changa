@@ -288,7 +288,7 @@ void TreePiece::sendORBParticles(){
 	    if(myBinCountsORB[nCounts+i] > 0) {
 		pGasOut = new extraSPHData[myBinCountsORB[nCounts+i]];
 		if (verbosity>=3)
-		  CkPrintf("me:%d to:%d nPart :%d, nGas:%d\n", thisIndex, i,
+		  CkPrintf("me:%d to:%d nPart :%ld, nGas:%d\n", thisIndex, i,
 			   *iter2 - *iter, myBinCountsORB[nCounts+i]);
 		int iGasOut = 0;
 		for(GravityParticle *pPart = *iter; pPart < *iter2; pPart++) {
@@ -3258,8 +3258,9 @@ bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
     int first, last;
     bool bIsShared = nodeOwnership(msg->key, first, last);
     if(verbosity > 1) {
-        CkPrintf("fillRequest empty piece %d: %d %d %d %llx\n", thisIndex,
-            first, last, bIsShared, msg->key);
+        CkPrintf("fillRequest empty piece %d: %d %d %d ", thisIndex,
+            first, last, bIsShared);
+        ckout << msg->key << '\n';
         CkPrintf("fillRequest resp. pieces %d: %d %d\n", thisIndex,
                    getResponsibleIndex(first, first),
                    getResponsibleIndex(last, last));
@@ -5565,7 +5566,7 @@ void TreePiece::combineKeys(Tree::NodeKey key,int bucket){
     bucketcheckList[bucket].erase(iter);
     if(bucket == TEST_BUCKET && thisIndex == TEST_TP){
       CkPrintf("[%d] combine(%ld, %ld)\n", thisIndex, key, sibKey);
-      CkPrintf("[%d] add %ld\n", thisIndex, key >> 1, sibKey);
+      CkPrintf("[%d] add(%ld, %ld)\n", thisIndex, key >> 1, sibKey);
     }
     key >>= 1;
     bucketcheckList[bucket].insert(key);
