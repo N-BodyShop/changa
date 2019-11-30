@@ -7,7 +7,6 @@
 #include "DataManager.h"
 #include "Reductions.h"
 #include "formatted_string.h"
-#include <iomanip>
 
 #ifdef CUDA
 #include "hapi.h"
