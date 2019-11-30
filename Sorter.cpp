@@ -152,8 +152,8 @@ void Sorter::finishPhase(CkReductionMsg *m){
     for(i=0;i<numChares;i++){
 	if(verbosity > 2) {
 	    CkPrintf("%d has %lu particles\n",i,binCounts[i]);
-	    CkPrintf("%d has %du gas particles\n",i,binCountsGas[i]);
-	    CkPrintf("%d has %du star particles\n",i,binCountsStar[i]);
+	    CkPrintf("%d has %u gas particles\n",i,binCountsGas[i]);
+	    CkPrintf("%d has %u star particles\n",i,binCountsStar[i]);
 	    }
 	treeProxy[i].initBeforeORBSend(binCounts[i], binCountsGas[i],
 				       binCountsStar[i], sortingCallback,
