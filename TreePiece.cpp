@@ -5564,8 +5564,10 @@ void TreePiece::combineKeys(Tree::NodeKey key,int bucket){
     bucketcheckList[bucket].erase(bucketcheckList[bucket].find(key));
     bucketcheckList[bucket].erase(iter);
     if(bucket == TEST_BUCKET && thisIndex == TEST_TP){
-      CkPrintf("[%d] combine(%ld, %ld)\n", thisIndex, key, sibKey);
-      CkPrintf("[%d] add(%ld, %ld)\n", thisIndex, key >> 1, sibKey);
+      CkPrintf("[%d] combine(%s, %s)\n", thisIndex, make_formatted_string(key).c_str(),
+               make_formatted_string(sibKey).c_str());
+      CkPrintf("[%d] add(%s, %s)\n", thisIndex, make_formatted_string(key >> 1).c_str(),
+               make_formatted_string(sibKey).c_str());
     }
     key >>= 1;
     bucketcheckList[bucket].insert(key);
@@ -5591,7 +5593,7 @@ void TreePiece::checkWalkCorrectness(){
       someWrong = true;
       CkPrintf("Error: [%d] Not all nodes were traversed by bucket %d\n",thisIndex,i);
       for (std::multiset<Tree::NodeKey>::iterator iter=bucketcheckList[i].begin(); iter != bucketcheckList[i].end(); iter++) {
-	CkPrintf("       [%d] key %ld\n",thisIndex,*iter);
+	    CkPrintf("       [%d] key %s\n",thisIndex,make_formatted_string(*iter).c_str());
       }
     }
     else { bucketcheckList[i].clear(); }
@@ -6413,12 +6415,12 @@ void TreePiece::finishWalk()
 
 #endif
 #ifdef HAPI_TRACE
-  CkPrintf("[%d] (%d) HAPI_TRACE localnode: %ld\n", thisIndex, activeRung, localNodeInteractions);
-  CkPrintf("[%d] (%d) HAPI_TRACE remotenode: %ld\n", thisIndex, activeRung, remoteNodeInteractions);
-  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumenode: %ld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
-  CkPrintf("[%d] (%d) HAPI_TRACE localpart: %ld\n", thisIndex, activeRung, localPartInteractions);
-  CkPrintf("[%d] (%d) HAPI_TRACE remotepart: %ld\n", thisIndex, activeRung, remotePartInteractions);
-  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumepart: %ld\n", thisIndex, activeRung, remoteResumePartInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE localnode: %lld\n", thisIndex, activeRung, localNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remotenode: %lld\n", thisIndex, activeRung, remoteNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumenode: %lld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE localpart: %lld\n", thisIndex, activeRung, localPartInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remotepart: %lld\n", thisIndex, activeRung, remotePartInteractions);
+  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumepart: %lld\n", thisIndex, activeRung, remoteResumePartInteractions);
   
 #endif
 
