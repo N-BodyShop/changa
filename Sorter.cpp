@@ -971,7 +971,7 @@ void Sorter::adjustSplitters() {
                if(verbosity >=4 ) {
                   CkPrintf("Keys:");
                   for (std::vector<Key>::iterator  it = splitters.begin(); it < splitters.end(); it++) {
-                    CkPrintf("%lx,", *it);
+                    CkPrintf("%s,", make_formatted_string(*it).c_str());
                   }
                   CkPrintf("\n");
                 }
