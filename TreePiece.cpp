@@ -3258,9 +3258,8 @@ bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
     int first, last;
     bool bIsShared = nodeOwnership(msg->key, first, last);
     if(verbosity > 1) {
-        CkPrintf("fillRequest empty piece %d: %d %d %d ", thisIndex,
-            first, last, bIsShared);
-        ckout << msg->key << '\n';
+        CkPrintf("fillRequest empty piece %d: %d %d %d %s\n", thisIndex,
+            first, last, bIsShared, make_formatted_string(msg->key).c_str());
         CkPrintf("fillRequest resp. pieces %d: %d %d\n", thisIndex,
                    getResponsibleIndex(first, first),
                    getResponsibleIndex(last, last));
