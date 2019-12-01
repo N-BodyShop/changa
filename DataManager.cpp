@@ -117,7 +117,7 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
     std::vector<SFC::Key>::iterator iter3;
     CkPrintf("Keys:");
     for(iter3=boundaryKeys.begin();iter3!=boundaryKeys.end();iter3++){
-      CkPrintf("%016llx,", static_cast<unsigned long long>(*iter3));
+      CkPrintf("%s,", make_formatted_string(*iter3).c_str());
     }
     CkPrintf("\n");
   }
