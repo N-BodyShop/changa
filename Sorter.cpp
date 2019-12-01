@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "Sorter.h"
+#include "formatted_string.h"
 
 using std::vector;
 using std::list;
@@ -514,12 +515,12 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     CkPrintf("\n");
     CkPrintf("Nodekeys:");
     for(int j=0;j<nodeKeys.size();j++)
-      ckout << nodeKeys[j] << ',';
+      ckout << make_formatted_string(nodeKeys[j]).c_str() << ',';
     CkPrintf("\n");
     if (nodesOpened.size() > 0) {
       CkPrintf("Nodes opened (%lu):",nodesOpened.size());
       for (int j=0;j<nodesOpened.size();j++)
-        ckout << nodesOpened[j] << ',';
+        ckout << make_formatted_string(nodesOpened[j]).c_str() << ',';
       CkPrintf("\n");
     }
   }
