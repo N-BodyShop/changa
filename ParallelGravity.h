@@ -1485,7 +1485,7 @@ public:
           localTreeBuildComplete = false;
 	}
 
-	TreePiece(CkMigrateMessage* m) {
+    TreePiece(CkMigrateMessage* m): pieces(thisArrayID) {
 	  treePieceLoadTmp = 0.0;
 
 	  usesAtSync = true;
