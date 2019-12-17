@@ -717,7 +717,6 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
 	void* bufferHostBuffer;
         size_t size;
-        ParameterStruct *ptr;
         bool transfer;
 
 #ifdef CUDA_2D_TB_KERNEL
@@ -747,8 +746,6 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
           memcpy(bufferHostBuffer, particles, size);
         }
         gravityKernel->addBuffer(bufferHostBuffer, size, transfer, false, transfer);
-
-        ptr = (ParameterStruct *)gravityKernel->getUserData();
 
 	gravityKernel->setDeviceToHostCallback(data->cb);
 #ifdef HAPI_TRACE
@@ -823,7 +820,6 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
 	int numBlocks = data->numBucketsPlusOne-1;
-        ParameterStruct *ptr;
         bool transfer;
 
 	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
@@ -838,17 +834,14 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
         transfer = gravityKernel->buffers[ILPART_IDX].transfer_to_device;
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER REMOTE RESUME PART %zu (%d)\n",
+        printf("(%d) TRANSFER REMOTE RESUME PART (%d)\n",
             CmiMyPe(),
-            size,
             transfer
             );
 #endif
 
         gravityKernel->addBuffer(data->missedParts, data->sMissed, transfer,
                                  false, transfer);
-
-        ptr = (ParameterStruct *)gravityKernel->getUserData();
 
 	gravityKernel->setDeviceToHostCallback(data->cb);
 #ifdef HAPI_TRACE
@@ -1161,15 +1154,12 @@ __global__ void gpuLocalTreeWalk(
 #define STACK_TOP_INDEX stk[WARP_INDEX][SP]
 #define TARGET_NODE targetNode[WARP_INDEX]
 
-  // variable for current particle
-  CompactPartData p;
   CudaVector3D acc = {0,0,0};
   cudatype pot = 0;
   cudatype idt2 = 0;
   CudaVector3D offset = {0,0,0};
 
   int targetIndex = -1;
-  cudatype dsq = 0;
 
   // variables for CUDA_momEvalFmomrcm
   CudaVector3D r;
@@ -2436,7 +2426,7 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
   cudatype fPot, ax, ay, az;
   cudatype x, y, z, r2, dir, dir2, a; 
   cudatype xdif, ydif, zdif; 
-  cudatype g0, g1, g2, g3, g4, g5;
+  cudatype g0, g1, g2, g3;
   cudatype Q2, Q2mirx, Q2miry, Q2mirz, Q2mir, Qta; 
   int ix, iy, iz, bInHole, bInHolex, bInHolexy;
 
@@ -2444,6 +2434,7 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
   MomcData *mom = &(cachedData->momcRoot);
   MultipoleMomentsData *momQuad = &(cachedData->mm);
   cudatype xx,xxx,xxy,xxz,yy,yyy,yyz,xyy,zz,zzz,xzz,yzz,xy,xyz,xz,yz;
+  cudatype g4, g5;
   cudatype Q4mirx,Q4miry,Q4mirz,Q4mir,Q4x,Q4y,Q4z;
   cudatype Q4xx,Q4xy,Q4xz,Q4yy,Q4yz,Q4zz,Q4,Q3x,Q3y,Q3z;
   cudatype Q3mirx,Q3miry,Q3mirz,Q3mir;
@@ -2524,10 +2515,12 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
           g2 = alphan*((1.0/7.0)*r2 - (1.0/5.0));
           alphan *= 2*cachedData->alpha2;
           g3 = alphan*((1.0/9.0)*r2 - (1.0/7.0));
+#ifdef HEXADECAPOLE
 	  alphan *= 2*cachedData->alpha2;
 	  g4 = alphan*((1.0/11.0)*r2 - (1.0/9.0));
 	  alphan *= 2*cachedData->alpha2;
 	  g5 = alphan*((1.0/13.0)*r2 - (1.0/11.0));
+#endif
         }
         else {
           dir = 1/sqrtf(r2);
@@ -2542,10 +2535,12 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
           g2 = 3*g1*dir2 + alphan*a;
           alphan *= 2*cachedData->alpha2;
           g3 = 5*g2*dir2 + alphan*a;
+#ifdef HEXADECAPOLE
 	  alphan *= 2*cachedData->alpha2;
 	  g4 = 7*g3*dir2 + alphan*a;
 	  alphan *= 2*cachedData->alpha2;
 	  g5 = 9*g4*dir2 + alphan*a;
+#endif
         }
 #ifdef HEXADECAPOLE
 	xx = 0.5*x*x;
