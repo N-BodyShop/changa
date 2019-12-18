@@ -6,7 +6,6 @@
 */
 
 #include "HierarchOrbLB.h"
-#include "LBDBManager.h"
 
 #include "GreedyLB.h"
 #include "RefineLB.h"
