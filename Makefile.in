@@ -145,8 +145,8 @@ basic_ldflags := $(debug_ldflags) $(cuda_ldflags) -L. -L@CHARM_PATH@/lib
 cpp_flags := $(includes) $(defines) @USER_CPPFLAGS@ @CPPFLAGS@ $(CPPFLAGS)
 c_flags   := $(basic_flags) -std=$(c_std) $(cpp_flags) @USER_CFLAGS@ $(CFLAGS)
 cxx_flags := $(basic_flags) -std=$(cxx_std) $(cpp_flags) @USER_CXXFLAGS@ $(CXXFLAGS)
-ld_libs   := $(basic_ldlibs) $(LDLIBS)
-ld_flags  := $(basic_ldflags) @USER_LDFLAGS@ $(LDFLAGS)
+ld_libs   := $(basic_ldlibs) @LIBS@ $(LDLIBS)
+ld_flags  := $(basic_ldflags) @USER_LDFLAGS@ @LDFLAGS@ $(LDFLAGS)
 
 # ------- Sources -------------------------------------------------------------
 # Capture all sources except the ones for cooling
