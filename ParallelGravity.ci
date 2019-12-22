@@ -21,6 +21,7 @@ mainmodule ParallelGravity {
   readonly CProxy_CkCacheManager<KeyType> cacheSmoothPart;
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
+  readonly CProxy_PEUnshuffle peUnshuffleProxy;
   readonly CProxy_DumpFrameData dfDataProxy;
   readonly CProxy_IntraNodeLBManager nodeLBMgrProxy;
 
@@ -540,6 +541,12 @@ mainmodule ParallelGravity {
 
   group [migratable] PETreeMerger {
     entry PETreeMerger();
+  };
+
+  group [migratable] PEUnshuffle {
+    entry PEUnshuffle();
+    // not sure how to pass a pointer
+    // entry [local] void sendParticlesDuringDD(TreePiece *treePiece);
   };
 
   group [migratable] DumpFrameData {

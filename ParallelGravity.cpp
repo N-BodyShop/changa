@@ -45,6 +45,7 @@
 #include "externalGravity.h"
 #include "formatted_string.h"
 #include "PETreeMerger.h"
+#include "PEUnshuffle.h"
 
 #ifdef CUDA
 // for default per-list parameters
@@ -84,6 +85,8 @@ CProxy_IntraNodeLBManager nodeLBMgrProxy;
 CProxy_DumpFrameData dfDataProxy;
 /// @brief Proxy for the PETreeMerger group.
 CProxy_PETreeMerger peTreeMergerProxy;
+/// @brief Proxy for the PEUnshuffle group.
+CProxy_PEUnshuffle peUnshuffleProxy;
 
 
 
@@ -1352,6 +1355,7 @@ Main::Main(CkArgMsg* m) {
 #endif
 
         peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
+        peUnshuffleProxy = CProxy_PEUnshuffle::ckNew();
         dfDataProxy = CProxy_DumpFrameData::ckNew();
 	
 	// create CacheManagers
