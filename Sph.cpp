@@ -305,8 +305,10 @@ arrayFileExists(const std::string filename, const int64_t count)
             return true;
             }
         fseek(fp, 0, SEEK_SET);
+        int nread;
         int64_t nIOrd;
-        fscanf(fp, "%ld", &nIOrd);
+        nread = fscanf(fp, "%ld", &nIOrd);
+        CkAssert(nread == 1);
         CkAssert(nIOrd == count); // Valid ASCII file.
         fclose(fp);
         return true;
