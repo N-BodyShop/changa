@@ -696,37 +696,34 @@ void Collision::doWallCollision(GravityParticle *p) {
  */
 int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
 {
-    // Determine the collision type
-    int iCollType = MERGE;
-    // Calculate the post collision spin and velocity of the merged particle
+    int iCollType = BOUNCE;
+    // Calculate the post collision spin and velocity of the particle
     Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
     double radNew;
-    // Advance particle positions to moment of collision
-    pAdjust = p->position + c.velocity*c.dtCol;
-    mergeCalc(p->soft*2, p->mass, pAdjust, p->velocity, p->treeAcceleration,
-              p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
-    double Mtot = p->mass + c.mass;
-    double vEsc = sqrt(2.*Mtot/(p->soft*2 + c.radius));
-    double wMax = sqrt(Mtot/(radNew*radNew*radNew));
+    if (bAllowMergers) {
+        // Determine the collision type
+        iCollType = MERGE;
+        mergeCalc(p->soft*2, p->mass, p->position, p->velocity, p->treeAcceleration,
+                  p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
+        double Mtot = p->mass + c.mass;
+        double vEsc = sqrt(2.*Mtot/(p->soft*2 + c.radius));
+        double wMax = sqrt(Mtot/(radNew*radNew*radNew));
 
-    double vRel = (p->velocity - c.velocity).length();
-    if (vRel > vEsc || wNew.length() > wMax) {
-        if (!bPerfectAcc) {
-            CkPrintf("Merger rejected\n");
-            iCollType = BOUNCE;
+        double vRel = (p->velocity - c.velocity).length();
+        if (vRel > vEsc || wNew.length() > wMax) {
+            if (!bPerfectAcc) {
+                CkPrintf("Merger rejected\n");
+                iCollType = BOUNCE;
+                }
             }
-        }
+    }
 
     // If the particles are different sizes, p might not have its dtCol
     // field set. Fix this before going any further.
     p->dtCol = c.dtCol;
 
-    // Advance particle positions to moment of collision
-    Vector3D<double> pAdv;
-    pAdv = p->position + p->velocity*p->dtCol;
-
     if (iCollType == MERGE) {
-        mergeCalc(p->soft*2., p->mass, pAdv, p->velocity, p->treeAcceleration,
+        mergeCalc(p->soft*2., p->mass, p->position, p->velocity, p->treeAcceleration,
                   p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
         CkPrintf("Merger info:\niorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y\
                   x2z xNewx xNewy xNewz v1x v1y v1z v2x v2y v2z vNewx vNewy vNewz\
@@ -842,20 +839,18 @@ void Collision::mergeCalc(double r, double m, Vector3D<double> pos,
     double rho1 = m1/(dDenFac*pow(r1, 3.));
     double rho2 = m2/(dDenFac*pow(r2, 3.));
 
-    Vector3D<double> cPosNew = c.position + c.velocity*c.dtCol;
-
     *radNew = pow(M/(dDenFac*rho1), 1./3.); // Conserves density
 
     double i1 = 0.4*m1*r1*r1;
     double i2 = 0.4*m2*r2*r2;
     double i = 0.4*M*(* radNew)*(* radNew);
 
-    Vector3D<double> comPos = (m1*pos + m2*cPosNew)/M;
+    Vector3D<double> comPos = (m1*pos + m2*c.position)/M;
     Vector3D<double> comVel = (m1*vel + m2*c.velocity)/M;
     Vector3D<double> comAcc = (m1*acc + m2*c.acceleration)/M;
 
     Vector3D<double> rc1 = pos - comPos;
-    Vector3D<double> rc2 = cPosNew - comPos;
+    Vector3D<double> rc2 = c.position - comPos;
     Vector3D<double> vc1 = vel - comVel;
     Vector3D<double> vc2 = c.velocity - comVel;
 
@@ -895,7 +890,12 @@ void Collision::bounceCalc(double r, double m, Vector3D<double> pos,
     double M = m1 + m2;
     double mu = m1*m2/M;
 
-    Vector3D<double> N = (c.position - pos).normalize();
+    // Advance particles to moment of collision
+    Vector3D<double> pNew = pos + vel*c.dtCol;
+    Vector3D<double> cpNew = c.position + c.velocity*c.dtCol;
+
+    //Vector3D<double> N = (c.position - pos).normalize();
+    Vector3D<double> N = (cpNew - pNew).normalize();
     Vector3D<double> v = c.velocity - vel;
 
     Vector3D<double> R1 = N*r1;
@@ -923,7 +923,7 @@ int CollisionSmoothParams::isSmoothActive(GravityParticle *p)
     if(p->rung < activeRung)
 	    return 0;
 
-    if (TYPETest(p, TYPE_DARK)) return 1;
+    if (TYPETest(p, iType)) return 1;
     else return 0;
     }
 
@@ -932,7 +932,7 @@ void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
     double v = p->velocity.length();
     // Different particles can have different fBall sizes. This can potentially
     // cause problems where only 1 of 2 colliding particles detects the collision.
-    p->fBall = coll.dBallFac*dTimeSub*pow(2., activeRung)*v + 4.*p->soft;
+    p->fBall = coll.dBallFac*dDelta*v + 4.*p->soft;
     }
 
 void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)
@@ -971,7 +971,9 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 {
     GravityParticle *q;
     int i;    
-    double rq, sr, D, dt, rdotv, vRel2, dr2;
+    double rq, sr, D, dt, rdotv, vRel2, dx2, dt1, dt2;
+    double dTimeSub = RungToDt(dDelta, activeRung);
+    dt = DBL_MAX;
     p->dtCol = DBL_MAX;
     p->iOrderCol = -1;
     if (TYPETest(p, TYPE_DELETED)) return;
@@ -997,43 +999,39 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
         Vector3D<double> dx = p->position - q->position;
         Vector3D<double> vRel = p->velocity - q->velocity;
+        dx2 = dx.lengthSquared();
+        vRel2 = vRel.lengthSquared();
 
        // Near-collision search
        if (bNearCollSearch) {
            if (p->iOrderCol == -1) {
-               sr = coll.dCollStepFac*2.*(p->soft + q->soft);
                rdotv = dot(dx, vRel);
-               vRel2 = vRel.lengthSquared();
-               dr2 = dx.lengthSquared() - sr*sr;
-               D = rdotv*rdotv - dr2*vRel2;
-               if (dx.length() < sr) {
+               sr = (p->soft*2) + (q->soft*2);
+               D = sqrt(1 - ((dx2 - (sr*sr))/(rdotv*rdotv))*vRel2);
+               dt1 = -rdotv/vRel2*(1 + D);
+               dt2 = -rdotv/vRel2*(1 - D);
+               if (dt1 > 0 && dt1 < dt2) dt = dt1;
+               else if (dt2 > 0 && dt2 < dt1) dt = dt2;
+
+               if (dt < dTimeSub && dt < p->dtCol) {
                    p->rung = coll.iCollStepRung;
                    p->iOrderCol = q->iOrder;
-                   }
-               else if (D > 0.) {
-                   D = sqrt(D);
-                   dt = (-rdotv - D)/vRel2;
-                   if (dt > 0. && dt < dTimeSub) {
-                       p->rung = coll.iCollStepRung;
-                       p->iOrderCol = q->iOrder;
-                       }
                    }
                }
        } else {
            // Collider search
-           sr = (p->soft*2.) + (q->soft*2.);
            rdotv = dot(dx, vRel);
            vRel2 = vRel.lengthSquared();
-           dr2 = dx.lengthSquared() - sr*sr;
-           D = rdotv*rdotv - dr2*vRel2;
-           if (D > 0.) {
-               D = sqrt(D);
-               dt = (-rdotv - D)/vRel2;
+           sr = (p->soft*2) + (q->soft*2);
+           D = sqrt(1 - ((dx2 - (sr*sr))/(rdotv*rdotv))*vRel2);
+           dt1 = -rdotv/vRel2*(1 + D);
+           dt2 = -rdotv/vRel2*(1 - D);
+           if (dt1 > 0 && dt1 < dt2) dt = dt1;
+           else if (dt2 > 0 && dt2 < dt1) dt = dt2;
 
-               if (dt > 0. && dt < dTimeSub && dt < p->dtCol) {
-                   p->dtCol = dt;
-                   p->iOrderCol = q->iOrder;
-                   }
+           if (dt < dTimeSub && dt < p->dtCol) {
+               p->dtCol = dt;
+               p->iOrderCol = q->iOrder;
                }
            }
         }
