@@ -1760,7 +1760,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
 
     if(p->rung >= iKickRung) {
       double dTIdeal = dDelta;
-      double dTGrav, dTCourant, dTEdot;
+      double dTGrav, dTCourant, dTEdot, dTCond, uTotDot, ph;
       if(bEpsAccStep) {
          CkMustAssert(p->soft > 0, "Cannot use bEpsAccStep with zero softening length particle\n");
 	  double acc = dAccFac*p->treeAcceleration.length();
@@ -1800,7 +1800,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
 #endif
       if(bSphStep && TYPETest(p, TYPE_GAS)) {
 	  double dt;
-	  double ph = 0.5*p->fBall;
+	  ph = 0.5*p->fBall;
 #ifdef DTADJUST
 	  dt = p->dtNew();
 	  p->dtNew() = FLT_MAX;
@@ -1826,6 +1826,10 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
               uTotDot = p->uDot();
 #else
               uTotDot = p->PdV();
+#endif
+#ifdef SUPERBUBBLE
+        double x = p->massHot()/p->mass;
+        uTotDot = p->uHotDot()*x+p->uDot()*(1-x);
 #endif
               if (uTotDot > 0) { // Extrapolate Courant time to end of
                                  // timestep.
@@ -1853,12 +1857,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
     /* Prevent rapid overconduction */
     if (p->fThermalCond() > 0 || (p->diff() > 0 && dDiffCoeff > 0)) {
         dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + p->fThermalCond()/p->fDensity);
-        if (dt < dTIdeal) dTIdeal = dt;
-    }
-    double x = p->massHot()/p->mass;
-	double uTotDot = p->uHotDot()*x+p->uDot()*(1-x);
-    if (uTotDot > 0 && p->dt < FLT_MAX) {
-        dt = dEtaCourant*dCosmoFac*ph/sqrt(4*(p->c()*p->c()+1.6667*uTotDot*p->dt));
+        dTCond = dt;
         if (dt < dTIdeal) dTIdeal = dt;
     }
 #else
@@ -1882,8 +1881,12 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
 	CkError("Small timestep dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
 		p->treeAcceleration.length());
 	if(p->isGas())
-		CkError("Small gas dt: %g, dtgrav: %g, dtcourant: %g, dtEdot: %g\n",
-			dTIdeal, dTGrav, dTCourant, dTEdot);
+		CkError("Small gas dt: %g, dtgrav: %g, dtcourant: %g, dtEdot: %g dtCond: %g mass: %g\n",
+			dTIdeal, dTGrav, dTCourant, dTEdot, dTCond, p->mass);
+        CkError("Cond props dEtaDiffusion: %g ph: %g dDiffCoeff: %g diff %g fThermalCond %g fDensity: %g\n", 
+                dEtaDiffusion, ph, dDiffCoeff, p->diff(), p->fThermalCond(), p->fDensity);
+        CkError("Cond2 props dEtaCourant: %g dCosmoFac: %g c: %g uTotDot: %g mass: %g massHot: %g uDot: %g uHotDot: %g dt %g\n", dEtaCourant, 
+                dCosmoFac, p->c(), uTotDot, p->mass, p->massHot(), p->uDot(), p->uHotDot(), p->dt);
 	}
       if(iNewRung > MAXRUNG) {
 	CkError("dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
