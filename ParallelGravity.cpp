@@ -2405,7 +2405,7 @@ void Main::advanceBigStep(int iStep) {
                   CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
                   // The following call is to get the particles in key order
                   // before the sort.
-                  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy,
+                  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                         CkCallbackResumeThread());
                   startSorting(dataManagerID, ddTolerance,
                                           CkCallbackResumeThread(), true);
