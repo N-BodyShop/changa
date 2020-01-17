@@ -1043,9 +1043,10 @@ private:
         LBStrategy foundLB;
         // jetley - saved first internal node
         Vector3D<float> savedCentroid;
-        // jetley - multistep load balancing
-        int prevLARung;
-        int lbActiveRung;
+        /// The phase for which we have just collected load balancing data.
+        int iPrevRungLB;
+        /// The phase for which we are about to do load balancing
+        int iActiveRungLB;
 
 	/// @brief Used to inform the mainchare that the requested operation has
 	/// globally finished
@@ -1399,7 +1400,7 @@ private:
 
 public:
  TreePiece() : pieces(thisArrayID), root(0),
-            prevLARung (-1), sTopDown(0), sGravity(0),
+            iPrevRungLB (-1), sTopDown(0), sGravity(0),
             sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
             nPrevActiveParts(0) {
 	  dm = NULL;
