@@ -1534,8 +1534,8 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
     //
     int64_t *startParticle = iOrderBoundaries(numTreePieces, nMaxOrder);
 
-  double tpLoad = getObjTime();
-  populateSavedPhaseData(prevLARung, tpLoad, nPrevActiveParts);
+    double tpLoad = getObjTime();
+    populateSavedPhaseData(iPrevRungLB, tpLoad, nPrevActiveParts);
 
     if (myNumParticles > 0) {
 	// Particles have been sorted in reOrder()

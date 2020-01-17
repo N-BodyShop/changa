@@ -699,7 +699,7 @@ void TreePiece:: resetObjectLoad(const CkCallback& cb) {
     // the checkpoint.  Note that the load data here is from the
     // previous rung 0 calculation.  This should not be a bad approximation.
 
-    CkAssert(prevLARung == 0);  // check that the above comment is correct
+    CkAssert(iPrevRungLB == 0);  // check that the above comment is correct
     setObjTime(savedPhaseLoad[0]);
     contribute(cb);
 }
@@ -714,7 +714,7 @@ void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
   }
 
   tpLoad = getObjTime();
-  populateSavedPhaseData(prevLARung, tpLoad, nPrevActiveParts);
+  populateSavedPhaseData(iPrevRungLB, tpLoad, nPrevActiveParts);
 
   //find my responsibility
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
@@ -1034,7 +1034,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   }
 
   tpLoad = getObjTime();
-  populateSavedPhaseData(prevLARung, tpLoad, nPrevActiveParts);
+  populateSavedPhaseData(iPrevRungLB, tpLoad, nPrevActiveParts);
   callback = *static_cast<CkCallback *>(m->getData());
 
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
@@ -5345,7 +5345,7 @@ void TreePiece::startlb(const CkCallback &cb, int activeRung){
      CkPrintf("[%d] actual load: %g\n", thisIndex, getObjTime());  
 
   callback = cb;
-  lbActiveRung = activeRung;
+  iActiveRungLB = activeRung;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
   
@@ -5376,8 +5376,8 @@ void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
   bool doLB = ((float)active_part/total_part > dFracLoadBalance) ? true : false;
   // Don't do LB
   if (!doLB) {
-    setTreePieceLoad(lbActiveRung);
-    prevLARung = lbActiveRung;
+    setTreePieceLoad(iActiveRungLB);
+    iPrevRungLB = iActiveRungLB;
     setObjTime(0.0);
     contribute(callback);
     return;
@@ -5386,11 +5386,11 @@ void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
   LDObjHandle myHandle = myRec->getLdHandle();
 
   TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles,
-    lbActiveRung, prevLARung);
+    iActiveRungLB, iPrevRungLB);
   tv.tp = thisIndex;
   tv.tag = thisIndex;
 
-  setTreePieceLoad(lbActiveRung);
+  setTreePieceLoad(iActiveRungLB);
 
   if (foundLB != Null) {
       if (CkpvAccess(_lb_obj_index) != -1) {
@@ -5399,7 +5399,7 @@ void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
           }
       }
   thisProxy[thisIndex].doAtSync();
-  prevLARung = lbActiveRung;
+  iPrevRungLB = iActiveRungLB;
 }
 
 void TreePiece::doAtSync(){
@@ -5658,7 +5658,7 @@ void TreePiece::pup(PUP::er& p) {
   // jetley
   p | foundLB;
   p | savedCentroid;
-  p | prevLARung;
+  p | iPrevRungLB;
 
   p | callback;
   p | nTotalParticles;
