@@ -694,6 +694,16 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
 #endif
 }
 
+void TreePiece:: resetObjectLoad(const CkCallback& cb) {
+    // We assume that a rung 0 step has just been calculated before
+    // the checkpoint.  Note that the load data here is from the
+    // previous rung 0 calculation.  This should not be a bad approximation.
+
+    CkAssert(prevLARung == 0);  // check that the above comment is correct
+    setObjTime(savedPhaseLoad[0]);
+    contribute(cb);
+}
+
 void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
   double tpLoad;
   myShuffleMsg = NULL;
@@ -704,7 +714,7 @@ void TreePiece::unshuffleParticlesWoDD(const CkCallback& callback) {
   }
 
   tpLoad = getObjTime();
-  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
+  populateSavedPhaseData(prevLARung, tpLoad, nPrevActiveParts);
 
   //find my responsibility
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
@@ -752,7 +762,6 @@ void TreePiece::acceptSortedParticlesFromOther(ParticleShuffleMsg *shuffleMsg) {
     shuffleMsg->pStar, shuffleMsg->pStar + shuffleMsg->nStar);
 
   incomingParticlesArrived += shuffleMsg->n;
-  treePieceLoadTmp += shuffleMsg->load;
   savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
       shuffleMsg->parts_per_phase, shuffleMsg->nloads);
 
@@ -769,7 +778,6 @@ void TreePiece::shuffleAfterQD() {
   // (internal transfer).
   if (myShuffleMsg != NULL) {
     incomingParticlesArrived += myShuffleMsg->n;
-    treePieceLoadTmp += myShuffleMsg->load;
     savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, myShuffleMsg->loads,
         myShuffleMsg->parts_per_phase, myShuffleMsg->nloads);
   }
@@ -805,9 +813,6 @@ void TreePiece::shuffleAfterQD() {
     incomingParticlesSelf = false;
     incomingParticlesMsg.clear();
 
-    treePieceLoad = treePieceLoadTmp;
-    treePieceLoadTmp = 0.0;
-
     savedPhaseLoad.swap(savedPhaseLoadTmp);
     savedPhaseParticle.swap(savedPhaseParticleTmp);
     savedPhaseLoadTmp.clear();
@@ -836,8 +841,6 @@ void TreePiece::shuffleAfterQD() {
   myNumParticles = dm->particleCounts[myPlace];
   incomingParticlesArrived = 0;
   incomingParticlesSelf = false;
-  treePieceLoad = treePieceLoadTmp;
-  treePieceLoadTmp = 0.0;
 
   savedPhaseLoad.swap(savedPhaseLoadTmp);
   savedPhaseParticle.swap(savedPhaseParticleTmp);
@@ -1031,7 +1034,7 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
   }
 
   tpLoad = getObjTime();
-  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
+  populateSavedPhaseData(prevLARung, tpLoad, nPrevActiveParts);
   callback = *static_cast<CkCallback *>(m->getData());
 
   myPlace = find(dm->responsibleIndex.begin(), dm->responsibleIndex.end(), thisIndex) - dm->responsibleIndex.begin();
@@ -1064,8 +1067,6 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
 }
 
 void TreePiece::sendParticlesDuringDD(bool withqd) {
-  double tpLoad;
-  tpLoad = getObjTime();
 
   GravityParticle *binBegin = &myParticles[1];
   vector<Key>::iterator iter =
@@ -1100,7 +1101,7 @@ void TreePiece::sendParticlesDuringDD(bool withqd) {
 
       ParticleShuffleMsg *shuffleMsg
         = new (saved_phase_len, saved_phase_len, nPartOut, nGasOut, nStarOut)
-        ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut, 0.0);
+        ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut);
       memset(shuffleMsg->parts_per_phase, 0, saved_phase_len*sizeof(unsigned int));
 
       // Calculate the number of particles leaving the treepiece per phase
@@ -1115,7 +1116,6 @@ void TreePiece::sendParticlesDuringDD(bool withqd) {
             shuffleMsg->parts_per_phase[PHASE_FEEDBACK] += 1;
       }
 
-      shuffleMsg->load = tpLoad * nPartOut / myNumParticles;
       memset(shuffleMsg->loads, 0.0, saved_phase_len*sizeof(double));
 
       // Calculate the partial load per phase
@@ -1232,7 +1232,6 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   if(shuffleMsg != NULL) {
     incomingParticlesMsg.push_back(shuffleMsg);
     incomingParticlesArrived += shuffleMsg->n;
-    treePieceLoadTmp += shuffleMsg->load; 
     savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
       shuffleMsg->parts_per_phase, shuffleMsg->nloads);
   }
@@ -1254,8 +1253,6 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     myNumParticles = dm->particleCounts[myPlace];
     incomingParticlesArrived = 0;
     incomingParticlesSelf = false;
-    treePieceLoad = treePieceLoadTmp;
-    treePieceLoadTmp = 0.0;
 
     savedPhaseLoad.swap(savedPhaseLoadTmp);
     savedPhaseParticle.swap(savedPhaseParticleTmp);
@@ -5320,23 +5317,24 @@ void TreePiece::continueStartRemoteChunk(int chunk){
   }
 }
 
-// Sets the load of the TreePiece object
+/// @brief Sets the load of the TreePiece object based on the rung
+/// @param activeRung Rung to use.
 void TreePiece::setTreePieceLoad(int activeRung) {
-  treePieceActivePartsTmp = numActiveParticles;
-  if (havePhaseData(activeRung)) {
-    treePieceLoadExp = savedPhaseLoad[activeRung];
-  } else if (havePhaseData(0)) {
-    float ratio = 1.0;
-    if(myNumParticles != 0){
-      ratio = numActiveParticles/(float)myNumParticles;
-    }
+    double dLoadExp;
+    nPrevActiveParts = numActiveParticles;
+    if (havePhaseData(activeRung)) {
+        dLoadExp = savedPhaseLoad[activeRung];
+    } else if (havePhaseData(0)) {
+        float ratio = 1.0;
+        if(myNumParticles != 0){
+            ratio = numActiveParticles/(float)myNumParticles;
+        }
 
-    treePieceLoadExp  = ratio * savedPhaseLoad[0];
-  } else {
-    treePieceLoadExp =  treePieceLoad;
-  }
-  setObjTime(treePieceLoadExp);
-  treePieceLoad = 0;
+        dLoadExp  = ratio * savedPhaseLoad[0];
+    } else {
+        CkAssert(0);
+    }
+    setObjTime(dLoadExp);
 }
 
   // jetley - contribute your centroid. AtSync is now called by the load balancer (broadcast) when it has
@@ -5344,7 +5342,7 @@ void TreePiece::setTreePieceLoad(int activeRung) {
 void TreePiece::startlb(const CkCallback &cb, int activeRung){
 
   if(verbosity > 1)
-     CkPrintf("[%d] load set to: %g, actual: %g\n", thisIndex, treePieceLoad, getObjTime());  
+     CkPrintf("[%d] actual load: %g\n", thisIndex, getObjTime());  
 
   callback = cb;
   lbActiveRung = activeRung;
@@ -5651,11 +5649,11 @@ inline void checkParticle(GravityParticle *p)
 void TreePiece::pup(PUP::er& p) {
   CBase_TreePiece::pup(p);
 
-  p | treePieceLoad; 
-  p | treePieceLoadExp;
-  p | treePieceActivePartsTmp;
+  p | nPrevActiveParts;
   p | savedPhaseLoad;
   p | savedPhaseParticle;
+  p | savedPhaseLoadTmp;
+  p | savedPhaseParticleTmp;
 
   // jetley
   p | foundLB;
