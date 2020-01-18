@@ -2619,6 +2619,8 @@ Main::restart(CkCheckpointStatusMsg *msg)
         } else {
             CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
         }
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                        CkCallbackResumeThread());
 	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
 	if(param.bStarForm)
@@ -2630,6 +2632,9 @@ Main::restart(CkCheckpointStatusMsg *msg)
         nActiveGrav = nTotalParticles;
         nActiveSPH = nTotalSPH;
         treeProxy.resetObjectLoad(CkCallbackResumeThread());
+        /***** Initial sorting of particles and Domain Decomposition *****/
+        CkPrintf("Initial ");
+        domainDecomp(0);
 
         doSimulation();
 	}

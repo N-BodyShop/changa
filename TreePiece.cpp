@@ -5332,7 +5332,9 @@ void TreePiece::setTreePieceLoad(int activeRung) {
 
         dLoadExp  = ratio * savedPhaseLoad[0];
     } else {
-        CkAssert(0);
+	// We have no load data because we have no particles.
+        CkAssert(myNumParticles == 0);
+        dLoadExp = 0.0;
     }
     setObjTime(dLoadExp);
 }
