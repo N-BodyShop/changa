@@ -155,3 +155,30 @@ formatted_string<Args...> make_formatted_string(char const *format,
                                                 Args... args) {
   return formatted_string<Args...>(format, args...);
 }
+
+/**
+ * \brief A convenience overload for handling 128-bit integers
+ * \param ui An unsigned 128-bit integer using the charm++ type
+ *
+ * Support for 128-bit integers does not exist in all compilers
+ * and is not part of standard C++, so there are no format specifiers
+ * or iostream objects that will process them. Here, we split the
+ * 128-bit integer into two 64-bit integers and proceed.
+ */
+inline formatted_string<uint64_t, uint64_t> make_formatted_string(CmiUInt16 ui) {
+	const auto lq = static_cast<uint64_t>(ui); // lower quad word
+	const auto uq = static_cast<uint64_t>(ui>>64UL); // upper quad word
+	return formatted_string<uint64_t, uint64_t>{"%016lx%016lx", uq, lq};
+}
+
+/**
+ * \brief A convenience overload for handling 64-bit integers
+ * \param ui An unsigned 64-bit integer using the charm++ type
+ *
+ * This is a symmetric counterpart to the 128-bit version that
+ * is present only to simplify handling of types which are either
+ * 64- or 128-bit depending on compile-time configuration (e.g., NodeKey).
+ */
+inline formatted_string<uint64_t> make_formatted_string(CmiUInt8 ui) {
+	return formatted_string<uint64_t>{"%016lx", static_cast<uint64_t>(ui)};
+}

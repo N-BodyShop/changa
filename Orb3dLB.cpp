@@ -107,7 +107,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
 {
   int numobjs = stats->n_objs;
 
-  CkPrintf("[orb3dlb] %d objects allocating %d bytes for tp\n", numobjs, numobjs*sizeof(TPObject));
+  CkPrintf("[orb3dlb] %d objects allocating %lu bytes for tp\n", numobjs, numobjs*sizeof(TPObject));
   tps.resize(numobjs);
 
   for(int i = 0; i < numobjs; i++){
@@ -161,7 +161,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   int nz = tmgr.getDimNZ();
   int numnodes = nx*ny*nz;
 
-  CkPrintf("[orb3dlb] %d numnodes allocating %d bytes for nodes\n", numnodes, numnodes*sizeof(Node));
+  CkPrintf("[orb3dlb] %d numnodes allocating %lu bytes for nodes\n", numnodes, numnodes*sizeof(Node));
   nodes.resize(numnodes);
 
   for(int i = 0; i < stats->count; i++){

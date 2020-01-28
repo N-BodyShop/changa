@@ -2032,7 +2032,7 @@ void Main::advanceBigStep(int iStep) {
 	nSink = *(int *) msgCnt->getData();
 	delete msgCnt;
 	if(nSink != 0)
-	    CkPrintf("Sink number of Sinks: nSink = %d\n", nSink);
+	    CkPrintf("Sink number of Sinks: nSink = %ld\n", nSink);
 	}
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
@@ -2614,13 +2614,13 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	}
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
-  if (bUseCkLoopPar) {
-    CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
-  } else {
-    CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
-  }
-  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                  CkCallbackResumeThread());
+        if (bUseCkLoopPar) {
+            CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
+        } else {
+            CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
+        }
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                        CkCallbackResumeThread());
 	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
 	if(param.bStarForm)
@@ -2631,13 +2631,10 @@ Main::restart(CkCheckpointStatusMsg *msg)
         timings.resize(PHASE_FEEDBACK+1);
         nActiveGrav = nTotalParticles;
         nActiveSPH = nTotalSPH;
-
+        treeProxy.resetObjectLoad(CkCallbackResumeThread());
         /***** Initial sorting of particles and Domain Decomposition *****/
         CkPrintf("Initial ");
         domainDecomp(0);
-
-        // Balance load initially after decomposition
-        loadBalance(-1);
 
         doSimulation();
 	}

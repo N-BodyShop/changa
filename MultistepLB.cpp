@@ -248,7 +248,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   int nmig = stats->n_migrateobjs;
 
   if (_lb_args.debug()>=2) {
-    CkPrintf("[work2] %d objects allocating %d bytes for tp\n", nmig, nmig*sizeof(TPObject));
+    CkPrintf("[work2] %d objects allocating %lu bytes for tp\n", nmig, nmig*sizeof(TPObject));
   }
   CkPrintf("[ORB3D] objects total %d active %d\n", numobjs,nmig);
 
@@ -294,7 +294,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   int numnodes = nx*ny*nz;
 
   if (_lb_args.debug()>=2) {
-    CkPrintf("[work2] %d numnodes allocating %d bytes for nodes\n", numnodes, numnodes*sizeof(Node));
+    CkPrintf("[work2] %d numnodes allocating %lu bytes for nodes\n", numnodes, numnodes*sizeof(Node));
   }
   Node *nodes = new Node[numnodes];
 
