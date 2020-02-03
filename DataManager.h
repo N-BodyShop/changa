@@ -18,6 +18,7 @@
 #endif
 
 
+/// @brief Information about TreePieces on an SMP node.
 struct TreePieceDescriptor{
 	TreePiece *treePiece;
         Tree::GenericTreeNode *root;
@@ -30,6 +31,7 @@ struct TreePieceDescriptor{
 };
 
 #ifdef CUDA
+
 struct UpdateParticlesStruct{
   CkCallback *cb;
   DataManager *dm;
@@ -43,10 +45,8 @@ struct PendingBuffers {
   CkVec<CudaMultipoleMoments> *moments;
   CkVec<CompactPartData> *particles;
   int chunk;
-  //CudaMultipoleMoments *moments;
-  //int nMoments;
-  //CompactPartData *particles;
-  //int nParticles;
+    /// Pointer to callback so it can be freed.
+    CkCallback *cb;
 };
 
 #endif
@@ -80,6 +80,8 @@ protected:
 	CkVec<TreePieceDescriptor> registeredTreePieces;
 #ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
+        /// @brief counter for the number of tree nodes that are
+        /// replicated by TreePieces that share the same address space.
         int cumNumReplicatedNodes;
         int treePiecesDone;
         int savedChunk;
@@ -89,6 +91,9 @@ protected:
         // at a given time
         int treePiecesDoneRemoteChunkComputation;
         int treePiecesWantParticlesBack;
+        /// Reference count for Pieces that have finished updating
+        /// their acclerations.
+        int treePiecesParticlesUpdated;
         int savedNumTotalParticles;
         int savedNumTotalNodes;
         // keeps track of buckets of particles that were
@@ -104,19 +109,34 @@ protected:
         // local particles that have been copied to the gpu
         //std::map<NodeKey, int> localPartsOnGpu;
 
-        //std::map<Tree::NodeKey, GenericTreeNode *> missedNodesOnGpu;
-        //std::map<Tree::NodeKey, ExternalGravityParticle *> missedPartsOnGpu;
-
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
+
+        // This var will indicate if particle data has been loaded to the GPU
+        bool gputransfer;
+        /// Callback pointer to pass to HAPI.
+        CkCallback *localTransferCallback;
+
+        PendingBuffers *currentChunkBuffers;
         // queue that stores all pending chunk transfers
         CkQ<PendingBuffers *> pendingChunkTransferQ;
 
         // last remote chunk's size in moments and particles
         int lastChunkMoments;
         int lastChunkParticles;
+        /// host buffer to transfer remote moments to GPU
+        CudaMultipoleMoments *bufRemoteMoments;
+        /// host buffer to transfer remote particles to GPU
+        CompactPartData *bufRemoteParts;
 
-#ifdef CUDA_INSTRUMENT_WRS
+        /// host buffer to transfer local moments to GPU
+        CudaMultipoleMoments *bufLocalMoments;
+        /// host buffer to transfer local particles to GPU
+        CompactPartData *bufLocalParts;
+        /// host buffer to transfer initial accelerations to GPU
+        VariablePartData *bufLocalVars;
+
+#ifdef HAPI_INSTRUMENT_WRS
         int activeRung;
         int treePiecesDoneInitInstrumentation;
 #endif
@@ -154,12 +174,16 @@ public:
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
+        void startLocalWalk();
+        void resumeRemoteChunk();
 #ifdef CUDA
-        //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
-		//void serializeNodes(GenericTreeNode *start);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
 
+#ifdef GPU_LOCAL_TREE_WALK
+        void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
+#endif //GPU_LOCAL_TREE_WALK
+        
         // actual serialization methods
         PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
@@ -167,13 +191,14 @@ public:
         void freeRemoteChunkMemory(int chunk);
         void transferParticleVarsBack();
         void updateParticles(UpdateParticlesStruct *data);
+        void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int initInstrumentation();
 #endif
         DataManager(){} 
 #endif
-        void clearInstrument(CkCallback &cb);
+        void clearInstrument(CkCallback const& cb);
 
 private:
         void init();
@@ -230,6 +255,7 @@ public:
 /// The roots are stored in registeredChares to be used by TreePiece
 /// combineLocalTrees.
     void notifyPresence(Tree::GenericTreeNode *root, TreePiece *treePiece);
+    void clearRegisteredPieces(const CkCallback& cb);
     void combineLocalTrees(CkReductionMsg *msg);
     void getChunks(int &num, Tree::NodeKey *&roots);
     inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
@@ -308,6 +334,5 @@ class ProjectionsControl : public CBase_ProjectionsControl {
     CBase_ProjectionsControl::pup(p);
   }
 }; 
-
 
 #endif //DATAMANAGER_H

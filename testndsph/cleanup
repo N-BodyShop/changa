@@ -1,0 +1,8 @@
+#!/bin/bash
+rm -f density_*d/cube*.0*
+rm -f density_*d/*.log
+rm -f results*.png
+rm -f acceleration_*d/cube*.0*
+rm -f acceleration_*d/*.log
+rm -f acceleration_*d/acceleration_test_results.png
+

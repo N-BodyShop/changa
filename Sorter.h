@@ -184,6 +184,7 @@ public:
 	void convertNodesToSplitters();
 	SFC::Key * convertNodesToSplittersRefine(int num, NodeKey* keys);
 	//void convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero);
+        /// @brief Collect the counts of particles in each domain
 	void collectEvaluations(CkReductionMsg* m);
 	void collectEvaluationsSFC(CkReductionMsg* m);
 	void collectEvaluationsOct(CkReductionMsg* m);

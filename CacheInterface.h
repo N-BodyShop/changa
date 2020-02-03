@@ -7,7 +7,7 @@
  *  cache for requesting off processor particle and node data.
  */
 
-#include "CkCache.h"
+#include <CkCache.h>
 #include "config.h"
 #include "gravity.h"
 #include "GenericTreeNode.h"
@@ -17,11 +17,18 @@
  * Gravity interface: Particles
  *********************************************************/
 
+/// @brief The data in a GravityParticle cache entry.
 class CacheParticle {
 public:
+  /// Message containing the data for this entry.
   CkCacheFillMsg<KeyType> *msg;
+  /// Index of the first particle in the home processor's myParticles array.
   int begin;
+  /// Index of the last particle in the home processor's myParticles array.
   int end;
+  /// The rest of the structure is an array of particles.  Declared as
+  /// length 1, but can be arbitrary length.  It is assumed that these
+  /// particles are contiguous in the myParticles array.
   ExternalGravityParticle part[1];
 };
 
@@ -52,13 +59,13 @@ public:
 /// @brief particle data in the smooth particle cache messages
 class CacheSmoothParticle {
 public:
-    int begin; // Beginning particle number
-    int end;	// ending Particle number
-    int nActual; // actual number of particles sent
-    KeyType key;
-    GravityParticle *partCached;
-    extraSPHData *extraSPHCached;
-  ExternalSmoothParticle partExt[1];
+    int begin;  ///< Beginning particle number
+    int end;    ///< ending Particle number
+    int nActual; ///< actual number of particles sent
+    KeyType key; ///< Key of this bucket (for writeback)
+    GravityParticle *partCached;        ///< particle data
+    extraSPHData *extraSPHCached;       ///< particle extraData
+    ExternalSmoothParticle partExt[1];  ///< particle data in the message
 };
 
 /// @brief Cache interface to the particles for smooth calculations.
@@ -85,6 +92,7 @@ public:
  * Gravity interface: Nodes
  *********************************************************/
 
+/// @brief Cache interface to the Tree Nodes.
 class EntryTypeGravityNode : public CkCacheEntryType<KeyType> {
   void *vptr; // For saving a copy of the virtual function table.
 	      // It's use will be compiler dependent.

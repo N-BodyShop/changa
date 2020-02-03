@@ -223,7 +223,7 @@ int prmParseParam(PRM prm,char *pszFile)
 			/*
 			 ** Strip trailing whitespace. OKAY!
 			 */
-			p = pn->pValue;
+			p = (char *)pn->pValue;
 			q = &p[strlen(p)];
 			while (--q >= p) if (!isspace((int) *q)) break;
 			++q;

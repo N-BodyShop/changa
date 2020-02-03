@@ -41,6 +41,7 @@ class State {
 #if defined CUDA
 #include "HostCUDA.h"
 #include "DataManager.h"
+#include "ck128bitHash.h"
 
 class DoubleWalkState;
 
@@ -144,7 +145,7 @@ class DoubleWalkState : public State {
   GenericList<ILCell> nodeLists;
   GenericList<ILPart> particleLists;
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   double nodeListTime;
   double partListTime;
 #endif
@@ -167,13 +168,10 @@ class DoubleWalkState : public State {
   // the markings when requests are sent out.
   CkVec<GenericTreeNode *> markedBuckets;
 
-  // TODO : this switch from map to ckvec means that we cannot 
-  // use multiple treepieces per processor, since they will all
-  // be writing to the nodeArrayIndex field of the CacheManager's nodes.
-  // We need a different group that manages GPU memory for this purpose.
-  //std::map<NodeKey,int> nodeMap;
-  CkVec<GenericTreeNode *> nodeMap;
-  std::map<NodeKey,int> partMap;
+  /// Map of node to index in node vector being sent to the GPU. This is
+  /// used for remote nodes.
+  std::unordered_map<NodeKey,int> nodeMap;
+  std::unordered_map<NodeKey,int> partMap;
 
   bool nodeOffloadReady(){
     return nodeLists.totalNumInteractions >= nodeThreshold;
@@ -183,7 +181,7 @@ class DoubleWalkState : public State {
     return particleLists.totalNumInteractions >= partThreshold;
   }
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   void updateNodeThreshold(int t){
     nodeThreshold = t;
   }
@@ -202,10 +200,13 @@ class DoubleWalkState : public State {
   GenericTreeNode *lowestNode;
   int level;
 
-  DoubleWalkState() : chklists(0), lowestNode(0), level(-1)
-  {}
+  DoubleWalkState() : chklists(0), lowestNode(0), level(-1) {
+#ifdef CUDA
+      partMap.reserve(100);
+#endif
+  }
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
   void nodeListConstructionTimeStart(){
     nodeListTime = CmiWallTimer();
   }

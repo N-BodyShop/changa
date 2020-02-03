@@ -32,6 +32,7 @@ protected:
   virtual void work(LDStats* stats);
   virtual void GetObjsToMigrate(int toPe, double load, LDStats *stats,
       int atlevel, CkVec<LDCommData>& comms, CkVec<LDObjData>& objs);
+  virtual CLBStatsMsg* AssembleStats();
 
 private:
   CProxy_HierarchOrbLB  thisProxy;

@@ -36,6 +36,12 @@ class Stfm : public PUP::able  {
     double dMinSpawnStarMass;   /* Minimum Initial Star Mass */
     double dMaxStarMass;	/* maximum mass star particle to form */
     int bGasCooling;		/* Can we call cooling for temperature */
+#ifdef COOLING_MOLECULARH
+    double dStarFormEfficiencyH2; /*Multiplier of H2 when calculating star formation */
+#endif
+    int bBHForm;		/* Form Black Holes */
+    double dBHFormProb;		/* Probability of Black Hole forming */
+    double dInitBHMass;		/* Initial mass of Black Holes */
  public:
     int bUseStoch;          /* use stochastic IMF */
     double dStochCut;       /* cutoff mass for stochastic IMF */
@@ -48,7 +54,7 @@ class Stfm : public PUP::able  {
     void CheckParams(PRM prm, struct parameters &param);
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-			      double dDelta, double dCosmoFac, double *T);
+			      double dDelta, double dCosmoFac, double *T, double *H2Fraction);
     IMF *imf;
 
     Stfm() {}
@@ -110,6 +116,12 @@ inline void Stfm::pup(PUP::er &p) {
     p|dMinGasMass;
     p|dMaxStarMass;
     p|bGasCooling;
+#ifdef COOLING_MOLECULARH
+    p|dStarFormEfficiencyH2;
+#endif
+    p|bBHForm;
+    p|dBHFormProb;
+    p|dInitBHMass;
     p|imf;
     }
 
@@ -125,9 +137,18 @@ class StarLogEvent
     double massForm;
     double rhoForm;
     double TForm;
+#ifdef COOLING_MOLECULARH
+    double H2FracForm;
+#endif
+#ifdef COOLING_MOLECULARH
  StarLogEvent() : iOrdGas(-1),	timeForm(0),rForm(0),vForm(0),
-	massForm(0),rhoForm(0),TForm(0){}
+      massForm(0),rhoForm(0),TForm(0),H2FracForm(0){}
+    StarLogEvent(GravityParticle *p, double dCosmoFac, double TempForm, double H2FractionForm) {
+#else
+ StarLogEvent() : iOrdGas(-1),	timeForm(0),rForm(0),vForm(0),
+      massForm(0),rhoForm(0),TForm(0){}
     StarLogEvent(GravityParticle *p, double dCosmoFac, double TempForm) {
+#endif
 	iOrdGas = p->iOrder;
 	// star's iOrder assigned in TreePiece::NewOrder
 	timeForm = p->fTimeForm();
@@ -136,6 +157,9 @@ class StarLogEvent
 	massForm = p->fMassForm();
 	rhoForm = p->fDensity/dCosmoFac;
 	TForm = TempForm;
+#ifdef COOLING_MOLECULARH
+	H2FracForm = H2FractionForm;
+#endif
 	}
     void pup(PUP::er& p) {
 	p | iOrdStar;
@@ -146,6 +170,9 @@ class StarLogEvent
 	p | massForm;
 	p | rhoForm;
 	p | TForm;
+#ifdef COOLING_MOLECULARH
+	p | H2FracForm;
+#endif
 	}
     };
 

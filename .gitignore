@@ -10,3 +10,20 @@ ChaNGa*
 VERSION
 VERSION.new
 cha_commitid.c
+
+# autoconf caches
+autom4te.cache/
+
+# Eclipse folders
+.cproject
+.project
+.pydevproject
+language.settings.xml
+.settings
+
+# These should be rebuilt
+Makefile.dep
+cuda.mk
+
+# Dependency files
+*.d

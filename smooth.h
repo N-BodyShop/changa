@@ -88,6 +88,7 @@ class SmoothCompute : public Compute
 	// XXX Assign to global pointer: not thread safe
 	globalSmoothParams = params;
         tp = _tp;       // needed in getNewState()
+	params->tp = tp;
 	}
     ~SmoothCompute() { //delete state;
       // delete params;
@@ -181,6 +182,7 @@ public:
     ~ReNearNeighborState() { delete [] Qs; }
 };
 
+/// @brief Class for computation over a set smoothing length
 class ReSmoothCompute : public SmoothCompute 
 {
     
@@ -212,7 +214,9 @@ public:
     // these operations were earlier carried out in the constructor of the
     // class.
     State *getNewState(int d1);
+    /// @brief default implementation
     State *getNewState(int d1, int d2) {return 0;}
+    /// @brief default implementation
     State *getNewState() {return 0;}
     };
 
@@ -265,6 +269,7 @@ public:
 
 #include "Opt.h"
 
+/// @brief action optimization for the smooth walk.
 class SmoothOpt : public Opt{
   public:
   SmoothOpt() : Opt(Local){
@@ -312,9 +317,8 @@ double invH2(GravityParticle *p)
     return 4.0/(p->fBall*p->fBall);
     }
 
-#ifdef WENDLAND
 /**
- * @brief KERNEL is a scaled version of the C4 Wendland SPH kernel
+ * @brief kernelWendland is a scaled version of the C4 Wendland SPH kernel
  * 
  * This kernel is explained and defined in Dehnen & Aly (2012).  The kernel
  * is defined as:
@@ -325,17 +329,12 @@ double invH2(GravityParticle *p)
  * Also includes a correction for self-interactions. N.B. For small
  * neighbor counts this correction does not work well; therefore, we
  * revert to M4 smoothing for nSmooth < 32.
- *
- * XXX Kludge alert: the nSmooth parameter is needed here, but we've
- * previously defined KERNEL() to be a one parameter function.  This
- * is worked around with a macro below, but it REQUIRES nSmooth BE
- * DEFINED CORRECTLY IN THE CALLING FUNCTION!
  * 
  * NOTE: this kernel should not be called for r > 1
  * @param ar2 = (|dx|/h)^2 = (2r)^2
- * @return KERNEL = (pi h^3) W
+ * @return (pi h^3) W
  */
-inline double KERNEL(double ar2, int nSmooth) 
+inline double kernelWendland(double ar2, int nSmooth)
 {    
     double ak;
     if (nSmooth < 32)
@@ -356,7 +355,7 @@ inline double KERNEL(double ar2, int nSmooth)
     return ak;
 	}
 /**
- * @brief DKERNEL returns a scaled gradient of Wendland SPH kernel
+ * @brief dkernelWendland returns a scaled gradient of Wendland SPH kernel
  * 
  * This returns the gradient of the Wendland C4 Kernel (see Dehnen & Aly 2012),
  * scaled by a factor.  The gradient is defined by:
@@ -366,10 +365,9 @@ inline double KERNEL(double ar2, int nSmooth)
  * dx is the particle separation (vector)
  * 
  * @param ar2
- * @return DKERNEL = (pi h^5/|dx|^2) (dx.dot.gradW)  which is another way of
- * saying:  gradW = (1/(pi h^5)) DKERNEL * dx
+ * @return (pi h^5/|dx|^2) (dx.dot.gradW)
  */
-inline double DKERNEL(double ar2) 
+inline double dkernelWendland(double ar2)
 {
     double adk;
     double _a2,au = sqrt(ar2*0.25);                     
@@ -378,11 +376,78 @@ inline double DKERNEL(double ar2)
     adk = (-495/32.*7./3./4.)*_a2*_a2*adk*(1+5*au);        
     return adk;
 	}
-#define KERNEL(ar2) KERNEL(ar2, nSmooth)
-#else
+
+/**
+ * @brief kernelM6 returns a scaled version of the M6 quintic spline kernel.
+ * 
+ * This kernel is outlined in e.g. Dehnen & Aly 2012.  The kernel is defined as:
+ *      W(r) = A (1-r)^5   (for r < 2/3)
+ *      W(r) = A [(1-r)^5 - 6(2/3-r)^5]   (for r < 2/3)
+ *      W(r) = A [(1-r)^5 - 6(2/3-r)^5 + 15(1/3-r)^5]   (for r < 1/3)
+ *      W(r) = 0 (for r > 1)
+ * Where:
+ *      r = |dx|/H
+ *      A = 3^7/(40 pi H^3))
+ * And for us, H = 2*h_smooth
+ * 
+ * @param ar2 = (|dx|/h)^2 = (2r)^2
+ * @return (pi h^3) W
+ */
+inline double kernelM6(double ar2) {
+    double r = 0.5 * sqrt(ar2);
+    double w;
+    // Sanity checks
+    CkAssert(r >= 0.0);
+    CkAssert(r <= 1.0000001);
+    w = pow(1. - r, 5);
+    if (r < 2./3.) {
+        w += -6. * pow(2./3. - r, 5);
+        if (r < 1./3.) {
+            w += 15. * pow(1./3. - r, 5);
+        }
+    }
+    return 6.834375 * w;
+}
+
+/**
+ * @brief dkernelM6 returns a scaled gradient of the M6 quintic spline kernel.
+ * 
+ * This kernel is outlined in e.g. Dehnen & Aly 2012.
+ * Using the definitions:
+ *      r = |dx|/H
+ *      H = 2 * h
+ * dkernelM6 returns a scalar equal to (pi h^5/|dx|^2) * (dx.dot.gradW), where
+ * gradW is the gradient of the kernel W.
+ * @param ar2 = (|dx|/h)^2 = (2r)^2
+ * @return (pi h^5/|dx|^2) * (dx.dot.gradW)
+ */
+inline double dkernelM6(double ar2) {
+    double r = 0.5 * sqrt(ar2);
+    double dw = 0.0;
+    // Sanity checks
+    CkAssert(r >= 0.0);
+    CkAssert(r <= 1.0000001);
+    dw = -5. *  pow(1. - r, 4);
+    if (r < 2./3.) {
+        dw += 30. * pow(2./3. - r, 4);
+        if (r < 1./3.) {
+            if (r == 0.) {
+                dw = 0.0;
+                r = 1.;
+            } else {
+                dw += -75. * pow(1./3. - r, 4);
+            }
+        }
+    }
+    dw /= r;
+    // Normalize by 3^7/(32*40)
+    dw *= 1.70859375;
+    return dw;
+}
+
 /* Standard M_4 Kernel */
 /**
- * @brief KERNEL is a scaled version of the standard M4 cubic SPH kernel
+ * @brief kernelM4 is a scaled version of the standard M4 cubic SPH kernel
  * 
  * This returns a scaled version of the standard SPH kernel (W) of Monaghan 1992
  * The kernel W(q) is defined as:
@@ -392,9 +457,9 @@ inline double DKERNEL(double ar2)
  * 
  * NOTE: This function returns a scaled version of W(q)
  * @param ar2 = q^2 = (|dx|/h)^2
- * @return KERNEL = (pi h^3) W
+ * @return (pi h^3) W
  */
-inline double KERNEL(double ar2) 
+inline double kernelM4(double ar2)
 {
     double ak;
     ak = 2.0 - sqrt(ar2);
@@ -403,7 +468,7 @@ inline double KERNEL(double ar2)
     return ak;
     }
 /**
- * @brief DKERNEL returns a scaled gradient of the SPH kernel.
+ * @brief dkernelM4 returns a scaled gradient of the M4 SPH kernel.
  * 
  * This returns a scaled version of the gradient of the Monaghan 1992 kernel
  * The kernel gradient gradW is defined as:
@@ -413,10 +478,9 @@ inline double KERNEL(double ar2)
  * NOTE: This function returns a scaled (and scalar) version of gradW
  * 
  * @param ar2 = q^2 = (|dx|/h)^2
- * @return DKERNEL = (pi h^5/|dx|^2) (dx.dot.gradW)  which is another way of
- * saying:  gradW = (1/(pi h^5)) DKERNEL * dx
+ * @return (pi h^5/|dx|^2) (dx.dot.gradW)
  */
-inline double DKERNEL(double ar2) 
+inline double dkernelM4(double ar2)
 {
     double adk;
     adk = sqrt(ar2);
@@ -428,5 +492,48 @@ inline double DKERNEL(double ar2)
 	}
     return adk;
     }
-#endif
+
+/**
+ * @brief KERNEL returns a scaled version of the standard SPH kernel
+ * 
+ * This function is a wrapper around the various implemented SPH kernels.  
+ * Kernels are chosen at compile time.
+ * @param ar2 = q^2 = (|dx|/h)^2 for q = |dx|/h and dx is the particle 
+ *  separation (a vector)
+ * @param nSmooth is the number of neighbors used for SPH smoothing
+ * @return KERNEL = (pi h^3) W
+ */
+inline double KERNEL(double ar2, int nSmooth) {
+#if WENDLAND == 1
+    return kernelWendland(ar2, nSmooth);
+#elif M6KERNEL == 1
+    return kernelM6(ar2);
+#elif M4KERNEL == 1
+    return kernelM4(ar2);
+#else
+    #error No available kernel selected.
+#endif //KERNEL
+}
+
+/**
+ * @brief DKERNEL returns a scaled gradient of the SPH kernel.
+ * 
+ * This function is a wrapper around the various implemented SPH kernels.  
+ * Kernels are chosen at compile time.
+ * @param ar2 = q^2 = (|dx|/h)^2 for q = |dx|/h and dx is the particle 
+ *  separation (a vector)
+ * @return DKERNEL = (pi h^5/|dx|^2) (dx.dot.gradW)  which is another way of
+ * saying:  gradW = (1/(pi h^5)) DKERNEL * dx
+ */
+inline double DKERNEL(double ar2) {
+#if WENDLAND == 1
+    return dkernelWendland(ar2);
+#elif M6KERNEL == 1
+    return dkernelM6(ar2);
+#elif M4KERNEL == 1
+    return dkernelM4(ar2);
+#else
+    #error No available kernel selected.
+#endif //KERNEL
+}
 #endif

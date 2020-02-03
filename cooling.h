@@ -43,12 +43,22 @@ inline void CoolAddParams( COOLPARAM *CoolParam, PRM ) {};
 #include "cooling_metal.h"
 #else
 
+#ifdef COOLING_MOLECULARH
+#include "cooling_metal_H2.h"
+#else
+
 #ifdef COOLING_BATE
 #include "cooling_bate.h"
 #else
 
+#ifdef COOLING_BOLEY
+#include "cooling_boley.h"
+#else
+
 #error "No valid cooling function specified"
 
+#endif
+#endif
 #endif
 #endif
 #endif

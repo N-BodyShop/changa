@@ -1,0 +1,86 @@
+#
+# This autoconf script assumes that the Charm++ script
+# conv-config.sh has been run in this environment such
+# that its exported variables are available
+########################################################
+
+# CUDA_DIR is exported by $CHARMINC/conv-mach-opt.sh
+CHARM_CUDA_DIR=$CUDA_DIR
+
+# Allow setting CUDA compute capability at `configure`-time.
+AC_ARG_WITH([cuda-level],
+	[AS_HELP_STRING(
+		[--with-cuda-level=LEVEL],
+		[use CUDA compute capability LEVEL])],
+	[CUDA_LEVEL=$withval],
+	[CUDA_LEVEL=35])
+
+AC_ARG_WITH([cuda],
+	[AS_HELP_STRING([--with-cuda@<:@=PATH@:>@],
+		[use CUDA (installed in PATH) @<:@no@:>@])],
+	[CUDA_DIR=$withval],
+	[CUDA_DIR="no"])
+
+# GPU local tree walk
+ARG_ENABLE([gpu-local-tree-walk], [Do local tree walk on GPU],
+			[FLAG_GPU_LOCAL_TREE_WALK], [-DGPU_LOCAL_TREE_WALK], [no])
+
+# We also support using the argument "auto" to mean "yes"
+case x$CUDA_DIR in
+             xno) ENABLE_CUDA=no ;;
+    x|xauto|xyes) ENABLE_CUDA=yes; CUDA_DIR=$CHARM_CUDA_DIR ;;
+               *) ENABLE_CUDA=yes ;;
+esac
+
+# BUILD_CUDA is exported by $CHARMINC/conv-mach-cuda.sh
+if test x$BUILD_CUDA = x; then
+	BUILD_CUDA=0
+fi
+if test x$ENABLE_CUDA = xno -a x$BUILD_CUDA = x1; then
+	AC_MSG_ERROR([Charm++ ($CHARM_PATH) was built with CUDA support enabled.])
+fi
+if test x$ENABLE_CUDA = xyes -a x$BUILD_CUDA = x0; then
+	AC_MSG_ERROR([Charm++ ($CHARM_PATH) was not built with CUDA support.])
+fi	
+
+if test x$ENABLE_CUDA = xyes; then
+	if test x$CUDA_DIR != x -a x$CUDA_DIR != x$CHARM_CUDA_DIR; then
+		AC_MSG_ERROR([Given CUDA directory '$CUDA_DIR' is \
+not the same as the one found by Charm++ '$CHARM_CUDA_DIR'
+		])
+	fi
+
+	AC_PATH_PROG([NVCC_PATH],nvcc,[],[$CUDA_DIR/bin])
+	if test -z "$NVCC_PATH" ; then
+		AC_MSG_ERROR(['bin/nvcc' not found in $CUDA_DIR/bin])
+	fi
+	
+	AC_CONFIG_FILES([cuda.mk])
+fi
+
+# Some CUDA installs only use the runtime library, so test for the presence of each
+if test x$ENABLE_CUDA = xyes; then
+	if test -e $CUDA_DIR/lib64/libcuda.so; then
+		CUDA_LIBS=-lcuda
+	else
+		if test -e $CUDA_DIR/lib64/libcudart.so; then
+			CUDA_LIBS=-lcudart
+		else
+			>&2 echo Could not find libcuda[rt].so
+			exit 1
+		fi
+	fi
+fi
+
+# Deprecate using the SDK
+AC_ARG_WITH([cuda-sdk],
+	[AS_HELP_STRING([--with-cuda-sdk=PATH], [DEPRECATED. Do not use.])],
+	[CUDA_SDK_DIR=$withval],
+	[CUDA_SDK_DIR=""]
+)
+
+AC_SUBST([ENABLE_CUDA])
+AC_SUBST([CUDA_LEVEL])
+AC_SUBST([CUDA_DIR])
+AC_SUBST([NVCC_PATH])
+AC_SUBST([CUDA_LIBS])

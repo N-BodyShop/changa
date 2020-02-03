@@ -2,10 +2,27 @@
 #define _CUDAFUNCTIONS_H_
 
 #ifdef CUDA
-#include "wr.h"
+#include "hapi.h"
 #include "HostCUDA.h"
-void TreePieceCellListDataTransferBasic(CudaRequest *data, workRequest *wr);
-void TreePiecePartListDataTransferBasic(CudaRequest *data, workRequest *wr);
+void TreePieceCellListDataTransferBasic(CudaRequest *data, hapiWorkRequest *wr);
+void TreePiecePartListDataTransferBasic(CudaRequest *data, hapiWorkRequest *wr);
+
+#ifdef GPU_LOCAL_TREE_WALK
+__global__ void gpuLocalTreeWalk(
+    CompactPartData *particleCores,
+    VariablePartData *particleVars,
+    CudaMultipoleMoments* moments,
+    int firstParticle,
+    int lastParticle,
+    int rootIdx,
+    cudatype theta,
+    cudatype thetaMono,
+    int nReplicas,
+    cudatype fperiod,
+    cudatype fperiodY,
+    cudatype fperiodZ);
+#endif //GPU_LOCAL_TREE_WALK
+
 __global__ void nodeGravityComputation(
 		CompactPartData *particleCores,
 		VariablePartData *particleVars,

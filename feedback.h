@@ -5,7 +5,7 @@
 #include "supernova.h"
 #include "imf.h"
 #include "starlifetime.h"
-#define NFEEDBACKS 4
+#define NFEEDBACKS 5
 
 /**
  * @brief Class to return feedback effects.
@@ -61,35 +61,49 @@ class Fdbk : public PUP::able {
  private:
     Fdbk& operator=(const Fdbk& fb);
     void CalcWindFeedback(SFEvent *sfEvent, double dTime, 
-			  double dDelta, FBEffects *fbEffects);
-    void CalcUVFeedback(double dTime, double dDelta, FBEffects *fbEffects);
+                          double dDelta, FBEffects *fbEffects) const;
+    void CalcUVFeedback(SFEvent *sfEvent, double dTime, double dDelta,
+                        FBEffects *fbEffects) const;
+#ifdef COOLING_MOLECULARH
+    double CalcLWFeedback(SFEvent *sfEvent, double dTime, double dDelta) const;
+#endif /*COOLING_MOLECULARH*/
 
-    double dErgPerGmUnit;	/* system specific energy in ergs/gm */
+    int iRandomSeed;		/* seed for stochastic quantized feedback */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dErgUnit;		/* system energy in ergs */
     Padova pdva;
  public:
     char achIMF[32];	        /* initial mass function */
-    SN sn;
+    mutable SN sn;
     double dDeltaStarForm;
+    double dErgPerGmUnit;	/* system specific energy in ergs/gm */
     double dSecUnit;		/* system time in seconds */
     double dMaxGasMass;		/* Maximum mass of a gas particle */
+#ifdef SPLITGAS
+    double dInitGasMass;    /* Original mass of a gas particle */
+#endif
     int bSNTurnOffCooling;      /* turn off cooling or not */
     int bSmallSNSmooth;	/* smooth SN energy only over blast radius */
     int bShortCoolShutoff;      /* use snowplow time */
+    int bAGORAFeedback;         /* Replace stellar feedback with AGORA perscription */
     double dExtraCoolShutoff;      /* multiplicative factor for shutoff time */
     double dRadPreFactor;       /* McKee + Ostriker size constant in system units */
     double dTimePreFactor;      /* McKee + Ostriker time constant in system units */
     int nSmoothFeedback;	/* number of particles to smooth feedback over*/
     double dMaxCoolShutoff;     /* Maximum length of time to shutoff cooling */
+    double dEarlyFeedbackFrac;  /* Fraction of SNe II to put in early feedback */
+    double dFBInitialMassLoad;  /* Initial Mass Loading in Superbubble feedback*/
+    double dMultiPhaseMinTemp;
+    double dMultiPhaseMaxTime;
+    double dEarlyETotal;  /* Total E in early FB per solar mass of stars */
     IMF *imf;
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
     void NullFeedback() { imf = new Kroupa01(); } /* Place holder */
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
-		    FBEffects *fbTotals);
+                    FBEffects *fbTotals) const;
     double NSNIa (double dMassT1, double dMassT2);
     Fdbk() { }
 
@@ -112,14 +126,23 @@ inline Fdbk::Fdbk(const Fdbk& fb) {
     dErgUnit = fb.dErgUnit;
     dSecUnit = fb.dSecUnit;
     dMaxGasMass = fb.dMaxGasMass;
+#ifdef SPLITGAS
+    dInitGasMass = fb.dInitGasMass;
+#endif
     bSNTurnOffCooling = fb.bSNTurnOffCooling;
     bSmallSNSmooth = fb.bSmallSNSmooth;
     bShortCoolShutoff = fb.bShortCoolShutoff;
+    bAGORAFeedback = fb.bAGORAFeedback;
     dExtraCoolShutoff = fb.dExtraCoolShutoff;
     dRadPreFactor = fb.dRadPreFactor;
     dTimePreFactor = fb.dTimePreFactor;
     nSmoothFeedback = fb.nSmoothFeedback;
     dMaxCoolShutoff = fb.dMaxCoolShutoff;
+    dEarlyFeedbackFrac = fb.dEarlyFeedbackFrac;
+    dFBInitialMassLoad = fb.dFBInitialMassLoad;
+    dMultiPhaseMinTemp = fb.dMultiPhaseMinTemp;
+    dMultiPhaseMaxTime = fb.dMultiPhaseMaxTime;
+    dEarlyETotal = fb.dEarlyETotal;
     sn = fb.sn;
     pdva = fb.pdva;
     imf = fb.imf->clone();
@@ -134,14 +157,23 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dErgUnit;
     p | dSecUnit;
     p | dMaxGasMass;
+#ifdef SPLITGAS
+    p | dInitGasMass;
+#endif
     p | bSNTurnOffCooling;
     p | bSmallSNSmooth;
     p | bShortCoolShutoff;
+    p | bAGORAFeedback;
     p | dExtraCoolShutoff;
     p | dRadPreFactor;
     p | dTimePreFactor;
     p | nSmoothFeedback;
     p | dMaxCoolShutoff;
+    p | dEarlyFeedbackFrac;
+    p | dFBInitialMassLoad;
+    p | dMultiPhaseMinTemp;
+    p | dMultiPhaseMaxTime;
+    p | dEarlyETotal;
     p | sn;
     p | pdva;
     p | imf;
@@ -151,10 +183,72 @@ enum FBenum{
   FB_SNII=0,
   FB_SNIA,
   FB_WIND,
-  FB_UV
+  FB_UV,
+  FB_AGORA
 };
 
 #include "smoothparams.h"
+
+/**
+ * SmoothParams class for alerting neighboring gas particles when a star particle
+ * is about to have an AGORA feedback event
+ */
+
+class AGORApreCheckSmoothParams : public SmoothParams
+{
+    double dTime, dDelta, H, a, gamma, etaCourant, timeToSF, dMsolUnit, dErgPerGmUnit;
+    Fdbk fb;
+    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
+               pqSmoothNode *nList);
+    virtual int isSmoothActive(GravityParticle *p) { return p->isStar(); }
+    virtual void initSmoothParticle(GravityParticle *p) {}
+    virtual void initTreeParticle(GravityParticle *p) {}
+    virtual void postTreeParticle(GravityParticle *p) {}
+    virtual void initSmoothCache(GravityParticle *p);
+    virtual void combSmoothCache(GravityParticle *p1,
+                 ExternalSmoothParticle *p2);
+    void DistFBMME(GravityParticle *p, int nSmooth, pqSmoothNode *nList);
+ public:
+    AGORApreCheckSmoothParams() {}
+    AGORApreCheckSmoothParams(int _iType, int am, CSM csm, double _dTime, double _dDelta,
+                 double _gamma, double _etaCourant, double _timeToSF, Fdbk *feedback,
+                 double _dMsolUnit, double _dErgPerGmUnit) :
+                    fb (*feedback) {
+    iType = _iType;
+    activeRung = am;
+    bUseBallMax = 0;
+    gamma = _gamma;
+    etaCourant = _etaCourant;
+    timeToSF = _timeToSF;
+    dMsolUnit = _dMsolUnit;
+    dErgPerGmUnit = _dErgPerGmUnit;
+    dTime = _dTime;
+    dDelta = _dDelta;
+    if(csm->bComove) {
+        H = csmTime2Hub(csm,dTime);
+        a = csmTime2Exp(csm,dTime);
+        }
+    else {
+        H = 0.0;
+        a = 1.0;
+        }
+    }
+    PUPable_decl(AGORApreCheckSmoothParams);
+    AGORApreCheckSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
+    virtual void pup(PUP::er &p) {
+        SmoothParams::pup(p);
+    p|a;
+    p|H;
+    p|gamma;
+    p|etaCourant;
+    p|timeToSF;
+    p|dMsolUnit;
+    p|dErgPerGmUnit;
+    p|fb;
+    p|dTime;
+    p|dDelta;
+    }
+    };
 
 /**
  * SmoothParams class for distributing stellar feedback (energy, mass + metals) 

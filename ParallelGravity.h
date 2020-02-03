@@ -23,7 +23,7 @@
 #include "parameters.h"
 #include "param.h"
 #include "dumpframe.h"
-#include "liveViz.h"
+#include <liveViz.h>
 
 #include "TaggedVector3D.h"
 
@@ -56,6 +56,7 @@ using namespace std;
 
 using namespace Tree;
 
+/// Load balancers that need the spatial information.
 enum LBStrategy{
   Null=0,
   Multistep,
@@ -75,6 +76,7 @@ enum TraceState {
 };
 #endif
 
+/// Possible domain decomposition methods
 enum DomainsDec {
     SFC_dec=0,	// Space Filling Curve with Morton ordering
     Oct_dec=1, 	// Oct tree
@@ -85,6 +87,7 @@ enum DomainsDec {
     ORB_space_dec=6		// Bisect space
 };
 
+/// Directions for sending boundaries
 enum NborDir {
   LEFT = 0,
   RIGHT
@@ -137,6 +140,7 @@ extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;
 extern double dFracLoadBalance;
+extern double dGlassDamper;
 extern int bUseCkLoopPar;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
@@ -168,7 +172,6 @@ extern int networkProgressUE;
 extern int nodeForceUE;
 extern int partForceUE;
 
-extern int tbRecursiveUE;
 extern int tbFlushRequestsUE;
 extern int prefetchDoneUE;
 
@@ -176,7 +179,6 @@ extern int _prefetch;
 extern int _randChunks;
 extern int _numChunks;
 extern unsigned int bucketSize;
-extern int lbcomm_cutoff_msgs;
 
 //jetley
 extern int localNodesPerReq;
@@ -188,21 +190,18 @@ extern int remoteResumePartsPerReq;
 
 extern double largePhaseThreshold;
 
-extern double theta;
-extern double thetaMono;
+extern cosmoType theta;
+extern cosmoType thetaMono;
 
 extern int numInitDecompBins;
 extern int octRefineLevel;
 
+/// @brief Message to efficiently start entry methods with no arguments.
 class dummyMsg : public CMessage_dummyMsg{
 public:
-int val;
-/*#if INTERLIST_VER > 0
-int level;
-GenericTreeNode* startNode;
-#endif*/
 };
 
+#if COSMO_STATS > 0
 class TreePieceStatistics {
   u_int64_t nodesOpenedLocal;
   u_int64_t nodesOpenedRemote;
@@ -259,7 +258,9 @@ class TreePieceStatistics {
     return CkReductionMsg::buildNew(sizeof(TreePieceStatistics), &ret);
   }
 };
+#endif
 
+/// @brief Message to start a remote gravity walk.
 class ComputeChunkMsg : public CMessage_ComputeChunkMsg {
   ComputeChunkMsg() {} // not available
  public:
@@ -360,11 +361,14 @@ const int MAXRUNG = 30;
 const int MAXSUBSTEPS = 1 << MAXRUNG;
 const double MAXSUBSTEPS_INV = 1 / (double)MAXSUBSTEPS;
 
+/// @brief Given a rung, return the number of substeps in one big step.
 inline int RungToSubsteps(int iRung) {
   CkAssert(iRung <= MAXRUNG);
   return 1 << (MAXRUNG - iRung);
 }
 
+/// @brief Given the size of the big step, and a desired timestep,
+/// return the rung of the largest timestep less than dTideal.
 inline int DtToRung(double dDelta, double dTideal) {
   int iSteps = (int) ceil(dDelta/dTideal);
 
@@ -377,6 +381,8 @@ inline int DtToRung(double dDelta, double dTideal) {
   return iRung;
 }
 
+/// @brief Given the size of the big step, and a rung, return the
+/// corresponding timestep size.
 inline double RungToDt(double dDelta, int iRung) {
   return dDelta*RungToSubsteps(iRung)*MAXSUBSTEPS_INV;
 }
@@ -408,7 +414,9 @@ inline double PoverRhoFloorJeans(double dResolveJeans, GravityParticle *p)
     return l2*dResolveJeans*p->fDensity;
 }
 
+/// @brief Adiabatic index to use with the Jeans pressure floor.
 const double GAMMA_JEANS = 2.0;
+const double GAMMA_NONCOOL = 5.0/3.0;
 
 
 /// @brief Overall flow control of the simulation.
@@ -434,16 +442,18 @@ class Main : public CBase_Main {
 	int64_t nTotalSPH;
 	int64_t nTotalDark;
 	int64_t nTotalStar;
+	/// Total Sink Particles
+	int64_t nSink;
 	int64_t nMaxOrderGas;  /* Maximum iOrders */
 	int64_t nMaxOrderDark;
 	int64_t nMaxOrder;
 	
 	double dTime;		/* Simulation time */
+	double dTime0;		///< Simulation time at dStep = 0
 	double dEcosmo;		/* variables for integrating
 				   Lazer-Irvine eq. */
 	double dUOld;
 	double dTimeOld;
-	unsigned int printBinaryAcc;
 	PRM prm;		/* parameter parsing info */
 	Parameters param; /* actual parameters */
 	CkVec<double> vdOutTime; // Desired output times
@@ -454,6 +464,8 @@ class Main : public CBase_Main {
 	int bDumpFrame;
 	struct DumpFrameContext **df;
 	int bIsRestarting;
+        /// SPH Alpha has been read in.
+        int bHaveAlpha;
 	int bChkFirst;		/* alternate between 0 and 1 for checkpoint */
 	double dSimStartTime;   // Start time for entire simulation
 	int iStop;		/* indicate we're stopping the
@@ -529,11 +541,21 @@ public:
 	void waitForGravity(const CkCallback &cb, double startTime,
             int activeRung);
         void advanceBigStep(int);
+        void domainDecomp(int iPhase);
+        void loadBalance(int iPhase);
+        void buildTree(int iPhase);
+        void startGravity(const CkCallback& cbGravity, int iActiveRung,
+            double *startTime) ;
+        void externalGravity(int iActiveRung);
+        void updateuDot(int iActiveRung, const double duKick[],
+            const double dStartTime[], int bUpdateState, int bAll);
+        void kick(bool bClosing, int iActiveRung, int nextMaxRung,
+            const CkCallback &cbGravity, double gravStartTime);
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
         void emergencyAdjust(int iRung);
-        void starCenterOfMass();
+	void starCenterOfMass();
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
@@ -555,8 +577,13 @@ public:
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
+	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
+	void outputBlackHoles(double dTime);
+	void SetSink();
+	void FormSinks(double dTime, double dDelta, int iKickRung);
+	void doSinks(double dTime, double dDelta, int iKickRung);
 	int DumpFrameInit(double dTime, double dStep, int bRestart);
 	void DumpFrame(double dTime, double dStep);
 	int nextMaxRungIncDF(int nextMaxRung);
@@ -565,10 +592,12 @@ public:
 	void memoryStatsCache();
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
+        void doSIDM(double dTime,double dDelta, int activeRung); /* SIDM */
 };
 
 /* IBM brain damage */
 #undef hz
+/// @brief Coefficients for the Fourier space part of the Ewald sum.
 typedef struct ewaldTable {
   double hx,hy,hz;
   double hCfac,hSfac;
@@ -586,15 +615,19 @@ typedef struct OffsetNodeStruct
 }OffsetNode;
 
 #if INTERLIST_VER > 0
+/// @brief Queue of nodes to check for interactions.
 typedef CkQ<OffsetNode> CheckList;
+/// @brief Vector of nodes that are undecided at this level.
 typedef CkVec<OffsetNode> UndecidedList;
+/// @brief Vector of undecided lists, one for each level.
 typedef CkVec<UndecidedList> UndecidedLists;
 #endif
 
+/// @brief Remote particles in an interaction list.
 typedef struct particlesInfoR{
     ExternalGravityParticle* particles;
     int numParticles;
-    Vector3D<double> offset;
+    Vector3D<cosmoType> offset;
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key;
 #endif
@@ -603,11 +636,11 @@ typedef struct particlesInfoR{
 #endif
 } RemotePartInfo;
 
- ///Local Particle Info structure
+/// @brief Local particles in an interaction list.
 typedef struct particlesInfoL{
     GravityParticle* particles;
     int numParticles;
-    Vector3D<double> offset;
+    Vector3D<cosmoType> offset;
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
     NodeKey key;
 #endif
@@ -616,14 +649,21 @@ typedef struct particlesInfoL{
 #endif
 } LocalPartInfo;
 
+/** @brief Data needed for the CkLoop intranode parallelization.
+ *
+ * This structure holds the data that needs to be passed to a free
+ * processor so that it can calculate the gravity interactions.
+ * Each attribute is a list so that multiple buckets can be operated on.
+ */
 typedef struct LoopParDataStruct {
-  CkVec<GenericTreeNode*> lowNodes;
-  CkVec<int> bucketids;
-  CkVec<int> chunkids;
-  CkVec<CkVec<OffsetNode> > clists;
-  CkVec<CkVec<RemotePartInfo> > rpilists;
-  CkVec<CkVec<LocalPartInfo> > lpilists;
-  TreePiece* tp;
+  CkVec<GenericTreeNode*> lowNodes;  ///< Lowest node containing the
+                                     ///  buckets to interact
+  CkVec<int> bucketids;              ///< startBucket number
+  CkVec<int> chunkids;               ///< remote walk chunk number
+  CkVec<CkVec<OffsetNode> > clists;  ///< Cell interactions
+  CkVec<CkVec<RemotePartInfo> > rpilists;  ///< Remote particle interactions
+  CkVec<CkVec<LocalPartInfo> > lpilists;   ///< Local particle interactions
+  TreePiece* tp;                           ///< Treepiece that owns this data
 } LoopParData;
 
 
@@ -768,17 +808,17 @@ class TreePiece : public CBase_TreePiece {
   void memCacheStats(const CkCallback &cb);
   void addActiveWalk(int iAwi, TreeWalk *tw, Compute *c, Opt *o, State *s);
 
+  /// @brief Called when walk on the current TreePiece is done.
   void markWalkDone();
+  /// @brief Called when walk on all TreePieces is done.
   void finishWalk();
+  /// @brief Called when smooth walk on the current TreePiece is done.
   void markSmoothWalkDone();
+  /// @brief Called when smooth walk on all TreePieces is done.
   void finishSmoothWalk();
 
   int getIndex() {
     return thisIndex;
-  }
-
-  int getLocalIndex(){
-    return localIndex;
   }
 
   /// @brief accumulate node interaction count for statistics
@@ -807,10 +847,12 @@ class TreePiece : public CBase_TreePiece {
   /// Start a new remote computation upon prefetch finished
   void startRemoteChunk();
 
+  /// Return the number of particles on this TreePiece.
   int getNumParticles(){
     return myNumParticles;
   }
 
+  /// Return the pointer to the particles on this TreePiece.
   GravityParticle *getParticles(){return myParticles;}
 
 
@@ -826,6 +868,10 @@ class TreePiece : public CBase_TreePiece {
         // the list
         int numActiveBuckets; 
         int myNumActiveParticles;
+        // First and Last indices of GPU particle
+        int FirstGPUParticleIndex;
+        int LastGPUParticleIndex;
+        int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
 
         int getNumBuckets(){
@@ -835,7 +881,7 @@ class TreePiece : public CBase_TreePiece {
         void callFreeRemoteChunkMemory(int chunk);
 
         int getActiveRung(){ return activeRung; }
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int getInstrumentId(){ return instrumentId; }
 #endif
         // returns either all particles or only active particles,
@@ -868,6 +914,8 @@ class TreePiece : public CBase_TreePiece {
         }
 
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
+          NumberOfGPUParticles = 0;
+          FirstGPUParticleIndex = fillIndex;//This is for the GPU Ewald
           if(largePhase()){
             for(int b = 0; b < numBuckets; b++){
               GenericTreeNode *bucket = bucketList[b];
@@ -877,10 +925,6 @@ class TreePiece : public CBase_TreePiece {
               bucket->bucketArrayIndex = fillIndex;
               for(int i = buckstart; i <= buckend; i++){
                 fillArray[fillIndex] = buckparts[i-buckstart];
-#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
-                fillArray[fillIndex].tp = thisIndex;
-                fillArray[fillIndex].id = i;
-#endif
                 fillIndex++;
               }
             }
@@ -901,15 +945,22 @@ class TreePiece : public CBase_TreePiece {
               for(int i = buckstart; i <= buckend; i++){
                 if(buckparts[i-buckstart].rung >= activeRung){
                   fillArray[fillIndex] = buckparts[i-buckstart];
-#if defined CUDA_EMU_KERNEL_NODE_PRINTS || defined CUDA_EMU_KERNEL_PART_PRINTS
-                  fillArray[fillIndex].tp = thisIndex;
-                  fillArray[fillIndex].id = i;
-#endif
                   fillIndex++;
                 }
               }
               binfo->size = fillIndex-binfo->start;
             }
+          }
+          //This is for the GPU Ewald
+          if(FirstGPUParticleIndex == fillIndex){
+            //This means no particle is on GPU
+            FirstGPUParticleIndex = -1;
+            LastGPUParticleIndex = -1;
+            NumberOfGPUParticles = 0;
+          }
+          else{
+            LastGPUParticleIndex = fillIndex - 1;
+            NumberOfGPUParticles = LastGPUParticleIndex - FirstGPUParticleIndex + 1;
           }
         }
 
@@ -920,7 +971,7 @@ class TreePiece : public CBase_TreePiece {
         void clearMarkedBuckets(CkVec<GenericTreeNode *> &markedBuckets);
         void clearMarkedBucketsAll();
 
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
         long long localNodeInteractions;
         long long localPartInteractions;
         long long remoteNodeInteractions;
@@ -929,7 +980,7 @@ class TreePiece : public CBase_TreePiece {
         long long remoteResumePartInteractions;
 #endif
 
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int instrumentId;
 
         double localNodeListConstructionTime;
@@ -951,6 +1002,9 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
         void continueStartRemoteChunk(int chunk);
+#ifdef CUDA
+        void updateParticles(intptr_t data, int partIndex);
+#endif
         void continueWrapUp();
 
 #if INTERLIST_VER > 0
@@ -988,14 +1042,9 @@ private:
 	// liveViz 
 	liveVizRequestMsg * savedLiveVizMsg;
 
-        // jetley - proxy for load balancer
-        CkGroupID proxy;
         LBStrategy foundLB;
-        // jetley - whether proxy is valid or not
-        bool proxyValid;
         // jetley - saved first internal node
         Vector3D<float> savedCentroid;
-        bool proxySet;
         // jetley - multistep load balancing
         int prevLARung;
         int lbActiveRung;
@@ -1134,10 +1183,10 @@ private:
 
 	/// Periodic Boundary stuff
 	int bPeriodic;
-	Vector3D<double> fPeriod;
-        int bComove;
-        /// Background density of the Universe
-        double dRhoFac;
+	int bComove;
+	/// Background density of the Universe
+	double dRhoFac;
+	Vector3D<cosmoType> fPeriod;
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
@@ -1148,6 +1197,8 @@ private:
 #ifdef HEXADECAPOLE
 	MOMC momcRoot;		/* complete moments of root */
 #endif
+        /// Have the Ewald h loop tables been calculated.
+        bool bEwaldInited;
 
 	int bGasCooling;
 #ifndef COOLING_NONE
@@ -1167,9 +1218,8 @@ private:
 	//u_int64_t prefetchWaiting;
 	/// Array of keys that will be the root of the prefetching chunks
 	Tree::NodeKey *prefetchRoots;
-	/// Placeholder for particles used for prefetching
-	OrientedBox<double> prefetchReq[2];
-	unsigned int numPrefetchReq;
+        /// Bounding box to use for prefetching
+        OrientedBox<cosmoType> prefetchReq;
 
 	/// number of chunks in which the tree will be chopped for prefetching
 	int numChunks;
@@ -1272,6 +1322,7 @@ private:
 
 #ifdef SPCUDA
   EwaldData *h_idata;
+  CkCallback *cbEwaldGPU;
 #endif
   void EwaldGPU(); 
   void EwaldGPUComplete();
@@ -1312,13 +1363,6 @@ private:
         }
     }
 
-	/// Recursive call to build the subtree with root "node", level
-	/// specifies the level at which "node" resides inside the tree
-	void buildOctTree(GenericTreeNode* node, int level);
-#ifdef TREE_BREADTH_FIRST
-	void growBottomUp(GenericTreeNode* node);
-#endif
-
 	/// Compute all the moments for the nodes that are NonLocal, so that
 	/// during the tree traversal, they contain useful information to decide
 	/// whether to open or not.
@@ -1356,8 +1400,8 @@ private:
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
 public:
- TreePiece() : pieces(thisArrayID), root(0), proxyValid(false),
-	    proxySet(false), prevLARung (-1), sTopDown(0), sGravity(0),
+ TreePiece() : pieces(thisArrayID), root(0),
+            prevLARung (-1), sTopDown(0), sGravity(0),
 	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
 	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
     treePieceActivePartsTmp(0) {
@@ -1400,7 +1444,7 @@ public:
 #endif
 #ifdef CUDA
           numActiveBuckets = -1;
-#ifdef CUDA_STATS
+#ifdef HAPI_TRACE
           localNodeInteractions = 0;
           localPartInteractions = 0;
           remoteNodeInteractions = 0;
@@ -1415,9 +1459,9 @@ public:
 	  // temporarely set to -1, it will updated after the tree is built
 	  numChunks=-1;
 	  prefetchRoots = NULL;
-	  numPrefetchReq = 0;
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
+          bEwaldInited = false;
 
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
@@ -1442,11 +1486,8 @@ public:
           localTreeBuildComplete = false;
 	}
 
-	TreePiece(CkMigrateMessage* m) {
+    TreePiece(CkMigrateMessage* m): pieces(thisArrayID) {
 	  treePieceLoadTmp = 0.0;
-          // jetley
-          proxyValid = false;
-          proxySet = false;
 
 	  usesAtSync = true;
 	  //localCache = NULL;
@@ -1462,6 +1503,7 @@ public:
 	  prefetchRoots = NULL;
 	  //remaining Chunk = NULL;
           ewt = NULL;
+          bEwaldInited = false;
 	  root = NULL;
 	  pTreeNodes = NULL;
 
@@ -1524,7 +1566,7 @@ public:
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
 
-	void setPeriodic(int nReplicas, Vector3D<double> fPeriod, int bEwald,
+	void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod, int bEwald,
 			 double fEwCut, double fEwhCut, int bPeriod,
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
@@ -1560,7 +1602,7 @@ public:
         void resetMetals(const CkCallback& cb);
         void getMaxIOrds(const CkCallback& cb);
         void RestartEnergy(double dTuFac, const CkCallback& cb);
-        void findTotalMass(CkCallback &cb);
+        void findTotalMass(const CkCallback &cb);
         void recvTotalMass(CkReductionMsg *msg);
 
 	// Write a Tipsy file
@@ -1614,7 +1656,7 @@ public:
 			  const int bCool,
 			  const CkCallback &cb);
 	// Reorder for output
-	void reOrder(int64_t nMaxOrder, CkCallback& cb);
+        void reOrder(int64_t nMaxOrder, const CkCallback& cb);
 	// move particles around for output
 	void ioShuffle(CkReductionMsg *msg);
 	void ioAcceptSortedParticles(ParticleShuffleMsg *);
@@ -1648,19 +1690,25 @@ public:
   /*****************************/
 
   void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
-	    int bNeedVPred, int bGasIsothermal, double duDelta[MAXRUNG+1],
-	    const CkCallback& cb);
+	    int bNeedVPred, int bGasIsothermal, double dMaxEnergy, double duDelta[MAXRUNG+1],
+        double gammam1, double dThermalCondSatCoeff,
+        double dMultiPhaseMaxTime, double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
-	     double duDelta, int nGrowMass, bool buildTree,
+             double duDelta, int nGrowMass, bool buildTree, double dMaxEnergy,
 	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
+#ifdef COOLING_MOLECULARH
+  void distribLymanWerner(const CkCallback& cb);
+#endif /*COOLING_MOLECULARH*/
+
+  void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
 /**
  * @brief Apply an external gravitational force
  * @param activeRung The rung to apply the force.
  * @param exGravParams Parameters of the external force
  * @param cb Callback function
  */
-  void externalGravity(int activeRung, const externalGravityParams exGravParams,
+  void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
 /**
  * Adjust timesteps of active particles.
@@ -1699,6 +1747,17 @@ public:
   void truncateRung(int iCurrMaxRung, const CkCallback& cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
+  /// @brief count total number of particles of given type
+  void countType(int iType, const CkCallback& cb);
+  void outputBlackHoles(const std::string& pszFileName, double dvFac,
+                        long lFPos, const CkCallback &cb);
+  /// @brief set sink type based on formation time.
+  void SetSink(double dSinkMassMin, const CkCallback &cb);
+  /// @brief set sink timesteps.
+  void SinkStep(int iCurrSinkRung, int iKickRung, const CkCallback &cb);
+  void formSinks(int bJeans, double dJConst2, int bDensity,
+		 double dDensityCut, double dTime, int iKickRung, int bSimple,
+		 const CkCallback &cb);
   void emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
 		       const CkCallback &cb);
   void assignDomain(const CkCallback& cb);
@@ -1720,28 +1779,31 @@ public:
 	void physicalSoft(const double dSoftMax, const double dFac,
 			  const int bSoftMaxMul, const CkCallback& cb);
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
-	void InitEnergy(double dTuFac, double z, double dTime,
+	void InitEnergy(double dTuFac, double z, double dTime, double gammam1,
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, const CkCallback& cb);
+			int bUpdateState, double gammam1, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
-	void getAdiabaticGasPressure(double gamma, double gammam1,
-                                     double dDtCourantFac,
-				     const CkCallback &cb);
-	void getCoolingGasPressure(double gamma, double gammam1,
-                                   double dDtCourantFac,
-                                   double dResolveJeans,
-				   const CkCallback &cb);
-        /// @brief initialize random seed for star formation
-        void initRand(int iRand, const CkCallback &cb);
+    void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
+        double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
+        double dEvapMinTemp, double dDtCourantFac, const CkCallback &cb);
+    void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+        double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
+        double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);
+#ifdef SPLITGAS
+	void SplitGas(double dInitGasMass, const CkCallback& cb);
+#endif
+	inline COOL* Cool() {return dm->Cool;}
+	/// @brief initialize random seed for star formation
+	void initRand(int iRand, const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void flushStarLog(const CkCallback& cb);
 	void flushHMStarLog(const CkCallback& cb);
-	void Feedback(Fdbk &fb, double dTime, double dDelta,
-		       const CkCallback& cb);
+    void Feedback(const Fdbk &fb, double dTime, double dDelta,
+               const CkCallback& cb);
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
@@ -1778,7 +1840,8 @@ public:
 	void receiveRemoteMoments(const Tree::NodeKey key, Tree::NodeType type,
     int firstParticle, int numParticles, int remIdx,
     const MultipoleMoments& moments, const OrientedBox<double>& box,
-    const OrientedBox<double>& boxBall, const unsigned int iParticleTypes);
+            const OrientedBox<double>& boxBall,
+            const unsigned int iParticleTypes, const int64_t nSPH);
 
 	/// Entry point for the local computation: for each bucket compute the
 	/// force that its particles see due to the other particles hosted in
@@ -1835,15 +1898,10 @@ public:
   void startMarkSmooth(SmoothParams *p, const CkCallback& cb);
 
   void finishNodeCache(const CkCallback& cb);
-	/// Function called by the CacheManager to send out request for needed
-	/// remote data, so that the later computation will hit.
-	void prefetch(GenericTreeNode *node, int offsetID);
-	void prefetch(ExternalGravityParticle *part);
 
-	/// @brief Retrieve the remote node, goes through the cache if present
-        //GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, bool isPrefetch=false);
-
-        GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey, int chunk, int reqID, int awi, void *source, bool isPrefetch);
+    /// @brief Retrieve the remote node, goes through the cache if present
+    GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey,
+                                 int chunk, int reqID, int awi, void *source);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
 	void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);
@@ -1878,18 +1936,20 @@ public:
 			     int level,int chunk);
 #endif
 
-        ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,int remoteIndex,int begin,int end,int reqID, int awi, void *source, bool isPrefetch=false);
-	GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
-				    int remoteIndex, int begin,int end,
-				    int reqID, int awi, void *source, bool isPrefetch);
+    ExternalGravityParticle *requestParticles(Tree::NodeKey key,int chunk,
+                                              int remoteIndex,int begin,
+                                              int end,int reqID, int awi,
+                                              void *source);
+    GravityParticle *requestSmoothParticles(Tree::NodeKey key, int chunk,
+                                            int remoteIndex, int begin,int end,
+                                            int reqID, int awi, void *source);
 	void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
 	void fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg);
 	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
 	void processReqSmoothParticles();
 
-	//void startlb(CkCallback &cb);
 	void getParticleInfoForLB(int64_t active_part, int64_t total_part);
-	void startlb(CkCallback &cb, int activeRung);
+        void startlb(const CkCallback &cb, int activeRung);
   void setTreePieceLoad(int activeRung);
   void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
   bool havePhaseData(int phase);
@@ -1898,17 +1958,16 @@ public:
     int shufflelen);
 	void ResumeFromSync();
 
-	void outputAccelerations(OrientedBox<double> accelerationBox, const std::string& suffix, const CkCallback& cb);
 	void outputASCII(OutputParams& params, int bParaWrite,
 			 const CkCallback& cb);
 	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
 			   int nPart, int iIndex, int bDone,
-			   CkCallback& cb) ;
+			   const CkCallback& cb) ;
 	void oneNodeOutArr(OutputParams& params, double* adOut,
 			   int nPart, int iIndex, int bDone,
-			   CkCallback& cb) ;
+			   const CkCallback& cb) ;
 	void oneNodeOutIntArr(OutputParams& params, int *aiOut,
-			      int nPart, int iIndex, CkCallback& cb);
+                              int nPart, int iIndex, const CkCallback& cb);
         void outputBinaryStart(OutputParams& params, int64_t nStart,
                                const CkCallback& cb);
 	void outputBinary(Ck::IO::Session, OutputParams& params);
@@ -1916,7 +1975,7 @@ public:
 
 	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
-	void collectStatistics(CkCallback &cb);
+        void collectStatistics(const CkCallback &cb);
 
         /** @brief Entry method used to split the processing of all the buckets
          * in small pieces. It calls startNextBucket() _yieldPeriod number of
@@ -1937,29 +1996,24 @@ public:
         // need this in TreeWalk
         GenericTreeNode *getRoot() {return root;}
         // need this in Compute
-	inline Vector3D<double> decodeOffset(int reqID) {
+	inline Vector3D<cosmoType> decodeOffset(int reqID) {
 	    int offsetcode = reqID >> 22;
 	    int x = (offsetcode & 0x7) - 3;
 	    int y = ((offsetcode >> 3) & 0x7) - 3;
 	    int z = ((offsetcode >> 6) & 0x7) - 3;
 
-	    Vector3D<double> offset(x*fPeriod.x, y*fPeriod.y, z*fPeriod.z);
+	    Vector3D<cosmoType> offset(x*fPeriod.x, y*fPeriod.y, z*fPeriod.z);
 
 	    return offset;
 	    }
 
-        GenericTreeNode *nodeMissed(int reqID, int remoteIndex, Tree::NodeKey &key, int chunk, bool isPrefetch, int awi, void *source);
-
-        ExternalGravityParticle *particlesMissed(Tree::NodeKey &key, int chunk, int remoteIndex, int firstParticle, int lastParticle, int reqID, bool isPrefetch, int awi, void *source);
-
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
         void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
-        void receiveProxy(CkGroupID _proxy){ proxy = _proxy; proxySet = true; /*CkPrintf("[%d : %d] received proxy\n", CkMyPe(), thisIndex);*/}
         void doAtSync();
 
-        void balanceBeforeInitialForces(CkCallback &cb);
-        
+        void balanceBeforeInitialForces(const CkCallback &cb);
+
         // For merging of remote moment requests
         // before sending messages during tree building
         public:
@@ -2000,7 +2054,6 @@ class LvArray : public CBase_LvArray {
 int decodeReqID(int);
 int encodeOffset(int reqID, int x, int y, int z);
 bool bIsReplica(int reqID);
-void initNodeLock();
 void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
 //bool compBucket(GenericTreeNode *ln,GenericTreeNode *rn);
 
@@ -2042,6 +2095,7 @@ class ReductionHelper : public CBase_ReductionHelper {
 };
 #endif
 
+/// @brief Used to count non-empty treepieces on the local processor.
 class NonEmptyTreePieceCounter : public CkLocIterator {            
   public:
     NonEmptyTreePieceCounter() { reset(); }

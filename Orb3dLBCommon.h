@@ -16,6 +16,7 @@
 #define  ORB3DLB_NOTOPO_DEBUG
 // #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
 
+/// @brief Hold information about Pe load and number of objects.
 class PeInfo {
   public:
   int idx;
@@ -24,6 +25,7 @@ class PeInfo {
   PeInfo(int id, double ld, int it) : idx(id), load(ld), items(it) {}
 };
 
+/// @brief Utility class for sorting processor loads.
 class ProcLdGreater {
   public:
   bool operator()(PeInfo& p1, PeInfo& p2) {
@@ -32,6 +34,7 @@ class ProcLdGreater {
   }
 };
 
+/// @brief Common methods among Orb3d class load balancers.
 class Orb3dCommon{
   // pointer to stats->to_proc
   protected:		
@@ -89,6 +92,14 @@ class Orb3dCommon{
       }
     }
 
+/// @brief Recursively partition treepieces among processors by
+/// bisecting the load in orthogonal directions.
+/// @param events Array of three (1 per dimension) Event vectors.
+/// These are separate in each dimension for easy sorting.
+/// @param box Spatial bounding box
+/// @param nprocs Number of processors over which to partition the
+/// Events. N.B. if node_partition is true, then this is the number of nodes.
+/// @param tp Vector of TreePiece data.
     void orbPartition(vector<Event> *events, OrientedBox<float> &box, int nprocs,
         vector<OrbObject> & tp, BaseLB::LDStats *stats,
         bool node_partition=false){
@@ -131,7 +142,7 @@ class Orb3dCommon{
             else{
               int fromPE = (*from)[orb.lbindex];
               if (fromPE < 0 || fromPE >= procload.size()) {
-                CkPrintf("[%d] trying to access fromPe %d nprocs %d\n", CkMyPe(), fromPE, procload.size());
+                CkPrintf("[%d] trying to access fromPe %d nprocs %lu\n", CkMyPe(), fromPE, procload.size());
                 CkAbort("Trying to access a PE which is outside the range\n");
               }
               procload[fromPE] += ev.load;
@@ -288,6 +299,12 @@ class Orb3dCommon{
       orbPartition(rightEvents,rightBox,nrprocs,tp, stats, node_partition);
     }
 
+/// @brief Prepare structures for the ORB partition.
+/// @param tpEvents Array of 3 (1 per dimension) Event vectors.
+/// @param box Reference to bounding box (set here).
+/// @param numobjs Number of tree pieces to partition.
+/// @param stats Data from the load balancing framework.
+/// @param node_partition Are we partitioning on nodes.
     void orbPrepare(vector<Event> *tpEvents, OrientedBox<float> &box, int
     numobjs, BaseLB::LDStats * stats, bool node_partition=false){
 
@@ -516,7 +533,14 @@ class Orb3dCommon{
 
     }
 
-#define LOAD_EQUAL_TOLERANCE 1.02
+/// @brief Given a vector of Events, find a split that partitions them
+/// into two partitions with a given ratio of loads.
+/// @param events Vector of Events to split
+/// @param ratio Target ratio of loads in left partition to total load.
+/// @param bglp Background load on the left processors.
+/// @param bgrp Background load on the right processors.
+/// @return Starting index of right partition.
+///
     int partitionRatioLoad(vector<Event> &events, float ratio, float bglp, float bgrp){
 
       float approxBgPerEvent = (bglp + bgrp) / events.size();

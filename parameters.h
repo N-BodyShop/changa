@@ -5,26 +5,9 @@
 #include "cooling.h"
 #include "starform.h"
 #include "feedback.h"
+#include "sinks.h"
 
-/// @brief Class for external gravity parameters
-class externalGravityParams
-{
- public:
-    bool bDoExternalGravity; ///< Set if any exteran potential is used
-    int bBodyForce;          ///< Constant acceleration
-    double dBodyForceConst;
-    int bPatch;              ///< Patch in a disk
-    double dCentMass;        ///< Central mass in the disk
-    double dOrbDist;         ///< Distance of the patch from the center
-    void pup(PUP::er& p) {
-        p| bDoExternalGravity;
-        p| bBodyForce;
-        p| dBodyForceConst;
-        p| bPatch;
-        p| dCentMass;
-        p| dOrbDist;
-        }
-};
+#include "externalGravity.h"
 
 /** @brief Hold parameters of the run.
  */
@@ -70,10 +53,7 @@ typedef struct parameters {
 #endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
-    /*
-     * External Potentials
-     */
-    externalGravityParams exGravParams;
+    double dGlassDamper;
     /*
      * GrowMass parameters
      */
@@ -94,6 +74,7 @@ typedef struct parameters {
     int bGasCooling;
     int nSmooth;
     COOLPARAM CoolParam;
+    double dMaxEnergy;
     double dhMinOverSoft;
     double dResolveJeans;
     double dMsolUnit;
@@ -102,6 +83,7 @@ typedef struct parameters {
     double dGasConst;
     double dConstAlpha;
     double dConstBeta;
+    double dConstAlphaMax;
     double dConstGamma;
     double dMeanMolWeight;
     double dErgPerGmUnit;
@@ -124,7 +106,29 @@ typedef struct parameters {
     Stfm *stfm;
     int bFeedback;
     Fdbk *feedback;
+    double dThermalCondCoeff;
+    double dThermalCondSatCoeff;
+    double dThermalCond2Coeff;
+    double dThermalCond2SatCoeff;
+    double dThermalCondCoeffCode;
+    double dThermalCond2CoeffCode;
+    double dEvapMinTemp;
+    double dEvapCoeff;
+    double dEvapCoeffCode;
+    int bDoExternalGravity;
+    ExternalGravity externalGravity;
     int iRandomSeed;
+    
+    Sinks sinks;
+
+    //SIDM
+    int iSIDMSelect;
+    double dSIDMSigma;
+    double dSIDMVariable;
+    
+    //
+    // Output parameters
+    //
     int bStandard;
     int bDoublePos;
     int bDoubleVel;
@@ -140,10 +144,12 @@ typedef struct parameters {
     int iOutInterval;
     int iCheckInterval;
     int iLogInterval;
+    int iOrbitOutInterval;
     int bDoIOrderOutput;
     int bDoSoftOutput;
     int bDohOutput;
     int bDoCSound;
+    int bDoStellarLW;
     int cacheLineDepth;
     double dExtraStore;
     double dMaxBalance;
@@ -195,8 +201,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     if(p.isUnpacking())
  	csmInitialize(&param.csm);
     p|*param.csm;
+    p|param.dGlassDamper;
     p|param.dRedTo;
-    p|param.exGravParams;
     p|param.bDynGrowMass;
     p|param.nGrowMass;
     p|param.dGrowDeltaM;
@@ -214,6 +220,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dFracFastGas;
     p|param.bViscosityLimiter;
     p|param.iViscosityLimiter;
+    p|param.dMaxEnergy;
     p|param.dhMinOverSoft;
     p|param.dResolveJeans;
     p|param.dMsolUnit;
@@ -222,6 +229,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dGasConst;
     p|param.dConstAlpha;
     p|param.dConstBeta;
+    p|param.dConstAlphaMax;
     p|param.dConstGamma;
     p|param.dMeanMolWeight;
     p|param.dErgPerGmUnit;
@@ -242,7 +250,22 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|*param.stfm;
     p|param.bFeedback;
     p|param.feedback;
+    p|param.dThermalCondCoeff;
+    p|param.dThermalCondSatCoeff;
+    p|param.dThermalCond2Coeff;
+    p|param.dThermalCond2SatCoeff;
+    p|param.dThermalCondCoeffCode;
+    p|param.dThermalCond2CoeffCode;
+    p|param.dEvapMinTemp;
+    p|param.dEvapCoeff;
+    p|param.dEvapCoeffCode;
+    p|param.bDoExternalGravity;
+    p|param.externalGravity;
     p|param.iRandomSeed;
+    p|param.sinks;
+    p|param.dSIDMSigma;
+    p|param.iSIDMSelect;
+    p|param.dSIDMVariable;
     p|param.bStandard;
     p|param.bDoublePos;
     p|param.bDoubleVel;
@@ -258,10 +281,12 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iOutInterval;
     p|param.iCheckInterval;
     p|param.iLogInterval;
+    p|param.iOrbitOutInterval;
     p|param.bDoIOrderOutput;
     p|param.bDoSoftOutput;
     p|param.bDohOutput;
     p|param.bDoCSound;
+    p|param.bDoStellarLW;
     p|param.cacheLineDepth;
     p|param.dExtraStore;
     p|param.dMaxBalance;

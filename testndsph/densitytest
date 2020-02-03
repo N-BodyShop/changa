@@ -1,0 +1,25 @@
+#!/bin/bash
+ndim="$1"
+# Choose simulation directory/param file
+if [ "$ndim" == 1 ] ; then
+    simdir="density_1d"
+    fprefix="cube_1d_nx1000"
+elif [ "$ndim" == 2 ] ; then
+    simdir="density_2d"
+    fprefix="cube_2d_nx200"
+elif [ "$ndim" == 3 ] ; then
+    simdir="density_3d"
+    fprefix="cube_3d_nx40"
+else
+    echo "Please specify 1, 2, or 3" 1>&2
+    echo "Usage:  densitytest ndim" 1>&2
+    exit 1
+fi
+# Use ChaNGa to calculate density
+cd $simdir
+../../ChaNGa -n 0 $fprefix".param"
+# Analyze results
+echo "--------------------------------------------"
+printf "\nDensity test results ($simdir/)\n\n"
+../analyzeDensity.py $fprefix
+
