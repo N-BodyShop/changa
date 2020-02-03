@@ -9,10 +9,12 @@
 #define ARRLENGTH 12
 #endif
 
+#include <assert.h>
 #include "lymanwerner.h"
+#include <stdio.h>
 
 /* Initialize data for LW table */
-void LymanWernerTableInit()
+LWDATA *LymanWernerTableInit()
 {
     LWDATA *lwd;
     lwd = (LWDATA *) malloc(sizeof(LWDATA));
@@ -35,13 +37,14 @@ void lwInitData(LWDATA *lwd)
         lwd->lwLuminosity[i] = (float *)malloc(ncols*sizeof(float *));
     }
     
-    fclose(fp);
 
     for(int i=0; i<nrows; i++){
         for(int j=0; j<ncols; j++){
             fscanf(fp, "%f", &lwd->lwLuminosity[i][j]);
         }
     }
+
+    fclose(fp);
 
 }
 

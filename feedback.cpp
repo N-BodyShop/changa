@@ -12,7 +12,7 @@
 #include <float.h>
 #endif
 
-//#include "ParallelGravity.h"
+#include "ParallelGravity.h"
 #include "feedback.h"
 #include "smooth.h"
 #include "Sph.h"

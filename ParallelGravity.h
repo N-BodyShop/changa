@@ -127,7 +127,7 @@ class NewMaxOrder
     };
 
 #include "InOutput.h"
-PUPbytes(LWDATA);
+//PUPbytes(LWDATA);
 
 #include "ParallelGravity.decl.h"
 
