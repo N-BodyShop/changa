@@ -43,7 +43,6 @@
 PUPbytes(InDumpFrame);
 PUPbytes(COOL);
 PUPbytes(COOLPARAM);
-//PUPbytes(LWDATA);
 
 #ifdef HPM_COUNTER
 #include <libhpm.h>
@@ -128,6 +127,7 @@ class NewMaxOrder
     };
 
 #include "InOutput.h"
+PUPbytes(LWDATA);
 
 #include "ParallelGravity.decl.h"
 
@@ -573,6 +573,7 @@ public:
 	void growMass(double dTime, double dDelta);
 	void initSph();
 	void initCooling();
+    void initLWData();
 	void initStarLog();
 	void initHMStarLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
@@ -1577,6 +1578,7 @@ public:
   void callBucketEwald(int id);
   void doParallelNextBucketWork(int id, LoopParData* lpdata);
 	void initCoolingData(const CkCallback& cb);
+    void initLWData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
 	void velScale(double dScale, const CkCallback& cb);

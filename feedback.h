@@ -5,6 +5,7 @@
 #include "supernova.h"
 #include "imf.h"
 #include "starlifetime.h"
+#include "lymanwerner.h"
 #define NFEEDBACKS 5
 
 /**
@@ -65,7 +66,7 @@ class Fdbk : public PUP::able {
     void CalcUVFeedback(SFEvent *sfEvent, double dTime, double dDelta,
                         FBEffects *fbEffects) const;
 #ifdef COOLING_MOLECULARH
-    double CalcLWFeedback(SFEvent *sfEvent, double dTime, double dDelta) const;
+    double CalcLWFeedback(SFEvent *sfEvent, double dTime, double dDelta, LWDATA *LWData) const;
 #endif /*COOLING_MOLECULARH*/
 
     int iRandomSeed;		/* seed for stochastic quantized feedback */
@@ -103,7 +104,7 @@ class Fdbk : public PUP::able {
     void CheckParams(PRM prm, struct parameters &param);
     void NullFeedback() { imf = new Kroupa01(); } /* Place holder */
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
-                    FBEffects *fbTotals) const;
+		    FBEffects *fbTotals, LWDATA *LWData) const;
     double NSNIa (double dMassT1, double dMassT2);
     Fdbk() { }
 
@@ -304,5 +305,4 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
     };
 
 #endif
-
     

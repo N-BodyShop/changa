@@ -2282,8 +2282,10 @@ void Main::setupICs() {
         initHMStarLog();
       }
 	
-  if(param.bFeedback)
+  if(param.bFeedback){
       param.feedback->CheckParams(prm, param);
+      initLWData();
+      }
   else
       param.feedback->NullFeedback();
 
@@ -2635,6 +2637,8 @@ Main::restart(CkCheckpointStatusMsg *msg)
         if(param.feedback->sn.bUseStoch)
             initHMStarLog();
         }
+    if(param.bFeedback)
+        initLWData();
         if(param.bStarForm || param.bFeedback)
             treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
         DumpFrameInit(dTime0, 0.0, bIsRestarting);

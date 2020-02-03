@@ -254,6 +254,7 @@ mainmodule ParallelGravity {
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
+    entry void initLWData(const CkCallback& cb);
     entry void initHMStarLog(std::string _fileName, const CkCallback &cb);
   };
 
@@ -278,6 +279,7 @@ mainmodule ParallelGravity {
                            int bComove, double dRhoFac);
     entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
+    entry [notrace] void initLWData(const CkCallback& cb);
     entry void calculateEwald(dummyMsg *m);
     entry [notrace] void EwaldGPUComplete(); 
     entry [notrace] void EwaldGPU(); 

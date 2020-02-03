@@ -18,6 +18,11 @@ void LymanWernerTableInit()
     lwd = (LWDATA *) malloc(sizeof(LWDATA));
     assert(lwd!=NULL);
 
+    return lwd;
+}
+
+void lwInitData(LWDATA *lwd)
+{
     int nrows;
     int ncols;
     FILE *fp;

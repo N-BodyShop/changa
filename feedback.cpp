@@ -12,11 +12,10 @@
 #include <float.h>
 #endif
 
-#include "ParallelGravity.h"
+//#include "ParallelGravity.h"
 #include "feedback.h"
 #include "smooth.h"
 #include "Sph.h"
-#include "lymanwerner.h"
 
 #define max(A,B) ((A) > (B) ? (A) : (B))
 ///
@@ -368,6 +367,21 @@ void Main::StellarFeedback(double dTime, double dDelta)
     delete msgChk;
     delete msgChk2;
     }
+void Main::initLWData(){
+    dMProxy.initLWData(CkCallbackResumeThread());
+    treeProxy.initLWData(CkCallbackResumeThread());
+}
+void DataManager::initLWData(const CkCallback& cb)
+{
+    lwInitData(LWData);
+    contribute(cb);
+}
+void TreePiece::initLWData(const CkCallback& cb)
+{
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    contribute(cb);
+}
+
 
 ///
 /// processor specific method for stellar feedback
@@ -394,7 +408,7 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if(p->isStar() && p->fTimeForm() >= 0.0) 
-	  fb.DoFeedback(p, dTime, dDeltaYr, fbTotals);
+	  fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, dm->LWData);
 	else if(p->isGas()){
 	  CkAssert(p->u() >= 0.0);
 	  CkAssert(p->uPred() >= 0.0);
@@ -420,7 +434,7 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 /// @param fbTotals pointer to total effects for bookkeeping
 
 void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
-                      FBEffects *fbTotals) const
+		      FBEffects *fbTotals, LWDATA *LWData) const
 {
     double dTotMassLoss, dTotMetals, dTotMOxygen, dTotMIron, dDelta;
     dTotMassLoss = dTotMetals = dTotMOxygen = dTotMIron = 0.0;
@@ -523,7 +537,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
         p->fStarESNrate() /= dDelta;
 
 #ifdef COOLING_MOLECULARH /* Calculates LW radiation from a stellar particle of a given age and mass (assumes Kroupa IMF), CC */
-    p->dStarLymanWerner() = CalcLWFeedback(&sfEvent, dTime, dDeltaYr);
+    p->dStarLymanWerner() = CalcLWFeedback(sfEvent, dTime, dDeltaYr, LWData);
 #endif /*COOLING_MOLECULARH*/
     
     delete sfEvent;
@@ -634,7 +648,7 @@ void Fdbk::CalcUVFeedback(SFEvent *sfEvent, /**< Star to process */
 #ifdef COOLING_MOLECULARH
 /*----  Lyman-Warner Radiation from young stars*/
 double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
-			    double dDelta /* length of timestep (years) */ ) const
+			    double dDelta /* length of timestep (years) */ , LWDATA *LWData /*LW Tabular Data*/) const
 {
     double dAge1log, dAge2log, dLW1log, dLW2log, dStarAge;
     double dA0old =  70.908586,
@@ -663,14 +677,14 @@ double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in y
       else{ // stochastic calculation must be done in Msol and then converted to system units
           if (dAge1log < 9.0){
               double dMax8Log1 = calcLogMax8LymanWerner(dAge1log,log10(sfEvent->dLowNorm*MSOLG/dGmUnit));
-              double dStochLog1 = calcLogStochLymanWerner(dAge1log, sfEvent, dm->LWData);
+              double dStochLog1 = calcLogStochLymanWerner(dAge1log, sfEvent, LWData);
               dStochLog1 += log10(MSOLG/dGmUnit); // converting stoch portion to system units
               dLW1log = log10(pow(10, dMax8Log1) + pow(10, dStochLog1));
           }   
           else dLW1log = dA0old + dA1old*dAge1log + log10(sfEvent->dLowNorm*MSOLG/dGmUnit); /*Close to zero*/
           if (dAge2log < 9.0){
               double dMax8Log2 = calcLogMax8LymanWerner(dAge2log,log10(sfEvent->dLowNorm*MSOLG/dGmUnit));
-              double dStochLog2 = calcLogStochLymanWerner(dAge2log, sfEvent, dm->LWData);
+              double dStochLog2 = calcLogStochLymanWerner(dAge2log, sfEvent, LWData);
               dStochLog2 += log10(MSOLG/dGmUnit); // converting stoch portion to system units
               dLW2log = log10(pow(10, dMax8Log2) + pow(10, dStochLog2));
           }

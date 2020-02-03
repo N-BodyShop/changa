@@ -11,7 +11,6 @@
 #include "starform.h"
 #include "smooth.h"
 #include "Sph.h"
-#include "lymanwerner.h"
 
 
 ///
