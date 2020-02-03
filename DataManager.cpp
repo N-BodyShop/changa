@@ -56,6 +56,7 @@ void DataManager::init() {
   hapiCreateStreams();
 #endif
   Cool = CoolInit();
+  LWData = LymanWernerTableInit();
   starLog = new StarLog();
   hmStarLog = new HMStarLog();
   lockStarLog = CmiCreateLock();

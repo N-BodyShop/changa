@@ -12,6 +12,7 @@
 #include <string>
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
+#include "lymanwerner.h"
 
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
 #include "ckBIconfig.h"
@@ -160,6 +161,10 @@ public:
 	 ** Cooling 
 	 */
 	COOL *Cool;
+    /*
+     * LW Feedback
+     */
+    LWDATA *LWData;
 	/// @brief log of star formation events.
 	///
 	/// Star formation events are stored on the data manager since there
@@ -212,6 +217,7 @@ public:
     	    nodeTable.clear();
 
 	    CoolFinalize(Cool);
+        LymanWernerTableFinalize(LWData);
 	    delete starLog;
         delete hmStarLog;
 	    CmiDestroyLock(lockStarLog);
@@ -268,6 +274,7 @@ public:
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);
     void initStarLog(std::string _fileName, const CkCallback &cb);
+    void initLWData(const CkCallback &cb);
     void initHMStarLog(std::string _fileName, const CkCallback &cb);
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift

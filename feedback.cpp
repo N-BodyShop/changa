@@ -654,10 +654,28 @@ double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in y
       if (dAge1log < 7) dAge1log = 7.0;
       dAge2log = log10(dStarAge + dDelta);
       if (dAge2log < 7) dAge2log = 7.0;
-      if (dAge1log < 9.0) dLW1log = calcLogSSPLymanWerner(dAge1log,log10(sfEvent->dMass*MSOLG/dGmUnit));
-      else dLW1log = dA0old + dA1old*dAge1log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
-      if (dAge2log < 9.0) dLW2log = calcLogSSPLymanWerner(dAge2log,log10(sfEvent->dMass*MSOLG/dGmUnit));
-      else dLW2log = dA0old + dA1old*dAge2log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
+      if (!sn.bUseStoch){
+          if (dAge1log < 9.0) dLW1log = calcLogSSPLymanWerner(dAge1log,log10(sfEvent->dMass*MSOLG/dGmUnit));
+          else dLW1log = dA0old + dA1old*dAge1log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
+          if (dAge2log < 9.0) dLW2log = calcLogSSPLymanWerner(dAge2log,log10(sfEvent->dMass*MSOLG/dGmUnit));
+          else dLW2log = dA0old + dA1old*dAge2log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
+      }
+      else{ // stochastic calculation must be done in Msol and then converted to system units
+          if (dAge1log < 9.0){
+              double dMax8Log1 = calcLogMax8LymanWerner(dAge1log,log10(sfEvent->dLowNorm*MSOLG/dGmUnit));
+              double dStochLog1 = calcLogStochLymanWerner(dAge1log, sfEvent, dm->LWData);
+              dStochLog1 += log10(MSOLG/dGmUnit); // converting stoch portion to system units
+              dLW1log = log10(pow(10, dMax8Log1) + pow(10, dStochLog1));
+          }   
+          else dLW1log = dA0old + dA1old*dAge1log + log10(sfEvent->dLowNorm*MSOLG/dGmUnit); /*Close to zero*/
+          if (dAge2log < 9.0){
+              double dMax8Log2 = calcLogMax8LymanWerner(dAge2log,log10(sfEvent->dLowNorm*MSOLG/dGmUnit));
+              double dStochLog2 = calcLogStochLymanWerner(dAge2log, sfEvent, dm->LWData);
+              dStochLog2 += log10(MSOLG/dGmUnit); // converting stoch portion to system units
+              dLW2log = log10(pow(10, dMax8Log2) + pow(10, dStochLog2));
+          }
+          else dLW2log = dA0old + dA1old*dAge2log + log10(sfEvent->dLowNorm*MSOLG/dGmUnit); /*Close to zero*/
+      }
       return log10((pow(10,dLW1log) + pow(10,dLW2log))/2);
     }
     else return 0;

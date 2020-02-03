@@ -43,6 +43,7 @@
 PUPbytes(InDumpFrame);
 PUPbytes(COOL);
 PUPbytes(COOLPARAM);
+//PUPbytes(LWDATA);
 
 #ifdef HPM_COUNTER
 #include <libhpm.h>
@@ -1796,6 +1797,7 @@ public:
 	void SplitGas(double dInitGasMass, const CkCallback& cb);
 #endif
 	inline COOL* Cool() {return dm->Cool;}
+    inline LWDATA* LWData() {return dm->LWData;}
 	/// @brief initialize random seed for star formation
 	void initRand(int iRand, const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,

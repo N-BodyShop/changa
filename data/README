@@ -20,3 +20,8 @@ planck.abpoll.p3p5.amax1.dat: Same as above, but with Planck mean opacities.
 
 mri.director: an example director file to create an MRI of a cosmological
 volume.
+
+lwtables.txt: A (non-regular!) grid of masses (rows, in Msol)  and times (cols, in yr), giving the LW flux (in photons/sec) for each mass/age of the star.
+Used for stochastic IMF, which includes individual high mass stars. Values derived using starburst99, restricting the lmax/lmin
+parameters to just one single stellar mass. The mass values are 8-39 in intervals of 1, and 41-99 in intervals of 2. The times are
+1.0e4-9.801e7 in intervals of 2.e6. The first line gives nrow and ncol, respectively.
