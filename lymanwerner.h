@@ -6,9 +6,13 @@
 
 #include <math.h>
 #include <stdlib.h>
-#include "feedback.h"
+//#include "feedback.h"
 
 /* inline function used in feedback.C and starform.C to calculate the Lyman Werner luminosity for a star particle of a given age and mass*/
+
+#ifdef __cplusplus
+extern "C" {
+#endif
 
 typedef struct lwDataStruct {
     float **lwLuminosity;
@@ -18,7 +22,11 @@ LWDATA *LymanWernerTableInit( );
 void LymanWernerTableFinalize(LWDATA *lwd);
 void lwInitData(LWDATA *lwd);
 
-double calcLogStochLymanWerner(double dAgelog, SFEvent *sfEvent, LWDATA *LWData);
+double calcLogStochLymanWerner(double dAgelog, double *rgdHMStars, LWDATA *lwd);
+
+//#ifdef __cplusplus
+//}
+//#endif
 
 inline double calcLogSSPLymanWerner(double dAgelog, double dMassLog)
 {
@@ -59,5 +67,7 @@ inline double calcLogMax8LymanWerner(double dAgelog, double loglownorm)
       + a4*dAgelog*dAgelog*dAgelog*dAgelog
       + a5*dAgelog*dAgelog*dAgelog*dAgelog*dAgelog + loglownorm;
 }
-
+#ifdef __cplusplus
+}
+#endif
 #endif

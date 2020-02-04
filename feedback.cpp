@@ -368,16 +368,19 @@ void Main::StellarFeedback(double dTime, double dDelta)
     delete msgChk2;
     }
 void Main::initLWData(){
+    CkPrintf("Main::initLWData()\n");
     dMProxy.initLWData(CkCallbackResumeThread());
     treeProxy.initLWData(CkCallbackResumeThread());
 }
 void DataManager::initLWData(const CkCallback& cb)
 {
+    CkPrintf("DataManager::initLWData()\n");
     lwInitData(LWData);
     contribute(cb);
 }
 void TreePiece::initLWData(const CkCallback& cb)
 {
+    CkPrintf("TreePiece::initLWData()\n");
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     contribute(cb);
 }
@@ -677,14 +680,14 @@ double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in y
       else{ // stochastic calculation must be done in Msol and then converted to system units
           if (dAge1log < 9.0){
               double dMax8Log1 = calcLogMax8LymanWerner(dAge1log,log10(sfEvent->dLowNorm*MSOLG/dGmUnit));
-              double dStochLog1 = calcLogStochLymanWerner(dAge1log, sfEvent, LWData);
+              double dStochLog1 = calcLogStochLymanWerner(dAge1log, sfEvent->rgdHMStars, LWData);
               dStochLog1 += log10(MSOLG/dGmUnit); // converting stoch portion to system units
               dLW1log = log10(pow(10, dMax8Log1) + pow(10, dStochLog1));
           }   
           else dLW1log = dA0old + dA1old*dAge1log + log10(sfEvent->dLowNorm*MSOLG/dGmUnit); /*Close to zero*/
           if (dAge2log < 9.0){
               double dMax8Log2 = calcLogMax8LymanWerner(dAge2log,log10(sfEvent->dLowNorm*MSOLG/dGmUnit));
-              double dStochLog2 = calcLogStochLymanWerner(dAge2log, sfEvent, LWData);
+              double dStochLog2 = calcLogStochLymanWerner(dAge2log, sfEvent->rgdHMStars, LWData);
               dStochLog2 += log10(MSOLG/dGmUnit); // converting stoch portion to system units
               dLW2log = log10(pow(10, dMax8Log2) + pow(10, dStochLog2));
           }
