@@ -385,7 +385,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     *  You end up with an array of individual high mass stars and
     * a normalization constant for the continuous, low mass IMF
     */
-    if(bUseStoch){
+    if(bUseStoch && newbh == 0){ /*Make sure this is a star, not a BH*/
         /* Setting all high mass stars to default (0) */
         for(int i=0;i<ARRLENGTH;i++){
             starp->rgfHMStars(i)=0.0;
