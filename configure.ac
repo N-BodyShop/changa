@@ -267,19 +267,15 @@ if test "$cooling" = "grackle" ; then
 fi
 
 # Stochastic IMF
-AC_ARG_ENABLE([stoch],
-    [AS_HELP_STRING([--enable-stoch], [Enable stochastic imf (12,24)])],
+AC_ARG_ENABLE([stoch], 
+    [AS_HELP_STRING([--enable-stoch], [Enable stochastic IMF (12,24)])],
     [stoch=$enableval], [stoch=no])
-if test "$stoch" = "12" ; then
-    echo "Stochastic IMF (12) selected"
-    FLAG_STOCH="-DSTOCH12"
-elif test "$stoch" = "24" ; then
-    echo "$Stochastic IMF (24) selected"
-    FLAG_STOCH="-DSTOCH24"
-else
-    FLAG_STOCH=""
-fi
-
+case $stoch in
+    no|none ) FLAG_STOCH="";;
+    12      ) FLAG_STOCH="-DSTOCH12";;
+    24      ) FLAG_STOCH="-DSTOCH24";;
+    *       ) AC_MSG_ERROR([invalid argument for '--enable-stoch': $stoch]);;
+esac
 AC_SUBST([FLAG_STOCH])
  
 # Velocity damping
@@ -381,7 +377,7 @@ echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE $FLAG_SUPERBUBBLE
-echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
 
