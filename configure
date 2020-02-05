@@ -642,6 +642,7 @@ FLAG_DIFFHARMONIC
 FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFUSION
 FLAG_DAMPING
+FLAG_STOCH
 FLAG_COOLING
 FLAG_SPH_KERNEL
 flag_sph_m6kernel_deprecated
@@ -742,6 +743,7 @@ enable_wendland
 enable_m6kernel
 enable_sph_kernel
 enable_cooling
+enable_stoch
 enable_damping
 enable_diffusion
 enable_feedbacklimit
@@ -1398,6 +1400,7 @@ Optional Features:
   --enable-sph-kernel     SPH interpolation kernel (m4,m6,wendland)
   --enable-cooling        gas cooling
                           (none,planet,cosmo,boley,metal,H2,grackle)
+  --enable-stoch          Enable stochastic IMF (12,24)
   --enable-damping        velocity damping in glasses
   --enable-diffusion      thermal and metal diffusion
   --enable-feedbacklimit  limit diffusion of feedback energy
@@ -4751,6 +4754,22 @@ $as_echo "$as_me: WARNING: Also remember to set LD_LIBRARY_PATH when running, if
    fi
 fi
 
+# Stochastic IMF
+# Check whether --enable-stoch was given.
+if test "${enable_stoch+set}" = set; then :
+  enableval=$enable_stoch; stoch=$enableval
+else
+  stoch=no
+fi
+
+case $stoch in
+    no|none ) FLAG_STOCH="";;
+    12      ) FLAG_STOCH="-DSTOCH12";;
+    24      ) FLAG_STOCH="-DSTOCH24";;
+    *       ) as_fn_error $? "invalid argument for '--enable-stoch': $stoch" "$LINENO" 5;;
+esac
+
+
 # Velocity damping
 	# Check whether --enable-damping was given.
 if test "${enable_damping+set}" = set; then :
@@ -6936,7 +6955,7 @@ echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE $FLAG_SUPERBUBBLE
-echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
 
