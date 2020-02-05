@@ -500,9 +500,11 @@ public:
 	inline double& fMOxygenOut() {IMASTAR; return (((extraStarData*)extraData)->fMOxygenOut());}
 	inline double& fSNMetals() {IMASTAR; return (((extraStarData*)extraData)->fSNMetals());}
 	inline int64_t& iGasOrder() { IMASTAR; return (((extraStarData*)extraData)->iGasOrder());}
+#if defined (STOCH12) || defined (STOCH24)
     inline double& rgfHMStars(int i) { IMASTAR; return (((extraStarData*)extraData)->rgfHMStars(i));}
     inline double* rgfHMStars() { IMASTAR; return (((extraStarData*)extraData)->rgfHMStars());}
     inline double& fLowNorm() {IMASTAR; return (((extraStarData*)extraData)->fLowNorm());}
+#endif /*STOCH*/
 	inline int64_t& iEaterOrder() { IMASTAR; return (((extraStarData*)extraData)->iEaterOrder());}
 	inline double& dDeltaM() { IMASTAR; return (((extraStarData*)extraData)->dDeltaM());}
 	inline double& dMDot() { IMASTAR; return (((extraStarData*)extraData)->dMDot());}
