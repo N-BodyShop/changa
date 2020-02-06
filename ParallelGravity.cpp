@@ -2284,7 +2284,10 @@ void Main::setupICs() {
 	
   if(param.bFeedback){
       param.feedback->CheckParams(prm, param);
-      initLWData();
+#ifdef COOLING_MOLECULARH
+      if(param.feedback->sn.bUseStoch)
+          initLWData();
+#endif
       }
   else
       param.feedback->NullFeedback();
@@ -2638,7 +2641,10 @@ Main::restart(CkCheckpointStatusMsg *msg)
             initHMStarLog();
         }
     if(param.bFeedback)
-        initLWData();
+#ifdef COOLING_MOLECULARH
+      if(param.feedback->sn.bUseStoch)
+            initLWData();
+#endif
         if(param.bStarForm || param.bFeedback)
             treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
         DumpFrameInit(dTime0, 0.0, bIsRestarting);

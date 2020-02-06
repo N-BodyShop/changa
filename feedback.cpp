@@ -408,7 +408,12 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if(p->isStar() && p->fTimeForm() >= 0.0) 
-	  fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, dm->LWData);
+        if(fb.sn.bUseStoch){
+          fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, dm->LWData);
+        }
+        else {
+            fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, NULL); /* If not stochastic IMF, LWData table never initialized*/
+        }
 	else if(p->isGas()){
 	  CkAssert(p->u() >= 0.0);
 	  CkAssert(p->uPred() >= 0.0);
