@@ -2640,9 +2640,8 @@ Main::restart(CkCheckpointStatusMsg *msg)
         if(param.feedback->sn.bUseStoch)
             initHMStarLog();
         }
-    if(param.bFeedback)
 #ifdef COOLING_MOLECULARH
-      if(param.feedback->sn.bUseStoch)
+    if(param.bFeedback && param.feedback->sn.bUseStoch)
             initLWData();
 #endif
         if(param.bStarForm || param.bFeedback)
