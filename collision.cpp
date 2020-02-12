@@ -533,9 +533,9 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
 
     double cs = 1;
     double dDenFac = 4./3.* M_PI;
-    double row1 = Mtot/ (4/3* dDenFac* pow(r,3));
-    double QsRD = (cs) * (4/5)* dDenFac * row1 * (pow(RC1,2));
-    double Vsy = pow(32*dDenFac,.5)/5 * pow(row1,.5) * RC1;
+    double row1 = Mtot/ (4./3.* dDenFac* pow(r,3));
+    double QsRD = (cs) * (4./5.)* dDenFac * row1 * (pow(RC1,2));
+    double Vsy = pow(32*dDenFac,.5)/5. * pow(row1,.5) * RC1;
 
     //we defined alpha in line 700 upcoming is step c(idk what Mtarget is)
     double Mp = pow(4*r,3);
@@ -547,9 +547,9 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     double Vs = (QsRD) * (Vsy);
 
     // e for equation 15  i dont understand it's exponet and how to do square root ex on eq16
-    double Vbars = sqrt(1/alpha * pow(Vs,2));  
+    double Vbars = sqrt(1./alpha * pow(Vs,2));  
     double mubar = 1; //set by user
-    double QsRDa = 1/ alpha * QsRD * pow(Vbars/Vs,2-(3*mubar)) ;
+    double QsRDa = 1./ alpha * QsRD * pow(Vbars/Vs,2-(3*mubar)) ;
     double Vsa = sqrt((2*(QsRDa)* Mtot)/ mu );
 
     //step 5 
@@ -588,12 +588,12 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     }
     //Ckprintf("%g",)
 
-    double mass_Mlr = QR/QsRDa;
+    double mass_Mlr = QRn/QsRDa;
     double beta = 2.85;
-    double Mslr = Mtot*(3-beta)*1-(Mlr/Mtot)/(2*beta);
+    double Mslr = Mtot*((3-beta)*(1-(Mlr/Mtot))/(2*beta));
         //equation 35
 
-    double C = beta*pow((3-beta)*(Mtot-mass_Mlr)/ 4/3 *M_PI*row1*2*beta,beta/3);
+    double C = beta*pow((3-beta)*(Mtot-mass_Mlr)/ 4./3. *M_PI*row1*2*beta,beta/3.);
 
 
     
@@ -601,7 +601,7 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
 double gammad= Mint/Mp;
 //equation23
 
-double QRDDS = pow(.25*pow(gammad+1,2)/gammad,2/((3*mubar)-1));
+double QRDDS = pow(.25*pow(gammad+1,2)/gammad,2./((3*mubar)-1));
  
 
 double deltaV= 2e-3;
@@ -611,8 +611,14 @@ Vector3D<double> Vlr = M*c1.velocity + m*c2.velocity;
 double norm =((log10(Mslr*deltaV*S*log(10))-A)/-S)-(Vlr.length());
 
 
-double Vslr=((log10(Mslr*(deltaV/10)*S*log(10))-A)/-S)-norm;
-CkPrintf("%g \n ",Vslr);
+double speed_slr=((log10(Mslr*(deltaV/10)*S*log(10))-A)/-S)-norm;
+
+CkPrintf("%g \n ",speed_slr);
+double phi = rand()/((double)RAND_MAX)* (2*M_PI);
+double theta = rand()/((double)RAND_MAX)* (M_PI);
+Vector3D<double> vn = (sin(theta)* cos(phi), sin(theta)*sin(phi) , cos(theta)); 
+Vector3D<double> Vslr = vn * speed_slr;
+
 
 
 
