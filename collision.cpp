@@ -492,7 +492,6 @@ void TreePiece::getNeedCollStep(int collStepRung, const CkCallback& cb)
  */
 int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
 {
-
     // Calculate the post collision spin and velocity of the merged particle
     Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
     double radNew;
@@ -521,6 +520,8 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     double vEsc = sqrt(2.*Mint/(c1.radius + c2.radius));
     double wMax = sqrt(Mtot/(radNew*radNew*radNew));
 
+
+    // step 3 eq 6
     double b = sintheta ;
     double bcrit = (R) / (R+r) ;
     if (b > bcrit) {
@@ -528,9 +529,12 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
         } else  {
             CkPrintf ("nongrazing collision\n") ;
         }
+
+    // step 4 a
     double density = 5.028e-28;
     double RC1 = (Mtot)/(density);
 
+    //step 4b eq 28 and 30 
     double cs = 1;
     double dDenFac = 4./3.* M_PI;
     double row1 = Mtot/ (4./3.* dDenFac* pow(r,3));
@@ -538,15 +542,16 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     double Vsy = pow(32*dDenFac,.5)/5. * pow(row1,.5) * RC1;
 
     //we defined alpha in line 700 upcoming is step c(idk what Mtarget is)
+    // step 4 c eq 12
     double Mp = pow(4*r,3);
     double Mtarget = M ;
     double mu = (M + m) / (M*m); 
 
 
-    // d 
+    // step 4d 
     double Vs = (QsRD) * (Vsy);
 
-    // e for equation 15  i dont understand it's exponet and how to do square root ex on eq16
+    // step 4e for equation 15  i dont understand it's exponet and how to do square root ex on eq16
     double Vbars = sqrt(1./alpha * pow(Vs,2));  
     double mubar = 1; //set by user
     double QsRDa = 1./ alpha * QsRD * pow(Vbars/Vs,2-(3*mubar)) ;
@@ -579,8 +584,8 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
             }
         }
 
-// step 7
-        double QRn = (((Mlr/.1 *Mtot)-.5)/-.5)*QsRDa;
+// step  7 eq 5 qnd 1
+        double QRn = (((Mlr/Mtot)-.5)/-.5)*(QsRDa -1);
         double Vsupercat = sqrt(QRn*2 /mtot);
 
     if (V_i > V_erosion &&V_i<Vsupercat){
@@ -599,7 +604,7 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
     
 
 double gammad= Mint/Mp;
-//equation23
+//equation23 step 4d
 
 double QRDDS = pow(.25*pow(gammad+1,2)/gammad,2./((3*mubar)-1));
  
@@ -618,6 +623,8 @@ double phi = rand()/((double)RAND_MAX)* (2*M_PI);
 double theta = rand()/((double)RAND_MAX)* (M_PI);
 Vector3D<double> vn = (sin(theta)* cos(phi), sin(theta)*sin(phi) , cos(theta)); 
 Vector3D<double> Vslr = vn * speed_slr;
+iCollType= FRAG;
+
 
 
 
@@ -751,7 +758,18 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
         p->soft = radNew/2.;
         p->mass += c.mass;
                   
-        }
+        } else if (iCollType == FRAG ){
+            if (p->iOrder > c.iOrder){
+                p->mass = mass_Mlr ;
+                p->velocity = v_cm ;
+
+            }   else { 
+                p->mass = Mslr;
+                p->velocity = Vslr;
+            }
+          
+        }   
+
     else {
         CkPrintf("Bounce info:\niorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y\
                   x2z xNewx xNewy xNewz v1x v1y v1z v2x v2y v2z vNewx vNewy vNewz\
