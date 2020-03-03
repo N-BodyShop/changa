@@ -1,0 +1,62 @@
+#pragma once
+
+#ifndef __NVCC__
+# error "This header must be compiled with nvcc only"
+#endif
+
+#include <cuda_runtime.h>
+
+/*! \file
+ *
+ * \brief Wrapper for CUDA voting intrinsics
+ *
+ * Provide wrapper implementations of the deprecated/removed warp-level
+ * voting functions that work with any version of CUDA.
+ *
+ * From the CUDA 10 documention:
+ *
+ * Deprecation Notice:
+ *    `__any`, `__all`, and `__ballot` have been deprecated in CUDA 9.0 for
+ *    all devices.
+ *
+ * Removal Notice:
+ *    When targeting devices with compute capability 7.x or higher, `__any`,
+ *    `__all`, and `__ballot` are no longer available and their sync variants
+ *    should be used instead. 
+ *
+ * \warning
+ *  For `__all_sync`, `__any_sync`, and `__ballot_sync`, a mask must be passed
+ *  that specifies the threads participating in the call. A bit, representing
+ *  the thread's lane ID, must be set for each participating thread to ensure
+ *  they are properly converged before the intrinsic is executed by the
+ *  hardware. All active threads named in mask must execute the same intrinsic
+ *  with the same mask, or the result is undefined.
+ *
+ */
+
+__device__ inline int all(int predicate, unsigned mask = 0xFFFFFFFF) {
+#if CUDART_VERSION >= 9000 || __CUDA_ARCH__ >= 700
+  return __all_sync(mask, predicate);
+#else
+  (void)mask; // silence compiler warning
+  return __all(predicate);
+#endif
+}
+
+__device__ inline int any(int predicate, unsigned mask = 0xFFFFFFFF) {
+#if CUDART_VERSION >= 9000 || __CUDA_ARCH__ >= 700
+  return __any_sync(mask, predicate);
+#else
+  (void)mask; // silence compiler warning
+  return __any(predicate);
+#endif
+}
+
+__device__ inline unsigned ballot(int predicate, unsigned mask = 0xFFFFFFFF) {
+#if CUDART_VERSION >= 9000 || __CUDA_ARCH__ >= 700
+  return __ballot_sync(mask, predicate);
+#else
+  (void)mask; // silence compiler warning
+  return __ballot(predicate);
+#endif
+}
