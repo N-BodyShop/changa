@@ -2368,6 +2368,9 @@ void Main::setupICs() {
 #ifdef COOLING_MOLECULARH
   ofsLog << " COOLING_MOLECULARH";
 #endif
+#ifdef COOLING_GRACKLE
+  ofsLog << " COOLING_GRACKLE";
+#endif
 #ifdef DIFFUSION
   ofsLog << " DIFFUSION";
 #endif
