@@ -1146,6 +1146,17 @@ __global__ void gpuLocalTreeWalk(
   CUDABucketNode  myNode;
   CompactPartData myParticle;
 
+#if __CUDA_ARCH__ >= 700
+  // Non-lockstepping code for Volta GPUs
+  int sp;
+  int stk[stackDepth];
+  CUDATreeNode targetNode;
+
+#define SP sp
+#define STACK_TOP_INDEX stk[SP]
+#define TARGET_NODE targetNode
+#else
+  // Default lockstepping code
   __shared__ int sp[WARPS_PER_BLOCK];
   __shared__ int stk[WARPS_PER_BLOCK][stackDepth];
   __shared__ CUDATreeNode targetNode[WARPS_PER_BLOCK];
@@ -1153,6 +1164,7 @@ __global__ void gpuLocalTreeWalk(
 #define SP sp[WARP_INDEX]
 #define STACK_TOP_INDEX stk[WARP_INDEX][SP]
 #define TARGET_NODE targetNode[WARP_INDEX]
+#endif
 
   CudaVector3D acc = {0,0,0};
   cudatype pot = 0;
@@ -1188,7 +1200,11 @@ __global__ void gpuLocalTreeWalk(
           flag = 1;
           critical = stackDepth;
           cond = 1;
+#if __CUDA_ARCH__ >= 700
+          stackInit(SP, stk, rootIdx);
+#else
           stackInit(SP, stk[WARP_INDEX], rootIdx);
+#endif
           while(SP >= 0) {
             if (flag == 0 && critical >= SP) {
               flag = 1;
@@ -1316,6 +1332,9 @@ __global__ void gpuLocalTreeWalk(
                 }
               }
             }
+#if __CUDA_ARCH__ >= 700
+            __syncwarp();
+#endif
           }
         } // z replicas
       } // y replicas
