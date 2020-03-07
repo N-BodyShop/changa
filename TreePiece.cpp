@@ -3263,10 +3263,12 @@ bool TreePiece::sendFillReqNodeWhenNull(CkCacheRequestMsg<KeyType> *msg) {
     }
     int iResp = getResponsibleIndex(first, last);
     // Handle the case where the chosen "owner" happens to be empty.
-    if (iResp == thisIndex)
+    if(getResponsibleIndex(last, last) == thisIndex)
         iResp = getResponsibleIndex(first, first);
-    if (iResp == thisIndex)
-        iResp = getResponsibleIndex(last, last);
+    else {
+        if(last > myPlace)
+            iResp = dm->responsibleIndex[myPlace + 1];
+    }
     if(iResp != thisIndex) {
         treeProxy[iResp].fillRequestNode(msg);
         return true;
