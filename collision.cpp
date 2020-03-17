@@ -618,9 +618,17 @@ double norm =((log10(Mslr*deltaV*S*log(10))-A)/-S)-(Vlr.length());
 
 double speed_slr=((log10(Mslr*(deltaV/10)*S*log(10))-A)/-S)-norm;
 
-CkPrintf("%g \n ",speed_slr);
-double phi = rand()/((double)RAND_MAX)* (2*M_PI);
-double theta = rand()/((double)RAND_MAX)* (M_PI);
+CkPrintf("%g \n ",speed_slr); 
+// making u and v into a random number between 0-1 
+double u = ((double) rand() / ((RAND_MAX)+1));
+double v = ((double) rand() / ((RAND_MAX)+1));
+
+//double phi = rand()/((double)RAND_MAX)* (2*M_PI);
+//double theta = rand()/((double)RAND_MAX)* (M_PI);
+
+double phi = acos((2*v)-1);
+double theta = 2* M_PI * u ;
+
 Vector3D<double> vn = (sin(theta)* cos(phi), sin(theta)*sin(phi) , cos(theta)); 
 Vector3D<double> Vslr = vn * speed_slr;
 iCollType= FRAG;
