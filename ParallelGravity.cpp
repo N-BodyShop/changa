@@ -1661,7 +1661,7 @@ void Main::advanceBigCollStep(int iStep) {
   ckout << "Checking for near collisions ...";
   if (bParticlesShuffled) {
     ckout << "Particles have been shuffled since last DD, re-sorting\n";
-    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy,
+    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                     CkCallbackResumeThread());
     startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
     }
@@ -1751,7 +1751,7 @@ void Main::advanceBigCollStep(int iStep) {
                   CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
                   // The following call is to get the particles in key order
                   // before the sort.
-                  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy,
+                  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                         CkCallbackResumeThread());
                   startSorting(dataManagerID, ddTolerance,
                                           CkCallbackResumeThread(), true);
