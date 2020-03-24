@@ -321,10 +321,14 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg<KeyType> *msg) {
   for(int i = data->begin; j < data->nActual && i <= data->end; i++) {
       while(data->partExt[j].iBucketOff > i - data->begin)
           i++;
-      CkAssert(TYPETest(&myParticles[i], sc->params->iType));
+      // Only do the type check if we are smoothing over a "base"
+      // type.  Other types (e.g. DELETED) can change over the smaooth
+      // operation.
+      if(sc->params->iType & (TYPE_DARK|TYPE_GAS|TYPE_STAR))
+          CkAssert(TYPETest(&myParticles[i], sc->params->iType));
       sc->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
       j++;
-      }
+  }
   
   nCacheAccesses--;
   delete msg;
