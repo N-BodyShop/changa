@@ -1475,9 +1475,17 @@ inline int64_t *iOrderBoundaries(int nPieces, int64_t nMaxOrder)
 
 ///
 /// @brief Reorder particles for output
+/// @param _nMaxOrder Maximum iOrder used to calculate TreePiece
+/// boundaries for output.
+/// @param cb Callback for when all the shuffling is done.
+///
+/// After determining iOrder boundaries, the number of particles in
+/// each TreePiece is calculated via a reduction.
 ///
 void TreePiece::reOrder(int64_t _nMaxOrder, const CkCallback& cb)
 {
+    LBTurnInstrumentOff();      // The load balancer should not
+                                // measure output timings.
     callback = cb; // Save callback for after shuffle
     int *counts = new int[numTreePieces];
     int iPiece;
