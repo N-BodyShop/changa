@@ -108,7 +108,6 @@ class extraSPHData
     double _massHot; /* Hot phase mass*/
     double _fDensityU; /* Energy-scaled density */
     double _fThermalCond; /* Conduction rate */
-    double _fThermalLength; /* Conduction length */
     double _fPromoteSum; /* Total evaporated mass */
     double _fPromoteSumuPred; /* Total evaporating energy */
     double _fPromoteuPredInit; /* Original energy pre-evaporation */
@@ -171,7 +170,6 @@ class extraSPHData
     inline double& massHot() {return _massHot;}
     inline double& fDensityU() {return _fDensityU;}
     inline double& fThermalCond() {return _fThermalCond;}
-    inline double& fThermalLength() {return _fThermalLength;}
     inline double& fPromoteSum() {return _fPromoteSum;}
     inline double& fPromoteSumuPred() {return _fPromoteSumuPred;}
     inline double& fPromoteuPredInit() {return _fPromoteuPredInit;}
@@ -233,7 +231,6 @@ class extraSPHData
     p| _massHot;
     p| _fDensityU;
     p| _fThermalCond;
-    p| _fThermalLength;
     p| _fPromoteSum;
     p| _fPromoteSumuPred;
     p| _fPromoteuPredInit;
@@ -462,7 +459,6 @@ public:
 	inline double& massHot() { IMAGAS; return (((extraSPHData*)extraData)->massHot());}
 	inline double& fDensityU() { IMAGAS; return (((extraSPHData*)extraData)->fDensityU());}
 	inline double& fThermalCond() { IMAGAS; return (((extraSPHData*)extraData)->fThermalCond());}
-	inline double& fThermalLength() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
 	inline double& fPromoteSum() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteSum());}
 	inline double& fPromoteSumuPred() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteSumuPred());}
 	inline double& fPromoteuPredInit() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteuPredInit());}
@@ -624,7 +620,6 @@ class ExternalSmoothParticle {
   double massHot;
   double fDensityU;
   double fThermalCond;
-  double fThermalLength;
   double fPromoteSum;
   double fPromoteSumuPred;
   double fPromoteuPredInit;
@@ -689,7 +684,6 @@ class ExternalSmoothParticle {
           massHot = p->massHot();
           fDensityU = p->fDensityU();
           fThermalCond = p->fThermalCond();
-          fThermalLength = p->fThermalLength();
           fPromoteSum = p->fPromoteSum();
           fPromoteSumuPred = p->fPromoteSumuPred();
           fPromoteuPredInit = p->fPromoteuPredInit();
@@ -759,7 +753,6 @@ class ExternalSmoothParticle {
       tmp->massHot() = massHot;
       tmp->fDensityU() = fDensityU;
       tmp->fThermalCond() = fThermalCond;
-      tmp->fThermalLength() = fThermalLength;
       tmp->fPromoteSum() = fPromoteSum;
       tmp->fPromoteSumuPred() = fPromoteSumuPred;
       tmp->fPromoteuPredInit() = fPromoteuPredInit;
@@ -830,7 +823,6 @@ class ExternalSmoothParticle {
     p | massHot;
     p | fDensityU;
     p | fThermalCond;
-    p | fThermalLength;
     p | fPromoteSum;
     p | fPromoteSumuPred;
     p | fPromoteuPredInit;
