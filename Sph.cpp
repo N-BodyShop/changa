@@ -1197,9 +1197,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         p->fDensityU() = fDensityU;
     }
     double rhogradu=sqrt(rgux*rgux+rguy*rguy+rguz*rguz)*fNorm*ih2;
-    //double rhogradu=sqrt(grx*grx+gry*gry+grz*grz)*fNorm*ih2;
-    p->fThermalLength() = (rhogradu != 0 ? fDensityU/rhogradu : FLT_MAX);
-    if (p->fThermalLength()*ih < 1) p->fThermalLength() = 1/ih;
 #endif
         trace = dvxdx+dvydy+dvzdz;
         // keep Norm positive consistent w/ std 1/rho norm
