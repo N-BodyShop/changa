@@ -381,9 +381,20 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 
     /* loop through particles */
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
-	GravityParticle *p = &myParticles[i];
-	if(p->isStar() && p->fTimeForm() >= 0.0) 
-	  fb.DoFeedback(p, dTime, dDeltaYr, fbTotals);
+        GravityParticle *p = &myParticles[i];
+        if(p->isStar()) {
+            if(p->fTimeForm() >= 0.0) {
+                fb.DoFeedback(p, dTime, dDeltaYr, fbTotals);
+            }
+            else {  // zero out feedback quantities for Sinks
+                p->fMSN() = 0.0;
+                p->fSNMetals() = 0.0;
+                p->fMIronOut() = 0.0;
+                p->fMOxygenOut() = 0.0;
+                p->fStarESNrate() = 0.0;
+                p->fNSN() = 0.0;
+            }
+        }
 	else if(p->isGas()){
 	  CkAssert(p->u() >= 0.0);
 	  CkAssert(p->uPred() >= 0.0);
@@ -829,8 +840,8 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     double dAge, aFac, dCosmoDenFac;
     int i,counter,imind;
     
-    if ( p->fMSN() == 0.0 ){return;}
     if ( p->fTimeForm() < 0.0) {return;}  //don't want to do this calculatino for a BH
+    if ( p->fMSN() == 0.0 ){return;}
  
     /* "Simple" ejecta distribution (see function above) */
     DistFBMME(p,nSmooth,nList);
