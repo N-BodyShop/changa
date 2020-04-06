@@ -6522,8 +6522,8 @@ void TreePiece::memCacheStats(const CkCallback &cb)
 
 void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
   LDObjHandle handle = myRec->getLdHandle();
-  LBDatabase *lbdb = LBDatabaseObj();
-  int nlbs = lbdb->getNLoadBalancers(); 
+  LBManager *lbMgr = LBManagerObj();
+  int nlbs = lbMgr->getNLoadBalancers();
 
   if(nlbs == 0) { // no load balancers.  Skip this
       contribute(cb);
@@ -6562,7 +6562,7 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
   string msorb_name("MultistepOrbLB");
   string hierarch_name("HierarchOrbLB");
 
-  BaseLB **lbs = lbdb->getLoadBalancers();
+  BaseLB **lbs = lbMgr->getLoadBalancers();
   int i;
   if(foundLB == Null){
     for(i = 0; i < nlbs; i++){
