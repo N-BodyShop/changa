@@ -2433,14 +2433,14 @@ void Main::setupICs() {
          << sizeof(NodeKey) << " bytes node" << endl;
 
   // Print out load balance information
-  LBDatabase *lbdb = LBDatabaseObj();
-  int nlbs = lbdb->getNLoadBalancers(); 
+  LBManager *lbMgr = LBManagerObj();
+  int nlbs = lbMgr->getNLoadBalancers();
   if(nlbs == 0) {
       ofsLog << "# No load balancer in use" << endl;
       }
   else {
       int ilb;
-      BaseLB **lbs = lbdb->getLoadBalancers();
+      BaseLB **lbs = lbMgr->getLoadBalancers();
       ofsLog << "# Load balancers:";
       for(ilb = 0; ilb < nlbs; ilb++){
 	  ofsLog << " " << lbs[ilb]->lbName();
