@@ -756,7 +756,7 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
                 c.position.x, c.position.y, c.position.z,
                 posNew.x, posNew.y, posNew.z,
                 p->velocity.x, p->velocity.y, p->velocity.z,
-                c.velocity.x, c.velocity.x, c.velocity.z,
+                c.velocity.x, c.velocity.y, c.velocity.z,
                 vNew.x, vNew.y, vNew.z,
                 p->w.x, p->w.y, p->w.z,
                 c.w.x, c.w.y, c.w.z,
