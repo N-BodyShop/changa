@@ -1740,10 +1740,8 @@ void Main::advanceBigCollStep(int iStep) {
 	      if(verbosity)
 		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
 
-          if (param.collision.bDelEjected) {
+          if (param.collision.bDelEjected)
               treeProxy.delEjected(param.collision.dDelDist, CkCallbackResumeThread());
-              addDelParticles();
-              }
           // Collision detection and response handling
           if (param.bCollision) {
               CkPrintf("Starting collision detection and response\n");
@@ -1871,10 +1869,8 @@ void Main::advanceBigCollStep(int iStep) {
   }
 
   treeProxy.resetRungs(CkCallbackResumeThread());
-  if (param.collision.bDelEjected) {
+  if (param.collision.bDelEjected)
       treeProxy.delEjected(param.collision.dDelDist, CkCallbackResumeThread());
-      addDelParticles();
-      }
 }
 #endif
 
