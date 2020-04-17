@@ -2433,7 +2433,12 @@ void Main::setupICs() {
          << sizeof(NodeKey) << " bytes node" << endl;
 
   // Print out load balance information
+#ifdef LB_MANAGER_VERSION
   LBManager *lbMgr = LBManagerObj();
+#else
+  LBDatabase *lbMgr = LBDatabaseObj();
+#endif
+
   int nlbs = lbMgr->getNLoadBalancers();
   if(nlbs == 0) {
       ofsLog << "# No load balancer in use" << endl;
