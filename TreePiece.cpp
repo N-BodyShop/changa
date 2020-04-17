@@ -6522,7 +6522,13 @@ void TreePiece::memCacheStats(const CkCallback &cb)
 
 void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
   LDObjHandle handle = myRec->getLdHandle();
+
+#ifdef LB_MANAGER_VERSION
   LBManager *lbMgr = LBManagerObj();
+#else
+  LBDatabase *lbMgr = LBDatabaseObj();
+#endif
+
   int nlbs = lbMgr->getNLoadBalancers();
 
   if(nlbs == 0) { // no load balancers.  Skip this
