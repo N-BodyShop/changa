@@ -1318,16 +1318,12 @@ Main::Main(CkArgMsg* m) {
 	CkArrayOptions opts(numTreePieces); 
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	if (domainDecomposition == Oct_dec) {
-	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
-	  opts.setMap(myMap);
+            CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
+            opts.setMap(myMap);
 	} else {
 #endif
-#ifdef DEFAULT_ARRAY_MAP
-          CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
-#else
-	  CProxy_BlockMap myMap = CProxy_BlockMap::ckNew(); 
-#endif
-	  opts.setMap(myMap);
+            CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
+            opts.setMap(myMap);
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	}
 #endif
