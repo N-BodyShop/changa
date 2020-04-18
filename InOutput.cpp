@@ -127,6 +127,49 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
 #endif
 }
 
+/// @brief determine if we are on a TreePiece that will read
+/// particles.
+/// @param iIndex thisIndex of my TreePiece
+/// @param nPieces Total number of TreePieces.
+/// @return True if we are on a loading PE, false otherwise
+///
+/// We only want one TreePiece per PE to open and read the tipsy
+/// file.  This saves file opens/closes and reduces the number of
+/// messages needed for the initial domain decomposition.
+
+static bool isLoadingPiece(int iIndex, int nPieces)
+{
+    bool bLoading = true;       ///< return value
+    
+    int nLoadingPEs = CkNumPes();
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
+    /// In this case, the pieces have been assigned to PEs in round-robin.
+    if(iIndex >= nLoadingPEs) bLoading = false;
+#else
+    /// The following is based on the DefaultMap procNum().  See
+    /// cklocation.C:compute_binsize() in the charm++ source code.
+    /// The first (nPiece % nPE) PEs have one more Piece than the rest.
+
+    int nPiecesPerPE = nPieces/nLoadingPEs;
+    int nRem = nPieces - nPiecesPerPE*nLoadingPEs;
+
+    int nSmallBlockSize = nPiecesPerPE; 
+    int nLargeBlockSize = nPiecesPerPE + 1; 
+    int nLargeBlocks = nRem; 
+    int iLargeBlockBound = nLargeBlocks * nLargeBlockSize; 
+    if (iIndex < iLargeBlockBound) {
+        if (iIndex % nLargeBlockSize > 0) {
+            bLoading = false;      // not the first piece in a large block
+        }
+    }
+    else {
+        if ((iIndex - iLargeBlockBound) % nSmallBlockSize > 0) {
+            bLoading = false; // not the first piece in a small block
+        }
+    }
+#endif
+    return bLoading;
+}
 
 void TreePiece::loadTipsy(const std::string& filename,
 			  const double dTuFac, // Convert Temperature
@@ -150,58 +193,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	nTotalStar = tipsyHeader.nstar;
 	dStartTime = tipsyHeader.time;
 
-        bool skipLoad = false;
-        int numLoadingPEs = CkNumPes();
-
-        // check whether this tree piece should load from file
-#ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
-        if(thisIndex >= numLoadingPEs) skipLoad = true;
-#else
-        int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
-        int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
-
-#ifdef DEFAULT_ARRAY_MAP
-        if (rem > 0) {
-          int sizeSmallBlock = numTreePiecesPerPE; 
-          int numLargeBlocks = rem; 
-          int sizeLargeBlock = numTreePiecesPerPE + 1; 
-          int largeBlockBound = numLargeBlocks * sizeLargeBlock; 
-          
-          if (thisIndex < largeBlockBound) {
-            if (thisIndex % sizeLargeBlock > 0) {
-              skipLoad = true; 
-            }
-          }
-          else {
-            if ((thisIndex - largeBlockBound) % sizeSmallBlock > 0) {
-              skipLoad = true; 
-            }
-          }
-        }
-        else {
-          if ( (thisIndex % numTreePiecesPerPE) > 0) {
-            skipLoad = true; 
-          }
-        }
-#else
-        // this is not the best way to divide objects among PEs, 
-        // but it is how charm++ BlockMap does it.
-        if(rem > 0){
-          numTreePiecesPerPE++;
-          numLoadingPEs = numTreePieces/numTreePiecesPerPE;
-          if(numTreePieces % numTreePiecesPerPE > 0) numLoadingPEs++;
-        }
-
-        if(thisIndex % numTreePiecesPerPE > 0 || thisIndex >= numLoadingPEs * numTreePiecesPerPE) skipLoad = true;
-#endif
-#endif
-
-        /*
-        if(thisIndex == 0){
-          CkPrintf("[%d] numTreePieces %d numTreePiecesPerPE %d numLoadingPEs %d\n", thisIndex, numTreePieces, numTreePiecesPerPE, numLoadingPEs);
-        }
-        */
-
+        bool skipLoad = !isLoadingPiece(thisIndex, numTreePieces);
 
         if(skipLoad){
           myNumParticles = 0;
@@ -212,6 +204,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 
         // find your load offset into input file
         int myIndex = CkMyPe();
+        int numLoadingPEs = CkNumPes();
 	myNumParticles = nTotalParticles / numLoadingPEs;
 	int excess = nTotalParticles % numLoadingPEs;
 	int64_t startParticle = ((int64_t) myNumParticles) * myIndex;
@@ -824,51 +817,7 @@ void TreePiece::loadNChilada(const std::string& filename,
             CkAbort("No particles can be read.  Check file permissions\n");
 	dStartTime = fh_time;
 
-        bool skipLoad = false;
-        int numLoadingPEs = CkNumPes();
-
-        // check whether this tree piece should load from file
-#ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
-        if(thisIndex >= numLoadingPEs) skipLoad = true;
-#else
-        int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
-        int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
-
-#ifdef DEFAULT_ARRAY_MAP
-        if (rem > 0) {
-          int sizeSmallBlock = numTreePiecesPerPE; 
-          int numLargeBlocks = rem; 
-          int sizeLargeBlock = numTreePiecesPerPE + 1; 
-          int largeBlockBound = numLargeBlocks * sizeLargeBlock; 
-          
-          if (thisIndex < largeBlockBound) {
-            if (thisIndex % sizeLargeBlock > 0) {
-              skipLoad = true; 
-            }
-          }
-          else {
-            if ((thisIndex - largeBlockBound) % sizeSmallBlock > 0) {
-              skipLoad = true; 
-            }
-          }
-        }
-        else {
-          if ( (thisIndex % numTreePiecesPerPE) > 0) {
-            skipLoad = true; 
-          }
-        }
-#else
-        // this is not the best way to divide objects among PEs, 
-        // but it is how charm++ BlockMap does it.
-        if(rem > 0){
-          numTreePiecesPerPE++;
-          numLoadingPEs = numTreePieces/numTreePiecesPerPE;
-          if(numTreePieces % numTreePiecesPerPE > 0) numLoadingPEs++;
-        }
-
-        if(thisIndex % numTreePiecesPerPE > 0 || thisIndex >= numLoadingPEs * numTreePiecesPerPE) skipLoad = true;
-#endif
-#endif
+        bool skipLoad = !isLoadingPiece(thisIndex, numTreePieces);
 
         if(skipLoad){
           myNumParticles = 0;
@@ -879,6 +828,7 @@ void TreePiece::loadNChilada(const std::string& filename,
 
         // find your load offset into input file
         int myIndex = CkMyPe();
+        int numLoadingPEs = CkNumPes();
 	myNumParticles = nTotalParticles / numLoadingPEs;
 	int excess = nTotalParticles % numLoadingPEs;
 	int64_t startParticle = ((int64_t)myNumParticles) * myIndex;
