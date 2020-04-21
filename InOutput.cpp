@@ -1276,6 +1276,11 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
     if(iIndex == 0) {
         // Create and truncate output file.    
         FILE *fp = CmiFopen(filename.c_str(), "w");
+        if(fp == NULL) {
+            ckerr << "Treepiece " << thisIndex << " failed to open "
+                  << filename.c_str() << " : " << errno << ":" << strerror(errno) << endl;
+            CkAssert(fp != NULL);
+        }
         CmiFclose(fp);
         
 	Tipsy::header tipsyHeader;
@@ -1348,7 +1353,7 @@ void write_tipsy_gas(Tipsy::TipsyWriter &w, GravityParticle &p,
         gp.temp = duTFac*p.u();
 
     if(!w.putNextGasParticle_t(gp)) {
-        CkError("[%d] Write gas failed, errno %d\n", CkMyPe(), errno);
+        CkError("[%d] Write gas failed, errno %d: %s\n", CkMyPe(), errno, strerror(errno));
         CkAbort("Bad Write");
         }
 }
@@ -1370,7 +1375,7 @@ void write_tipsy_dark(Tipsy::TipsyWriter &w, GravityParticle &p,
     dp.phi = p.potential;
 
     if(!w.putNextDarkParticle_t(dp)) {
-        CkError("[%d] Write dark failed, errno %d\n", CkMyPe(), errno);
+        CkError("[%d] Write dark failed, errno %d: %s\n", CkMyPe(), errno, strerror(errno));
         CkAbort("Bad Write");
     }
 }
@@ -1394,7 +1399,7 @@ void write_tipsy_star(Tipsy::TipsyWriter &w, GravityParticle &p,
     sp.tform = p.fTimeForm();
 
     if(!w.putNextStarParticle_t(sp)) {
-        CkError("[%d] Write star failed, errno %d\n", CkMyPe(), errno);
+        CkError("[%d] Write star failed, errno %d: %s\n", CkMyPe(), errno, strerror(errno));
         CkAbort("Bad Write");
     }
 }
