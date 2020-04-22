@@ -153,12 +153,6 @@ ld_flags  := $(basic_ldflags) @USER_LDFLAGS@ @LDFLAGS@ $(LDFLAGS)
 c_srcs   := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.c))
 cxx_srcs := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.cpp))
 
-# If cha_commitid.c wasn't picked up in the source directory,
-# then we are doing an out-of-source build, so add it here.
-ifneq ($(source_dir),$(build_dir))
-  c_srcs += $(build_dir)/cha_commitid.c
-endif
-
 # Add the cooling sources (if any)
 ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
   c_srcs += $(source_dir)/cooling_planet.c
@@ -236,9 +230,18 @@ $(build_dir)/settings: force
 	$(quiet) flags="$(cxx_flags) $(c_flags) $(ld_libs) $(ld_flags)" && \
 		echo "$$flags" | cmp -s - $@ || echo "$$flags" > $@
 
+# The commitID should be refreshed on every build
+$(build_dir)/cha_commitid.o: $(build_dir)/cha_commitid.c
+	$(compile-c)
+
+$(build_dir)/cha_commitid.c:
+	$(quiet) VER=`cd $(source_dir) && git describe --long --always` && \
+	         echo "const char * const Cha_CommitID = \"$$VER\";" > $(build_dir)/cha_commitid.c
+
 $(ci_files): $(build_dir)/settings
 $(objects): $(build_dir)/settings
 
+$(build_dir)/$(target): $(build_dir)/cha_commitid.o
 $(build_dir)/$(target): $(foreach m,$(changa_modules),libmodule$(m).a)
 $(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a
 	$(link-charmc)
