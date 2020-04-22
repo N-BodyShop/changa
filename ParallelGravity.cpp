@@ -1318,16 +1318,12 @@ Main::Main(CkArgMsg* m) {
 	CkArrayOptions opts(numTreePieces); 
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	if (domainDecomposition == Oct_dec) {
-	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
-	  opts.setMap(myMap);
+            CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
+            opts.setMap(myMap);
 	} else {
 #endif
-#ifdef DEFAULT_ARRAY_MAP
-          CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
-#else
-	  CProxy_BlockMap myMap = CProxy_BlockMap::ckNew(); 
-#endif
-	  opts.setMap(myMap);
+            CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
+            opts.setMap(myMap);
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	}
 #endif
@@ -2433,14 +2429,19 @@ void Main::setupICs() {
          << sizeof(NodeKey) << " bytes node" << endl;
 
   // Print out load balance information
-  LBDatabase *lbdb = LBDatabaseObj();
-  int nlbs = lbdb->getNLoadBalancers(); 
+#ifdef LB_MANAGER_VERSION
+  LBManager *lbMgr = LBManagerObj();
+#else
+  LBDatabase *lbMgr = LBDatabaseObj();
+#endif
+
+  int nlbs = lbMgr->getNLoadBalancers();
   if(nlbs == 0) {
       ofsLog << "# No load balancer in use" << endl;
       }
   else {
       int ilb;
-      BaseLB **lbs = lbdb->getLoadBalancers();
+      BaseLB **lbs = lbMgr->getLoadBalancers();
       ofsLog << "# Load balancers:";
       for(ilb = 0; ilb < nlbs; ilb++){
 	  ofsLog << " " << lbs[ilb]->lbName();
