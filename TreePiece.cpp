@@ -2501,11 +2501,11 @@ TreePiece::setTypeFromFile(int iSetMask, char *file, const CkCallback& cb)
 
   free( ss );
 
-  int nSetOut[2];
+  int64_t nSetOut[2];
   nSetOut[0] = niOrder;
   nSetOut[1] = nSet;
 
-  contribute(2*sizeof(int), nSetOut, CkReduction::sum_int, cb);
+  contribute(2*sizeof(int64_t), nSetOut, CkReduction::sum_long, cb);
 }
 
 #include "DumpFrameData.h"
