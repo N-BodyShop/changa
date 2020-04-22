@@ -1279,7 +1279,7 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
         if(fp == NULL) {
             ckerr << "Treepiece " << thisIndex << " failed to open "
                   << filename.c_str() << " : " << errno << ":" << strerror(errno) << endl;
-            CkAssert(fp != NULL);
+            CkAbort(fp != NULL);
         }
         CmiFclose(fp);
         
