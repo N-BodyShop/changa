@@ -3861,15 +3861,15 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
 		  fclose(fp);
 
-		  CkReductionMsg *msg;
-		  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
-		  int *nSet = (int *)msg->getData();
-		  if (verbosity)
-		      ckout << nSet[0] << " iOrder numbers read. " << nSet[1]
-			    <<" direct iOrder photogenic particles selected."
-			    << endl;
-		  delete msg;
-		  }
+                  CkReductionMsg *msg;
+                  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
+                  int64_t *nSet = (int64_t *)msg->getData();
+                  if (verbosity)
+                      ckout << nSet[0] << " iOrder numbers read. " << nSet[1]
+                            <<" direct iOrder photogenic particles selected."
+                            << endl;
+                  delete msg;
+                }
 
 		if(!bRestart)
 		    DumpFrame(dTime, dStep );
