@@ -965,10 +965,13 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 	    float scaler=1.0;
 	    nitem = sscanf( line, "%s %s %s %f", command, word, otherword, 
 			    &scaler);
-	    if (nitem==4) {
-		dfReadColorMapFile(dfWordToColortable(word,&fs),otherword, 
-				   scaler); 
-		}
+            if (nitem==4) {
+                int found = dfReadColorMapFile(dfWordToColortable(word,&fs),
+                                               otherword, scaler); 
+                if(!found)
+                    CkError("WARNING colormap %s not found or colortables.txt missing\n",
+                            otherword);
+            }
 	    else {
 		fprintf(stderr,"DF wrong argument number to: colormap type mapname gamma\n");
 		CkAssert( 0 );
