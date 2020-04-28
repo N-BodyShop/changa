@@ -3357,6 +3357,9 @@ void Main::writeOutput(int iStep)
             if(safeMkdir(dirname.c_str()) != 0)
                 CkAbort("Can't create N-Chilada directories\n");
             }
+        NCgasNames = new CkVec<std::string>;
+        NCdarkNames = new CkVec<std::string>;
+        NCstarNames = new CkVec<std::string>;
         MassOutputParams pMassOut(achFile, param.iBinaryOut, dOutTime);
         outputBinary(pMassOut, param.bParaWrite, CkCallbackResumeThread());
         PosOutputParams pPosOut(achFile, param.iBinaryOut, dOutTime);
@@ -3666,6 +3669,8 @@ void Main::writeOutput(int iStep)
 		      << endl;
 	    }
 	}
+    if(param.iBinaryOut == 6)
+        writeNCXML(achFile);
     }
 
 ///
