@@ -2007,18 +2007,21 @@ std::string Main::getNCNextOutput(OutputParams& params)
     if(params.iTypeWriting == 0) {
         params.iTypeWriting = TYPE_GAS;
         if((params.iType & TYPE_GAS) && (nTotalSPH > 0)) {
+            NCgasNames->push_back(params.sNChilExt);
             return params.fileName+"/gas/"+params.sNChilExt;
             }
         }
     if(params.iTypeWriting == TYPE_GAS) {
         params.iTypeWriting = TYPE_DARK;
         if((params.iType & TYPE_DARK) && (nTotalDark > 0)) {
+            NCdarkNames->push_back(params.sNChilExt);
             return params.fileName+"/dark/"+params.sNChilExt;
             }
         }
     if(params.iTypeWriting == TYPE_DARK) {
         params.iTypeWriting = TYPE_STAR;
         if((params.iType & TYPE_STAR) && (nTotalStar > 0)) {
+            NCstarNames->push_back(params.sNChilExt);
             return params.fileName+"/star/"+params.sNChilExt;
             }
         }
@@ -2392,4 +2395,48 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
     xdr_destroy(&xdrs);
     Ck::IO::write(session, buf, nBytes, iOffset);
     delete [] buf;
+}
+
+void Main::NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string family)
+{
+    std::string lastStr = "";
+    std::string attrib;
+    *desc << "\t<family name=\"" << family << "\">" << endl;
+    for(unsigned int i=0;i<names->length();i++)
+    {
+        attrib = (*names)[i];
+        if(attrib == "pos")
+            attrib = "position";
+        if(attrib == "pot")
+            attrib = "potential";
+        if(attrib == "vel")
+            attrib = "velocity";
+        if(lastStr != (*names)[i]) {
+            *desc <<  "\t\t<attribute name=\"" << attrib << "\" link=\"star/" << (*names)[i] << "\"/>" << endl;
+        }
+        lastStr = (*names)[i];
+    }
+    *desc << "\t</family>" << endl;
+}
+
+/// 
+void Main::writeNCXML(const std::string filename) 
+{
+    NCgasNames->quickSort();
+    NCstarNames->quickSort();
+    NCdarkNames->quickSort();
+
+    ofstream xmldesc;
+    xmldesc.open((filename+"/description.xml").c_str(), ios_base::trunc);
+    
+    xmldesc << "<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>" << endl;
+    xmldesc << "<simulation>" << endl;
+    NCXMLattrib(&xmldesc, NCstarNames, "star");
+    NCXMLattrib(&xmldesc, NCdarkNames, "dark");
+    NCXMLattrib(&xmldesc, NCgasNames, "gas");
+    xmldesc << "</simulation>" << endl;
+    delete NCgasNames;
+    delete NCstarNames;
+    delete NCdarkNames;
+    xmldesc.close();
 }
