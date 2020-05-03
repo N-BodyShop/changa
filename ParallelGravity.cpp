@@ -3831,8 +3831,10 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 	if (param.dDumpFrameStep > 0 || param.dDumpFrameTime > 0) {
                 if(param.iDirector < 1) {
                     CkError("WARNING: DumpFrame parameters set, but iDirector is %d; DumpFrame is disabled\n", param.iDirector);
+                    param.dDumpFrameStep = -1.0;
+                    param.dDumpFrameTime = -1.0;
                     return 0;
-                    }
+                }
 		bDumpFrame = 1;
 		int i;
 
