@@ -2397,6 +2397,9 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
     delete [] buf;
 }
 
+//// Add all of the elements of a particle family to an opened ofstream for the
+//// description.xml file.  If the names vector is empty, does nothing.  Otherwise
+//// appends a family tag, with sub-tags for each attribute stored in the snapshot.
 void Main::NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string family)
 {
     if(names->length() == 0) // Don't add a family tag if the names vector is empty.
@@ -2421,14 +2424,16 @@ void Main::NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string fa
     *desc << "\t</family>" << endl;
 }
 
-/// 
+//// When writing out an NChilada snapshot, automatically generate a description.xml
+//// in the snapshot directory, containing a description of the snapshot contents.
 void Main::writeNCXML(const std::string filename) 
 {
+    // Let's use alphabetical order for the contents of each family.
     NCgasNames->quickSort();
     NCstarNames->quickSort();
     NCdarkNames->quickSort();
 
-    ofstream xmldesc;
+    ofstream xmldesc; // File handler for the XML description file
     xmldesc.open((filename+"/description.xml").c_str(), ios_base::trunc);
     
     xmldesc << "<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>" << endl;
@@ -2437,6 +2442,8 @@ void Main::writeNCXML(const std::string filename)
     NCXMLattrib(&xmldesc, NCdarkNames, "dark");
     NCXMLattrib(&xmldesc, NCgasNames, "gas");
     xmldesc << "</simulation>" << endl;
+    
+    // Clear the vectors storing the family attributes for next snapshot
     delete NCgasNames;
     delete NCstarNames;
     delete NCdarkNames;
