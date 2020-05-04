@@ -2399,6 +2399,8 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
 
 void Main::NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string family)
 {
+    if(names->length() == 0) // Don't add a family tag if the names vector is empty.
+        return;
     std::string lastStr = "";
     std::string attrib;
     *desc << "\t<family name=\"" << family << "\">" << endl;
