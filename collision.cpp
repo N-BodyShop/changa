@@ -620,17 +620,29 @@ double speed_slr=((log10(Mslr*(deltaV/10)*S*log(10))-A)/-S)-norm;
 
 CkPrintf("%g \n ",speed_slr); 
 // making u and v into a random number between 0-1 
-double u = ((double) rand() / ((RAND_MAX)+1));
-double v = ((double) rand() / ((RAND_MAX)+1));
-
-//double phi = rand()/((double)RAND_MAX)* (2*M_PI);
-//double theta = rand()/((double)RAND_MAX)* (M_PI);
+double u = ((double) rand() / ((RAND_MAX)));
+double v = ((double) rand() / ((RAND_MAX)));
 
 double phi = acos((2*v)-1);
 double theta = 2* M_PI * u ;
 
-Vector3D<double> vn = (sin(theta)* cos(phi), sin(theta)*sin(phi) , cos(theta)); 
-Vector3D<double> Vslr = vn * speed_slr;
+Vector3D<double> vn(sin(theta)* cos(phi), sin(theta)*sin(phi) , cos(theta)); 
+
+Vector3D<double> x_hat = (1, 0, 0);
+Vector3D<double> y_hat = (0, 1, 0);
+Vector3D<double> z_hat = (0, 0, 1);
+
+
+double psi = acos(costheta(pRel, y_hat)); 
+ theta = 0 ;
+ phi = acos(costheta(pRel, x_hat)); 
+
+RotationMatrix<double> rot(psi,theta,phi);
+Vector3D<double> vn_rotate =rot.rotate (vn);
+
+
+
+Vector3D<double> Vslr = vn_rotate * speed_slr;
 iCollType= FRAG;
 
 
@@ -765,15 +777,17 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
         p->treeAcceleration = aNew;
         p->soft = radNew/2.;
         p->mass += c.mass;
+    
                   
         } else if (iCollType == FRAG ){
             if (p->iOrder > c.iOrder){
                 p->mass = mass_Mlr ;
-                p->velocity = v_cm ;
+                vNew = v_cm ;
+                CkPrintf("here\n");
 
             }   else { 
                 p->mass = Mslr;
-                p->velocity = Vslr;
+                vNew = Vslr;
             }
           
         }   
