@@ -3599,12 +3599,12 @@ void Main::writeOutput(int iStep)
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+    // The following call is to get the particles in key order
+    // before the sort.
+    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                    CkCallbackResumeThread());
+    domainDecomp(0);
     if(param.nSteps != 0 && param.bDoDensity) {
-	// The following call is to get the particles in key order
-	// before the sort.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                        CkCallbackResumeThread());
-        domainDecomp(0);
         buildTree(0);
 
 	if(verbosity)
