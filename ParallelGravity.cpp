@@ -3831,8 +3831,10 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 	if (param.dDumpFrameStep > 0 || param.dDumpFrameTime > 0) {
                 if(param.iDirector < 1) {
                     CkError("WARNING: DumpFrame parameters set, but iDirector is %d; DumpFrame is disabled\n", param.iDirector);
+                    param.dDumpFrameStep = -1.0;
+                    param.dDumpFrameTime = -1.0;
                     return 0;
-                    }
+                }
 		bDumpFrame = 1;
 		int i;
 
@@ -3861,15 +3863,15 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
 		  fclose(fp);
 
-		  CkReductionMsg *msg;
-		  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
-		  int *nSet = (int *)msg->getData();
-		  if (verbosity)
-		      ckout << nSet[0] << " iOrder numbers read. " << nSet[1]
-			    <<" direct iOrder photogenic particles selected."
-			    << endl;
-		  delete msg;
-		  }
+                  CkReductionMsg *msg;
+                  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
+                  int64_t *nSet = (int64_t *)msg->getData();
+                  if (verbosity)
+                      ckout << nSet[0] << " iOrder numbers read. " << nSet[1]
+                            <<" direct iOrder photogenic particles selected."
+                            << endl;
+                  delete msg;
+                }
 
 		if(!bRestart)
 		    DumpFrame(dTime, dStep );
