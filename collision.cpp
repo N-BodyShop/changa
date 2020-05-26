@@ -633,9 +633,9 @@ Vector3D<double> y_hat = (0, 1, 0);
 Vector3D<double> z_hat = (0, 0, 1);
 
 
-double psi = acos(costheta(pRel, y_hat)); 
+double psi = acos(costheta(-pRel, y_hat)); 
  theta = 0 ;
- phi = acos(costheta(pRel, x_hat)); 
+ phi = acos(costheta(-pRel, x_hat)); 
 
 RotationMatrix<double> rot(psi,theta,phi);
 Vector3D<double> vn_rotate =rot.rotate (vn);
@@ -787,7 +787,7 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
 
             }   else { 
                 p->mass = Mslr;
-                vNew = Vslr;
+                vNew = Vslr +v_cm;
             }
           
         }   
