@@ -1132,8 +1132,8 @@ private:
 	extraStarData *myStarParticles;
 	/// Actual storage in the above array
 	int nStoreStar;
-  unsigned int myNumDark;
-int nStoreDark;
+	unsigned int myNumDark;
+	int nStoreDark;
 	/// MaxIOrder for output
 	int64_t nMaxOrder;
         /// Start particle for reading
