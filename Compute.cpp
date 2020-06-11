@@ -621,9 +621,7 @@ int PrefetchCompute::openCriterion(TreePiece *ownerTP,
 int PrefetchCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi){
   TreePiece *tp = tw->getOwnerTP();
   // ignores state
-  if(node == NULL){
-    CkAbort("PrefetchComputedoWork() given NULL node");
-  }
+  CkMustAssert(!(node == NULL), "PrefetchComputedoWork() given NULL node");
   int open = 0;
   open = openCriterion(tp, node, reqID, state);
 

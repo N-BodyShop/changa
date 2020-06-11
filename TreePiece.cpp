@@ -1751,7 +1751,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
       double dTIdeal = dDelta;
       double dTGrav, dTCourant, dTEdot;
       if(bEpsAccStep) {
-         if (p->soft <= 0.0) CkAbort("Cannot use bEpsAccStep with zero softening length particle\n");
+         CkMustAssert(p->soft > 0, "Cannot use bEpsAccStep with zero softening length particle\n");
 	  double acc = dAccFac*p->treeAcceleration.length();
 	  double dt;
 #ifdef EPSACCH
@@ -1960,9 +1960,7 @@ void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
             p->dt = p->dtNew();
             int iTempRung = DtToRung(dDelta, p->dt);
             CkAssert(iTempRung > iRung);
-            if(iTempRung > MAXRUNG) {
-                CkAbort("Timestep too small");
-                }
+            CkMustAssert(iTempRung <= MAXRUNG, "Timestep too small");
             p->rung = iTempRung;
             /* UnKick -- revert to predicted values -- low order, non
                symplectic :( */  
@@ -2100,9 +2098,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 	  }
       }
   CkAssert(bInBox);
-  if(!bInBox){
-    CkAbort("binbox2 failed\n");
-  }
+  CkMustAssert(bInBox, "binbox2 failed\n");
   if(buildTree)
     contribute(sizeof(OrientedBox<float>), &boundingBox,
       	       growOrientedBox_float,
@@ -2669,9 +2665,7 @@ void TreePiece::recvBoundary(SFC::Key key, NborDir dir) {
     CkAbort("Received nbor msg from someone who hasn't set the direction\n");
   }
 
-  if (nbor_msgs_count_ <= 0) {
-    CkAbort("nbor_msgs_count_ <= 0 so may be not set\n");
-  }
+  CkMustAssert(nbor_msgs_count_ > 0, "nbor_msgs_count_ <= 0 so may be not set\n");
 
   nbor_msgs_count_--;
   // All the messages from my neighbors have been received. Do a reduction to
@@ -5478,9 +5472,7 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
 
       // check whether source contains target
       GenericTreeNode *target = bucketList[decodeReqID(reqID)];
-      if(!testSource->contains(target->getKey())){
-        CkAbort("source does not contain target\n");
-      }
+      CkMustAssert(testSource->contains(target->getKey()), "source does not contain target\n");
     }
 #endif
 
@@ -5517,9 +5509,7 @@ ExternalGravityParticle *TreePiece::requestParticles(Tree::NodeKey key,int chunk
 
         // check whether source contains target
         GenericTreeNode *target = bucketList[decodeReqID(reqID)];
-        if(!testSource->contains(target->getKey())){
-          CkAbort("source does not contain target\n");
-        }
+          CkMustAssert(testSource->contains(target->getKey()), "source does not contain target\n");
       }
 #endif
 
@@ -6119,9 +6109,7 @@ void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID,
 
       // check whether source contains target
       GenericTreeNode *target = bucketList[decodeReqID(reqID)];
-      if(!testSource->contains(target->getKey())){
-        CkAbort("source does not contain target\n");
-      }
+      CkMustAssert(testSource->contains(target->getKey()), "source does not contain target\n");
   }
 #endif
   // retrieve the activewalk record
@@ -6170,9 +6158,7 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
 
       // check whether source contains target
       GenericTreeNode *target = bucketList[decodeReqID(reqID)];
-      if(!testSource->contains(target->getKey())){
-        CkAbort("source does not contain target\n");
-      }
+      CkMustAssert(testSource->contains(target->getKey()), "source does not contain target\n");
   }
 #endif
   // Some sanity checks
