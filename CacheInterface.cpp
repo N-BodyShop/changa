@@ -205,8 +205,7 @@ void TreePiece::processReqSmoothParticles() {
                   sSmooth->params->iType))
                 nBucket++;
             }
-        if(nBucket == 0)
-            CkAbort("Why did we ask for this bucket with no particles?");
+        CkMustAssert(nBucket != 0, "Why did we ask for this bucket with no particles?");
   
         // N.B.: CacheSmoothParticle already has room for one particle.
         int total = sizeof(CacheSmoothParticle)
@@ -275,8 +274,7 @@ void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg) {
                   sSmooth->params->iType))
           nBucket++;
   }
-  if(nBucket == 0)
-      CkAbort("Why did we ask for this bucket with no particles?");
+  CkMustAssert(nBucket != 0, "Why did we ask for this bucket with no particles?");
   
   // N.B.: CacheSmoothParticle already has room for one particle.
   int total = sizeof(CacheSmoothParticle)
@@ -474,8 +472,6 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg<KeyType> *msg) {
     delete msg;
   }
   else {	// Handle NULL nodes
-    if (!sendFillReqNodeWhenNull(msg)) {
-      CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
-    }
+      CkMustAssert(sendFillReqNodeWhenNull(msg), "Ok, before it handled this, but why do we have a null pointer in the tree?!?");
   }
 }

@@ -52,6 +52,8 @@ PUPbytes(COOLPARAM);
 
 #define MERGE_REMOTE_REQUESTS_VERBOSE /*CkPrintf*/
 
+#define CkMustAssert(cond, err) { if (!cond) CkAbort(err); }
+
 using namespace std;
 
 using namespace Tree;

@@ -205,8 +205,7 @@ void Sinks::CheckParams(PRM prm, struct parameters &param)
 	    for ( testDelta = param.dDelta; testDelta > dDeltaSink ;
 		  testDelta *= 0.5 ) {
 		iSinkRung++;
-		if (iSinkRung >= param.iMaxRung)
-		    CkAbort("Sink timestep too small");
+        CkMustAssert(iSinkRung < param.iMaxRung, "Sink timestep too small");
 		}
 	    }		  
 	else {

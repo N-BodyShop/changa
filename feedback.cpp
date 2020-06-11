@@ -166,9 +166,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     CkPrintf("SNII feedback: %g ergs/solar mass\n", dSNETotal);
     dEarlyETotal = dSNETotal*dEarlyFeedbackFrac;
 #ifndef DTADJUST
-    if (bAGORAFeedback) {
-        CkAbort("DTADJUST must be enabled to use AGORA feedback\n");
-        }
+    CkMustAssert(!bAgoraFeedback, "DTADJUST must be enabled to use AGORA feedback\n");
 #endif
     }
 

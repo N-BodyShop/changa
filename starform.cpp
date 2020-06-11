@@ -401,12 +401,11 @@ void Main::initStarLog(){
 	    FILE *fpLog = CmiFopen(stLogFile.c_str(),"r");
 	    XDR xdrs;
             if(fpLog == NULL)
-                CkAbort("Bad open of starlog file on restart");
+            CkMustAssert(!(fpLog == NULL), "Bad open of starlog file on restart");
 
 	    xdrstdio_create(&xdrs,fpLog,XDR_DECODE);
 	    xdr_int(&xdrs, &iSize);
-            if(iSize != sizeof(StarLogEvent))
-                CkAbort("starlog file format mismatch");
+        CkMustAssert(iSize == sizeof(StarLogEvent), "starlog file format mismatch");
 	    xdr_destroy(&xdrs);
 	    CmiFclose(fpLog);
 	    } else {
@@ -416,8 +415,7 @@ void Main::initStarLog(){
 	FILE *fpLog = CmiFopen(stLogFile.c_str(),"w");
 	XDR xdrs;
 
-        if(fpLog == NULL) 
-            CkAbort("Can't create starlog file");
+    CkMustAssert(!(fpLog == NULL), "Can't create starlog file");
 	xdrstdio_create(&xdrs,fpLog,XDR_ENCODE);
 	iSize = sizeof(StarLogEvent);
 	xdr_int(&xdrs, &iSize);
@@ -487,8 +485,7 @@ void StarLog::flush(void) {
 	    }
 	xdr_destroy(&xdrs);
 	int result = CmiFclose(outfile);
-	if(result != 0)
-            CkAbort("Bad close of starlog");
+    CkMustAssert(result == 0, "Bad close of starlog");
 	seTab.clear();
 	nOrdered = 0;
 	}
