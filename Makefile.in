@@ -114,7 +114,7 @@ threadsafe_ht_path  := $(cache_lib_path)/threadsafe_hashtable
 changa_modules := $(strip MultistepLB MultistepLB_notopo \
                     MultistepNodeLB_notopo Orb3dLB Orb3dLB_notopo HierarchOrbLB)
 
-charm_modules := $(strip CkCache CkIO CkMulticast \
+charm_modules := $(strip CkCache CkIO CkMulticast TreeLB \
                    liveViz CkLoop)
 
 # ------- Helper Variables ----------------------------------------------------
