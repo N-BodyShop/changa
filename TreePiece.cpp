@@ -2097,7 +2097,6 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 #endif /* DIFFUSION */
 	  }
       }
-  CkAssert(bInBox);
   CkMustAssert(bInBox, "binbox2 failed\n");
   if(buildTree)
     contribute(sizeof(OrientedBox<float>), &boundingBox,
