@@ -1130,7 +1130,7 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "bBulkViscosity parameter ignored." << endl;
 	    }
 #ifdef COOLING_NONE
-	    CkMustAssert(!param.bGasCooling, "Gas cooling requested but not compiled in");
+        CkMustAssert(!param.bGasCooling, "Gas cooling requested but not compiled in");
 #endif
 	if(param.bGasCooling) {
 	    CkAssert(prmSpecified(prm, "dMsolUnit")
@@ -1225,10 +1225,10 @@ Main::Main(CkArgMsg* m) {
 		}
 
 #ifndef DIFFUSION
-	    CkMustAssert(!prmSpecified(prm,"dMetalDiffusionCoeff"), "Metal Diffusion Rate specified but not compiled for\nUse -DDIFFUSION during compilation\n");
+        CkMustAssert(!prmSpecified(prm,"dMetalDiffusionCoeff"), "Metal Diffusion Rate specified but not compiled for\nUse -DDIFFUSION during compilation\n");
 #endif
 #ifdef NODIFFUSIONTHERMAL
-	    CkMustAssert(!prmSpecified(prm, "dThermalDiffusionCoeff"), "Thermal Diffusion Rate specified but not compiled for\n");
+        CkMustAssert(!prmSpecified(prm, "dThermalDiffusionCoeff"), "Thermal Diffusion Rate specified but not compiled for\n");
 #endif
 
         if (domainDecomposition == SFC_peano_dec) peanoKey = 3;

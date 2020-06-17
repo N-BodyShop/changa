@@ -401,7 +401,7 @@ void Main::initStarLog(){
 	    FILE *fpLog = CmiFopen(stLogFile.c_str(),"r");
 	    XDR xdrs;
             if(fpLog == NULL)
-            CkMustAssert(!(fpLog == NULL), "Bad open of starlog file on restart");
+                CkMustAssert(!(fpLog == NULL), "Bad open of starlog file on restart");
 
 	    xdrstdio_create(&xdrs,fpLog,XDR_DECODE);
 	    xdr_int(&xdrs, &iSize);
