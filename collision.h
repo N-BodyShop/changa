@@ -9,8 +9,6 @@ enum CollTypes {
     FRAG = 2,
     EXPLODE = 3,
     DISRUPT = 4
-    
-
 };
 
 /// @brief Used to pass information about collision partners between processes

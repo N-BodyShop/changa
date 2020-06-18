@@ -2178,19 +2178,19 @@ void TreePiece::newParticle(GravityParticle *p)
 	myParticles[myNumParticles].extraData = &myStarParticles[myNumStar];
 	myNumStar++;
 	}
-  if(p->isDark()) {
-  if(myNumDark >= nStoreDark) {
+          if(p->isDark()) {
+          if(myNumDark >= nStoreDark) {
             int nTmpStore = (int) ((nStoreDark + 1)*(1.0 + dExtraStore));
             CkError("WARNING: Increasing dark particle store to %d\n",
                     nTmpStore);
             CkAssert(nTmpStore > nStoreDark);
             
             //myDarkParticles = myTmpParticles;
-            nStoreDark = nTmpStore;
-            }
+                    nStoreDark = nTmpStore;
+                    }
 
-  myNumDark++;
-  }
+          myNumDark++;
+          }
     }
 
 /**
