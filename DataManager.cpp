@@ -117,7 +117,7 @@ void DataManager::acceptFinalKeys(const SFC::Key* keys, const int* responsible, 
     std::vector<SFC::Key>::iterator iter3;
     CkPrintf("Keys:");
     for(iter3=boundaryKeys.begin();iter3!=boundaryKeys.end();iter3++){
-      CkPrintf("%016llx,",*iter3);
+      CkPrintf("%s,", make_formatted_string(*iter3).c_str());
     }
     CkPrintf("\n");
   }
@@ -494,10 +494,10 @@ void DataManager::serializeLocalTree(){
     CmiUnlock(__nodelock);
 
     if(verbosity > 1)
-        CkPrintf("[%d] Registered tree pieces length: %d\n", CkMyPe(), registeredTreePieces.length());
+        CkPrintf("[%d] Registered tree pieces length: %lu\n", CkMyPe(), registeredTreePieces.length());
     serializeLocal(root);
     if(verbosity > 1)
-        CkPrintf("[%d] Registered tree pieces length after serialize local: %d\n", CkMyPe(), registeredTreePieces.length());
+        CkPrintf("[%d] Registered tree pieces length after serialize local: %lu\n", CkMyPe(), registeredTreePieces.length());
   }
   else
       CmiUnlock(__nodelock);
@@ -513,11 +513,13 @@ void DataManager::startLocalWalk() {
       if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
       int in = registeredTreePieces[i].treePiece->getIndex();
       treePieces[in].commenceCalculateGravityLocal();
-      dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-      // Make priority lower than gravity or smooth.
-      *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
-      CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-      treePieces[in].calculateEwald(msg);
+      if(registeredTreePieces[0].treePiece->bEwald) {
+          dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+          // Make priority lower than gravity or smooth.
+          *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
+          CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+          treePieces[in].calculateEwald(msg);
+      }
     }
     freePinnedHostMemory(bufLocalMoments);
     freePinnedHostMemory(bufLocalParts);
@@ -528,7 +530,7 @@ void DataManager::startLocalWalk() {
 /// The data for remote interactions is on the GPU, so continue the
 /// remote walk.
 void DataManager::resumeRemoteChunk() {
-  if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk registered: %d\n", CkMyPe(), registeredTreePieces.length());
+  if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk registered: %lu\n", CkMyPe(), registeredTreePieces.length());
   int chunk = 0;
   chunk = currentChunkBuffers->chunk;
   delete currentChunkBuffers->moments;

@@ -297,14 +297,13 @@ public:
     int n;
     int nSPH;
     int nStar;
-    double load;
     double *loads;
     unsigned int *parts_per_phase;
     GravityParticle *particles;
     extraSPHData *pGas;
     extraStarData *pStar;
-    ParticleShuffleMsg(int nload, int npart, int nsph, int nstar, double pload): 
-      nloads(nload), n(npart), nSPH(nsph), nStar(nstar), load(pload) {}
+    ParticleShuffleMsg(int nload, int npart, int nsph, int nstar): 
+      nloads(nload), n(npart), nSPH(nsph), nStar(nstar) {}
 };
 
 #ifdef PUSH_GRAVITY
@@ -765,13 +764,13 @@ class TreePiece : public CBase_TreePiece {
 		       // know when writebacks complete.  XXX this
 		       // should be part of the smooth state
    
-   double treePieceLoad; // used to store CPU load data for incoming particles
-   double treePieceLoadTmp; // temporary accumulator for above
-   double treePieceLoadExp;
-   unsigned int treePieceActivePartsTmp;
+   /// number of active particles on the last active rung for load balancing
+   unsigned int nPrevActiveParts;
    std::vector<double> savedPhaseLoad;
    std::vector<unsigned int> savedPhaseParticle;
+   /// temporary accumulator for phase load information during domain decomposition
    std::vector<double> savedPhaseLoadTmp;
+   /// temporary accumulator for phase particle counts during domain decomposition
    std::vector<unsigned int> savedPhaseParticleTmp;
 
    int memWithCache, memPostCache;  // store memory usage.
@@ -1046,9 +1045,10 @@ private:
         LBStrategy foundLB;
         // jetley - saved first internal node
         Vector3D<float> savedCentroid;
-        // jetley - multistep load balancing
-        int prevLARung;
-        int lbActiveRung;
+        /// The phase for which we have just collected load balancing data.
+        int iPrevRungLB;
+        /// The phase for which we are about to do load balancing
+        int iActiveRungLB;
 
 	/// @brief Used to inform the mainchare that the requested operation has
 	/// globally finished
@@ -1402,11 +1402,9 @@ private:
 
 public:
  TreePiece() : pieces(thisArrayID), root(0),
-            prevLARung (-1), sTopDown(0), sGravity(0),
-	  sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
-	  treePieceLoad(0.0), treePieceLoadTmp(0.0), treePieceLoadExp(0.0),
-    treePieceActivePartsTmp(0) {
-	  //CkPrintf("[%d] TreePiece created on proc %d\n",thisIndex, CkMyPe());
+            iPrevRungLB (-1), sTopDown(0), sGravity(0),
+            sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
+            nPrevActiveParts(0) {
 	  dm = NULL;
 	  foundLB = Null; 
 	  iterationNo=0;
@@ -1487,8 +1485,7 @@ public:
           localTreeBuildComplete = false;
 	}
 
-	TreePiece(CkMigrateMessage* m) {
-	  treePieceLoadTmp = 0.0;
+    TreePiece(CkMigrateMessage* m): pieces(thisArrayID) {
 
 	  usesAtSync = true;
 	  //localCache = NULL;
@@ -1661,11 +1658,9 @@ public:
 	// move particles around for output
 	void ioShuffle(CkReductionMsg *msg);
 	void ioAcceptSortedParticles(ParticleShuffleMsg *);
-	/** Inform the DataManager of my node that I'm here.
-	 The callback will receive a CkReductionMsg containing no data.
-	void registerWithDataManager(const CkGroupID& dataManagerID,
-				     const CkCallback& cb);
-	 */
+        /// @brief Set the load balancing data after a restart from
+        /// checkpoint.
+        void resetObjectLoad(const CkCallback& cb);
 	// Assign keys after loading tipsy file and finding Bounding box
 	void assignKeys(CkReductionMsg* m);
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
@@ -1787,7 +1782,7 @@ public:
 			int bUpdateState, double gammam1, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
-    void getAdiabaticGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+    void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
         double dEvapMinTemp, double dDtCourantFac, const CkCallback &cb);
     void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,

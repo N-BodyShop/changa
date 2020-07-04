@@ -313,7 +313,10 @@ public:
 	Vector3D<double> velocity;
 	Vector3D<cosmoType> treeAcceleration;
 	cosmoType potential;
-        cosmoType dtGrav;       ///< timestep from gravity
+        cosmoType dtGrav;       ///< timestep from gravity; N.B., this
+                                ///  is actually stored as (1/time^2)
+                                ///  since the gravity calculation
+                                ///  naturally gives us (G M/R^3).
         double fBall;           ///< Neighbor search radius for smoothing
 	double fDensity;
         int64_t iOrder;	///< Input order of particles; unique particle ID
@@ -355,9 +358,10 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
-	  p | treeAcceleration;
-	  p | fDensity;
-	  p | fBall;
+          p | treeAcceleration;
+          p | dtGrav;
+          p | fDensity;
+          p | fBall;
           p | iOrder;
           p | rung;
 	  p | iType;

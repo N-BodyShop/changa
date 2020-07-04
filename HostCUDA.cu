@@ -24,6 +24,8 @@
 
 #include "hapi.h"
 #include "cuda_typedef.h"
+#include "cuda/intrinsics/voting.hu"
+#include "cuda/intrinsics/shfl.hu"
 
 #ifdef GPU_LOCAL_TREE_WALK
 #include "codes.h"
@@ -642,8 +644,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
   transfer = gravityKernel->buffers[ILCELL_IDX].transfer_to_device;
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("(%d) TRANSFER REMOTE RESUME CELL %d (%d)\n", CmiMyPe(),
-        size, transfer);
+  printf("(%d) TRANSFER REMOTE RESUME CELL (%d)\n", CmiMyPe(), transfer);
 #endif
 
   gravityKernel->addBuffer(data->missedNodes, data->sMissed, transfer, false,
@@ -720,7 +721,6 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
 	void* bufferHostBuffer;
         size_t size;
-        ParameterStruct *ptr;
         bool transfer;
 
 #ifdef CUDA_2D_TB_KERNEL
@@ -750,8 +750,6 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
           memcpy(bufferHostBuffer, particles, size);
         }
         gravityKernel->addBuffer(bufferHostBuffer, size, transfer, false, transfer);
-
-        ptr = (ParameterStruct *)gravityKernel->getUserData();
 
 	gravityKernel->setDeviceToHostCallback(data->cb);
 #ifdef HAPI_TRACE
@@ -826,7 +824,6 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
 	int numBlocks = data->numBucketsPlusOne-1;
-        ParameterStruct *ptr;
         bool transfer;
 
 	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
@@ -841,17 +838,14 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
         transfer = gravityKernel->buffers[ILPART_IDX].transfer_to_device;
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER REMOTE RESUME PART %zu (%d)\n",
+        printf("(%d) TRANSFER REMOTE RESUME PART (%d)\n",
             CmiMyPe(),
-            size,
             transfer
             );
 #endif
 
         gravityKernel->addBuffer(data->missedParts, data->sMissed, transfer,
                                  false, transfer);
-
-        ptr = (ParameterStruct *)gravityKernel->getUserData();
 
 	gravityKernel->setDeviceToHostCallback(data->cb);
 #ifdef HAPI_TRACE
@@ -1156,6 +1150,17 @@ __global__ void gpuLocalTreeWalk(
   CUDABucketNode  myNode;
   CompactPartData myParticle;
 
+#if __CUDA_ARCH__ >= 700
+  // Non-lockstepping code for Volta GPUs
+  int sp;
+  int stk[stackDepth];
+  CUDATreeNode targetNode;
+
+#define SP sp
+#define STACK_TOP_INDEX stk[SP]
+#define TARGET_NODE targetNode
+#else
+  // Default lockstepping code
   __shared__ int sp[WARPS_PER_BLOCK];
   __shared__ int stk[WARPS_PER_BLOCK][stackDepth];
   __shared__ CUDATreeNode targetNode[WARPS_PER_BLOCK];
@@ -1163,16 +1168,14 @@ __global__ void gpuLocalTreeWalk(
 #define SP sp[WARP_INDEX]
 #define STACK_TOP_INDEX stk[WARP_INDEX][SP]
 #define TARGET_NODE targetNode[WARP_INDEX]
+#endif
 
-  // variable for current particle
-  CompactPartData p;
   CudaVector3D acc = {0,0,0};
   cudatype pot = 0;
   cudatype idt2 = 0;
   CudaVector3D offset = {0,0,0};
 
   int targetIndex = -1;
-  cudatype dsq = 0;
 
   // variables for CUDA_momEvalFmomrcm
   CudaVector3D r;
@@ -1201,7 +1204,11 @@ __global__ void gpuLocalTreeWalk(
           flag = 1;
           critical = stackDepth;
           cond = 1;
+#if __CUDA_ARCH__ >= 700
+          stackInit(SP, stk, rootIdx);
+#else
           stackInit(SP, stk[WARP_INDEX], rootIdx);
+#endif
           while(SP >= 0) {
             if (flag == 0 && critical >= SP) {
               flag = 1;
@@ -1312,7 +1319,7 @@ __global__ void gpuLocalTreeWalk(
                 }
               }
 
-              if (!__any(cond)) {
+              if (!any(cond)) {
                 continue;
               }
 
@@ -1329,6 +1336,9 @@ __global__ void gpuLocalTreeWalk(
                 }
               }
             }
+#if __CUDA_ARCH__ >= 700
+            __syncwarp();
+#endif
           }
         } // z replicas
       } // y replicas
@@ -1576,11 +1586,11 @@ __global__ void nodeGravityComputation(
       poten = pot;
       idt2max = idt2;
       for (int offset = NODES_PER_BLOCK/2; offset > 0; offset /= 2) {
-        sumx += __shfl_down(sumx, offset, NODES_PER_BLOCK);
-        sumy += __shfl_down(sumy, offset, NODES_PER_BLOCK);
-        sumz += __shfl_down(sumz, offset, NODES_PER_BLOCK);      
-        poten += __shfl_down(poten, offset, NODES_PER_BLOCK);
-        idt2max = fmax(idt2max, __shfl_down(idt2max, offset, NODES_PER_BLOCK));
+        sumx += shfl_down(sumx, offset, NODES_PER_BLOCK);
+        sumy += shfl_down(sumy, offset, NODES_PER_BLOCK);
+        sumz += shfl_down(sumz, offset, NODES_PER_BLOCK);
+        poten += shfl_down(poten, offset, NODES_PER_BLOCK);
+        idt2max = fmax(idt2max, shfl_down(idt2max, offset, NODES_PER_BLOCK));
       }
       // if(tidx == 0 && my_particle_idx < bucketSize){
       if (tidx == 0) {
@@ -2132,11 +2142,11 @@ __global__ void particleGravityComputation(
       poten = pot;
       idt2max = idt2;
       for(int offset = NODES_PER_BLOCK/2; offset > 0; offset /= 2){
-        sumx += __shfl_down(sumx, offset, NODES_PER_BLOCK_PART);
-        sumy += __shfl_down(sumy, offset, NODES_PER_BLOCK_PART);
-        sumz += __shfl_down(sumz, offset, NODES_PER_BLOCK_PART);
-        poten += __shfl_down(poten, offset, NODES_PER_BLOCK_PART);
-        idt2max = fmax(idt2max, __shfl_down(idt2max, offset, NODES_PER_BLOCK_PART));
+        sumx += shfl_down(sumx, offset, NODES_PER_BLOCK_PART);
+        sumy += shfl_down(sumy, offset, NODES_PER_BLOCK_PART);
+        sumz += shfl_down(sumz, offset, NODES_PER_BLOCK_PART);
+        poten += shfl_down(poten, offset, NODES_PER_BLOCK_PART);
+        idt2max = fmax(idt2max, shfl_down(idt2max, offset, NODES_PER_BLOCK_PART));
       }
 
       if(tx == 0){
@@ -2439,7 +2449,7 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
   cudatype fPot, ax, ay, az;
   cudatype x, y, z, r2, dir, dir2, a; 
   cudatype xdif, ydif, zdif; 
-  cudatype g0, g1, g2, g3, g4, g5;
+  cudatype g0, g1, g2, g3;
   cudatype Q2, Q2mirx, Q2miry, Q2mirz, Q2mir, Qta; 
   int ix, iy, iz, bInHole, bInHolex, bInHolexy;
 
@@ -2447,6 +2457,7 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
   MomcData *mom = &(cachedData->momcRoot);
   MultipoleMomentsData *momQuad = &(cachedData->mm);
   cudatype xx,xxx,xxy,xxz,yy,yyy,yyz,xyy,zz,zzz,xzz,yzz,xy,xyz,xz,yz;
+  cudatype g4, g5;
   cudatype Q4mirx,Q4miry,Q4mirz,Q4mir,Q4x,Q4y,Q4z;
   cudatype Q4xx,Q4xy,Q4xz,Q4yy,Q4yz,Q4zz,Q4,Q3x,Q3y,Q3z;
   cudatype Q3mirx,Q3miry,Q3mirz,Q3mir;
@@ -2527,10 +2538,12 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
           g2 = alphan*((1.0/7.0)*r2 - (1.0/5.0));
           alphan *= 2*cachedData->alpha2;
           g3 = alphan*((1.0/9.0)*r2 - (1.0/7.0));
+#ifdef HEXADECAPOLE
 	  alphan *= 2*cachedData->alpha2;
 	  g4 = alphan*((1.0/11.0)*r2 - (1.0/9.0));
 	  alphan *= 2*cachedData->alpha2;
 	  g5 = alphan*((1.0/13.0)*r2 - (1.0/11.0));
+#endif
         }
         else {
           dir = 1/sqrtf(r2);
@@ -2545,10 +2558,12 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
           g2 = 3*g1*dir2 + alphan*a;
           alphan *= 2*cachedData->alpha2;
           g3 = 5*g2*dir2 + alphan*a;
+#ifdef HEXADECAPOLE
 	  alphan *= 2*cachedData->alpha2;
 	  g4 = 7*g3*dir2 + alphan*a;
 	  alphan *= 2*cachedData->alpha2;
 	  g5 = 9*g4*dir2 + alphan*a;
+#endif
         }
 #ifdef HEXADECAPOLE
 	xx = 0.5*x*x;

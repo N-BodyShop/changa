@@ -267,9 +267,8 @@ mainmodule ParallelGravity {
     entry void nextBucketSmooth(dummyMsg *msg);
     entry void nextBucketReSmooth(dummyMsg *msg);
     entry void nextBucketMarkSmooth(dummyMsg *msg);
-    //entry void registerWithDataManager(const CkGroupID& dataManagerID,
-    //		     		  const CkCallback& cb);
 
+    entry void resetObjectLoad(const CkCallback& cb);
     entry void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod, int bEwald,
                            double fEwCut, double fEwhCut, int bPeriod,
                            int bComove, double dRhoFac);
@@ -417,7 +416,7 @@ mainmodule ParallelGravity {
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
 	const CkCallback& cb);
-    entry void getAdiabaticGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+    entry void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
         double dEvapMinTemp, double dDtCourantFac, const CkCallback &cb);
     entry void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,

@@ -746,6 +746,7 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 	fs.dfDarkCT.dfColors[0].dfColor.r = 0;
 	fs.dfDarkCT.dfColors[0].dfColor.g = 0;
 	fs.dfDarkCT.dfColors[0].dfColor.b = 1.0;
+	fs.dfDarkCT.dfColors[0].fVal=1.0;
 	fs.dfDarkCT.iProperty=OUT_DENSITY_ARRAY;
 	fs.dfDarkCT.fPropMin=0;
 	fs.dfDarkCT.fPropMax=1;
@@ -754,6 +755,7 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 	fs.dfGasCT.dfColors[0].dfColor.r = 0;
 	fs.dfGasCT.dfColors[0].dfColor.g = 1.0;
 	fs.dfGasCT.dfColors[0].dfColor.b = 0;
+	fs.dfGasCT.dfColors[0].fVal=1.0;
 	fs.dfGasCT.iProperty=OUT_TEMP_ARRAY;
 	fs.dfGasCT.fPropMin=3.5;
 	fs.dfGasCT.fPropMax=6;
@@ -762,6 +764,7 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 	fs.dfStarCT.dfColors[0].dfColor.r = 1.0;
 	fs.dfStarCT.dfColors[0].dfColor.g = 0;
 	fs.dfStarCT.dfColors[0].dfColor.b = 0;
+	fs.dfStarCT.dfColors[0].fVal=1.0;
 	fs.dfStarCT.iProperty=OUT_TIMEFORM_ARRAY;
 	fs.dfStarCT.fPropMin=0;
 	fs.dfStarCT.fPropMax=0.3;
@@ -911,11 +914,11 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 			CkAssert( nitem == 2 );
 			}
 		else if (!strcmp( command, "loop") ) {
+			df->bLoop = 1;
 			nitem = sscanf( line, "%s %lf %lf", command, &df->dTimeLoop, &df->dPeriodLoop );
 			CkAssert( nitem == 3 );
 			}
 		else if (!strcmp( command, "clip") ) {
-			df->bLoop = 1;
 			nitem = sscanf( line, "%s %lf %lf", command, &fs.zClipNear, &fs.zClipFar );
 			CkAssert( nitem == 3 );
 			}
@@ -962,10 +965,13 @@ void dfParseCameraDirections( struct DumpFrameContext *df, char * filename ) {
 	    float scaler=1.0;
 	    nitem = sscanf( line, "%s %s %s %f", command, word, otherword, 
 			    &scaler);
-	    if (nitem==4) {
-		dfReadColorMapFile(dfWordToColortable(word,&fs),otherword, 
-				   scaler); 
-		}
+            if (nitem==4) {
+                int found = dfReadColorMapFile(dfWordToColortable(word,&fs),
+                                               otherword, scaler); 
+                if(!found)
+                    CkError("WARNING colormap %s not found or colortables.txt missing\n",
+                            otherword);
+            }
 	    else {
 		fprintf(stderr,"DF wrong argument number to: colormap type mapname gamma\n");
 		CkAssert( 0 );
@@ -1215,7 +1221,10 @@ void dfSetupFrame( struct DumpFrameContext *df, double dTime, double dStep, doub
 		}
 
 	
-	if (df->bVDetails) CkPrintf("DF Interpolating at t=%g Setups: %i (t=%g) %i (t=%g)\n",dTime,ifs,df->fs[ifs].dTime,ifs+1,df->fs[ifs+1].dTime);
+        if (df->bVDetails && ifs) {
+            CkPrintf("DF Interpolating at t=%g Setups: %i (t=%g) %i (t=%g)\n",
+                dTime,ifs,df->fs[ifs].dTime,ifs+1,df->fs[ifs+1].dTime);
+        }
 
 	fs = df->fs[ifs];
 
@@ -1676,7 +1685,7 @@ void dfFinishFrame( struct DumpFrameContext *df, double dTime, double dStep, str
 	CkAssert( gray != NULL );
 	*outgray = gray;
 
-	if (df->bVDetails) {
+	if (!liveViz && df->bVDetails) {
             double min = 1e38;
             double max = 0.0;
             for(i = 0; i < iMax; i++) {

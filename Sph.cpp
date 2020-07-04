@@ -305,8 +305,10 @@ arrayFileExists(const std::string filename, const int64_t count)
             return true;
             }
         fseek(fp, 0, SEEK_SET);
+        int nread;
         int64_t nIOrd;
-        fscanf(fp, "%ld", &nIOrd);
+        nread = fscanf(fp, "%ld", &nIOrd);
+        CkAssert(nread == 1);
         CkAssert(nIOrd == count); // Valid ASCII file.
         fclose(fp);
         return true;
@@ -425,7 +427,7 @@ Main::restartGas()
 #ifdef SUPERBUBBLE
       // read hot mass
       if(nTotalSPH > 0)
-          nGas = ncGetCount(basefilename + "/gas/masshot");
+          nGas = ncGetCount(basefilename + "/gas/massHot");
       if(nGas == nTotalSPH) {
           MassHotOutputParams mHOut(basefilename, 6, 0.0);
           treeProxy.readFloatBinary(mHOut, param.bParaRead,
@@ -498,6 +500,18 @@ Main::restartGas()
               }
           else
               CkError("WARNING: no CoolArray3 file, or wrong format for restart\n");
+#ifdef COOLING_MOLECULARH
+          nGas = ncGetCount(basefilename + "/gas/lw");
+          if(nGas == nTotalSPH) {
+              LWOutputParams pLWOut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pLWOut, param.bParaRead,
+                                        CkCallbackResumeThread());
+              bFoundCoolArray = true;
+          }
+          else {
+            CkError("WARNING: no Lyman Werner file for restart\n");
+          }
+#endif
         double dTuFac = param.dGasConst/(param.dConstGamma-1)
                 /param.dMeanMolWeight;
         if(bFoundCoolArray) {
@@ -617,6 +631,16 @@ Main::restartGas()
         else {
             CkError("WARNING: no CoolArray3 file for restart\n");
             }
+#ifdef COOLING_MOLECULARH
+        if(arrayFileExists(basefilename + ".lw", nTotalParticles)) {
+            LWOutputParams pLWOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pLWOut, CkCallbackResumeThread());
+            bFoundCoolArray = true;
+        }
+        else {
+            CkError("WARNING: no Lyman Werner file for restart\n");
+        }
+#endif
         double dTuFac = param.dGasConst/(param.dConstGamma-1)
                 /param.dMeanMolWeight;
         if(bFoundCoolArray) {
@@ -736,6 +760,8 @@ Main::doSph(int activeRung, int bNeedDensity)
 			CkCallbackResumeThread());
     double a = csmTime2Exp(param.csm, dTime);
     double dDtCourantFac = param.dEtaCourant*a*2.0/1.6;
+	double dTuFac = param.dGasConst/(param.dConstGamma-1)
+	    /param.dMeanMolWeight;
     if(param.bGasCooling)
     treeProxy.getCoolingGasPressure(param.dConstGamma, param.dConstGamma-1,
             param.dThermalCondCoeffCode*a, param.dThermalCond2CoeffCode*a,
@@ -745,7 +771,7 @@ Main::doSph(int activeRung, int bNeedDensity)
             CkCallbackResumeThread());
     else
 	treeProxy.getAdiabaticGasPressure(param.dConstGamma,
-					param.dConstGamma-1, param.dThermalCondCoeffCode*a, param.dThermalCond2CoeffCode*a,
+					param.dConstGamma-1, dTuFac, param.dThermalCondCoeffCode*a, param.dThermalCond2CoeffCode*a,
                     param.dThermalCondSatCoeff/a, param.dThermalCond2SatCoeff/a, 
                     param.dEvapMinTemp,	dDtCourantFac, CkCallbackResumeThread());
 
@@ -943,6 +969,7 @@ void TreePiece::updateuDot(int activeRung,
 	    else { 
 		p->uDot() = ExternalHeating;
 		}
+            CkAssert(isfinite(p->uDot()));
 	    }
 	}
 #endif
@@ -1288,7 +1315,7 @@ TreePiece::sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb)
     }
 
 /* Note: Uses uPred */
-void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
+void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
         double dEvapMinTemp, double dtFacCourant, const CkCallback &cb)
 {
@@ -1308,7 +1335,7 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTh
         PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
         p->c() = sqrt(gamma*PoverRho);
         p->PoverRho2() = PoverRho/p->fDensity;
-        double Tp = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uPred(), p->fMetals());
+        double Tp = p->uPred() / dTuFac;
         double fThermalCond = dThermalCondCoeff*pow(p->uPred(),2.5);
         double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
         if (Tp < dEvapMinTemp)
@@ -1316,7 +1343,8 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTh
             fThermalCond = 0;
             fThermalCond2 = 0;
         }
-        double fSat = p->fDensity*p->c()*p->fThermalLength();
+        // conductivity is limited by propagation of electrons
+        double fSat = p->fDensity*p->c()*0.5*p->fBall;
         double fThermalCondSat = fSat*dThermalCondSatCoeff;
         double fThermalCond2Sat = fSat*dThermalCond2SatCoeff;
         p->fThermalCond() = (fThermalCond < fThermalCondSat ? fThermalCond : fThermalCondSat) +
@@ -1383,7 +1411,8 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
             fThermalCond = 0;
             fThermalCond2 = 0;
         }
-        double fSat = p->fDensity*p->c()*p->fThermalLength();
+        // conductivity is limitied by propagation of electrons
+        double fSat = p->fDensity*p->c()*0.5*p->fBall;
         double fThermalCondSat = fSat*dThermalCondSatCoeff;
         double fThermalCond2Sat = fSat*dThermalCond2SatCoeff;
         p->fThermalCond() = (fThermalCond < fThermalCondSat ? fThermalCond : fThermalCondSat) +
@@ -1824,8 +1853,9 @@ void DistDeletedGasSmoothParams::combSmoothCache(GravityParticle *p1,
 	            fTCool = 1.01*p1->uPred()/p1->uDot(); 
 	        p1->u() = f1*p1->u() + f2*p2->u;
 	        p1->uPred() = f1*p1->uPred() + f2*p2->uPred;
-	        if(p1->uDot() < 0.0)
-	            p1->uDot() = p1->uPred()/fTCool;
+                if(p1->uDot() < 0.0 && fabs(fTCool*p1->uDot()) > p1->uPred())
+                    p1->uDot() = p1->uPred()/fTCool;
+                CkAssert(isfinite(p1->uDot()));
 	    }
 #endif
 	    p1->mass = m_new;
@@ -1925,12 +1955,15 @@ void DistDeletedGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	q->fMFracIron() = f1*q->fMFracIron() + f2*p->fMFracIron();
 	q->fMFracOxygen() = f1*q->fMFracOxygen() + f2*p->fMFracOxygen();
 #ifndef COOLING_NONE
-	if(q->uDot() < 0.0) /* margin of 1% to avoid roundoff error */
-	    fTCool = 1.01*q->uPred()/q->uDot(); 
+        if(q->uDot() < 0.0) /* margin of 1% to avoid roundoff error */
+            fTCool = 1.01*q->uPred()/q->uDot();
 	q->u() = f1*q->u()+f2*p->u();
 	q->uPred() = f1*q->uPred()+f2*p->uPred();
-	if(q->uDot() < 0.0) /* make sure we don't shorten cooling time */
+        /* make sure we don't shorten cooling time; N.B.: fTCool is a
+           negative number */
+        if(q->uDot() < 0.0 && fabs(fTCool*q->uDot()) > q->uPred())
 	    q->uDot() = q->uPred()/fTCool;
+        CkAssert(isfinite(q->uDot()));
 #endif
         }
     }
