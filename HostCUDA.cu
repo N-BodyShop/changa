@@ -107,6 +107,10 @@ void run_DM_TRANSFER_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,void*
   printf("cores: 0x%x\n", devBuffers[LOCAL_PARTICLE_CORES]);
   printf("vars: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
 #endif
+  ZeroVars<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>(
+      (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
+      wr->buffers[LOCAL_PARTICLE_VARS_IDX].size/sizeof(VariablePartData));
+  cudaChk(cudaPeekAtLastError());
 }
 
 void run_DM_TRANSFER_REMOTE_CHUNK(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
@@ -162,7 +166,7 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 	transferKernel->addBuffer(varParts, sVarParts, (sVarParts > 0), false,
                                   false, LOCAL_PARTICLE_VARS);
 
-	transferKernel->setDeviceToHostCallback(wrCallback);
+	transferKernel->setKernelCallback(wrCallback);
 #ifdef HAPI_TRACE
 	transferKernel->setTraceName("xferLocal");
 #endif
@@ -2641,4 +2645,16 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
   particleVars[id].potential += fPot;
   
   return;
+}
+
+__global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
+    int id;
+    id = First + blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    if(id >= nVars) return;
+
+    particleVars[id].a.x = 0.0;
+    particleVars[id].a.y = 0.0;
+    particleVars[id].a.z = 0.0;
+    particleVars[id].potential = 0.0;
+    particleVars[id].dtGrav = 0.0;
 }

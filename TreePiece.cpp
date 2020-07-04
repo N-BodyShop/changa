@@ -3801,6 +3801,46 @@ void TreePiece::finishBucket(int iBucket) {
 }
 
 #ifdef CUDA
+/// @brief Fill GPU buffer with particle data
+void TreePiece::fillGPUBuffer(intptr_t pLocalParts, intptr_t pLocalMoments,
+                              int nParts)
+{
+    CompactPartData *aLocalParts = (CompactPartData *)pLocalParts;
+    CudaMultipoleMoments aLocalMoments = (CudaMultipoleMoments *) pLocalMoments;
+    int partIndex = nParts;
+    getDMParticles(aLocalParts, partIndex);
+#ifdef GPU_LOCAL_TREE_WALK
+    // set the bucketStart and bucketSize for each bucket Node
+    if (largePhase()) {
+        for (int j = 0; j < numBuckets; ++j) {
+            GenericTreeNode *bucketNode = bucketList[j];
+            int id = bucketNode->nodeArrayIndex;
+            aLocalMoments[id].bucketStart = bucketNode->bucketArrayIndex;
+            aLocalMoments[id].bucketSize = bucketNode->lastParticle
+                - bucketNode->firstParticle + 1;
+        }
+    } else {
+        for (int j = 0; j < numBuckets; ++j) {
+            GenericTreeNode *bucketNode = bucketList[j];
+            int id = bucketNode->nodeArrayIndex;
+            aLocalMoments[id].bucketStart = bucketActiveInfo[id].start;
+            aLocalMoments[id].bucketSize =  bucketActiveInfo[id].size;
+        }
+    }
+    // tell each particle which node it belongs to
+    for (int j = 0; j < numBuckets; ++j) {
+      GenericTreeNode *bucketNode = bucketList[j];
+      int id = bucketNode->nodeArrayIndex;
+      int start = aLocalMoments[id].bucketStart;
+      int end = start + aLocalMoments[id].bucketSize;
+      for (int k = start; k < end; k ++) {
+        aLocalParts[k].nodeId = id;
+      }
+    }
+#endif
+    dm->transferLocalToGPU();
+}
+
 /// @brief update particle accelerations with GPU results
 void TreePiece::updateParticles(intptr_t data, int partIndex) {
     VariablePartData *deviceParticles = ((UpdateParticlesStruct *)data)->buf;

@@ -491,6 +491,7 @@ void DataManager::serializeLocalTree(){
 #endif
   if(treePiecesDone == registeredTreePieces.length()){
     treePiecesDone = 0;
+    CmiUnlock(__nodelock);
 
     if(verbosity > 1)
         CkPrintf("[%d] Registered tree pieces length: %d\n", CkMyPe(), registeredTreePieces.length());
@@ -498,8 +499,8 @@ void DataManager::serializeLocalTree(){
     if(verbosity > 1)
         CkPrintf("[%d] Registered tree pieces length after serialize local: %d\n", CkMyPe(), registeredTreePieces.length());
   }
-  CmiUnlock(__nodelock);
-
+  else
+      CmiUnlock(__nodelock);
 }
 
 /// @brief Callback from local data transfer to GPU
@@ -660,8 +661,6 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   int numTreePieces = registeredTreePieces.length();
   int numNodes = 0;
   int numParticles = 0;
-  int numCachedNodes = 0;
-  int numCachedParticles = 0;
   int totalNumBuckets = 0;
 
   cacheType *wholeNodeCache = cacheNode.ckLocalBranch()->getCache();
@@ -786,8 +785,6 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   int numTreePieces = registeredTreePieces.length();
   int numNodes = 0;
   int numParticles = 0;
-  int numCachedNodes = 0;
-  int numCachedParticles = 0;
 
   for(int i = 0; i < numTreePieces; i++){
     TreePiece *tp = registeredTreePieces[i].treePiece;
@@ -797,10 +794,8 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   numNodes -= cumNumReplicatedNodes;
 
   CkVec<CudaMultipoleMoments> localMoments;
-  CkVec<CompactPartData> localParticles;
 
   localMoments.reserve(numNodes);
-  localParticles.resize(numParticles);
 
   localMoments.length() = 0;
 
@@ -851,44 +846,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   savedNumTotalParticles = numParticles;
   savedNumTotalNodes = localMoments.length();
 
-  for(int i = 0; i < registeredTreePieces.length(); i++){
-    TreePiece *tp = registeredTreePieces[i].treePiece;
-    tp->getDMParticles(localParticles.getVec(), partIndex);
-  }
-
 #ifdef GPU_LOCAL_TREE_WALK
-  // set proper active bucketStart and bucketSize for each bucketNode
-  for(int i = 0; i < numTreePieces; i++){
-    TreePiece *tp = registeredTreePieces[i].treePiece;
-    // set the bucketStart and bucketSize for each bucket Node
-    if (tp->largePhase()) {
-      for (int j = 0; j < tp->numBuckets; ++j) {
-          GenericTreeNode *bucketNode = tp->bucketList[j];
-          int id = bucketNode->nodeArrayIndex;
-          localMoments[id].bucketStart = bucketNode->bucketArrayIndex;
-          localMoments[id].bucketSize = bucketNode->lastParticle - bucketNode->firstParticle + 1;
-      }
-    } else {
-      for (int j = 0; j < tp->numBuckets; ++j) {
-          GenericTreeNode *bucketNode = tp->bucketList[j];
-          int id = bucketNode->nodeArrayIndex;
-          localMoments[id].bucketStart = tp->bucketActiveInfo[id].start;
-          localMoments[id].bucketSize =  tp->bucketActiveInfo[id].size;
-      }
-    }
-
-    // tell each particle which node it belongs to
-    CompactPartData *localParicalsVec = localParticles.getVec();
-    for (int j = 0; j < tp->numBuckets; ++j) {
-      GenericTreeNode *bucketNode = tp->bucketList[j];
-      int id = bucketNode->nodeArrayIndex;
-      int start = localMoments[id].bucketStart;
-      int end = start + localMoments[id].bucketSize;
-      for (int k = start; k < end; k ++) {
-        localParicalsVec[k].nodeId = id;
-      }
-    }
-  }
   transformLocalTreeRecursive(node, localMoments);
 #endif //GPU_LOCAL_TREE_WALK
 
@@ -899,6 +857,31 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 #if COSMO_PRINT_BK > 1
   CkPrintf("(%d): DM->GPU local tree\n", CkMyPe());
 #endif
+  size_t sLocalParts = numParticles*sizeof(CompactPartData);
+  allocatePinnedHostMemory((void **)&bufLocalParts, sLocalParts);
+
+  numParticles = 0;
+  for(int i = 0; i < numTreePieces; i++){
+      treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer(bufLocalParts, localMoments.getVec(), numParticles);
+      numParticles += tp->getDMNumParticles();
+      }
+}
+
+///
+/// @brief After all pieces have filled the buffer, initiate the transfer.
+///
+void DataManager::transferLocalToGPU()
+{
+    CmiLock(__nodelock);
+    treePiecesBufferFilled++;
+    if(treePiecesBufferFilled == registeredTreePieces.length()){
+        treePiecesBufferFilled = 0;
+        CmiUnlock(__nodelock);
+    }
+    else {
+        CmiUnlock(__nodelock);
+        return;
+    }
 
   localTransferCallback
       = new CkCallback(CkIndex_DataManager::startLocalWalk(), CkMyNode(), dMProxy);
@@ -908,21 +891,8 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   allocatePinnedHostMemory((void **)&bufLocalMoments, sLocalMoments);
   memcpy(bufLocalMoments, localMoments.getVec(), sLocalMoments);
 
-  size_t sLocalParts = localParticles.length()*sizeof(CompactPartData);
-  allocatePinnedHostMemory((void **)&bufLocalParts, sLocalParts);
-  memcpy(bufLocalParts, localParticles.getVec(), sLocalParts);
-
   size_t sLocalVars = localParticles.length()*sizeof(VariablePartData);
   allocatePinnedHostMemory((void **)&bufLocalVars, sLocalVars);
-  VariablePartData *zeroArray =  (VariablePartData *) bufLocalVars;
-// XXX This could be done on the GPU.
-  for(int i = 0; i < numParticles; i++){
-      zeroArray[i].a.x = 0.0;
-      zeroArray[i].a.y = 0.0;
-      zeroArray[i].a.z = 0.0;
-      zeroArray[i].potential = 0.0;
-      zeroArray[i].dtGrav = 0.0;
-      }
   // Transfer moments and particle cores to gpu
 #ifdef HAPI_INSTRUMENT_WRS
   DataManagerTransferLocalTree(bufLocalMoments, sLocalMoments, bufLocalParts,
@@ -933,7 +903,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
                                sLocalParts, bufLocalVars, sLocalVars,
                                CkMyPe(), localTransferCallback);
 #endif
-}// end serializeLocal
+}
 
 #ifdef GPU_LOCAL_TREE_WALK
 // Add more information to each Moment, basically transform moment to a computable tree node
