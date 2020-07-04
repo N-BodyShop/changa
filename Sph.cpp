@@ -305,8 +305,10 @@ arrayFileExists(const std::string filename, const int64_t count)
             return true;
             }
         fseek(fp, 0, SEEK_SET);
+        int nread;
         int64_t nIOrd;
-        fscanf(fp, "%ld", &nIOrd);
+        nread = fscanf(fp, "%ld", &nIOrd);
+        CkAssert(nread == 1);
         CkAssert(nIOrd == count); // Valid ASCII file.
         fclose(fp);
         return true;
@@ -498,6 +500,18 @@ Main::restartGas()
               }
           else
               CkError("WARNING: no CoolArray3 file, or wrong format for restart\n");
+#ifdef COOLING_MOLECULARH
+          nGas = ncGetCount(basefilename + "/gas/lw");
+          if(nGas == nTotalSPH) {
+              LWOutputParams pLWOut(basefilename, 6, 0.0);
+              treeProxy.readFloatBinary(pLWOut, param.bParaRead,
+                                        CkCallbackResumeThread());
+              bFoundCoolArray = true;
+          }
+          else {
+            CkError("WARNING: no Lyman Werner file for restart\n");
+          }
+#endif
         double dTuFac = param.dGasConst/(param.dConstGamma-1)
                 /param.dMeanMolWeight;
         if(bFoundCoolArray) {
@@ -617,6 +631,16 @@ Main::restartGas()
         else {
             CkError("WARNING: no CoolArray3 file for restart\n");
             }
+#ifdef COOLING_MOLECULARH
+        if(arrayFileExists(basefilename + ".lw", nTotalParticles)) {
+            LWOutputParams pLWOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pLWOut, CkCallbackResumeThread());
+            bFoundCoolArray = true;
+        }
+        else {
+            CkError("WARNING: no Lyman Werner file for restart\n");
+        }
+#endif
         double dTuFac = param.dGasConst/(param.dConstGamma-1)
                 /param.dMeanMolWeight;
         if(bFoundCoolArray) {

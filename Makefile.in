@@ -111,11 +111,11 @@ cache_lib_path      := @CHARM_PATH@/tmp/libs/ck-libs/cache
 threadsafe_ht_path  := $(cache_lib_path)/threadsafe_hashtable
 
 # ------- Modules to build ----------------------------------------------------
-changa_modules := $(strip MultistepLB MultistepOrbLB MultistepLB_notopo \
+changa_modules := $(strip MultistepLB MultistepLB_notopo \
                     MultistepNodeLB_notopo Orb3dLB Orb3dLB_notopo HierarchOrbLB)
 
-charm_modules := $(strip CkCache CkIO CkMulticast RefineLB RefineCommLB \
-                   GreedyLB GreedyCommLB OrbLB RotateLB liveViz CkLoop)
+charm_modules := $(strip CkCache CkIO CkMulticast RefineLB \
+                   GreedyLB RotateLB liveViz CkLoop)
 
 # ------- Helper Variables ----------------------------------------------------
 defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@  \
@@ -142,22 +142,16 @@ basic_ldflags := $(debug_ldflags) $(cuda_ldflags) -L. -L@CHARM_PATH@/lib
 # ------- Standard Variables --------------------------------------------------
 # The global version of each flag must be at the end so that the user
 # can override our defaults here from the command line
-cpp_flags := $(includes) $(defines) @USER_CPPFLAGS@ $(CPPFLAGS)
+cpp_flags := $(includes) $(defines) @USER_CPPFLAGS@ @CPPFLAGS@ $(CPPFLAGS)
 c_flags   := $(basic_flags) -std=$(c_std) $(cpp_flags) @USER_CFLAGS@ $(CFLAGS)
 cxx_flags := $(basic_flags) -std=$(cxx_std) $(cpp_flags) @USER_CXXFLAGS@ $(CXXFLAGS)
-ld_libs   := $(basic_ldlibs) $(LDLIBS)
-ld_flags  := $(basic_ldflags) @USER_LDFLAGS@ $(LDFLAGS)
+ld_libs   := $(basic_ldlibs) @LIBS@ $(LDLIBS)
+ld_flags  := $(basic_ldflags) @USER_LDFLAGS@ @LDFLAGS@ $(LDFLAGS)
 
 # ------- Sources -------------------------------------------------------------
 # Capture all sources except the ones for cooling
 c_srcs   := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.c))
 cxx_srcs := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.cpp))
-
-# If cha_commitid.c wasn't picked up in the source directory,
-# then we are doing an out-of-source build, so add it here.
-ifneq ($(source_dir),$(build_dir))
-  c_srcs += $(build_dir)/cha_commitid.c
-endif
 
 # Add the cooling sources (if any)
 ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
@@ -236,9 +230,18 @@ $(build_dir)/settings: force
 	$(quiet) flags="$(cxx_flags) $(c_flags) $(ld_libs) $(ld_flags)" && \
 		echo "$$flags" | cmp -s - $@ || echo "$$flags" > $@
 
+# The commitID should be refreshed on every build
+$(build_dir)/cha_commitid.o: $(build_dir)/cha_commitid.c
+	$(compile-c)
+
+$(build_dir)/cha_commitid.c:
+	$(quiet) VER=`cd $(source_dir) && git describe --long --always` && \
+	         echo "const char * const Cha_CommitID = \"$$VER\";" > $(build_dir)/cha_commitid.c
+
 $(ci_files): $(build_dir)/settings
 $(objects): $(build_dir)/settings
 
+$(build_dir)/$(target): $(build_dir)/cha_commitid.o
 $(build_dir)/$(target): $(foreach m,$(changa_modules),libmodule$(m).a)
 $(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a
 	$(link-charmc)

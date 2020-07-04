@@ -142,7 +142,7 @@ class Orb3dCommon{
             else{
               int fromPE = (*from)[orb.lbindex];
               if (fromPE < 0 || fromPE >= procload.size()) {
-                CkPrintf("[%d] trying to access fromPe %d nprocs %d\n", CkMyPe(), fromPE, procload.size());
+                CkPrintf("[%d] trying to access fromPe %d nprocs %lu\n", CkMyPe(), fromPE, procload.size());
                 CkAbort("Trying to access a PE which is outside the range\n");
               }
               procload[fromPE] += ev.load;
