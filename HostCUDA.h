@@ -130,6 +130,11 @@ typedef struct _CudaRequest{
                                  *  this request */
         void *tp;               /**< Pointer to TreePiece that made
                                  * this request */
+        /// pointer to off-processor Node/Particle buffer.
+        void *missedNodes;
+        void *missedParts;
+        /// Size of the off-processor data buffer.
+        size_t sMissed;
 
 	/// these buckets were finished in this work request
 	int *affectedBuckets;
@@ -177,22 +182,29 @@ typedef struct _ParameterStruct{
 #endif //GPU_LOCAL_TREE_WALK
 }ParameterStruct;
 
+void allocatePinnedHostMemory(void **, size_t);
+void freePinnedHostMemory(void *);
+
 #ifdef HAPI_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
-                        CompactPartData *compactParts, int nCompactParts,
+void DataManagerTransferLocalTree(void *moments, size_t sMoments,
+                        void *compactParts, size_t sCompactParts,
+                        void *varParts, size_t sVarParts,
                         int mype, char phase, void *wrCallback);
-void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments,
-                                    int nMoments, CompactPartData *compactParts,
-                                    int nCompactParts, int mype, char phase,
-                                    void *wrCallback);
+void DataManagerTransferRemoteChunk(void *moments, size_t sMoments, 
+                                    void *compactParts, size_t sCompactParts,
+                                    void *varParts, size_t sVarParts,
+                                    mype, char phase, void *wrCallback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int pe, char phase);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart, int pe, char phase);
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb, bool, bool, bool, bool, int pe, char phase);
 #else
-void DataManagerTransferLocalTree(CudaMultipoleMoments *moments, int nMoments,
-                        CompactPartData *compactParts, int nCompactParts,
-                        int mype, void *wrCallback);
-void DataManagerTransferRemoteChunk(CudaMultipoleMoments *moments, int nMoments, CompactPartData *compactParts, int nCompactParts, void *wrCallback);
+void DataManagerTransferLocalTree(void *moments, size_t sMoments,
+                                  void *compactParts, size_t sCompactParts,
+                                  void *varParts, size_t sVarParts,
+                                  int mype, void *wrCallback);
+void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
+                                  void *compactParts, size_t sCompactParts,
+                                  void *wrCallback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
 /** @brief Transfer forces from the GPU back to the host.
@@ -212,13 +224,13 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *c
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
 void TreePieceCellListDataTransferRemote(CudaRequest *data);
-void TreePieceCellListDataTransferRemoteResume(CudaRequest *data, CudaMultipoleMoments *missedMoments, int numMissedMoments);
+void TreePieceCellListDataTransferRemoteResume(CudaRequest *data);
 
 
 void TreePiecePartListDataTransferLocal(CudaRequest *data);
 void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *parts, int len);
 void TreePiecePartListDataTransferRemote(CudaRequest *data);
-void TreePiecePartListDataTransferRemoteResume(CudaRequest *data, CompactPartData *missedParticles, int numMissedParticles);
+void TreePiecePartListDataTransferRemoteResume(CudaRequest *data);
 
 void DummyKernel(void *cb);
 

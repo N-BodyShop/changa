@@ -21,7 +21,6 @@ public:
 
 protected:
   CentralLB *orblb;
-  CentralLB *refinelb;
 
   void init();
   virtual bool QueryBalanceNow(int step) {
@@ -36,7 +35,7 @@ protected:
 
 private:
   CProxy_HierarchOrbLB  thisProxy;
-
+  void refine(LDStats* stats);
 };
 
 #endif /* HIERARCH_ORBLB_H */

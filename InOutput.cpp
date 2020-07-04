@@ -122,8 +122,54 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
     p.fStarMFracIron() = 0.098*sp.metals;
     p.fMassForm() = sp.mass;
     p.fTimeForm() = sp.tform;
+#ifdef COOLING_MOLECULARH 
+    p.dStarLymanWerner() = 0.0;
+#endif
 }
 
+/// @brief determine if we are on a TreePiece that will read
+/// particles.
+/// @param iIndex thisIndex of my TreePiece
+/// @param nPieces Total number of TreePieces.
+/// @return True if we are on a loading PE, false otherwise
+///
+/// We only want one TreePiece per PE to open and read the tipsy
+/// file.  This saves file opens/closes and reduces the number of
+/// messages needed for the initial domain decomposition.
+
+static bool isLoadingPiece(int iIndex, int nPieces)
+{
+    bool bLoading = true;       ///< return value
+    
+    int nLoadingPEs = CkNumPes();
+#ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
+    /// In this case, the pieces have been assigned to PEs in round-robin.
+    if(iIndex >= nLoadingPEs) bLoading = false;
+#else
+    /// The following is based on the DefaultMap procNum().  See
+    /// cklocation.C:compute_binsize() in the charm++ source code.
+    /// The first (nPiece % nPE) PEs have one more Piece than the rest.
+
+    int nPiecesPerPE = nPieces/nLoadingPEs;
+    int nRem = nPieces - nPiecesPerPE*nLoadingPEs;
+
+    int nSmallBlockSize = nPiecesPerPE; 
+    int nLargeBlockSize = nPiecesPerPE + 1; 
+    int nLargeBlocks = nRem; 
+    int iLargeBlockBound = nLargeBlocks * nLargeBlockSize; 
+    if (iIndex < iLargeBlockBound) {
+        if (iIndex % nLargeBlockSize > 0) {
+            bLoading = false;      // not the first piece in a large block
+        }
+    }
+    else {
+        if ((iIndex - iLargeBlockBound) % nSmallBlockSize > 0) {
+            bLoading = false; // not the first piece in a small block
+        }
+    }
+#endif
+    return bLoading;
+}
 
 void TreePiece::loadTipsy(const std::string& filename,
 			  const double dTuFac, // Convert Temperature
@@ -147,58 +193,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	nTotalStar = tipsyHeader.nstar;
 	dStartTime = tipsyHeader.time;
 
-        bool skipLoad = false;
-        int numLoadingPEs = CkNumPes();
-
-        // check whether this tree piece should load from file
-#ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
-        if(thisIndex >= numLoadingPEs) skipLoad = true;
-#else
-        int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
-        int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
-
-#ifdef DEFAULT_ARRAY_MAP
-        if (rem > 0) {
-          int sizeSmallBlock = numTreePiecesPerPE; 
-          int numLargeBlocks = rem; 
-          int sizeLargeBlock = numTreePiecesPerPE + 1; 
-          int largeBlockBound = numLargeBlocks * sizeLargeBlock; 
-          
-          if (thisIndex < largeBlockBound) {
-            if (thisIndex % sizeLargeBlock > 0) {
-              skipLoad = true; 
-            }
-          }
-          else {
-            if ((thisIndex - largeBlockBound) % sizeSmallBlock > 0) {
-              skipLoad = true; 
-            }
-          }
-        }
-        else {
-          if ( (thisIndex % numTreePiecesPerPE) > 0) {
-            skipLoad = true; 
-          }
-        }
-#else
-        // this is not the best way to divide objects among PEs, 
-        // but it is how charm++ BlockMap does it.
-        if(rem > 0){
-          numTreePiecesPerPE++;
-          numLoadingPEs = numTreePieces/numTreePiecesPerPE;
-          if(numTreePieces % numTreePiecesPerPE > 0) numLoadingPEs++;
-        }
-
-        if(thisIndex % numTreePiecesPerPE > 0 || thisIndex >= numLoadingPEs * numTreePiecesPerPE) skipLoad = true;
-#endif
-#endif
-
-        /*
-        if(thisIndex == 0){
-          CkPrintf("[%d] numTreePieces %d numTreePiecesPerPE %d numLoadingPEs %d\n", thisIndex, numTreePieces, numTreePiecesPerPE, numLoadingPEs);
-        }
-        */
-
+        bool skipLoad = !isLoadingPiece(thisIndex, numTreePieces);
 
         if(skipLoad){
           myNumParticles = 0;
@@ -209,6 +204,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 
         // find your load offset into input file
         int myIndex = CkMyPe();
+        int numLoadingPEs = CkNumPes();
 	myNumParticles = nTotalParticles / numLoadingPEs;
 	int excess = nTotalParticles % numLoadingPEs;
 	int64_t startParticle = ((int64_t) myNumParticles) * myIndex;
@@ -220,7 +216,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    startParticle += excess;
 	    }
 	if(startParticle >= nTotalParticles) {
-	    CkError("Bad startParticle: %d, nPart: %d, myIndex: %d, nLoading: %d\n",
+	    CkError("Bad startParticle: %ld, nPart: %ld, myIndex: %d, nLoading: %d\n",
 		    startParticle, nTotalParticles, myIndex, numLoadingPEs);
 	    }
 	CkAssert(startParticle < nTotalParticles);
@@ -801,6 +797,9 @@ static void load_NC_star(std::string filename, int64_t startParticle,
     deleteField(fh, data);
     for(int i = 0; i < myNumStar; ++i) {
         myParts[i].fMassForm() = myParts[i].mass;
+#ifdef COOLING_MOLECULARH 
+        myParts[i].dStarLymanWerner() = 0.0;
+#endif
         }
 }
 
@@ -818,51 +817,7 @@ void TreePiece::loadNChilada(const std::string& filename,
             CkAbort("No particles can be read.  Check file permissions\n");
 	dStartTime = fh_time;
 
-        bool skipLoad = false;
-        int numLoadingPEs = CkNumPes();
-
-        // check whether this tree piece should load from file
-#ifdef ROUND_ROBIN_WITH_OCT_DECOMP 
-        if(thisIndex >= numLoadingPEs) skipLoad = true;
-#else
-        int numTreePiecesPerPE = numTreePieces/numLoadingPEs;
-        int rem = numTreePieces-numTreePiecesPerPE*numLoadingPEs;
-
-#ifdef DEFAULT_ARRAY_MAP
-        if (rem > 0) {
-          int sizeSmallBlock = numTreePiecesPerPE; 
-          int numLargeBlocks = rem; 
-          int sizeLargeBlock = numTreePiecesPerPE + 1; 
-          int largeBlockBound = numLargeBlocks * sizeLargeBlock; 
-          
-          if (thisIndex < largeBlockBound) {
-            if (thisIndex % sizeLargeBlock > 0) {
-              skipLoad = true; 
-            }
-          }
-          else {
-            if ((thisIndex - largeBlockBound) % sizeSmallBlock > 0) {
-              skipLoad = true; 
-            }
-          }
-        }
-        else {
-          if ( (thisIndex % numTreePiecesPerPE) > 0) {
-            skipLoad = true; 
-          }
-        }
-#else
-        // this is not the best way to divide objects among PEs, 
-        // but it is how charm++ BlockMap does it.
-        if(rem > 0){
-          numTreePiecesPerPE++;
-          numLoadingPEs = numTreePieces/numTreePiecesPerPE;
-          if(numTreePieces % numTreePiecesPerPE > 0) numLoadingPEs++;
-        }
-
-        if(thisIndex % numTreePiecesPerPE > 0 || thisIndex >= numLoadingPEs * numTreePiecesPerPE) skipLoad = true;
-#endif
-#endif
+        bool skipLoad = !isLoadingPiece(thisIndex, numTreePieces);
 
         if(skipLoad){
           myNumParticles = 0;
@@ -873,6 +828,7 @@ void TreePiece::loadNChilada(const std::string& filename,
 
         // find your load offset into input file
         int myIndex = CkMyPe();
+        int numLoadingPEs = CkNumPes();
 	myNumParticles = nTotalParticles / numLoadingPEs;
 	int excess = nTotalParticles % numLoadingPEs;
 	int64_t startParticle = ((int64_t)myNumParticles) * myIndex;
@@ -884,7 +840,7 @@ void TreePiece::loadNChilada(const std::string& filename,
 	    startParticle += excess;
 	    }
 	if(startParticle >= nTotalParticles) {
-	    CkError("Bad startParticle: %d, nPart: %d, myIndex: %d, nLoading: %d\n",
+	    CkError("Bad startParticle: %ld, nPart: %ld, myIndex: %d, nLoading: %d\n",
 		    startParticle, nTotalParticles, myIndex, numLoadingPEs);
 	    }
 	CkAssert(startParticle < nTotalParticles);
@@ -1469,9 +1425,17 @@ inline int64_t *iOrderBoundaries(int nPieces, int64_t nMaxOrder)
 
 ///
 /// @brief Reorder particles for output
+/// @param _nMaxOrder Maximum iOrder used to calculate TreePiece
+/// boundaries for output.
+/// @param cb Callback for when all the shuffling is done.
+///
+/// After determining iOrder boundaries, the number of particles in
+/// each TreePiece is calculated via a reduction.
 ///
 void TreePiece::reOrder(int64_t _nMaxOrder, const CkCallback& cb)
 {
+    LBTurnInstrumentOff();      // The load balancer should not
+                                // measure output timings.
     callback = cb; // Save callback for after shuffle
     int *counts = new int[numTreePieces];
     int iPiece;
@@ -1528,8 +1492,8 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
     //
     int64_t *startParticle = iOrderBoundaries(numTreePieces, nMaxOrder);
 
-  double tpLoad = getObjTime();
-  populateSavedPhaseData(prevLARung, tpLoad, treePieceActivePartsTmp);
+    double tpLoad = getObjTime();
+    populateSavedPhaseData(iPrevRungLB, tpLoad, nPrevActiveParts);
 
     if (myNumParticles > 0) {
 	// Particles have been sorted in reOrder()
@@ -1552,7 +1516,7 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 		}
 	    ParticleShuffleMsg *shuffleMsg
 		= new (saved_phase_len, saved_phase_len, nPartOut, nGasOut, nStarOut)
-		ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut, 0.0);
+		ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut);
     memset(shuffleMsg->parts_per_phase, 0, saved_phase_len*sizeof(unsigned int));
 	    int iGasOut = 0;
 	    int iStarOut = 0;
@@ -1580,7 +1544,6 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
            && (pPart->isGas() || pPart->isStar()))
             shuffleMsg->parts_per_phase[PHASE_FEEDBACK] += 1;
 		}
-      shuffleMsg->load = tpLoad * nPartOut / myNumParticles;
       memset(shuffleMsg->loads, 0.0, saved_phase_len*sizeof(double));
 
       // Calculate the partial load per phase
@@ -1597,7 +1560,7 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 
 
 	    if (verbosity>=3)
-		CkPrintf("me:%d to:%d how many:%d\n",thisIndex, iPiece,
+		CkPrintf("me:%d to:%d how many:%ld\n",thisIndex, iPiece,
 			 (binEnd-binBegin));
 	    if(iPiece == thisIndex) {
 		ioAcceptSortedParticles(shuffleMsg);
@@ -1625,9 +1588,8 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
     if(shuffleMsg != NULL) {
 	incomingParticlesMsg.push_back(shuffleMsg);
 	incomingParticlesArrived += shuffleMsg->n;
-  treePieceLoadTmp += shuffleMsg->load;
-  savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
-      shuffleMsg->parts_per_phase, shuffleMsg->nloads);
+        savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
+            shuffleMsg->parts_per_phase, shuffleMsg->nloads);
 	}
 
     if(verbosity > 2)
@@ -1638,9 +1600,6 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       //I've got all my particles, now count them
     if(verbosity>1) ckout << thisIndex <<" got ioParticles"
 			  <<endl;
-
-    treePieceLoad = treePieceLoadTmp;
-    treePieceLoadTmp = 0.0;
 
     savedPhaseLoad.swap(savedPhaseLoadTmp);
     savedPhaseParticle.swap(savedPhaseParticleTmp);
