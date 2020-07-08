@@ -2292,7 +2292,7 @@ void Main::setupICs() {
       ofsLog.open(achLogFileName.c_str(), ios_base::app);
   else
       ofsLog.open(achLogFileName.c_str(), ios_base::trunc);
-  CkMustAssert(ofsLog, "Error opening log file.");
+  CkMustAssert(bool(ofsLog), "Error opening log file.");
       
 #define xstr(s) str(s)
 #define str(s) #s
@@ -2467,7 +2467,7 @@ void Main::setupICs() {
     }
   ofsLog << endl;
   ofsLog.close();
-  CkMustAssert(ofsLog, "Error closing log file");
+  CkMustAssert(bool(ofsLog), "Error closing log file");
 
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
