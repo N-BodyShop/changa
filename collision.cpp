@@ -604,11 +604,12 @@ int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
                 Vector3D<double> Vlr = M*p->velocity + m*c.velocity;
                 double norm =((log10(Mslr*deltaV*S*log(10))-A)/-S)-(Vlr.length());
 
+                double speed_slr=((log10(Mslr*(deltaV/10)*S*log(10))-A)/-S)-norm;
+
                 // making u and v into a random number between 0-1 
                 double u = ((double) rand() / ((RAND_MAX)));
                 double v = ((double) rand() / ((RAND_MAX)));
-                double sigma 
-                double phi = collPGauss....;
+                double phi = acos((2*v)-1);
                 double theta = 2* M_PI * u ;
                 Vector3D<double> vn(sin(theta)* cos(phi), sin(theta)*sin(phi) , cos(theta)); 
                 Vector3D<double> x_hat = (1, 0, 0);
@@ -737,6 +738,10 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
     // field set. Fix this before going any further.
     p->dtCol = c.dtCol;
 
+    // Advance particle positions to moment of collision
+    Vector3D<double> pAdv;
+    pAdv = p->position + p->velocity*p->dtCol;
+
     if (iCollType == MERGE) {
         mergeCalc(p->soft*2., p->mass, p->position, p->velocity, p->treeAcceleration,
                   p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
@@ -761,9 +766,13 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
         p->mass += c.mass;
                   
         } else if (iCollType == FRAG ){
+            if (p->iOrder > c.iOrder){
+                p->mass = mass_Mlr ;
+                p->velocity = v_cm ;
+
             }   else { 
                 p->mass = Mslr;
-                vNew = Vslr +v_cm;
+                p->velocity = Vslr;
             }
           
         }   

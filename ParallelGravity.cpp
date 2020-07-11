@@ -4525,9 +4525,7 @@ void Main::addDelParticles()
 	nMaxOrderDark += counts[iPiece].nAddDark;
 
 	nMaxOrder += counts[iPiece].nAddDark;
-#else 
 	nMaxOrder += counts[iPiece].nAddStar;
-#endif
 	nTotalSPH += counts[iPiece].nAddGas - counts[iPiece].nDelGas;
 	nTotalDark += counts[iPiece].nAddDark - counts[iPiece].nDelDark;
 	nTotalStar += counts[iPiece].nAddStar - counts[iPiece].nDelStar;
