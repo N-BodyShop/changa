@@ -380,6 +380,9 @@ mainmodule ParallelGravity {
     entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
     entry void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
+    entry void getStarPhase(const CkCallback& cb);
+    entry void applyGasDrag(int activeRung, Vector3D<double> starPos,
+                       Vector3D<double> starVel, const CkCallback& cb);
 #ifdef COOLING_MOLECULARH
     entry void distribLymanWerner(const CkCallback& cb);
 #endif

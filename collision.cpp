@@ -75,6 +75,10 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "bSkipP0", paramBool, &bSkipP0,
         sizeof(int), "bSkipP0", "<Don't do collision check for first particle> = 0");
 
+    bDoGasDrag = 0;
+    prmAddParam(prm, "bDoGasDrag", paramBool, &bDoGasDrag,
+        sizeof(int), "bDoGasDrag", "<Apply external gas drag force to planetesimals> = 0");
+
     }
 
 void Collision::CheckParams(PRM prm, struct parameters &param)
@@ -332,6 +336,56 @@ void TreePiece::getCollInfo(int iOrder, const CkCallback& cb)
             }
         }
     contribute(sizeof(ColliderInfo), &ci, findCollReduction, cb);
+    }
+
+// Find and retrieve the current position of the central star (particle 0)
+void TreePiece::getStarPhase(const CkCallback& cb)
+{
+    GravityParticle *p;
+    Vector3D<double> starPos(0, 0, 0);
+    Vector3D<double> starVel(0, 0, 0);
+    for (unsigned int i=1; i <= myNumParticles; i++) {
+        p = &myParticles[i];
+        if (p->iOrder ==  0) {
+            starPos = p->position;
+            starVel = p->velocity;
+            break;
+            }
+        }
+
+    Vector3D<double> starPhase[2];
+    starPhase[0] = starPos;
+    starPhase[1] = starVel;
+    contribute(2*sizeof(Vector3D<double>), &starPhase, findStarPhaseReduction, cb);
+    }
+
+/**
+ * @brief Apply an external gas drag force
+ * @param activeRung The rung on which to apply the force
+ * @param starPos The current position of the central star
+ * @param starVel The current velocity of the central star
+ * @param cb Callback function
+ */
+void TreePiece::applyGasDrag(int activeRung, Vector3D<double> starPos,
+                             Vector3D<double> starVel, const CkCallback& cb)
+{
+    CkPrintf("Applying gas drag\n");
+    for (unsigned int i=1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+
+        // Apply gas drag to dark particles only
+        if (!TYPETest(p, TYPE_DARK) || p->rung >= activeRung) continue;
+
+        // Keep this simple for now: gas drag points opposite velocity relative
+        // to star and depends on distance from star
+        Vector3D<double> r = starPos - p->position;
+        Vector3D<double> v = starVel - p->velocity;
+        Vector3D<double> gasAcc = -v.normalize()*r.length()*0.0001;
+        CkPrintf("%g %g %g\n", gasAcc[0], gasAcc[1], gasAcc[2]);
+        CkPrintf("%g %g %g\n", p->treeAcceleration[0], p->treeAcceleration[1], p->treeAcceleration[2]);
+        p->treeAcceleration += gasAcc;
+        }
+    contribute(cb);
     }
 
 /**

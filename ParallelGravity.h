@@ -566,6 +566,7 @@ public:
         void startGravity(const CkCallback& cbGravity, int iActiveRung,
             double *startTime) ;
         void externalGravity(int iActiveRung);
+        void externalGasDrag(int iActiveRung);
         void updateuDot(int iActiveRung, const double duKick[],
             const double dStartTime[], int bUpdateState, int bAll);
         void kick(bool bClosing, int iActiveRung, int nextMaxRung,
@@ -1735,6 +1736,18 @@ public:
  */
   void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
+
+  // Find and retrieve the current position of the central star (particle 0)
+  void getStarPhase(const CkCallback& cb);
+/**
+ * @brief Apply an external gas drag force
+ * @param activeRung The rung on which to apply the force
+ * @param starPos The current position of the central star
+ * @param cb Callback function
+ */
+  void applyGasDrag(int activeRung, Vector3D<double> starPos,
+                    Vector3D<double> starVel, const CkCallback& cb);
+
 /**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.

@@ -1846,6 +1846,9 @@ void Main::advanceBigCollStep(int iStep) {
     if(param.bDoExternalGravity)
         externalGravity(activeRung);
 
+    if(param.collision.bDoGasDrag)
+        externalGasDrag(activeRung);
+
     if(!param.bStaticTest) {
         // Closing Kick
         kick(true, activeRung, nextMaxRung, cbGravity, gravStartTime);
@@ -2054,6 +2057,22 @@ void Main::externalGravity(int iActiveRung)
     Vector3D<double> frameAccVec(frameAcc[0], frameAcc[1], frameAcc[2]);
     treeProxy.applyFrameAcc(iActiveRung, frameAccVec, CkCallbackResumeThread());
     delete msgFrameAcc;
+}
+
+/// @brief Apply external gas drag force to planetesimals
+/// The gas distribution is relative to the central star, so
+/// the particles need to know its position and velocity to 
+/// do the force calculation
+/// @param iActiveRung Rung on which to apply forces
+void Main::externalGasDrag(int iActiveRung)
+{
+   CkReductionMsg *msgStarPhase;
+   treeProxy.getStarPhase(CkCallbackResumeThread((void*&)msgStarPhase));
+   Vector3D<double> *starPhase = (Vector3D<double> *)msgStarPhase->getData();
+   Vector3D<double> starPos = starPhase[0];
+   Vector3D<double> starVel = starPhase[1];
+   treeProxy.applyGasDrag(iActiveRung, starPos, starVel, CkCallbackResumeThread());
+   delete msgStarPhase;
 }
 
 /// @brief Update time derivative of thermal energy
@@ -2529,6 +2548,9 @@ void Main::advanceBigStep(int iStep) {
     startGravity(cbGravity, activeRung, &gravStartTime);
     if(param.bDoExternalGravity)
         externalGravity(activeRung);
+
+    if(param.collision.bDoGasDrag)
+        externalGasDrag(activeRung);
 
     if(verbosity > 1)
 	memoryStats();
