@@ -78,6 +78,32 @@ void Collision::AddParams(PRM prm)
     bDoGasDrag = 0;
     prmAddParam(prm, "bDoGasDrag", paramBool, &bDoGasDrag,
         sizeof(int), "bDoGasDrag", "<Apply external gas drag force to planetesimals> = 0");
+    // Parameters that need to be set:
+    // sigma0 = 10
+    // dp = 1.5
+    // T0 = 280 (Hayashi 1981)
+    // dq = 0.5
+    // mu = 2.34 (Hayashi 1981)
+    // CD = 2
+
+    dSigma0 = 10.0;
+    prmAddParam(prm, "dSigma0", paramDouble, &dSigma0,
+        sizeof(double), "dSigma0", "<Gas surface density at 1 AU (in g/cm^2)> = 10.0");
+    dP = 1.5;
+    prmAddParam(prm, "dP", paramDouble, &dP,
+        sizeof(double), "dP", "<Power law slope of gas surface density profile> = 1.5");
+    dQ = 0.5;
+    prmAddParam(prm, "dQ", paramDouble, &dQ,
+        sizeof(double), "dQ", "<Power law slope of gas temperature profile> = 0.5");
+    dT0 = 280.0;
+    prmAddParam(prm, "dT0", paramDouble, &dT0,
+        sizeof(double), "dT0", "<Gas temperature at 1 AU (in K)> = 280.0");
+    dMu = 2.34;
+    prmAddParam(prm, "dMu", paramDouble, &dMu,
+        sizeof(double), "dMu", "<Mean molecular weight of gas> = 2.34");
+    dCD = 2;
+    prmAddParam(prm, "dCD", paramDouble, &dCD,
+        sizeof(double), "dCD", "<Coefficient of gas drag force> = 2.0");
 
     }
 
@@ -338,52 +364,78 @@ void TreePiece::getCollInfo(int iOrder, const CkCallback& cb)
     contribute(sizeof(ColliderInfo), &ci, findCollReduction, cb);
     }
 
-// Find and retrieve the current position of the central star (particle 0)
-void TreePiece::getStarPhase(const CkCallback& cb)
+// Find and retrieve the central star (particle 0)
+void TreePiece::getCentralStar(const CkCallback& cb)
 {
     GravityParticle *p;
-    Vector3D<double> starPos(0, 0, 0);
-    Vector3D<double> starVel(0, 0, 0);
+    GravityParticle *star;
     for (unsigned int i=1; i <= myNumParticles; i++) {
         p = &myParticles[i];
         if (p->iOrder ==  0) {
-            starPos = p->position;
-            starVel = p->velocity;
+            star = p;
             break;
             }
         }
 
-    Vector3D<double> starPhase[2];
-    starPhase[0] = starPos;
-    starPhase[1] = starVel;
-    contribute(2*sizeof(Vector3D<double>), &starPhase, findStarPhaseReduction, cb);
+    contribute(sizeof(GravityParticle), star, findStarReduction, cb);
     }
 
 /**
  * @brief Apply an external gas drag force
+ * @param coll The collision class object that handles collision physics
  * @param activeRung The rung on which to apply the force
- * @param starPos The current position of the central star
- * @param starVel The current velocity of the central star
+ * @param starParticle Object containing info about the central star
  * @param cb Callback function
  */
-void TreePiece::applyGasDrag(int activeRung, Vector3D<double> starPos,
-                             Vector3D<double> starVel, const CkCallback& cb)
+void TreePiece::applyGasDrag(Collision coll, int activeRung, GravityParticle star, const CkCallback& cb)
 {
     CkPrintf("Applying gas drag\n");
     for (unsigned int i=1; i <= myNumParticles; ++i) {
         GravityParticle *p = &myParticles[i];
 
         // Apply gas drag to dark particles only
-        if (!TYPETest(p, TYPE_DARK) || p->rung >= activeRung) continue;
+        if (!TYPETest(p, TYPE_DARK) || p->rung < activeRung) continue;
+        // Be sure to skip the star!
+        if (p->iOrder == star.iOrder) continue;
 
-        // Keep this simple for now: gas drag points opposite velocity relative
-        // to star and depends on distance from star
-        Vector3D<double> r = starPos - p->position;
-        Vector3D<double> v = starVel - p->velocity;
-        Vector3D<double> gasAcc = -v.normalize()*r.length()*0.0001;
-        CkPrintf("%g %g %g\n", gasAcc[0], gasAcc[1], gasAcc[2]);
-        CkPrintf("%g %g %g\n", p->treeAcceleration[0], p->treeAcceleration[1], p->treeAcceleration[2]);
-        p->treeAcceleration += gasAcc;
+        // Get the cylindrical coordinates of the planetesimal
+        // Assume the gas disk lies in the x-y plane
+        Vector3D<double> rVec = star.position - p->position;
+        Vector3D<double> vVec = star.velocity - p->velocity;
+        double r = sqrt(rVec[0]*rVec[0] + rVec[1]*rVec[1]);
+        double z = rVec[2];
+
+        // Calculate the local sound speed
+        double temp = coll.dT0*pow(r, -coll.dQ);
+        double cGas = sqrt(KBOLTZ*temp/(coll.dMu*MHYDR))/CMPERAU*SECONDSPERYEAR/(2*M_PI);
+
+        // Calculate the local volume density of the gas
+        double sigmaGas = coll.dSigma0*pow(r, -coll.dP)/MSOLG*CMPERAU*CMPERAU;
+        double omega = sqrt(star.mass/(r*r*r));
+        double hGas = cGas/omega;
+        // Morishima 2010 eq 3
+        double rhoGas = sigmaGas/(sqrt(2*M_PI)*hGas)*exp(-(z*z)/(2*hGas*hGas));
+
+        // Force balance due to pressure gradient
+        double a1 = -coll.dP + (coll.dQ/2 - 3/2)*(1 - (z*z/(hGas*hGas))) - coll.dQ;
+        // Force balance due to gravity of star
+        double a2 = star.mass*r/pow(r*r + z*z, 3/2);
+        // Morishima 2010 eq 2
+        double gasSpeed = sqrt(cGas*cGas*a1 + r*r*a2);
+
+        // Gas velocity should point in phi direction
+        double phi = atan2(rVec[1], rVec[0]);
+        double phiX = -sin(phi);
+        double phiY = cos(phi);
+        Vector3D<double> thetaHat(phiX, phiY, 0);
+        Vector3D<double> vGas = gasSpeed*thetaHat;
+
+        double rPl = p->soft*2;
+        Vector3D<double> vRel = vVec - vGas;
+        // Morishima 2010 eq 1
+        Vector3D<double> aDrag = -1/(2*p->mass)*coll.dCD*M_PI
+                                 *rPl*rPl*rhoGas*vRel*vRel.length();
+        p->treeAcceleration += aDrag;
         }
     contribute(cb);
     }

@@ -2066,13 +2066,11 @@ void Main::externalGravity(int iActiveRung)
 /// @param iActiveRung Rung on which to apply forces
 void Main::externalGasDrag(int iActiveRung)
 {
-   CkReductionMsg *msgStarPhase;
-   treeProxy.getStarPhase(CkCallbackResumeThread((void*&)msgStarPhase));
-   Vector3D<double> *starPhase = (Vector3D<double> *)msgStarPhase->getData();
-   Vector3D<double> starPos = starPhase[0];
-   Vector3D<double> starVel = starPhase[1];
-   treeProxy.applyGasDrag(iActiveRung, starPos, starVel, CkCallbackResumeThread());
-   delete msgStarPhase;
+   CkReductionMsg *msgCentralStar;
+   treeProxy.getCentralStar(CkCallbackResumeThread((void*&)msgCentralStar));
+   GravityParticle star = *(GravityParticle *)msgCentralStar->getData();
+   treeProxy.applyGasDrag(param.collision, iActiveRung, star, CkCallbackResumeThread());
+   delete msgCentralStar;
 }
 
 /// @brief Update time derivative of thermal energy

@@ -1737,16 +1737,16 @@ public:
   void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
 
-  // Find and retrieve the current position of the central star (particle 0)
-  void getStarPhase(const CkCallback& cb);
+  // Find and retrieve the central star (particle 0)
+  void getCentralStar(const CkCallback& cb);
 /**
  * @brief Apply an external gas drag force
+ * @param coll The collision class object that handles collision physics
  * @param activeRung The rung on which to apply the force
- * @param starPos The current position of the central star
+ * @param starParticle Object containing info about the central star
  * @param cb Callback function
  */
-  void applyGasDrag(int activeRung, Vector3D<double> starPos,
-                    Vector3D<double> starVel, const CkCallback& cb);
+  void applyGasDrag(Collision coll, int activeRung, GravityParticle star, const CkCallback& cb);
 
 /**
  * Adjust timesteps of active particles.

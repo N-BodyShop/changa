@@ -64,6 +64,12 @@ public:
     double dEpsN, dEpsT;  /* normal and transverse coefficients of restitution */
     int bSkipP0;          /* Don't do a collision check for the first particle */
     int bDoGasDrag;       /* Apply gas drag force to planetesimals */
+    double dSigma0;       /* Gas surface density at 1 AU */
+    double dP;            /* Power law slope of gas surface density profile */
+    double dQ;            /* Power law slope of gas temperature profile */
+    double dT0;           /* Gas temperature at 1 AU */
+    double dMu;           /* Mean molecular weight of gas */
+    double dCD;           /* Gas drag force coefficient */
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
@@ -101,6 +107,12 @@ inline void Collision::pup(PUP::er &p) {
     p | dEpsT;
     p | bSkipP0;
     p | bDoGasDrag;
+    p | dSigma0;
+    p | dP;
+    p | dQ;
+    p | dT0;
+    p | dMu;
+    p | dCD;
     p | bDelEjected;
     p | dDelDist;
     }

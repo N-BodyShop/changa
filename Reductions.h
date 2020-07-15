@@ -16,4 +16,4 @@ extern CkReduction::reducerType boxReduction;
 extern CkReduction::reducerType dfImageReduction;
 extern CkReduction::reducerType soonestCollReduction;
 extern CkReduction::reducerType findCollReduction;
-extern CkReduction::reducerType findStarPhaseReduction;
+extern CkReduction::reducerType findStarReduction;
