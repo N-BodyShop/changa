@@ -47,9 +47,9 @@ void ExternalForce::AddParams(PRM prm)
     bDoGasDrag = 0;
     prmAddParam(prm, "bDoGasDrag", paramBool, &bDoGasDrag,
         sizeof(int), "bDoGasDrag", "<Apply external gas drag force to planetesimals> = 0");
-    dSigma0 = 10.0;
+    dSigma0 = 1700.0;
     prmAddParam(prm, "dSigma0", paramDouble, &dSigma0,
-        sizeof(double), "dSigma0", "<Gas surface density at 1 AU (in g/cm^2)> = 10.0");
+        sizeof(double), "dSigma0", "<Gas surface density at 1 AU (in g/cm^2)> = 1700.0");
     dP = 1.5;
     prmAddParam(prm, "dP", paramDouble, &dP,
         sizeof(double), "dP", "<Power law slope of gas surface density profile> = 1.5");
