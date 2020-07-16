@@ -42,7 +42,8 @@
 #include "starform.h"
 #include "feedback.h"
 #include "SIDM.h"
-#include "externalGravity.h"
+#include "externalForce.h"
+#include "collision.h"
 #include "formatted_string.h"
 #include "collision.h"
 
@@ -626,11 +627,11 @@ Main::Main(CkArgMsg* m) {
 				sizeof(double),"thermalcond2sat",
 				"<Coefficient in Saturated Thermal Conductivity 2, e.g. 0.5 > = 0.5");
 
-       param.bDoExternalGravity = 0;
-       prmAddParam(prm, "bDoExternalGravity", paramBool, &param.bDoExternalGravity,
-           sizeof(int), "bDoExternalGravity", "<Apply external gravity field to particles> = 0");
+       param.bDoExternalForce = 0;
+       prmAddParam(prm, "bDoExternalForce", paramBool, &param.bDoExternalForce,
+           sizeof(int), "bDoExternalForce", "<Apply external gravity field to particles> = 0");
 
-       param.externalGravity.AddParams(prm);
+       param.externalForce.AddParams(prm);
 
 #ifdef COLLISION
        param.bCollision = 0;
@@ -1843,11 +1844,8 @@ void Main::advanceBigCollStep(int iStep) {
 	memoryStats();
     double gravStartTime;
     startGravity(cbGravity, activeRung, &gravStartTime);
-    if(param.bDoExternalGravity)
-        externalGravity(activeRung);
-
-    if(param.collision.bDoGasDrag)
-        externalGasDrag(activeRung);
+    if(param.bDoExternalForce)
+        externalForce(activeRung);
 
     if(!param.bStaticTest) {
         // Closing Kick
@@ -2045,10 +2043,10 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
 
 /// @brief Apply external gravitational field.
 /// @param iActiveRung Rung on which to apply forces.
-void Main::externalGravity(int iActiveRung)
+void Main::externalForce(int iActiveRung)
 {
     CkReductionMsg *msgFrameAcc;
-    treeProxy.externalGravity(iActiveRung, param.externalGravity,
+    treeProxy.externalForce(iActiveRung, param.externalForce,
                               CkCallbackResumeThread((void*&)msgFrameAcc));
     // External gravity may accelerate the coordinate frame
     // (e.g. heliocentric coordinates.)  Retrieve any such acceleration
@@ -2057,20 +2055,6 @@ void Main::externalGravity(int iActiveRung)
     Vector3D<double> frameAccVec(frameAcc[0], frameAcc[1], frameAcc[2]);
     treeProxy.applyFrameAcc(iActiveRung, frameAccVec, CkCallbackResumeThread());
     delete msgFrameAcc;
-}
-
-/// @brief Apply external gas drag force to planetesimals
-/// The gas distribution is relative to the central star, so
-/// the particles need to know its position and velocity to 
-/// do the force calculation
-/// @param iActiveRung Rung on which to apply forces
-void Main::externalGasDrag(int iActiveRung)
-{
-   CkReductionMsg *msgCentralStar;
-   treeProxy.getCentralStar(CkCallbackResumeThread((void*&)msgCentralStar));
-   GravityParticle star = *(GravityParticle *)msgCentralStar->getData();
-   treeProxy.applyGasDrag(param.collision, iActiveRung, star, CkCallbackResumeThread());
-   delete msgCentralStar;
 }
 
 /// @brief Update time derivative of thermal energy
@@ -2544,11 +2528,8 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     double gravStartTime;
     startGravity(cbGravity, activeRung, &gravStartTime);
-    if(param.bDoExternalGravity)
-        externalGravity(activeRung);
-
-    if(param.collision.bDoGasDrag)
-        externalGasDrag(activeRung);
+    if(param.bDoExternalForce)
+        externalForce(activeRung);
 
     if(verbosity > 1)
 	memoryStats();
@@ -2777,8 +2758,7 @@ void Main::setupICs() {
       if(param.iStartStep) restartNSIDM();
   }
   
-  param.externalGravity.CheckParams(prm, param);
-
+  param.externalForce.CheckParams(prm, param);
 #ifdef COLLISION
   if(param.bCollision)
       param.collision.CheckParams(prm, param);
@@ -3196,8 +3176,8 @@ Main::initialForces()
 
   double gravStartTime;
   startGravity(cbGravity, 0, &gravStartTime);
-  if(param.bDoExternalGravity)
-      externalGravity(0);
+  if(param.bDoExternalForce)
+      externalForce(0);
   if(param.bDoGas) {
       // Get star center of mass
       starCenterOfMass();

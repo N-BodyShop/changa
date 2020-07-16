@@ -26,7 +26,6 @@ CkReduction::reducerType dfImageReduction;
 
 CkReduction::reducerType soonestCollReduction;
 CkReduction::reducerType findCollReduction;
-CkReduction::reducerType findStarReduction;
 
 /// Combine reduction messages to grow a box
 template <typename T>
@@ -179,17 +178,6 @@ CkReductionMsg* singleCollInfo(int nMsg, CkReductionMsg** msgs) {
     return CkReductionMsg::buildNew(sizeof(ColliderInfo), c);
     }
 
-// Pass on the first nonzero Vector3D<double> position and velocity
-CkReductionMsg* nonNullParticle(int nMsg, CkReductionMsg** msgs) {
-    GravityParticle *p = NULL;
-    for (unsigned int i=0; i < nMsg; i++) {
-        p = static_cast<GravityParticle *>(msgs[i]->getData());
-        if (p != NULL) break;
-        }
-
-    return CkReductionMsg::buildNew(sizeof(GravityParticle), p);
-    }
-
 void registerReductions() {
 	growOrientedBox_float = CkReduction::addReducer(boxGrowth<float>);
 	growOrientedBox_double = CkReduction::addReducer(boxGrowth<double>);
@@ -204,7 +192,6 @@ void registerReductions() {
 	dfImageReduction = CkReduction::addReducer(dfImageReducer);
         soonestCollReduction = CkReduction::addReducer(soonestCollInfo);
         findCollReduction = CkReduction::addReducer(singleCollInfo);
-        findStarReduction = CkReduction::addReducer(nonNullParticle);
 	
 }
 

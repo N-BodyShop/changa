@@ -565,8 +565,7 @@ public:
         void buildTree(int iPhase);
         void startGravity(const CkCallback& cbGravity, int iActiveRung,
             double *startTime) ;
-        void externalGravity(int iActiveRung);
-        void externalGasDrag(int iActiveRung);
+        void externalForce(int iActiveRung);
         void updateuDot(int iActiveRung, const double duKick[],
             const double dStartTime[], int bUpdateState, int bAll);
         void kick(bool bClosing, int iActiveRung, int nextMaxRung,
@@ -1729,24 +1728,13 @@ public:
 
   void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
 /**
- * @brief Apply an external gravitational force
+ * @brief Apply an external force
  * @param activeRung The rung to apply the force.
- * @param exGravParams Parameters of the external force
+ * @param exForce The external force object
  * @param cb Callback function
  */
-  void externalGravity(int activeRung, const ExternalGravity exGrav,
+  void externalForce(int activeRung, const ExternalForce exForce,
                        const CkCallback& cb);
-
-  // Find and retrieve the central star (particle 0)
-  void getCentralStar(const CkCallback& cb);
-/**
- * @brief Apply an external gas drag force
- * @param coll The collision class object that handles collision physics
- * @param activeRung The rung on which to apply the force
- * @param starParticle Object containing info about the central star
- * @param cb Callback function
- */
-  void applyGasDrag(Collision coll, int activeRung, GravityParticle star, const CkCallback& cb);
 
 /**
  * Adjust timesteps of active particles.

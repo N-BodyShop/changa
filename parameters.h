@@ -8,7 +8,7 @@
 #include "sinks.h"
 #include "collision.h"
 
-#include "externalGravity.h"
+#include "externalForce.h"
 
 /** @brief Hold parameters of the run.
  */
@@ -115,9 +115,9 @@ typedef struct parameters {
     double dEvapMinTemp;
     double dEvapCoeff;
     double dEvapCoeffCode;
-    int bDoExternalGravity;
-    ExternalGravity externalGravity;
     int iRandomSeed;            /* Seed for random numbers */
+    int bDoExternalForce;
+    ExternalForce externalForce;
 #ifdef COLLISION
     int bCollision;
     int bWall;
@@ -264,8 +264,8 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dEvapMinTemp;
     p|param.dEvapCoeff;
     p|param.dEvapCoeffCode;
-    p|param.bDoExternalGravity;
-    p|param.externalGravity;
+    p|param.bDoExternalForce;
+    p|param.externalForce;
 #ifdef COLLISION
     p|param.bCollision;
     p|param.collision;

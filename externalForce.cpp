@@ -1,13 +1,12 @@
 #include "ParallelGravity.h"
-#include "externalGravity.h"
-#include <string>
-using namespace std;
+#include "externalForce.h"
+#include "physconst.h"
 
 ///
 // @brief initalize parameters for external potential field
 //
 
-void ExternalGravity::AddParams(PRM prm)
+void ExternalForce::AddParams(PRM prm)
 {
     bBodyForce = 0;
     prmAddParam(prm,"bBodyForce",paramBool,&bBodyForce,
@@ -44,17 +43,38 @@ void ExternalGravity::AddParams(PRM prm)
     dJ6 = 0.0;
     prmAddParam(prm,"dJ6",paramDouble,&dJ6,
                 sizeof(double),"dJ6","<Oblateness coefficient J6 of central body> = 0.0");
-                
-    bLogarithmicHalo = 0;
-    prmAddParam(prm,"bLogarithmicHalo",paramBool,&bLogarithmicHalo,
-                sizeof(int), "logarithmichalo","<Type of halo is logarithmic> = 0");
+     
+    bDoGasDrag = 0;
+    prmAddParam(prm, "bDoGasDrag", paramBool, &bDoGasDrag,
+        sizeof(int), "bDoGasDrag", "<Apply external gas drag force to planetesimals> = 0");
+    dSigma0 = 10.0;
+    prmAddParam(prm, "dSigma0", paramDouble, &dSigma0,
+        sizeof(double), "dSigma0", "<Gas surface density at 1 AU (in g/cm^2)> = 10.0");
+    dP = 1.5;
+    prmAddParam(prm, "dP", paramDouble, &dP,
+        sizeof(double), "dP", "<Power law slope of gas surface density profile> = 1.5");
+    dQ = 0.5;
+    prmAddParam(prm, "dQ", paramDouble, &dQ,
+        sizeof(double), "dQ", "<Power law slope of gas temperature profile> = 0.5");
+    dT0 = 280.0;
+    prmAddParam(prm, "dT0", paramDouble, &dT0,
+        sizeof(double), "dT0", "<Gas temperature at 1 AU (in K)> = 280.0");
+    dMu = 2.34;
+    prmAddParam(prm, "dMu", paramDouble, &dMu,
+        sizeof(double), "dMu", "<Mean molecular weight of gas> = 2.34");
+    dCD = 2;
+    prmAddParam(prm, "dCD", paramDouble, &dCD,
+        sizeof(double), "dCD", "<Coefficient of gas drag force> = 2.0");
     }
 
-void ExternalGravity::CheckParams(PRM prm, struct parameters &param)
+void ExternalForce::CheckParams(PRM prm, struct parameters &param)
 {
-    // Enable external gravity if any of the flags are set
+    // Enable external force if any of the flags are set
     if (bBodyForce || bPatch || bCentralBody)
-        param.bDoExternalGravity = 1;
+        param.bDoExternalForce = 1; 
+    // Gas drag requires central point mass
+    if (bDoGasDrag && !bCentralBody)
+        CkAbort("bDoGasDrag requires bCentralBody to be set\n");
     }
 
 /*
@@ -66,12 +86,12 @@ void ExternalGravity::CheckParams(PRM prm, struct parameters &param)
  * the potential imparted by the particles.
  *
  * @param iKickRung The current rung that we are on
- * @param exGrav A reference to the ExternalGravity class
+ * @param exForce A reference to the ExternalForce class
  *
  * @return The accumulated acceleration on the potential by the particles on this
  * TreePiece
  */
-void TreePiece::externalGravity(int iKickRung, const ExternalGravity exGrav,
+void TreePiece::externalForce(int iKickRung, const ExternalForce exForce,
                                 const CkCallback& cb)
 {
     CkAssert(bBucketsInited);
@@ -86,7 +106,14 @@ void TreePiece::externalGravity(int iKickRung, const ExternalGravity exGrav,
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
         GravityParticle *p = &myParticles[i];
         if(p->rung >= iKickRung) {
-            pFrameAcc = exGrav.applyPotential(p);
+            pFrameAcc = exForce.applyGravPotential(p);
+
+            if (exForce.bDoGasDrag) {
+                // We don't care about the backreaction on the gas so this
+                // force doesn't get applied to the frame
+                exForce.applyGasDrag(p);
+                }
+
             frameAcc[0] += pFrameAcc[0];
             frameAcc[1] += pFrameAcc[1];
             frameAcc[2] += pFrameAcc[2];
@@ -96,14 +123,66 @@ void TreePiece::externalGravity(int iKickRung, const ExternalGravity exGrav,
     }
 
 /*
- * @brief This function applies the external potential force to a specific particle
+ * @brief This function applies the gas drag force to a specific particle
+ * by updating its 'treeAcceleration'.
+ *
+ * @param p The particle to apply the drag force to
+ */
+void ExternalForce::applyGasDrag(GravityParticle *p) const
+{
+    // Apply gas drag to dark particles only
+    if (!TYPETest(p, TYPE_DARK)) return;
+
+    // Get the cylindrical coordinates of the planetesimal
+    // Assume the gas disk lies in the x-y plane
+    Vector3D<double> rVec = p->position;
+    Vector3D<double> vVec = p->velocity;
+    double r = sqrt(rVec[0]*rVec[0] + rVec[1]*rVec[1]);
+    double z = rVec[2];
+
+    // Calculate the local sound speed
+    double temp = dT0*pow(r, -dQ);
+    double cGas = sqrt(KBOLTZ*temp/(dMu*MHYDR))/CMPERAU*SECONDSPERYEAR/(2*M_PI);
+
+    // Calculate the local volume density of the gas
+    double sigmaGas = dSigma0*pow(r, -dP)/MSOLG*CMPERAU*CMPERAU;
+    double omega = sqrt(dCentMass/(r*r*r));
+    double hGas = cGas/omega;
+    // Morishima 2010 eq 3
+    double rhoGas = sigmaGas/(sqrt(2*M_PI)*hGas)*exp(-(z*z)/(2*hGas*hGas));
+
+    // Force balance due to pressure gradient
+    double a1 = -dP + (dQ/2 - 3/2)*(1 - (z*z/(hGas*hGas))) - dQ;
+    // Force balance due to gravity of star
+    double a2 = dCentMass*r/pow(r*r + z*z, 3/2);
+    // Morishima 2010 eq 2
+    double gasSpeed = sqrt(cGas*cGas*a1 + r*r*a2);
+
+    // Gas velocity should point in phi direction
+    double phi = atan2(rVec[1], rVec[0]);
+    double phiX = -sin(phi);
+    double phiY = cos(phi);
+    Vector3D<double> thetaHat(phiX, phiY, 0);
+    Vector3D<double> vGas = gasSpeed*thetaHat;
+
+    double rPl = p->soft*2;
+    Vector3D<double> vRel = vVec - vGas;
+    // Morishima 2010 eq 1
+    Vector3D<double> aDrag = -1/(2*p->mass)*dCD*M_PI
+                             *rPl*rPl*rhoGas*vRel*vRel.length();
+    p->treeAcceleration += aDrag;
+    }
+
+
+/*
+ * @brief This function applies the gravitational potential force to a specific particle
  * by updating its 'treeAcceleration'.
  *
  * @param p The particle to apply the potential to
  *
  * @return The acceleration on the potential by particle p
  */
-Vector3D<double> ExternalGravity::applyPotential(GravityParticle *p) const
+Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p) const
 {
     Vector3D<double> pFrameAcc(0., 0., 0.);
     if (bBodyForce) {
