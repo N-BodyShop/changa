@@ -152,11 +152,11 @@ void ExternalForce::applyGasDrag(GravityParticle *p) const
     double rhoGas = sigmaGas/(sqrt(2*M_PI)*hGas)*exp(-(z*z)/(2*hGas*hGas));
 
     // Force balance due to pressure gradient
-    double a1 = -dP + (dQ/2 - 3/2)*(1 - (z*z/(hGas*hGas))) - dQ;
+    double a1 = -dP + (dQ/2 - 3.0/2.0)*(1 - (z*z/(hGas*hGas))) - dQ;
     // Force balance due to gravity of star
-    double a2 = dCentMass*r/pow(r*r + z*z, 3/2);
+    double a2 = dCentMass*r/pow(r*r + z*z, 3.0/2.0);
     // Morishima 2010 eq 2
-    double gasSpeed = sqrt(cGas*cGas*a1 + r*r*a2);
+    double gasSpeed = sqrt(cGas*cGas*a1 + r*a2);
 
     // Gas velocity should point in phi direction
     double phi = atan2(rVec[1], rVec[0]);
