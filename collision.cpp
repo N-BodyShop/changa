@@ -195,9 +195,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
         CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta, 
            param.collision.bWall, param.collision.dWallPos,
            param.collision.bAllowMergers, 0, param.collision);
-        double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-        treeProxy.startSmooth(&pCS, 0, param.collision.nSmoothCollision,
-              dfBall2OverSoft2, CkCallbackResumeThread());
+        treeProxy.startReSmooth(&pCS, CkCallbackResumeThread());
 
         // Once 'dtCol' and 'iOrderCol' are set, we need to determine which
         // collision is going to happen the soonest
@@ -962,7 +960,7 @@ void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
     double v = p->velocity.length();
     // Different particles can have different fBall sizes. This can potentially
     // cause problems where only 1 of 2 colliding particles detects the collision.
-    p->fBall = coll.dBallFac*dDelta*v + 4.*p->soft;
+    p->fBall = (coll.dBallFac*dDelta*v) + (4*p->soft);
     }
 
 void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)
