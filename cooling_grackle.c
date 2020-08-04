@@ -253,7 +253,7 @@ void CoolSetTime( COOL *cl, double dTime, double z ) {
     cl->my_units.a_value = a_value;
     cl->my_units.density_units = cl->dComovingGmPerCcUnit/pow(a_value, 3.0);
     cl->my_units.length_units = cl->dKpcUnit*KPCCM*a_value; // cm
-    cl->my_units.velocity_units = cl->my_units.length_units / cl->my_units.time_units;
+    cl->my_units.velocity_units = cl->dKpcUnit*KPCCM / cl->my_units.time_units;
     if (initialize_chemistry_data(&cl->my_units) == 0) {
         fprintf(stderr, "Grackle Error in initialize_chemistry_data.\n");
         assert(0);
