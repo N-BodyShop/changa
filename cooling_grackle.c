@@ -89,6 +89,7 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
     cl->my_units.time_units = dSecUnit;
     cl->my_units.velocity_units = cl->my_units.length_units / cl->my_units.time_units;
     cl->my_units.a_units = 1.0; // units for the expansion factor
+    cl->my_units.a_value = 1.0;
 
     /* Erg per Gm unit is calculated as velocity units^2 */
     cl->dErgPerGmUnit = dErgPerGmUnit; // too useful not to keep
