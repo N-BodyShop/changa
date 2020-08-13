@@ -1075,7 +1075,7 @@ void DataManager::transferParticleVarsBack(){
     VariablePartData *buf;
     
     if(savedNumTotalParticles > 0){
-#ifdef HAPI_USE_CUDAMALLOCHOST
+#ifdef PINNED_HOST_MEMORY
       allocatePinnedHostMemory((void **)&buf, savedNumTotalParticles*sizeof(VariablePartData));
 #else
       buf = (VariablePartData *) malloc(savedNumTotalParticles*sizeof(VariablePartData));
@@ -1154,7 +1154,7 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
         treePiecesParticlesUpdated = 0;
 
         if(data->size > 0){
-#ifdef HAPI_USE_CUDAMALLOCHOST
+#ifdef PINNED_HOST_MEMORY
             freePinnedHostMemory(data->buf);
 #else
             free(data->buf);

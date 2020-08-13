@@ -1055,7 +1055,7 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     int *affectedBuckets = NULL;
 
     if(totalNumInteractions > 0){
-#ifdef HAPI_USE_CUDAMALLOCHOST
+#ifdef PINNED_HOST_MEMORY
       allocatePinnedHostMemory((void **)&flatlists, totalNumInteractions*sizeof(T));
       allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
       allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
@@ -1147,7 +1147,7 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
     int *affectedBuckets = NULL;
 
     if(totalNumInteractions > 0){
-#ifdef HAPI_USE_CUDAMALLOCHOST
+#ifdef PINNED_HOST_MEMORY
       allocatePinnedHostMemory((void **)&flatlists, numParticleInteractions*sizeof(ILCell));
       allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
       allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
@@ -1456,7 +1456,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   int *dummySizes = NULL;
 
   // XXX I think this can be deleted --trq.
-#ifdef HAPI_USE_CUDAMALLOCHOST
+#ifdef PINNED_HOST_MEMORY
   allocatePinnedHostMemory((void **)&dummyFlatlists, dummyTotalNumInteractions *
                                                     sizeof(ILCell));
   allocatePinnedHostMemory((void **)&dummyNodeMarkers, (numFilledBuckets+1) *
