@@ -5,16 +5,6 @@
 #include <cuda_runtime.h>
 #include "cuda_typedef.h"
 
-#ifdef HAPI_USE_CUDAMALLOCHOST
-# ifdef HAPI_MEMPOOL
-#  define CUDA_MALLOC(ptr,sz) ptr = hapiPoolMalloc(size)
-# else
-#  define CUDA_MALLOC(ptr,sz) cudaMallocHost(&(ptr), size)
-# endif
-#else
-# define CUDA_MALLOC(ptr,sz) ptr = malloc(sz)
-#endif
-
 #define THREADS_PER_BLOCK 128
 
 #ifdef GPU_LOCAL_TREE_WALK
