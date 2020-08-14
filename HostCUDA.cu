@@ -75,7 +75,7 @@ void allocatePinnedHostMemory(void **ptr, size_t size){
     assert(0);
     return;
   }
-  hapiHostMalloc(ptr, size);
+  hapiMallocHost(ptr, size);
 #ifdef CUDA_PRINT_ERRORS
   printf("allocatePinnedHostMemory: %s size: %zu\n", cudaGetErrorString( cudaGetLastError() ), size);
 #endif
@@ -89,7 +89,7 @@ void freePinnedHostMemory(void *ptr){
     assert(0);
     return;
   }
-  hapiHostFree(ptr);
+  hapiFreeHost(ptr);
 #ifdef CUDA_PRINT_ERRORS
   printf("freePinnedHostMemory: %s\n", cudaGetErrorString( cudaGetLastError() ));
 #endif
@@ -735,7 +735,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 #endif
 
         if(transfer){
-          hapiHostMalloc(bufferHostBuffer, size);
+          hapiMallocHost(bufferHostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
           printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
