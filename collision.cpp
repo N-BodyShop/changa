@@ -475,20 +475,132 @@ void TreePiece::getNeedCollStep(int collStepRung, const CkCallback& cb)
     contribute(sizeof(int), &foundNearMiss, CkReduction::sum_int, cb);
     }
 
+/**
+ * @brief Determine the time since a particle on a given rung received a kick
+ *
+ * @param rung The current rung being considered
+ * @param baseTime The size of the current time step
+ * @param timeNow The current simulation time
+ */
+double Collision::LastKickTime(int rung, double baseTime, double timeNow)
+{
+    double rungTime = baseTime/(1<<rung);
+    int nRungSteps = (int)(timeNow/rungTime);
+    return timeNow - (rungTime*nRungSteps);
+    }
 
 /**
- * @brief Check for a merger between two colliders
+ * @brief Correct the velocity of a particle resulting from a merger if the two
+ * particles that merged were on different rungs.
  *
- * A merger will occur if the relative velocity between particles
- * is < vEsc and both particles post collision angular speed is
- * < wMax.
- *
- * @param c1 The first collider participating in the event
- * @param c2 The second collider participating in the event
- *
- * @returns 0 if no merger, -1 or 1 if c1 or c2 are to be consumed
+ * @param p A reference to the particle resulting from the merger
+ * @param c Information about the less massive particle in the merger
+ * @param cMerge Information about the more massive particle
+ * @param baseStep The timestep size on the lowest rung
+ * @param timeNow The current time in the simulation
  */
-int Collision::checkMerger(const ColliderInfo &c1, const ColliderInfo &c2)
+void Collision::setMergerRung(GravityParticle *p, const ColliderInfo &c, const ColliderInfo &cMerge,
+                              double baseStep, double timeNow)
+{
+    double m1 = c.mass;
+    double m2 = cMerge.mass;
+    double m = m1 + m2;
+    if (c.rung != cMerge.rung) {
+        double lastkick1 = LastKickTime(c.rung, baseStep, timeNow);
+        double lastkick2 = LastKickTime(cMerge.rung, baseStep, timeNow);
+        p->rung = c.rung;
+        if (lastkick1 > lastkick2) {
+            p->velocity += (m1/m)*c.acceleration*(lastkick1-lastkick2);
+            }
+        else {
+            p->velocity += (m1/m)*cMerge.acceleration*(lastkick2-lastkick1);
+            }
+        }
+    }
+
+
+
+/**
+ * @brief Update the velocity of a particle after it undergoes a collision
+ * with a wall.
+ *
+ * @param p A reference to the particle that is undergoing a collision
+ */
+void Collision::doWallCollision(GravityParticle *p) {
+    // TODO: update spin field
+    p->velocity[2] *= -dEpsN;
+
+    Vector3D<double> vPerp = (0., 0., p->velocity[2]);
+    Vector3D<double> vParallel = p->velocity - vPerp;
+    p->velocity -= vParallel*(1.-dEpsT);
+    }
+
+int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
+{
+    int iCollType = BOUNCE;
+    // Calculate the post collision spin and velocity of the particle
+    Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
+    double radNew;
+    if (bAllowMergers) {
+        // Determine the collision type
+        iCollType = MERGE;
+        mergeCalc(p->soft*2, p->mass, p->position, p->velocity, p->treeAcceleration,
+                  p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
+        double Mtot = p->mass + c.mass;
+        double vEsc = sqrt(2.*Mtot/(p->soft*2 + c.radius));
+        double wMax = sqrt(Mtot/(radNew*radNew*radNew));
+
+        double vRel = (p->velocity - c.velocity).length();
+        if (vRel > vEsc || wNew.length() > wMax) {
+            if (!bPerfectAcc) {
+                CkPrintf("Merger rejected\n");
+                iCollType = BOUNCE;
+                }
+            }
+    }
+
+    // If the particles are different sizes, p might not have its dtCol
+    // field set. Fix this before going any further.
+    p->dtCol = c.dtCol;
+
+    if (iCollType == MERGE) {
+        mergeCalc(p->soft*2., p->mass, p->position, p->velocity, p->treeAcceleration,
+                  p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
+        CkPrintf("Merger info:\niorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y\
+                  x2z xNewx xNewy xNewz v1x v1y v1z v2x v2y v2z vNewx vNewy vNewz\
+                   w1x w1y w1z w2x w2y w2z wNewx wNewy wNewz\n");
+        CkPrintf("%d %d %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\
+                  %g %g %g %g %g %g %g %g %g %g %g %g\n",
+                p->iOrder, c.iOrder, p->mass, c.mass, p->soft*2, c.radius,
+                p->position.x, p->position.y, p->position.z,
+                c.position.x, c.position.y, c.position.z,
+                posNew.x, posNew.y, posNew.z,
+                p->velocity.x, p->velocity.y, p->velocity.z,
+                c.velocity.x, c.velocity.x, c.velocity.z,
+                vNew.x, vNew.y, vNew.z,
+                p->w.x, p->w.y, p->w.z,
+                c.w.x, c.w.y, c.w.z,
+                wNew.x, wNew.y, wNew.z);
+        p->position = posNew;
+        p->treeAcceleration = aNew;
+        p->soft = radNew/2.;
+        p->mass += c.mass;
+                  
+        }
+    else {
+        bounceCalc(p->soft*2., p->mass, p->position, p->velocity, p->w, &vNew, &wNew, c);
+        }
+    p->velocity = vNew;
+    p->w = wNew;
+
+    p->dtCol = DBL_MAX;
+
+    return iCollType;
+    }
+
+/// FRAGMENTATION CODE - STILL WORKING ON THIS
+/*
+int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
 {
     // Calculate the post collision spin and velocity of the merged particle
     Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
@@ -803,7 +915,9 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
     p->dtCol = DBL_MAX;
 
     return iCollType;
-    }
+    }*/
+
+
 void TreePiece::makeFragments(Collision coll, const CkCallback& cb)
 { 
                 GravityParticle *frag = coll.makeFragment();
