@@ -62,10 +62,9 @@ typedef struct CoolingParticleStruct {
 
 typedef struct CoolingPKDStruct { 
 // not official grackle stuff    
-    double     z; 
-    double     a;
     double     dTime;
     double     dSecUnit; 
+    double     dKpcUnit; 
     double     dComovingGmPerCcUnit; 
     double     dErgPerGmUnit; 
     double     diErgPerGmUnit;
@@ -257,25 +256,6 @@ double CoolCodePressureOnDensity( COOL *cl, COOLPARTICLE *cp, double uPred, doub
 
 #define CoolCodePressureOnDensity( cl, cp, uPred, fDensity, gammam1 ) ((gammam1)*(uPred))
 */
-
-#if 0
-struct inInitCooling {
-  double dGmPerCcUnit;
-  double dComovingGmPerCcUnit;
-  double dErgPerGmUnit;
-  double dSecUnit;
-  double dKpcUnit;
-  double z;
-  double dTime;
-  COOLPARAM CoolParam;
-};
-
-struct inInitEnergy {
-	double dTuFac;
-	double z;
-	double dTime;
-	};
-#endif
 
 void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns, char *suffix );
 
