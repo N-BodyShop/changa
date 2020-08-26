@@ -2454,6 +2454,8 @@ void Main::setupICs() {
   prmLogParam(prm, achLogFileName.c_str());
 	
   ofsLog.open(achLogFileName.c_str(), ios_base::app);
+  if(param.bStarForm)
+      StarLog::logMetaData(ofsLog);
   if(param.csm->bComove) {
       ofsLog << "# RedOut:";
       if(vdOutTime.size() == 0) ofsLog << " none";
