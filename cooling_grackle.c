@@ -27,8 +27,7 @@
 
 #include "cooling.h"
 
-#define mh     1.67262171e-24   
-#define kboltz 1.3806504e-16
+#include "physconst.h"
 
 COOL *CoolInit( )
     {
@@ -85,15 +84,17 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
 	grackle_verbose = CoolParam.grackle_verbose;
 
     cl->my_units.comoving_coordinates = CoolParam.bComoving; // 1 if cosmological sim, 0 if not
-    cl->my_units.density_units = dGmPerCcUnit;
-    cl->my_units.length_units = dKpcUnit*3.0857e21; // cm
+    cl->my_units.density_units = dComovingGmPerCcUnit;
+    cl->my_units.length_units = dKpcUnit*KPCCM; // cm
     cl->my_units.time_units = dSecUnit;
     cl->my_units.velocity_units = cl->my_units.length_units / cl->my_units.time_units;
     cl->my_units.a_units = 1.0; // units for the expansion factor
+    cl->my_units.a_value = 1.0;
 
     /* Erg per Gm unit is calculated as velocity units^2 */
     cl->dErgPerGmUnit = dErgPerGmUnit; // too useful not to keep
     cl->diErgPerGmUnit = 1/dErgPerGmUnit;
+    cl->dKpcUnit = dKpcUnit;
     cl->dSecUnit = dSecUnit;
     cl->dComovingGmPerCcUnit = dComovingGmPerCcUnit;
     cl->dErgPerGmPerSecUnit = dErgPerGmUnit/dSecUnit;
@@ -116,20 +117,12 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
     strncpy( cl->grackle_data_file, CoolParam.grackle_data_file, MAXPATHLEN ); // Permanent local copy
     cl->pgrackle_data->grackle_data_file = cl->grackle_data_file; // hdf5 cloudy data file (pointer to permanent copy)
     
-        {
-        double initial_redshift = 0.;
-        double a_value = 1. / (1. + initial_redshift);
-
-        // Finally, initialize the chemistry object.
-        cl->my_units.a_value = a_value;
-        if (initialize_chemistry_data(&cl->my_units) == 0) {
-            fprintf(stderr, "Grackle Error in initialize_chemistry_data.\n");
-            assert(0);
-            }
-        }
-
-
+    // Finally, initialize the chemistry object.
+    if (initialize_chemistry_data(&cl->my_units) == 0) {
+	fprintf(stderr, "Grackle Error in initialize_chemistry_data.\n");
+	assert(0);
     }
+}
 
 /*Returns baryonic fraction for a given species*/
 double COOL_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
@@ -257,15 +250,16 @@ void CoolSetTime( COOL *cl, double dTime, double z ) {
     double a_value = 1. / (1. + z);
 
     cl->dTime = dTime;
-    cl->z = z;
-    cl->a = a_value;
-/*
-    if (initialize_chemistry_data(&cl->my_units, a_value) == 0) {
+    // Update grackle units to current expansion factor.
+    cl->my_units.a_value = a_value;
+    cl->my_units.density_units = cl->dComovingGmPerCcUnit/pow(a_value, 3.0);
+    cl->my_units.length_units = cl->dKpcUnit*KPCCM*a_value; // cm
+    cl->my_units.velocity_units = cl->dKpcUnit*KPCCM / cl->my_units.time_units;
+    if (initialize_chemistry_data(&cl->my_units) == 0) {
         fprintf(stderr, "Grackle Error in initialize_chemistry_data.\n");
         assert(0);
-        }
-*/
     }
+}
 
 
 void CoolDefaultParticleData( COOLPARTICLE *cp ) 
@@ -327,7 +321,7 @@ void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, doubl
     // No routine in Grackle to use to set up energy sensibly
     // Energy: erg per gm --> code units   assumes neutral gas (as above)
     // This is not called after checkpoints so should be ok
-    *E = dTemp*(kboltz*1.5/(1.2*mh))*cl->diErgPerGmUnit;
+    *E = dTemp*(KBOLTZ*1.5/(1.2*MHYDR))*cl->diErgPerGmUnit;
 
 //    printf("Grackle %d \n",GRACKLE_PRIMORDIAL_CHEMISTRY_MAX);
 //    printf("%g %g   %g %g %g %g %g %g %g\n",dDensity,*E,cp->HI,cp->HII,cp->HeI,cp->HeII,cp->HeIII,cp->e);
