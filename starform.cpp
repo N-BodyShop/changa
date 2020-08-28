@@ -452,6 +452,10 @@ void TreePiece::flushStarLog(const CkCallback& cb) {
     return;
     }
 
+/// @brief Flush starlog data to a file
+/// If the file format is changed remember to change logMetaData()
+/// below.
+///
 void StarLog::flush(void) {
     if (seTab.size() > 0) {
 	FILE* outfile;
@@ -489,3 +493,27 @@ void StarLog::flush(void) {
 	nOrdered = 0;
 	}
     }
+
+/// @brief Print out metadata for the starlog.
+/// @param osfLog output file stream to write the metadata.
+/// Note: This needs to match the format in StarLog::flush() above.
+void StarLog::logMetaData(std::ofstream &osfLog) 
+{
+    osfLog << "# starlog data:\n";
+    osfLog << "# iOrdStar i" << sizeof(StarLogEvent::iOrdStar) << endl;
+    osfLog << "# iOrdGas i" << sizeof(StarLogEvent::iOrdGas) << endl;
+    osfLog << "# timeForm f" << sizeof(double) << endl;
+    osfLog << "# rForm[0] f" << sizeof(double) << endl;
+    osfLog << "# rForm[1] f" << sizeof(double) << endl;
+    osfLog << "# rForm[2] f" << sizeof(double) << endl;
+    osfLog << "# vForm[0] f" << sizeof(double) << endl;
+    osfLog << "# vForm[1] f" << sizeof(double) << endl;
+    osfLog << "# vForm[2] f" << sizeof(double) << endl;
+    osfLog << "# massForm f" << sizeof(double) << endl;
+    osfLog << "# rhoForm f" << sizeof(double) << endl;
+    osfLog << "# TForm f" << sizeof(double) << endl;
+#ifdef COOLING_MOLECULARH 
+    osfLog <<" #  H2FracForm f" << sizeof(double) << endl;
+#endif
+    osfLog << "# end starlog data\n";
+}
