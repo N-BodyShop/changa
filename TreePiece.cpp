@@ -4675,14 +4675,22 @@ GenericTreeNode *TreePiece::getStartAncestor(int current, int previous, GenericT
 }
 #endif
 
-// We are done with the node Cache
+/// We are done with the node Cache
 
 void TreePiece::finishNodeCache(const CkCallback& cb)
 {
     int j;
+
+    // Be sure cache is synced before we finish it.
+    dm->getChunks(numChunks, prefetchRoots);
+    if(numChunks > 0) {
+        CkArrayIndexMax idxMax = CkArrayIndex1D(thisIndex);
+        cacheNode.ckLocalBranch()->cacheSync(numChunks, idxMax, localIndex);
+    }
+    
     for (j = 0; j < numChunks; j++) {
 	cacheNode.ckLocalBranch()->finishedChunk(j, 0);
-	}
+    }
     contribute(cb);
     }
 
