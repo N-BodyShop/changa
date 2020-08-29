@@ -37,6 +37,7 @@ typedef struct CoolingParametersStruct {
     int primordial_chemistry; // = 3;   // molecular network with H, He, D
     int metal_cooling; // = 1;          // metal cooling on
     int UVbackground; // = 1;           // UV background on
+    int cmb_temperature_floor; // default 1
 
     int bComoving; // part of units
     char grackle_data_file[MAXPATHLEN]; // "../../input/CloudyData_UVB=HM2012.h5"; // data file
