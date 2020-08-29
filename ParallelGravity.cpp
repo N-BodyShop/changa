@@ -2454,6 +2454,8 @@ void Main::setupICs() {
   prmLogParam(prm, achLogFileName.c_str());
 	
   ofsLog.open(achLogFileName.c_str(), ios_base::app);
+  if(param.bStarForm)
+      StarLog::logMetaData(ofsLog);
   if(param.csm->bComove) {
       ofsLog << "# RedOut:";
       if(vdOutTime.size() == 0) ofsLog << " none";
@@ -3357,6 +3359,9 @@ void Main::writeOutput(int iStep)
             if(safeMkdir(dirname.c_str()) != 0)
                 CkAbort("Can't create N-Chilada directories\n");
             }
+        NCgasNames = new CkVec<std::string>;
+        NCdarkNames = new CkVec<std::string>;
+        NCstarNames = new CkVec<std::string>;
         MassOutputParams pMassOut(achFile, param.iBinaryOut, dOutTime);
         outputBinary(pMassOut, param.bParaWrite, CkCallbackResumeThread());
         PosOutputParams pPosOut(achFile, param.iBinaryOut, dOutTime);
@@ -3599,12 +3604,12 @@ void Main::writeOutput(int iStep)
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+    // The following call is to get the particles in key order
+    // before the sort.
+    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                    CkCallbackResumeThread());
+    domainDecomp(0);
     if(param.nSteps != 0 && param.bDoDensity) {
-	// The following call is to get the particles in key order
-	// before the sort.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                        CkCallbackResumeThread());
-        domainDecomp(0);
         buildTree(0);
 
 	if(verbosity)
@@ -3666,6 +3671,8 @@ void Main::writeOutput(int iStep)
 		      << endl;
 	    }
 	}
+    if(param.iBinaryOut == 6)
+        writeNCXML(achFile);
     }
 
 ///

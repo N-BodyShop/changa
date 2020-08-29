@@ -1226,6 +1226,11 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
     if(iIndex == 0) {
         // Create and truncate output file.    
         FILE *fp = CmiFopen(filename.c_str(), "w");
+        if(fp == NULL) {
+            ckerr << "Treepiece " << thisIndex << " failed to open "
+                  << filename.c_str() << " : " << errno << ":" << strerror(errno) << endl;
+            CkAbort("Bad file open!");
+        }
         CmiFclose(fp);
         
 	Tipsy::header tipsyHeader;
@@ -1298,7 +1303,7 @@ void write_tipsy_gas(Tipsy::TipsyWriter &w, GravityParticle &p,
         gp.temp = duTFac*p.u();
 
     if(!w.putNextGasParticle_t(gp)) {
-        CkError("[%d] Write gas failed, errno %d\n", CkMyPe(), errno);
+        CkError("[%d] Write gas failed, errno %d: %s\n", CkMyPe(), errno, strerror(errno));
         CkAbort("Bad Write");
         }
 }
@@ -1320,7 +1325,7 @@ void write_tipsy_dark(Tipsy::TipsyWriter &w, GravityParticle &p,
     dp.phi = p.potential;
 
     if(!w.putNextDarkParticle_t(dp)) {
-        CkError("[%d] Write dark failed, errno %d\n", CkMyPe(), errno);
+        CkError("[%d] Write dark failed, errno %d: %s\n", CkMyPe(), errno, strerror(errno));
         CkAbort("Bad Write");
     }
 }
@@ -1344,7 +1349,7 @@ void write_tipsy_star(Tipsy::TipsyWriter &w, GravityParticle &p,
     sp.tform = p.fTimeForm();
 
     if(!w.putNextStarParticle_t(sp)) {
-        CkError("[%d] Write star failed, errno %d\n", CkMyPe(), errno);
+        CkError("[%d] Write star failed, errno %d: %s\n", CkMyPe(), errno, strerror(errno));
         CkAbort("Bad Write");
     }
 }
@@ -2002,18 +2007,21 @@ std::string Main::getNCNextOutput(OutputParams& params)
     if(params.iTypeWriting == 0) {
         params.iTypeWriting = TYPE_GAS;
         if((params.iType & TYPE_GAS) && (nTotalSPH > 0)) {
+            NCgasNames->push_back(params.sNChilExt);
             return params.fileName+"/gas/"+params.sNChilExt;
             }
         }
     if(params.iTypeWriting == TYPE_GAS) {
         params.iTypeWriting = TYPE_DARK;
         if((params.iType & TYPE_DARK) && (nTotalDark > 0)) {
+            NCdarkNames->push_back(params.sNChilExt);
             return params.fileName+"/dark/"+params.sNChilExt;
             }
         }
     if(params.iTypeWriting == TYPE_DARK) {
         params.iTypeWriting = TYPE_STAR;
         if((params.iType & TYPE_STAR) && (nTotalStar > 0)) {
+            NCstarNames->push_back(params.sNChilExt);
             return params.fileName+"/star/"+params.sNChilExt;
             }
         }
@@ -2387,4 +2395,57 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
     xdr_destroy(&xdrs);
     Ck::IO::write(session, buf, nBytes, iOffset);
     delete [] buf;
+}
+
+//// Add all of the elements of a particle family to an opened ofstream for the
+//// description.xml file.  If the names vector is empty, does nothing.  Otherwise
+//// appends a family tag, with sub-tags for each attribute stored in the snapshot.
+void Main::NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string family)
+{
+    if(names->length() == 0) // Don't add a family tag if the names vector is empty.
+        return;
+    std::string lastStr = "";
+    std::string attrib;
+    *desc << "\t<family name=\"" << family << "\">" << endl;
+    for(unsigned int i=0;i<names->length();i++)
+    {
+        attrib = (*names)[i];
+        if(attrib == "pos")
+            attrib = "position";
+        if(attrib == "pot")
+            attrib = "potential";
+        if(attrib == "vel")
+            attrib = "velocity";
+        if(lastStr != (*names)[i]) {
+            *desc <<  "\t\t<attribute name=\"" << attrib << "\" link=\"star/" << (*names)[i] << "\"/>" << endl;
+        }
+        lastStr = (*names)[i];
+    }
+    *desc << "\t</family>" << endl;
+}
+
+//// When writing out an NChilada snapshot, automatically generate a description.xml
+//// in the snapshot directory, containing a description of the snapshot contents.
+void Main::writeNCXML(const std::string filename) 
+{
+    // Let's use alphabetical order for the contents of each family.
+    NCgasNames->quickSort();
+    NCstarNames->quickSort();
+    NCdarkNames->quickSort();
+
+    ofstream xmldesc; // File handler for the XML description file
+    xmldesc.open((filename+"/description.xml").c_str(), ios_base::trunc);
+    
+    xmldesc << "<?xml version=\"1.0\" encoding=\"iso-8859-1\"?>" << endl;
+    xmldesc << "<simulation>" << endl;
+    NCXMLattrib(&xmldesc, NCstarNames, "star");
+    NCXMLattrib(&xmldesc, NCdarkNames, "dark");
+    NCXMLattrib(&xmldesc, NCgasNames, "gas");
+    xmldesc << "</simulation>" << endl;
+    
+    // Clear the vectors storing the family attributes for next snapshot
+    delete NCgasNames;
+    delete NCstarNames;
+    delete NCdarkNames;
+    xmldesc.close();
 }
