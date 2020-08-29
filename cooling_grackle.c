@@ -114,6 +114,8 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
         };
     cl->pgrackle_data->metal_cooling = CoolParam.metal_cooling;          // metal cooling on
     cl->pgrackle_data->UVbackground = CoolParam.UVbackground;           // UV background on
+    // Grackle implements a temperature floor from the CMB.
+    cl->pgrackle_data->cmb_temperature_floor = CoolParam.cmb_temperature_floor;
     strncpy( cl->grackle_data_file, CoolParam.grackle_data_file, MAXPATHLEN ); // Permanent local copy
     cl->pgrackle_data->grackle_data_file = cl->grackle_data_file; // hdf5 cloudy data file (pointer to permanent copy)
     
@@ -483,6 +485,11 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 	CoolParam->UVbackground = 1;
 	prmAddParam(prm,"UVbackground",paramBool,&CoolParam->UVbackground,sizeof(int),"UVbackground",
 				"on = +UVbackground");
+        CoolParam->cmb_temperature_floor = 1;
+        prmAddParam(prm,"cmb_temperature_floor", paramBool,
+                    &CoolParam->cmb_temperature_floor, sizeof(int),
+                    "grackle cmb_temperature_floor parameter",
+                    "on = +cmb_temperature_floor");
 	CoolParam->bComoving = 1;
 	prmAddParam(prm,"bComoving",paramBool,&CoolParam->bComoving,sizeof(int),"bComoving",
 				"on = +bComoving");
