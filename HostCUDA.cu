@@ -743,7 +743,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 #endif
 
         if(transfer){
-          allocatePinnedHostMemory(bufferHostBuffer, size);
+          allocatePinnedHostMemory(&bufferHostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
           printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
