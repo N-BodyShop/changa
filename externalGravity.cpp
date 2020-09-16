@@ -1,5 +1,7 @@
 #include "ParallelGravity.h"
 #include "externalGravity.h"
+#include <string>
+using namespace std;
 
 ///
 // @brief initalize parameters for external potential field
@@ -42,6 +44,10 @@ void ExternalGravity::AddParams(PRM prm)
     dJ6 = 0.0;
     prmAddParam(prm,"dJ6",paramDouble,&dJ6,
                 sizeof(double),"dJ6","<Oblateness coefficient J6 of central body> = 0.0");
+                
+    bLogarithmicHalo = 0;
+    prmAddParam(prm,"bLogarithmicHalo",paramBool,&bLogarithmicHalo,
+                sizeof(int), "logarithmichalo","<Type of halo is logarithmic> = 0");
     }
 
 void ExternalGravity::CheckParams(PRM prm, struct parameters &param)
@@ -170,6 +176,35 @@ Vector3D<double> ExternalGravity::applyPotential(GravityParticle *p) const
         pFrameAcc = -a*p->mass/dCentMass;
 
         double idt2 = fabs(ar/r);
+        if(idt2 > p->dtGrav)
+            p->dtGrav = idt2;
+        }
+        
+    if(bLogarithmicHalo) {
+        double px = p->position.x;
+        double py = p->position.y;
+        double pz = p->position.z;
+        double r = p->position.length();
+        // Unit vectors in Cartesian coordinates
+        Vector3D<double> xhat(1.0,0.0,0.0);
+        Vector3D<double> yhat(0.0,1.0,0.0);
+        Vector3D<double> zhat(0.0,0.0,1.0);
+        
+        // Form of Logarithmic Halo Potential
+        double v0 = 1.0;
+        double qy = 0.9;
+        double qz = 0.7;
+        double core = sqrt(0.1);
+        p->potential += v0*v0*log(px*px + (py/qy)*(py/qy) + (pz/qz)*(pz/qz) + core*core); // Written as double the true value to account for divide-by-two issue in ChaNGa integration
+        
+        // Acceleration in Cartesian coordinates
+        double ax = -v0*v0*px/(px*px + (py/qy)*(py/qy) + (pz/qz)*(pz/qz) + core*core);
+        double ay = -v0*v0*py/((qy*qy)*(px*px + (py/qy)*(py/qy) + (pz/qz)*(pz/qz) + core*core));
+        double az = -v0*v0*pz/((qz*qz)*(px*px + (py/qy)*(py/qy) + (pz/qz)*(pz/qz) + core*core));
+        Vector3D<double> a = ax*xhat + ay*yhat + az*zhat;
+        p->treeAcceleration += a;
+        
+        double idt2 = (v0*v0)/(r*r + core*core);
         if(idt2 > p->dtGrav)
             p->dtGrav = idt2;
         }
