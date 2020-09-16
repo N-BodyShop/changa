@@ -1,15 +1,15 @@
 #
 # parameter file for leap frog.
 #
-nSteps          		= 10000
-dTheta          		= 1.0
-dEta					= .03
-dDelta          		= 1.0
-iOutInterval    		= 1.0
-achInFile       		= zero_vel_conditions.tbin
-achOutName      		= integrated_orbits
-iLogInterval			= 10000
-bDoExternalGravity      = 1
+nSteps          		  = 10000
+dTheta          		  = 1.0
+dEta					        = .03
+dDelta          		  = 1.0
+iOutInterval    		  = 1.0
+achInFile       		  = integrated_orbits.tbin
+achOutName      		  = integrated_orbits
+iLogInterval			    = 10000
+bDoExternalGravity    = 1
 bLogarithmicHalo 	    = 1
-bEpsAccStep             = 0
-bGravStep               = 1
+bEpsAccStep           = 0
+bGravStep             = 1
