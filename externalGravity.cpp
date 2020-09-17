@@ -185,10 +185,6 @@ Vector3D<double> ExternalGravity::applyPotential(GravityParticle *p) const
         double py = p->position.y;
         double pz = p->position.z;
         double r = p->position.length();
-        // Unit vectors in Cartesian coordinates
-        Vector3D<double> xhat(1.0,0.0,0.0);
-        Vector3D<double> yhat(0.0,1.0,0.0);
-        Vector3D<double> zhat(0.0,0.0,1.0);
         
         // Form of Logarithmic Halo Potential
         double v0 = 1.0;
@@ -201,7 +197,7 @@ Vector3D<double> ExternalGravity::applyPotential(GravityParticle *p) const
         double ax = -v0*v0*px/(px*px + (py/qy)*(py/qy) + (pz/qz)*(pz/qz) + core*core);
         double ay = -v0*v0*py/((qy*qy)*(px*px + (py/qy)*(py/qy) + (pz/qz)*(pz/qz) + core*core));
         double az = -v0*v0*pz/((qz*qz)*(px*px + (py/qy)*(py/qy) + (pz/qz)*(pz/qz) + core*core));
-        Vector3D<double> a = a(ax, ay, az);
+        Vector3D<double> a(ax, ay, az);
         p->treeAcceleration += a;
         
         double idt2 = (v0*v0)/(r*r + core*core);
