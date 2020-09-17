@@ -201,7 +201,7 @@ Vector3D<double> ExternalGravity::applyPotential(GravityParticle *p) const
         double ax = -v0*v0*px/(px*px + (py/qy)*(py/qy) + (pz/qz)*(pz/qz) + core*core);
         double ay = -v0*v0*py/((qy*qy)*(px*px + (py/qy)*(py/qy) + (pz/qz)*(pz/qz) + core*core));
         double az = -v0*v0*pz/((qz*qz)*(px*px + (py/qy)*(py/qy) + (pz/qz)*(pz/qz) + core*core));
-        Vector3D<double> a = ax*xhat + ay*yhat + az*zhat;
+        Vector3D<double> a = a(ax, ay, az);
         p->treeAcceleration += a;
         
         double idt2 = (v0*v0)/(r*r + core*core);
