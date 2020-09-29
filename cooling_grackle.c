@@ -114,6 +114,13 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
         };
     cl->pgrackle_data->metal_cooling = CoolParam.metal_cooling;          // metal cooling on
     cl->pgrackle_data->UVbackground = CoolParam.UVbackground;           // UV background on
+    // Grackle implements a temperature floor from the CMB.
+    cl->pgrackle_data->cmb_temperature_floor = CoolParam.cmb_temperature_floor;
+    cl->bFixTempFloor = 0;
+    if(CoolParam.cmb_temperature_floor && CoolParam.bBrokenGrackleFloor) {
+	cl->pgrackle_data->cmb_temperature_floor = 0;
+	cl->bFixTempFloor = 1;
+    }
     strncpy( cl->grackle_data_file, CoolParam.grackle_data_file, MAXPATHLEN ); // Permanent local copy
     cl->pgrackle_data->grackle_data_file = cl->grackle_data_file; // hdf5 cloudy data file (pointer to permanent copy)
     
@@ -420,8 +427,36 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, d
             fprintf(stderr, "Grackle Error in solve_chemistry.\n");
             assert(0);
     }
-    
+
     assert(energy > 0.0);
+    if(cl->bFixTempFloor) {
+        double temperature;
+        if (calculate_temperature(&cl->my_units, &my_fields, &temperature) == 0) {
+            fprintf(stderr, "Grackle Error in calculate_temperature.\n");
+            assert(0);
+        }
+        const double dTCMB0 = 2.725; /* CMB temperature at z = 0 */
+        double dTCMB_z = dTCMB0/cl->my_units.a_value;
+        if(temperature < dTCMB_z) {
+            int itr = 0;
+            const double dTol = 0.99;  /* get floor to this accuracy */
+            do {
+                energy *= dTCMB_z/temperature; /* Assume that energy
+                                                 scales linearly with
+                                                 temperature */
+                if (calculate_temperature(&cl->my_units, &my_fields, &temperature) == 0) {
+                    fprintf(stderr, "Grackle Error in calculate_temperature.\n");
+                    assert(0);
+                }
+                itr++;
+            } while(temperature < dTol*dTCMB_z && itr < 50);
+
+            if(temperature < dTCMB_z*dTol) {
+                fprintf(stderr, "temp: %g, CMB: %g\n", temperature, dTCMB_z);
+            }
+            assert(itr < 50);
+        }
+    }
     *E = energy;
 
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
@@ -483,6 +518,16 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 	CoolParam->UVbackground = 1;
 	prmAddParam(prm,"UVbackground",paramBool,&CoolParam->UVbackground,sizeof(int),"UVbackground",
 				"on = +UVbackground");
+        CoolParam->cmb_temperature_floor = 1;
+        prmAddParam(prm,"cmb_temperature_floor", paramBool,
+                    &CoolParam->cmb_temperature_floor, sizeof(int),
+                    "grackle_cmb_tfloor",
+                    "grackle cmb_temperature_floor parameter, [on]");
+        CoolParam->bBrokenGrackleFloor = 0;
+        prmAddParam(prm,"bBrokenGrackleFloor", paramBool,
+                    &CoolParam->bBrokenGrackleFloor, sizeof(int),
+                    "broken_grackle_tfloor",
+                    "assume the grackle cmb temperature floor is broken [off]");
 	CoolParam->bComoving = 1;
 	prmAddParam(prm,"bComoving",paramBool,&CoolParam->bComoving,sizeof(int),"bComoving",
 				"on = +bComoving");

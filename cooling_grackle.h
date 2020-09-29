@@ -37,6 +37,10 @@ typedef struct CoolingParametersStruct {
     int primordial_chemistry; // = 3;   // molecular network with H, He, D
     int metal_cooling; // = 1;          // metal cooling on
     int UVbackground; // = 1;           // UV background on
+    int cmb_temperature_floor; // default 1
+    int bBrokenGrackleFloor;		// Use external CMB floor
+					// assuming Grackle's CMB
+					// floor is broken.
 
     int bComoving; // part of units
     char grackle_data_file[MAXPATHLEN]; // "../../input/CloudyData_UVB=HM2012.h5"; // data file
@@ -73,6 +77,7 @@ typedef struct CoolingPKDStruct {
     char grackle_data_file[MAXPATHLEN]; // "../../input/CloudyData_UVB=HM2012.h5"; // data file
     chemistry_data *pgrackle_data;  // defined in chemistry_data.h, points at global grackle_data
     code_units my_units;     // defined in code_units.h
+    int bFixTempFloor;	     /* Set CMB temperature floor outside of Grackle */
 #if defined(COOLDEBUG)
     MDL        mdl; /* For diag/debug outputs */
     struct particle *p; /* particle pointer NEVER TO BE USED EXCEPT FOR DEBUG */
