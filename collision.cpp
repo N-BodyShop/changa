@@ -126,12 +126,10 @@ void TreePiece::delEjected(double dDelDist, const CkCallback& cb)
  */
 void Main::doNearCollisions(double dTime, double dDelta, int activeRung)
 {
-    CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta, 
+    CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta,
        param.collision.bWall, param.collision.dWallPos,
        param.collision.bAllowMergers, 1, param.collision);
-    double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
-    treeProxy.startSmooth(&pCS, 0, param.collision.nSmoothCollision,
-          dfBall2OverSoft2, CkCallbackResumeThread());
+    treeProxy.startReSmooth(&pCS, CkCallbackResumeThread());
 
     // Need to ensure that both near-colliding particles end up on the collision rung
     CkReductionMsg *msgChk;
