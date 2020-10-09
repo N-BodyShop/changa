@@ -107,17 +107,14 @@ void CoolOutputArray( COOLPARAM *CoolParam, int, int *, char * );
 #define COOL_ARRAY0_EXT  "HI"
 double COOL_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal);
 void COOL_SET_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal, double Data);
-#define COOL_SET_ARRAY0( cl_, cp, aa, bb_val ) (assert(0))
 
 #define COOL_ARRAY1_EXT  "HII"
 double COOL_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal);
 void COOL_SET_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal, double Data);
-#define COOL_SET_ARRAY1( cl_, cp, aa, bb_val ) (assert(0))
 
 #define COOL_ARRAY2_EXT  "HeI"
 double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal);
 void COOL_SET_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal, double Data);
-#define COOL_SET_ARRAY2( cl_, cp, aa, bb_val ) (assert(0))
 
 #define COOL_ARRAY3_EXT  "HeII"
 double COOL_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal);

@@ -141,6 +141,13 @@ double COOL_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     return 0;
 }
 
+void COOL_SET_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        cp->HI = val;
+#endif
+}
+
 double COOL_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
     if(cl->pgrackle_data->primordial_chemistry > 0)
@@ -150,6 +157,13 @@ double COOL_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     return 0;
 }
 
+void COOL_SET_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        cp->HII = val;
+#endif
+}
+
 double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
     if(cl->pgrackle_data->primordial_chemistry > 0)
@@ -157,6 +171,13 @@ double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     else
 #endif
     return 0;
+}
+
+void COOL_SET_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        cp->HeI = val;
+#endif
 }
 
 double COOL_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
