@@ -16,7 +16,10 @@ public:
     double dJ4;
     double dJ6;
     int bDoGasDrag;       /* Apply gas drag force to planetesimals */
+    double dRadInf;       /* Inflation factor for radius of particles */
     double dSigma0;       /* Gas surface density at 1 AU */
+    int bConstGasDens;    /* Ignore gas surface density and use a constant volume density */
+    double dConstGasRho;  /* Value to use for constant gas volume density */
     double dP;            /* Power law slope of gas surface density profile */
     double dQ;            /* Power law slope of gas temperature profile */
     double dT0;           /* Gas temperature at 1 AU */
@@ -43,6 +46,9 @@ inline void ExternalForce::pup(PUP::er &p) {
      p | dJ6;
      p | bDoGasDrag;
      p | dSigma0;
+     p | bConstGasDens;
+     p | dConstGasRho;
+     p | dRadInf;
      p | dP;
      p | dQ;
      p | dT0;

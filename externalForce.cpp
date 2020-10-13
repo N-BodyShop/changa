@@ -47,9 +47,18 @@ void ExternalForce::AddParams(PRM prm)
     bDoGasDrag = 0;
     prmAddParam(prm, "bDoGasDrag", paramBool, &bDoGasDrag,
         sizeof(int), "bDoGasDrag", "<Apply external gas drag force to planetesimals> = 0");
+    dRadInf = 1.0;
+    prmAddParam(prm, "dRadInf", paramDouble, &dRadInf,
+        sizeof(double), "dRadInf", "<Inflation factor for radius of particles> = 1.0");
     dSigma0 = 1700.0;
     prmAddParam(prm, "dSigma0", paramDouble, &dSigma0,
         sizeof(double), "dSigma0", "<Gas surface density at 1 AU (in g/cm^2)> = 1700.0");
+    bConstGasDens = 0;
+    prmAddParam(prm, "bConstGasDens", paramBool, &bConstGasDens,
+        sizeof(int), "bConstGasDens", "<Constant volume density for gas (ignores surface density profile)> = 0");
+    dConstGasRho = 1e-6;
+    prmAddParam(prm, "dConstGasRho", paramDouble, &dConstGasRho,
+        sizeof(double), "dConstGasRho", "<Value to use for constant gas volume density (in g/cm^3) = 1e-6");
     dP = 1.5;
     prmAddParam(prm, "dP", paramDouble, &dP,
         sizeof(double), "dP", "<Power law slope of gas surface density profile> = 1.5");
@@ -151,6 +160,8 @@ void ExternalForce::applyGasDrag(GravityParticle *p) const
     // Morishima 2010 eq 3
     double rhoGas = sigmaGas/(sqrt(2*M_PI)*hGas)*exp(-(z*z)/(2*hGas*hGas));
 
+    if (bConstGasDens) rhoGas = dConstGasRho/MSOLG*CMPERAU*CMPERAU*CMPERAU;
+
     // Force balance due to pressure gradient
     double a1 = -dP + (dQ/2 - 3.0/2.0)*(1 - (z*z/(hGas*hGas))) - dQ;
     // Force balance due to gravity of star
@@ -165,7 +176,7 @@ void ExternalForce::applyGasDrag(GravityParticle *p) const
     Vector3D<double> thetaHat(phiX, phiY, 0);
     Vector3D<double> vGas = gasSpeed*thetaHat;
 
-    double rPl = p->soft*2;
+    double rPl = p->soft*2/dRadInf;
     Vector3D<double> vRel = vVec - vGas;
     // Morishima 2010 eq 1
     Vector3D<double> aDrag = -1/(2*p->mass)*dCD*M_PI
