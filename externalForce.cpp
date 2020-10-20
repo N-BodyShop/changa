@@ -53,9 +53,9 @@ void ExternalForce::AddParams(PRM prm)
     dSigma0 = 1700.0;
     prmAddParam(prm, "dSigma0", paramDouble, &dSigma0,
         sizeof(double), "dSigma0", "<Gas surface density at 1 AU (in g/cm^2)> = 1700.0");
-    bConstGasDens = 0;
-    prmAddParam(prm, "bConstGasDens", paramBool, &bConstGasDens,
-        sizeof(int), "bConstGasDens", "<Constant volume density for gas (ignores surface density profile)> = 0");
+    bConstGasProf = 0;
+    prmAddParam(prm, "bConstGasProf", paramBool, &bConstGasProf,
+        sizeof(int), "bConstGasProf", "<Constant volume density for gas (ignores surface density profile, uses T0 for gas temp)> = 0");
     dConstGasRho = 1e-6;
     prmAddParam(prm, "dConstGasRho", paramDouble, &dConstGasRho,
         sizeof(double), "dConstGasRho", "<Value to use for constant gas volume density (in g/cm^3) = 1e-6");
@@ -151,6 +151,9 @@ void ExternalForce::applyGasDrag(GravityParticle *p) const
 
     // Calculate the local sound speed
     double temp = dT0*pow(r, -dQ);
+
+    if (bConstGasProf) temp = dT0;
+
     double cGas = sqrt(KBOLTZ*temp/(dMu*MHYDR))/CMPERAU*SECONDSPERYEAR/(2*M_PI);
 
     // Calculate the local volume density of the gas
@@ -160,7 +163,7 @@ void ExternalForce::applyGasDrag(GravityParticle *p) const
     // Morishima 2010 eq 3
     double rhoGas = sigmaGas/(sqrt(2*M_PI)*hGas)*exp(-(z*z)/(2*hGas*hGas));
 
-    if (bConstGasDens) rhoGas = dConstGasRho/MSOLG*CMPERAU*CMPERAU*CMPERAU;
+    if (bConstGasProf) rhoGas = dConstGasRho/MSOLG*CMPERAU*CMPERAU*CMPERAU;
 
     // Force balance due to pressure gradient
     double a1 = -dP + (dQ/2 - 3.0/2.0)*(1 - (z*z/(hGas*hGas))) - dQ;
