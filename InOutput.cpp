@@ -2417,7 +2417,8 @@ void Main::NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string fa
         if(attrib == "vel")
             attrib = "velocity";
         if(lastStr != (*names)[i]) {
-            *desc <<  "\t\t<attribute name=\"" << attrib << "\" link=\"star/" << (*names)[i] << "\"/>" << endl;
+            *desc <<  "\t\t<attribute name=\"" << attrib << "\" link=\""
+                  << family << "/" << (*names)[i] << "\"/>" << endl;
         }
         lastStr = (*names)[i];
     }
