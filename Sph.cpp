@@ -878,9 +878,9 @@ void TreePiece::updateuDot(int activeRung,
         double columnLHot = 0;
 #endif
         double frac = p->massHot()/p->mass;
-        double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
+        double PoverRho = gammam1*(p->uHot()*frac+p->u()*(1-frac));
 	double fDensityHot;
-        double uMean = frac*p->uHotPred()+(1-frac)*p->uPred();
+        double uMean = frac*p->uHot()+(1-frac)*p->u();
         CkAssert(uMean > 0.0);
         CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
         CkAssert(p->uHot() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
@@ -888,7 +888,7 @@ void TreePiece::updateuDot(int activeRung,
          * If we have mass in the hot phase, we need to cool it appropriately.
          */
         if (p->massHot() > 0) { 
-            ExternalHeating = p->PdV()*p->uHotPred()/uMean + p->fESNrate();
+            ExternalHeating = p->PdV()*p->uHot()/uMean + p->fESNrate();
             if (p->uHot() > 0) {
                 E = p->uHot();
                 fDensityHot = p->fDensity*(p->uHot()*frac+p->u()*(1-frac))/p->uHot();
@@ -901,10 +901,10 @@ void TreePiece::updateuDot(int activeRung,
                 dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
-                            ExternalHeating, fDensity,
+                            ExternalHeating, fDensityHot,
                             p->fMetals(), r, dt, columnLHot);
 #else /*COOLING_MOLECULARH*/
-                CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensity,
+                CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensityHot,
                         p->fMetals(), r, dt);
 #endif
                 p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
@@ -915,14 +915,14 @@ void TreePiece::updateuDot(int activeRung,
                 p->uHotDot() = ExternalHeating;
                 p->cpHotInit() = 1;
             }
-            ExternalHeating = p->PdV()*p->uPred()/uMean;
+            ExternalHeating = p->PdV()*p->u()/uMean;
         }
         else { /* We have a single phase particle, treat it normally*/
             p->uHotDot() = 0;
             ExternalHeating = p->PdV() + p->fESNrate();
         }
-        fDensity = p->fDensity*PoverRho/(gammam1*p->uPred());
-        if (p->fDensityU() < p->fDensity) fDensity = p->fDensityU()*PoverRho/(gammam1*p->uPred());
+        fDensity = p->fDensity*PoverRho/(gammam1*p->u());
+        if (p->fDensityU() < p->fDensity) fDensity = p->fDensityU()*PoverRho/(gammam1*p->u());
         CkAssert(fDensity > 0);
         cp = p->CoolParticle();
 #endif
