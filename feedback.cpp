@@ -41,7 +41,7 @@ void Fdbk::AddParams(PRM prm)
     prmAddParam(prm,"bSmallSNSmooth", paramBool, &bSmallSNSmooth, sizeof(int),
 		"bSmallSNSmooth",
 		"<smooth SN ejecta over blast or smoothing radius> = blast radius");
-    sn.bUseStoch = 1;
+    sn.bUseStoch = 0;
     prmAddParam(prm,"bUseStoch",paramInt, &sn.bUseStoch, sizeof(int),
             "usestoch","<Enable stochastic IMF>");
     sn.dStochCut = 8.0;
