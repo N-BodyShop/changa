@@ -27,8 +27,7 @@
 
 #include "cooling.h"
 
-#define mh     1.67262171e-24   
-#define kboltz 1.3806504e-16
+#include "physconst.h"
 
 COOL *CoolInit( )
     {
@@ -46,7 +45,7 @@ COOL *CoolInit( )
 #endif
 #endif
     
-    cl->pgrackle_data = &grackle_data;
+    cl->pgrackle_data = malloc(sizeof(chemistry_data));
     return cl;
     }
 
@@ -85,21 +84,23 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
 	grackle_verbose = CoolParam.grackle_verbose;
 
     cl->my_units.comoving_coordinates = CoolParam.bComoving; // 1 if cosmological sim, 0 if not
-    cl->my_units.density_units = dGmPerCcUnit;
-    cl->my_units.length_units = dKpcUnit*3.0857e21; // cm
+    cl->my_units.density_units = dComovingGmPerCcUnit;
+    cl->my_units.length_units = dKpcUnit*KPCCM; // cm
     cl->my_units.time_units = dSecUnit;
     cl->my_units.velocity_units = cl->my_units.length_units / cl->my_units.time_units;
     cl->my_units.a_units = 1.0; // units for the expansion factor
+    cl->my_units.a_value = 1.0;
 
     /* Erg per Gm unit is calculated as velocity units^2 */
     cl->dErgPerGmUnit = dErgPerGmUnit; // too useful not to keep
     cl->diErgPerGmUnit = 1/dErgPerGmUnit;
+    cl->dKpcUnit = dKpcUnit;
     cl->dSecUnit = dSecUnit;
     cl->dComovingGmPerCcUnit = dComovingGmPerCcUnit;
     cl->dErgPerGmPerSecUnit = dErgPerGmUnit/dSecUnit;
 
     // Second, create a chemistry object for parameters and rate data.
-    if (set_default_chemistry_parameters() == 0) {
+    if (set_default_chemistry_parameters(cl->pgrackle_data) == 0) {
         fprintf(stderr, "Grackle Error in set_default_chemistry_parameters.\n");
         assert(0);
         }
@@ -116,19 +117,12 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
     strncpy( cl->grackle_data_file, CoolParam.grackle_data_file, MAXPATHLEN ); // Permanent local copy
     cl->pgrackle_data->grackle_data_file = cl->grackle_data_file; // hdf5 cloudy data file (pointer to permanent copy)
     
-        {
-        double initial_redshift = 0.;
-        double a_value = 1. / (1. + initial_redshift);
-        
-        // Finally, initialize the chemistry object.
-        if (initialize_chemistry_data(&cl->my_units, a_value) == 0) {
-            fprintf(stderr, "Grackle Error in initialize_chemistry_data.\n");
-            assert(0);
-            }
-        }
-
-
+    // Finally, initialize the chemistry object.
+    if (initialize_chemistry_data(&cl->my_units) == 0) {
+	fprintf(stderr, "Grackle Error in initialize_chemistry_data.\n");
+	assert(0);
     }
+}
 
 /*Returns baryonic fraction for a given species*/
 double COOL_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
@@ -256,15 +250,16 @@ void CoolSetTime( COOL *cl, double dTime, double z ) {
     double a_value = 1. / (1. + z);
 
     cl->dTime = dTime;
-    cl->z = z;
-    cl->a = a_value;
-/*
-    if (initialize_chemistry_data(&cl->my_units, a_value) == 0) {
+    // Update grackle units to current expansion factor.
+    cl->my_units.a_value = a_value;
+    cl->my_units.density_units = cl->dComovingGmPerCcUnit/pow(a_value, 3.0);
+    cl->my_units.length_units = cl->dKpcUnit*KPCCM*a_value; // cm
+    cl->my_units.velocity_units = cl->dKpcUnit*KPCCM / cl->my_units.time_units;
+    if (initialize_chemistry_data(&cl->my_units) == 0) {
         fprintf(stderr, "Grackle Error in initialize_chemistry_data.\n");
         assert(0);
-        }
-*/
     }
+}
 
 
 void CoolDefaultParticleData( COOLPARTICLE *cp ) 
@@ -326,7 +321,7 @@ void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, doubl
     // No routine in Grackle to use to set up energy sensibly
     // Energy: erg per gm --> code units   assumes neutral gas (as above)
     // This is not called after checkpoints so should be ok
-    *E = dTemp*(kboltz*1.5/(1.2*mh))*cl->diErgPerGmUnit;
+    *E = dTemp*(KBOLTZ*1.5/(1.2*MHYDR))*cl->diErgPerGmUnit;
 
 //    printf("Grackle %d \n",GRACKLE_PRIMORDIAL_CHEMISTRY_MAX);
 //    printf("%g %g   %g %g %g %g %g %g %g\n",dDensity,*E,cp->HI,cp->HII,cp->HeI,cp->HeII,cp->HeIII,cp->e);
@@ -359,76 +354,59 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, d
         H2I_density, H2II_density,
         DI_density, DII_density, HDI_density,
         e_density, metal_density;
+    grackle_field_data my_fields;
+    my_fields.grid_rank = 3;
+    my_fields.grid_dimension = one;
+    my_fields.grid_start = zero;
+    my_fields.grid_end = zero;
+    my_fields.grid_dx = 0.0;
 
+    my_fields.density         = &density;
+    my_fields.internal_energy = &energy;
+    my_fields.x_velocity      = &x_velocity;
+    my_fields.y_velocity      = &y_velocity;
+    my_fields.z_velocity      = &z_velocity;
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
+    HI_density = cp->HI*density;
+    HII_density = cp->HII*density;
+    HeI_density = cp->HeI*density;
+    HeII_density = cp->HeII*density;
+    HeIII_density = cp->HeIII*density;
+    e_density = cp->e*density;
+    my_fields.HI_density = &HI_density;
+    my_fields.HII_density = &HII_density;
+    my_fields.HeI_density = &HeI_density;
+    my_fields.HeII_density = &HeII_density;
+    my_fields.HeIII_density = &HeIII_density;
+    my_fields.e_density = &e_density;
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=2)
+    HM_density = cp->HM*density;
+    H2I_density = cp->H2I*density;
+    H2II_density = cp->H2II*density;
+    my_fields.HM_density = &HM_density;
+    my_fields.H2I_density = &H2I_density;
+    my_fields.H2II_density = &H2II_density;
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=3)
+    DI_density = cp->DI*density;
+    DII_density = cp->DII*density;
+    HDI_density = cp->HDI*density;
+    my_fields.DI_density = &DI_density;
+    my_fields.DII_density = &DII_density;
+    my_fields.HDI_density = &HDI_density;
+#endif
+#endif
+#endif
     /* Negative dt indicates cooling shutoff, we still need to
        calculate the abundances */
     if(dt < 0.0) dt = -dt;
 
     metal_density = ZMetal*density;
+    my_fields.metal_density = &metal_density;
 
-    if (cl->pgrackle_data->primordial_chemistry==0) {
-/*
-    int solve_chemistry_table(code_units *my_units, double a_value, double dt_value, 
-        int grid_rank, int *grid_dimension, int *grid_start, int *grid_end, 
-        gr_float *density, gr_float *internal_energy, 
-        gr_float *x_velocity, gr_float *y_velocity, gr_float *z_velocity, gr_float *metal_density); 
-*/
-  
-        if (solve_chemistry_table(&(cl->my_units), cl->a, 0.5*dt,
-            1, one, zero, zero,
-            &density, &energy,
-            &x_velocity, &y_velocity, &z_velocity,
-            &metal_density)== 0) {
+    if (solve_chemistry(&(cl->my_units), &my_fields, 0.5*dt) == 0) {
             fprintf(stderr, "Grackle Error in solve_chemistry.\n");
             assert(0);
-            }
-        }
-    else {
-#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
-        HI_density = cp->HI*density;
-        HII_density = cp->HII*density;
-        HeI_density = cp->HeI*density;
-        HeII_density = cp->HeII*density;
-        HeIII_density = cp->HeIII*density;
-        e_density = cp->e*density;
-#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=2)
-        HM_density = cp->HM*density;
-        H2I_density = cp->H2I*density;
-        H2II_density = cp->H2II*density;
-#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=3)
-        DI_density = cp->DI*density;
-        DII_density = cp->DII*density;
-        HDI_density = cp->HDI*density;
-#endif
-#endif
-#endif
-/*
-  solve_chemistry(&(cl->my_units),
-        a_value, dt,
-        grid_rank, grid_dimension,
-        grid_start, grid_end,
-        density, energy,
-        x_velocity, y_velocity, z_velocity,
-        HI_density, HII_density, HM_density,
-        HeI_density, HeII_density, HeIII_density,
-        H2I_density, H2II_density,
-        DI_density, DII_density, HDI_density,
-        e_density, metal_density) */
-        if (solve_chemistry(&(cl->my_units),
-            cl->a, 0.5*dt,
-            1, one, zero, zero,
-            &density, &energy,
-            &x_velocity, &y_velocity, &z_velocity,
-            &HI_density, &HII_density, &HM_density,
-            &HeI_density, &HeII_density, &HeIII_density,
-            &H2I_density, &H2II_density,
-            &DI_density, &DII_density, &HDI_density,
-                &e_density, &metal_density)== 0) {
-    
-            fprintf(stderr, "Grackle Error in solve_chemistry.\n");
-            assert(0);
-            }
-        }
+    }
     energy += ExternalHeat*dt;  /* Gnedin suggestion */
     if(energy <= 0.0) {
         double dEold = energy - ExternalHeat*dt;
@@ -438,50 +416,10 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, d
     density = rho;
     x_velocity=0; y_velocity=0; z_velocity=0;
     metal_density = ZMetal*density;
-    if (cl->pgrackle_data->primordial_chemistry==0) {
-        if (solve_chemistry_table(&(cl->my_units), cl->a, 0.5*dt,
-            1, one, zero, zero,
-            &density, &energy,
-            &x_velocity, &y_velocity, &z_velocity,
-            &metal_density)== 0) {
+    if (solve_chemistry(&(cl->my_units), &my_fields, 0.5*dt) == 0) {
             fprintf(stderr, "Grackle Error in solve_chemistry.\n");
             assert(0);
-            }
-        }
-    else {
-#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
-        HI_density = cp->HI*density;
-        HII_density = cp->HII*density;
-        HeI_density = cp->HeI*density;
-        HeII_density = cp->HeII*density;
-        HeIII_density = cp->HeIII*density;
-        e_density = cp->e*density;
-#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=2)
-        HM_density = cp->HM*density;
-        H2I_density = cp->H2I*density;
-        H2II_density = cp->H2II*density;
-#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=3)
-        DI_density = cp->DI*density;
-        DII_density = cp->DII*density;
-        HDI_density = cp->HDI*density;
-#endif
-#endif
-#endif
-        if (solve_chemistry(&(cl->my_units),
-            cl->a, 0.5*dt,
-            1, one, zero, zero,
-            &density, &energy,
-            &x_velocity, &y_velocity, &z_velocity,
-            &HI_density, &HII_density, &HM_density,
-            &HeI_density, &HeII_density, &HeIII_density,
-            &H2I_density, &H2II_density,
-            &DI_density, &DII_density, &HDI_density,
-                &e_density, &metal_density)== 0) {
-    
-            fprintf(stderr, "Grackle Error in solve_chemistry.\n");
-            assert(0);
-            }
-        }
+    }
     
     assert(energy > 0.0);
     *E = energy;
@@ -628,51 +566,54 @@ double CoolCodeEnergyToTemperature( COOL *cl, COOLPARTICLE *cp, double E, double
         DI_density, DII_density, HDI_density,
         e_density, metal_density, temperature;
 
-    metal_density = ZMetal*density;
+    grackle_field_data my_fields;
+    my_fields.grid_rank = 3;
+    my_fields.grid_dimension = one;
+    my_fields.grid_start = zero;
+    my_fields.grid_end = zero;
+    my_fields.grid_dx = 0.0;
 
-    if (cl->pgrackle_data->primordial_chemistry==0) {
-/*
-    calculate_temperature_table(code_units *my_units, int grid_rank, int *grid_dimension, 
-    gr_float *density, gr_float *internal_energy, gr_float *metal_density, gr_float *temperature);*/
-        if (calculate_temperature_table(&cl->my_units, cl->a, 
-                                        1, one, zero, zero,
-                &density, &energy, &metal_density, &temperature) == 0) {
-            fprintf(stderr, "Grackle Error in calculate_temperature.\n");
-            assert(0);
-            }
-        }
-    else {
+    my_fields.density         = &density;
+    my_fields.internal_energy = &energy;
+    my_fields.x_velocity      = &x_velocity;
+    my_fields.y_velocity      = &y_velocity;
+    my_fields.z_velocity      = &z_velocity;
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
-        HI_density = cp->HI*density;
-        HII_density = cp->HII*density;
-        HeI_density = cp->HeI*density;
-        HeII_density = cp->HeII*density;
-        HeIII_density = cp->HeIII*density;
-        e_density = cp->e*density;
+    HI_density = cp->HI*density;
+    HII_density = cp->HII*density;
+    HeI_density = cp->HeI*density;
+    HeII_density = cp->HeII*density;
+    HeIII_density = cp->HeIII*density;
+    e_density = cp->e*density;
+    my_fields.HI_density = &HI_density;
+    my_fields.HII_density = &HII_density;
+    my_fields.HeI_density = &HeI_density;
+    my_fields.HeII_density = &HeII_density;
+    my_fields.HeIII_density = &HeIII_density;
+    my_fields.e_density = &e_density;
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=2)
-        HM_density = cp->HM*density;
-        H2I_density = cp->H2I*density;
-        H2II_density = cp->H2II*density;
+    HM_density = cp->HM*density;
+    H2I_density = cp->H2I*density;
+    H2II_density = cp->H2II*density;
+    my_fields.HM_density = &HM_density;
+    my_fields.H2I_density = &H2I_density;
+    my_fields.H2II_density = &H2II_density;
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=3)
-        DI_density = cp->DI*density;
-        DII_density = cp->DII*density;
-        HDI_density = cp->HDI*density;
+    DI_density = cp->DI*density;
+    DII_density = cp->DII*density;
+    HDI_density = cp->HDI*density;
+    my_fields.DI_density = &DI_density;
+    my_fields.DII_density = &DII_density;
+    my_fields.HDI_density = &HDI_density;
 #endif
 #endif
 #endif
-        if (calculate_temperature(&cl->my_units, cl->a,
-                                  1, one, zero, zero,
-                &density, &energy,
-                &HI_density, &HII_density, &HM_density,
-                &HeI_density, &HeII_density, &HeIII_density,
-                &H2I_density, &H2II_density,
-                &DI_density, &DII_density, &HDI_density,
-                &e_density, &metal_density, 
-                &temperature) == 0) {
+    metal_density = ZMetal*density;
+    my_fields.metal_density = &metal_density;
+    if (calculate_temperature(&cl->my_units, &my_fields, &temperature) == 0) {
             fprintf(stderr, "Grackle Error in calculate_temperature.\n");
             assert(0);
-            }
-        }
+    }
     return ((double) temperature);
     }
 
@@ -697,67 +638,57 @@ double CoolEdotInstantCode(COOL *cl, COOLPARTICLE *cp, double ECode,
         DI_density, DII_density, HDI_density,
         e_density, metal_density, cooling_time;
 
-    metal_density = ZMetal*density;
+    grackle_field_data my_fields;
+    my_fields.grid_rank = 3;
+    my_fields.grid_dimension = one;
+    my_fields.grid_start = zero;
+    my_fields.grid_end = zero;
+    my_fields.grid_dx = 0.0;
 
-    if (cl->pgrackle_data->primordial_chemistry==0) {
-/*
-        int calculate_cooling_time_table(code_units *my_units, double a_value, 
-            int grid_rank, int *grid_dimension, int *grid_start, int *grid_end, 
-            gr_float *density, gr_float *internal_energy, 
-            gr_float *x_velocity, gr_float *y_velocity, gr_float *z_velocity, gr_float *metal_density, gr_float *cooling_time); */
-        if (calculate_cooling_time_table(&cl->my_units, cl->a,
-                1, one, zero, zero,
-                &density, &energy, 
-                &x_velocity, &y_velocity, &z_velocity, &metal_density, &cooling_time) == 0) {
+    my_fields.density         = &density;
+    my_fields.internal_energy = &energy;
+    my_fields.x_velocity      = &x_velocity;
+    my_fields.y_velocity      = &y_velocity;
+    my_fields.z_velocity      = &z_velocity;
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
+    HI_density = cp->HI*density;
+    HII_density = cp->HII*density;
+    HeI_density = cp->HeI*density;
+    HeII_density = cp->HeII*density;
+    HeIII_density = cp->HeIII*density;
+    e_density = cp->e*density;
+    my_fields.HI_density = &HI_density;
+    my_fields.HII_density = &HII_density;
+    my_fields.HeI_density = &HeI_density;
+    my_fields.HeII_density = &HeII_density;
+    my_fields.HeIII_density = &HeIII_density;
+    my_fields.e_density = &e_density;
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=2)
+    HM_density = cp->HM*density;
+    H2I_density = cp->H2I*density;
+    H2II_density = cp->H2II*density;
+    my_fields.HM_density = &HM_density;
+    my_fields.H2I_density = &H2I_density;
+    my_fields.H2II_density = &H2II_density;
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=3)
+    DI_density = cp->DI*density;
+    DII_density = cp->DII*density;
+    HDI_density = cp->HDI*density;
+    my_fields.DI_density = &DI_density;
+    my_fields.DII_density = &DII_density;
+    my_fields.HDI_density = &HDI_density;
+#endif
+#endif
+#endif
+    metal_density = ZMetal*density;
+    my_fields.metal_density = &metal_density;
+
+    if (calculate_cooling_time(&cl->my_units, &my_fields, &cooling_time) == 0) {
             fprintf(stderr, "Grackle Error in calculate_cooling_time_table.\n");
             assert(0);
-            }
-        }
-    else {
-#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
-        HI_density = cp->HI*density;
-        HII_density = cp->HII*density;
-        HeI_density = cp->HeI*density;
-        HeII_density = cp->HeII*density;
-        HeIII_density = cp->HeIII*density;
-        e_density = cp->e*density;
-#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=2)
-        HM_density = cp->HM*density;
-        H2I_density = cp->H2I*density;
-        H2II_density = cp->H2II*density;
-#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=3)
-        DI_density = cp->DI*density;
-        DII_density = cp->DII*density;
-        HDI_density = cp->HDI*density;
-#endif
-#endif
-#endif
-/*
-        calculate_cooling_time(code_units *my_units, double a_value, 
-            int grid_rank, int *grid_dimension, int *grid_start, int *grid_end, 
-            gr_float *density, gr_float *internal_energy, 
-            gr_float *x_velocity, gr_float *y_velocity, gr_float *z_velocity, 
-            gr_float *HI_density, gr_float *HII_density, gr_float *HM_density, 
-            gr_float *HeI_density, gr_float *HeII_density, gr_float *HeIII_density, 
-            gr_float *H2I_density, gr_float *H2II_density, gr_float *DI_density, gr_float *DII_density, 
-            gr_float *HDI_density, gr_float *e_density, gr_float *metal_density, gr_float *cooling_time); 
-*/
-        if (calculate_cooling_time(&cl->my_units, cl->a,
-            1, one, zero, zero,
-            &density, &energy,
-            &x_velocity, &y_velocity, &z_velocity,
-            &HI_density, &HII_density, &HM_density,
-            &HeI_density, &HeII_density, &HeIII_density,
-            &H2I_density, &H2II_density,
-            &DI_density, &DII_density, &HDI_density,
-            &e_density, &metal_density, 
-            &cooling_time) == 0) {
-            fprintf(stderr, "Grackle Error in calculate_cooling_time.\n");
-            assert(0);
-            }
-        }
+    }
 
-        return (ECode/cooling_time); /* Edot (erg/g/s)   undoes code in cool_multi_time_g.F */
+    return (ECode/cooling_time); /* Edot (erg/g/s)   undoes code in cool_multi_time_g.F */
     }
 
 

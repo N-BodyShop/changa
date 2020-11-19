@@ -1322,16 +1322,12 @@ Main::Main(CkArgMsg* m) {
 	CkArrayOptions opts(numTreePieces); 
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	if (domainDecomposition == Oct_dec) {
-	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
-	  opts.setMap(myMap);
+            CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
+            opts.setMap(myMap);
 	} else {
 #endif
-#ifdef DEFAULT_ARRAY_MAP
-          CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
-#else
-	  CProxy_BlockMap myMap = CProxy_BlockMap::ckNew(); 
-#endif
-	  opts.setMap(myMap);
+            CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
+            opts.setMap(myMap);
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	}
 #endif
@@ -2380,6 +2376,9 @@ void Main::setupICs() {
 #ifdef COOLING_MOLECULARH
   ofsLog << " COOLING_MOLECULARH";
 #endif
+#ifdef COOLING_GRACKLE
+  ofsLog << " COOLING_GRACKLE";
+#endif
 #ifdef DIFFUSION
   ofsLog << " DIFFUSION";
 #endif
@@ -2442,14 +2441,19 @@ void Main::setupICs() {
          << sizeof(NodeKey) << " bytes node" << endl;
 
   // Print out load balance information
-  LBDatabase *lbdb = LBDatabaseObj();
-  int nlbs = lbdb->getNLoadBalancers(); 
+#ifdef LB_MANAGER_VERSION
+  LBManager *lbMgr = LBManagerObj();
+#else
+  LBDatabase *lbMgr = LBDatabaseObj();
+#endif
+
+  int nlbs = lbMgr->getNLoadBalancers();
   if(nlbs == 0) {
       ofsLog << "# No load balancer in use" << endl;
       }
   else {
       int ilb;
-      BaseLB **lbs = lbdb->getLoadBalancers();
+      BaseLB **lbs = lbMgr->getLoadBalancers();
       ofsLog << "# Load balancers:";
       for(ilb = 0; ilb < nlbs; ilb++){
 	  ofsLog << " " << lbs[ilb]->lbName();
@@ -2462,6 +2466,8 @@ void Main::setupICs() {
   prmLogParam(prm, achLogFileName.c_str());
 	
   ofsLog.open(achLogFileName.c_str(), ios_base::app);
+  if(param.bStarForm)
+      StarLog::logMetaData(ofsLog);
   if(param.csm->bComove) {
       ofsLog << "# RedOut:";
       if(vdOutTime.size() == 0) ofsLog << " none";
@@ -2626,13 +2632,13 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	}
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
-  if (bUseCkLoopPar) {
-    CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
-  } else {
-    CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
-  }
-  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                  CkCallbackResumeThread());
+        if (bUseCkLoopPar) {
+            CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
+        } else {
+            CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
+        }
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                        CkCallbackResumeThread());
 	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
 	if(param.bStarForm) {
@@ -2650,13 +2656,10 @@ Main::restart(CkCheckpointStatusMsg *msg)
         timings.resize(PHASE_FEEDBACK+1);
         nActiveGrav = nTotalParticles;
         nActiveSPH = nTotalSPH;
-
+        treeProxy.resetObjectLoad(CkCallbackResumeThread());
         /***** Initial sorting of particles and Domain Decomposition *****/
         CkPrintf("Initial ");
         domainDecomp(0);
-
-        // Balance load initially after decomposition
-        loadBalance(-1);
 
         doSimulation();
 	}
@@ -3381,6 +3384,9 @@ void Main::writeOutput(int iStep)
             if(safeMkdir(dirname.c_str()) != 0)
                 CkAbort("Can't create N-Chilada directories\n");
             }
+        NCgasNames = new CkVec<std::string>;
+        NCdarkNames = new CkVec<std::string>;
+        NCstarNames = new CkVec<std::string>;
         MassOutputParams pMassOut(achFile, param.iBinaryOut, dOutTime);
         outputBinary(pMassOut, param.bParaWrite, CkCallbackResumeThread());
         PosOutputParams pPosOut(achFile, param.iBinaryOut, dOutTime);
@@ -3623,12 +3629,12 @@ void Main::writeOutput(int iStep)
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
+    // The following call is to get the particles in key order
+    // before the sort.
+    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                    CkCallbackResumeThread());
+    domainDecomp(0);
     if(param.nSteps != 0 && param.bDoDensity) {
-	// The following call is to get the particles in key order
-	// before the sort.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                        CkCallbackResumeThread());
-        domainDecomp(0);
         buildTree(0);
 
 	if(verbosity)
@@ -3690,6 +3696,8 @@ void Main::writeOutput(int iStep)
 		      << endl;
 	    }
 	}
+    if(param.iBinaryOut == 6)
+        writeNCXML(achFile);
     }
 
 ///
@@ -3855,8 +3863,10 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 	if (param.dDumpFrameStep > 0 || param.dDumpFrameTime > 0) {
                 if(param.iDirector < 1) {
                     CkError("WARNING: DumpFrame parameters set, but iDirector is %d; DumpFrame is disabled\n", param.iDirector);
+                    param.dDumpFrameStep = -1.0;
+                    param.dDumpFrameTime = -1.0;
                     return 0;
-                    }
+                }
 		bDumpFrame = 1;
 		int i;
 
@@ -3885,15 +3895,15 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
 		  fclose(fp);
 
-		  CkReductionMsg *msg;
-		  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
-		  int *nSet = (int *)msg->getData();
-		  if (verbosity)
-		      ckout << nSet[0] << " iOrder numbers read. " << nSet[1]
-			    <<" direct iOrder photogenic particles selected."
-			    << endl;
-		  delete msg;
-		  }
+                  CkReductionMsg *msg;
+                  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
+                  int64_t *nSet = (int64_t *)msg->getData();
+                  if (verbosity)
+                      ckout << nSet[0] << " iOrder numbers read. " << nSet[1]
+                            <<" direct iOrder photogenic particles selected."
+                            << endl;
+                  delete msg;
+                }
 
 		if(!bRestart)
 		    DumpFrame(dTime, dStep );
