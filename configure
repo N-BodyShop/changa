@@ -5547,9 +5547,6 @@ esac
 if test x$BUILD_CUDA = x; then
 	BUILD_CUDA=0
 fi
-if test x$ENABLE_CUDA = xno -a x$BUILD_CUDA = x1; then
-	as_fn_error $? "Charm++ ($CHARM_PATH) was built with CUDA support enabled." "$LINENO" 5
-fi
 if test x$ENABLE_CUDA = xyes -a x$BUILD_CUDA = x0; then
 	as_fn_error $? "Charm++ ($CHARM_PATH) was not built with CUDA support." "$LINENO" 5
 fi
