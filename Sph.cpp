@@ -819,10 +819,14 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
 #ifdef SUPERBUBBLE
         E = p->uHot();
 	if(E > 0) {
-		T = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
 		double frac = p->massHot()/p->mass;
 		double PoverRho = gammam1*(p->uHot()*frac+p->u()*(1-frac));
 		double fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
+		T = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(),
+#ifdef COOLING_GRACKLE
+                                                fDensity, /* GRACKLE needs density */
+#endif
+                                                p->fMetals());
 		CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, T, p->fMetals());
 		p->cpHotInit() = 0;
 	}
@@ -1405,7 +1409,11 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
         p->PoverRho2() = PoverRho/p->fDensity;
         double fThermalCond = dThermalCondCoeff*pow(p->uPred(),2.5);
         double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
-        double Tp = CoolCodeEnergyToTemperature(cl, &p->CoolParticle(), p->uPred(), p->fMetals());
+        double Tp = CoolCodeEnergyToTemperature(cl, &p->CoolParticle(), p->uPred(),
+#ifdef COOLING_GRACKLE
+                                                p->fDensity, /* GRACKLE needs density */
+#endif
+                                                p->fMetals());
         if (Tp < dEvapMinTemp) // Only allow conduction & evaporation for particles that are hot
         {
             fThermalCond = 0;
@@ -2023,7 +2031,11 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     ph = 0.5*p->fBall;
     ih2 = invH2(p);
     /* Exclude cool particles */
-    Tp = CoolEnergyToTemperature(tp->Cool(), &p->CoolParticle(), dErgPerGmUnit*p->uPred(), p->fMetals() );
+    Tp = CoolCodeEnergyToTemperature(tp->Cool(), &p->CoolParticle(), p->uPred(),
+#ifdef COOLING_GRACKLE
+                                     p->fDensity, /* GRACKLE needs density */
+#endif
+                                     p->fMetals() );
     CkAssert(Tp < 2e11);
     if (Tp <= dEvapMinTemp) return;
 
@@ -2035,7 +2047,11 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         q = nnList[i].p;
         if (p->iOrder == q->iOrder) continue;
 	    if (TYPETest(q, TYPE_DELETED) || (TYPETest(q, TYPE_FEEDBACK) && !TYPETest(q, TYPE_PROMOTED))) continue;
-        Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+        Tq = CoolCodeEnergyToTemperature(tp->Cool(), &q->CoolParticle(), q->uPred(),
+#ifdef COOLING_GRACKLE
+                                         q->fDensity, /* GRACKLE needs density */
+#endif
+                                         q->fMetals() );
         CkAssert(Tq < 2e11);
         if (q->uHot() > 0 || Tq >= dEvapMinTemp) continue;  /* Exclude hot particles */
 	    CkAssert(TYPETest(q, TYPE_GAS));
@@ -2058,7 +2074,11 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		q = nnList[i].p;
 		if (p->iOrder == q->iOrder) continue;
 		if (TYPETest(q, TYPE_DELETED)) continue;
-        Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+        Tq = CoolCodeEnergyToTemperature(tp->Cool(), &q->CoolParticle(), q->uPred(),
+#ifdef COOLING_GRACKLE
+                                     q->fDensity, /* GRACKLE needs density */
+#endif
+                                     q->fMetals() );
         CkAssert(Tq < 2e11);
         if (q->uHot() == 0 && Tq <= dEvapMinTemp) continue;  
 		dot = xc*nnList[i].dx.x + yc*nnList[i].dx.y + zc*nnList[i].dx.y;
@@ -2077,7 +2097,11 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         q = nnList[i].p;
         if (p->iOrder == q->iOrder) continue;
 	    if(TYPETest(q, TYPE_DELETED) || (TYPETest(q, TYPE_FEEDBACK) && !TYPETest(q, TYPE_PROMOTED))) continue;
-        Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+        Tq = CoolCodeEnergyToTemperature(tp->Cool(), &q->CoolParticle(), q->uPred(),
+#ifdef COOLING_GRACKLE
+                                         q->fDensity, /* GRACKLE needs density */
+#endif
+                                         q->fMetals() );
         CkAssert(Tq < 2e11);
         if (Tq >= dEvapMinTemp ) continue;  /* Exclude hot particles */
 	    CkAssert(TYPETest(q, TYPE_GAS));
@@ -2102,7 +2126,11 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
             q = nnList[i].p;
             if (p->iOrder == q->iOrder) continue;
             if (TYPETest(q, TYPE_DELETED) || TYPETest(q, TYPE_FEEDBACK) || TYPETest(q, TYPE_PROMOTED)) continue;
-            Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), dErgPerGmUnit*q->uPred(), q->fMetals() );
+            Tq = CoolCodeEnergyToTemperature(tp->Cool(), &q->CoolParticle(), q->uPred(),
+#ifdef COOLING_GRACKLE
+                                             q->fDensity, /* GRACKLE needs density */
+#endif
+                                             q->fMetals() );
             CkAssert(Tq < 2e11);
             if (Tq >= dEvapMinTemp ) continue;  /* Exclude hot particles */
             CkAssert(TYPETest(q, TYPE_GAS));
@@ -2147,7 +2175,12 @@ void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	CkAssert(TYPETest(p, TYPE_GAS));
 	CkAssert(TYPETest(p, TYPE_FEEDBACK));
 	CkAssert(!TYPETest(p, TYPE_PROMOTED));
-    Tp = CoolEnergyToTemperature(tp->Cool(), &p->CoolParticle(), dErgPerGmUnit*p->uPred(), p->fMetals() );
+    Tp = CoolCodeEnergyToTemperature(tp->Cool(), &p->CoolParticle(),
+                                     p->uPred(),
+#ifdef COOLING_GRACKLE
+                                     p->fDensity, /* GRACKLE needs density */
+#endif
+                                     p->fMetals() );
     if (Tp <= dEvapMinTemp) return;
 
     nPromoted = 0;

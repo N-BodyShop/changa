@@ -1522,7 +1522,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                  fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
                  if (p->cpHotInit()) {
                      double E = p->uHot();
-                     double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
+                     double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(),
+#ifdef COOLING_GRACKLE
+                                                               fDensity, /* GRACKLE needs density */
+#endif
+                                                               p->fMetals());
                      CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, TpNC, p->fMetals());
                      p->cpHotInit() = 0;
                  }
@@ -1587,7 +1591,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                       p->cpHotInit() = 0;
               }
               if(p->uHotPred() > 0) {
-                  double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(), p->fMetals());
+                  double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(),
+#ifdef COOLING_GRACKLE
+                                                            fDensity, /* GRACKLE needs density */
+#endif
+                                                            p->fMetals());
                   if(TpNC < dMultiPhaseMinTemp)//Check to make sure the hot phase is still actually hot
                   {
                      p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
@@ -1641,7 +1649,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                  double frac = p->massHot()/p->mass;
                  double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
                  double fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
-                 double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
+                 double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(),
+#ifdef COOLING_GRACKLE
+                                                           fDensity, /* GRACKLE needs density */
+#endif
+                                                           p->fMetals());
                  CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, TpNC, p->fMetals());
                  p->cpHotInit() = 0;
               }
