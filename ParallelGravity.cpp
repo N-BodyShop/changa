@@ -2393,7 +2393,7 @@ void Main::advanceBigStep(int iStep) {
 #ifdef COLLISION
           if (param.collision.bDelEjected) {
               treeProxy.delEjected(param.collision.dDelDist, CkCallbackResumeThread());
-              addDelParticles();
+              //addDelParticles();
               }
           // Collision detection and response handling
           if (param.bCollision) {
