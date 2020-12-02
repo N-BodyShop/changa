@@ -128,9 +128,9 @@ Vector3D<double> ExternalGravity::applyPotential(GravityParticle *p) const
     if (bPatch) {
         double r2 = dOrbDist*dOrbDist + p->position.z*p->position.z;
         double idt2 = dCentMass*pow(r2, -1.5);
+        double dOrbFreq = sqrt(1.0 * dCentMass / pow(dOrbDist, 3));
 
-        p->treeAcceleration.z -= dCentMass*p->position.z
-                                 *pow(r2, -1.5);
+        p->treeAcceleration.z -= dOrbFreq * p->position.z;
         p->potential += dCentMass/sqrt(r2);
         if(idt2 > p->dtGrav)
             p->dtGrav = idt2;
