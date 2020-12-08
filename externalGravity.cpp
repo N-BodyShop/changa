@@ -55,7 +55,9 @@ void ExternalGravity::CheckParams(PRM prm, struct parameters &param)
     // Enable external gravity if any of the flags are set
     if (bBodyForce || bPatch || bCentralBody)
         param.bDoExternalGravity = 1;
-    }
+
+    // Calculate dOrbFreq 
+}
 
 /*
  * @brief This function applies the external potential force to every applicable
@@ -128,7 +130,7 @@ Vector3D<double> ExternalGravity::applyPotential(GravityParticle *p) const
     if (bPatch) {
         double r2 = dOrbDist*dOrbDist + p->position.z*p->position.z;
         double idt2 = dCentMass*pow(r2, -1.5);
-        double dOrbFreq = sqrt(1.0 * dCentMass / pow(dOrbDist, 3));
+        double dOrbFreq = sqrt(dCentMass / pow(dOrbDist, 3));
 
         p->treeAcceleration.z -= dOrbFreq * p->position.z;
         p->potential += dCentMass/sqrt(r2);

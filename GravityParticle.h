@@ -311,6 +311,7 @@ class GravityParticle : public ExternalGravityParticle {
 public:
 	SFC::Key key;
 	Vector3D<double> velocity;
+    double dPy;
 	Vector3D<cosmoType> treeAcceleration;
 	cosmoType potential;
         cosmoType dtGrav;       ///< timestep from gravity; N.B., this
@@ -358,6 +359,7 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
+          p | dPy;
           p | treeAcceleration;
           p | dtGrav;
           p | fDensity;

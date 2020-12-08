@@ -1483,8 +1483,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
       if(p->rung >= iKickRung) {
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
-		  p->vPred() = p->velocity
-		      + dDelta[p->rung]*p->treeAcceleration;
+		  // p->vPred() = p->velocity + dDelta[p->rung]*p->treeAcceleration;
+          double dOrbFreq = sqrt(dCentMass / pow(dOrbDist, 3));
+          p->vPred()[0] = 2.0 * dOrbFreq * p->dPy;
+          p->vPred()[1] = p->dPy - 2 * dOrbFreq * p->r[0];
+
 		  glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
 		  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
@@ -1616,7 +1619,13 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  }
 	      else {	// predicted quantities are at the beginning
 			// of step
-		  p->vPred() = p->velocity;
+		  // p->vPred() = p->velocity;
+          p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->r[0];
+
+          // Cross hamiltonian
+          p->velocity[0] += 2.0 * dOrbFreq * p->dPy;
+          p->velocity[1] = p->dPy - dOrbFreq * p->r[0] - dOrbFreq * (p->r[0] + 2.0 * p->velocity[0]);
+
 		  if(!bGasIsothermal) {
 		      p->uPred() = p->u();
 #ifndef COOLING_NONE
