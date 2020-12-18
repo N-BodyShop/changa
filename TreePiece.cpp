@@ -1469,6 +1469,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bClosing, // Are we at the end of a timestep
 		     int bNeedVPred, // do we need to update vpred
 		     int bGasIsothermal, // Isothermal EOS
+             double dOrbFreq, // Orbital frequency
              double dMaxEnergy, // Maximum internal energy of gas.
 		     double duDelta[MAXRUNG+1], // dts for energy
              double gammam1, // Adiabatic index - 1
@@ -1481,13 +1482,12 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
       if(p->rung >= iKickRung) {
-      double dOrbFreq = p->dPy - p->velocity[1] / (2 * p->position[0]);
+          p->velocity[0] += 2.0 * dOrbFreq * p->dPy;
+          p->velocity[1] = p->dPy - 2 * dOrbFreq * p->position[0];
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
-		  // p->vPred() = p->velocity + dDelta[p->rung]*p->treeAcceleration;
-          // double dOrbFreq = sqrt(p->mass  / pow(dOrbDist, 3));
-          p->vPred()[0] += 2.0 * dOrbFreq * p->dPy;
-          p->vPred()[1] = p->dPy - 2 * dOrbFreq * p->position[0];
+		  p->vPred() = p->velocity + dDelta[p->rung]*p->treeAcceleration;
+
 
 		  glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
 		  if(!bGasIsothermal) {
@@ -1618,17 +1618,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  p->fMFracIronPred() = p->fMFracIron();
 #endif
 		  }
-          for (int j = 0; j < 3; j++) {
-              p->velocity[j] = p->velocity [j] * + p->treeAcceleration[j] * dDelta[p->rung];
-          }
+
           if(!bClosing) {	// predicted quantities are at the beginning
 			// of step
-		  // p->vPred() = p->velocity;
-          p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->r[0];
+		  p->vPred() = p->velocity;
 
-          // Cross hamiltonian
-          p->velocity[0] += 2.0 * dOrbFreq * p->dPy;
-          p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * p->velocity[0]);
 
 		  if(!bGasIsothermal) {
 		      p->uPred() = p->u();
@@ -1681,7 +1675,15 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 #endif
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
-	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
+      if (!bClosing) {
+          p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->position[0];
+
+          // Cross hamiltonian
+          p->velocity[0] += 2.0 * dOrbFreq * p->dPy;
+          p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * p->velocity[0]);
+      }
+      glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
+      
 	  }
       }
   contribute(cb);
@@ -2046,8 +2048,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
         }
       }
       boundingBox.grow(p->position);
+      p->vPred() += dvDelta * p->treeAcceleration;
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
-	  p->vPred() += dvDelta*p->treeAcceleration;
 	  glassDamping(p->vPred(), dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
