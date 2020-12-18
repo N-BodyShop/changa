@@ -59,8 +59,7 @@ class extraSPHData
     double _fMFracIron;		/* Iron mass fraction  */
     double _fESNrate;		/* SN energy rate  */
     double _fTimeCoolIsOffUntil;/* time cooling is turned back on */
-    Vector3D<double> _vPred;	/* Predicted velocities for velocity
-				   dependent forces */
+    Vector3D<double> _vPred;	/* Predicted velocities for velocity dependent forces */
     double _uPred;		/* Predicted internal energy */
     double _divv;		/* Diverence of the velocity */
     Vector3D<double> _curlv;	/* Curl of the velocity */
@@ -121,7 +120,7 @@ class extraSPHData
     inline double& fMFracIron() {return _fMFracIron;}
     inline double& fESNrate() {return _fESNrate;}
     inline double& fTimeCoolIsOffUntil() {return _fTimeCoolIsOffUntil;}
-    inline Vector3D<double>& vPred() {return _vPred;}
+    // inline Vector3D<double>& vPred() {return _vPred;}
     inline double& uPred() {return _uPred;}
     inline double& divv() {return _divv;}
     inline Vector3D<double>& curlv() {return _curlv;}
@@ -181,7 +180,7 @@ class extraSPHData
 	p | _fMFracOxygen;
 	p | _fESNrate;
 	p | _fTimeCoolIsOffUntil;
-	p | _vPred;
+	// p | _vPred;
 	p | _uPred;
 	p | _divv;
 	p | _curlv;
@@ -312,6 +311,8 @@ public:
 	SFC::Key key;
 	Vector3D<double> velocity;
     double dPy;
+    Vector3D<double> _vPred;
+    inline Vector3D<double>& vPred() { return _vPred;}
 	Vector3D<cosmoType> treeAcceleration;
 	cosmoType potential;
         cosmoType dtGrav;       ///< timestep from gravity; N.B., this
@@ -360,6 +361,7 @@ public:
           p | key;
           p | velocity;
           p | dPy;
+          p | _vPred;
           p | treeAcceleration;
           p | dtGrav;
           p | fDensity;
@@ -408,7 +410,7 @@ public:
 	inline double& fMFracIron() {IMAGAS; return (((extraSPHData*)extraData)->fMFracIron());}
 	inline double& fESNrate() {IMAGAS; return (((extraSPHData*)extraData)->fESNrate());}
 	inline double& fTimeCoolIsOffUntil() {IMAGAS; return (((extraSPHData*)extraData)->fTimeCoolIsOffUntil());}
-	inline Vector3D<double>& vPred() { IMAGAS; return (((extraSPHData*)extraData)->vPred());}
+	// inline Vector3D<double>& vPred() { IMAGAS; return (((extraSPHData*)extraData)->vPred());}
 	inline double& uPred() {IMAGAS;  return (((extraSPHData*)extraData)->uPred());}
 	inline double& divv() { IMAGAS; return (((extraSPHData*)extraData)->divv());}
 	inline Vector3D<double>& curlv() { IMAGAS; return (((extraSPHData*)extraData)->curlv());}
@@ -634,8 +636,8 @@ class ExternalSmoothParticle {
 	  iType = p->iType;
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
+      vPred = p->vPred();
 	  if(TYPETest(p, TYPE_GAS)) {
-	      vPred = p->vPred();
 	      mumax = p->mumax();
 	      PdV = p->PdV();
 	      c = p->c();
@@ -701,8 +703,8 @@ class ExternalSmoothParticle {
       tmp->iType = iType;
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
+      tmp->vPred() = vPred;
       if(TYPETest(tmp, TYPE_GAS)) {
-	  tmp->vPred() = vPred;
 	  tmp->mumax() = mumax;
 	  tmp->PdV() = PdV;
 	  tmp->c() = c;
