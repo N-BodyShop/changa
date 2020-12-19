@@ -1142,9 +1142,9 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dx = nnList[i].dx.x; /* NB: dx = px - qx */
 		dy = nnList[i].dx.y;
 		dz = nnList[i].dx.z;
-		dvx = (-p->vPred().x + q->vPred().x)*vFac;
-		dvy = (-p->vPred().y + q->vPred().y)*vFac;
-		dvz = (-p->vPred().z + q->vPred().z)*vFac;
+		dvx = (-p->vPred.x + q->vPred.x)*vFac;
+		dvy = (-p->vPred.y + q->vPred.y)*vFac;
+		dvz = (-p->vPred.z + q->vPred.z)*vFac;
 		dvxdx += dvx*dx*rs1;
 		dvxdy += dvx*dy*rs1;
 		dvxdz += dvx*dz*rs1;
@@ -1619,7 +1619,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         pParams.rNorm = rs1 * p->mass;
         qParams.rNorm = rs1 * q->mass;
         params.dx = nnList[i].dx;
-        dv = p->vPred() - q->vPred();
+        dv = p->vPred - q->vPred;
         params.dvdotdr = vFac*dot(dv, params.dx) + fDist2*H;
 #ifdef GDFORCE
         pParams.PoverRho2 = p->PoverRho2()*p->fDensity/q->fDensity;

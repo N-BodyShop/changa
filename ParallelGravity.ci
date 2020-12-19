@@ -384,12 +384,12 @@ mainmodule ParallelGravity {
     entry void distribLymanWerner(const CkCallback& cb);
 #endif
     entry void adjust(int iKickRung, int bCollStep, int bEpsAccStep,
-          int bGravStep, int bSphStep, int bViscosityLimitdt,
-	      double dEta, double dEtaCourant, double dEtauDot,
-              double dDiffCoeff, double dEtaDiffusion,
-	      double dDelta, double dAccFac,
-	      double dCosmoFac, double dhMinOverSoft,
-              double dResolveJeans,
+           int bGravStep, int bKepStep, int bSphStep,
+           int bViscosityLimitdt, double dEta, double dEtaCourant,
+           double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+           double dDelta, double dAccFac,
+           double dCosmoFac, double dhMinOverSoft,
+                   double dResolveJeans,
 	      int bDoGas,
 	      const CkCallback& cb);
     entry void truncateRung(int iCurrMaxRung, const CkCallback& cb);

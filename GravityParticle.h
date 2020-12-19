@@ -195,7 +195,6 @@ class extraSPHData
 	p | _fMFracOxygen;
 	p | _fESNrate;
 	p | _fTimeCoolIsOffUntil;
-	p | _vPred;
 	p | _uPred;
 	p | _divv;
 	p | _curlv;
@@ -374,8 +373,10 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
+          p | vPred;
           p | treeAcceleration;
           p | dtGrav;
+          p | dtKep;
           p | fDensity;
           p | fBall;
           p | iOrder;
@@ -422,7 +423,6 @@ public:
 	inline double& fMFracIron() {IMAGAS; return (((extraSPHData*)extraData)->fMFracIron());}
 	inline double& fESNrate() {IMAGAS; return (((extraSPHData*)extraData)->fESNrate());}
 	inline double& fTimeCoolIsOffUntil() {IMAGAS; return (((extraSPHData*)extraData)->fTimeCoolIsOffUntil());}
-	inline Vector3D<cosmoType>& vPred() { IMAGAS; return (((extraSPHData*)extraData)->vPred());}
 	inline double& uPred() {IMAGAS;  return (((extraSPHData*)extraData)->uPred());}
 	inline double& divv() { IMAGAS; return (((extraSPHData*)extraData)->divv());}
 	inline Vector3D<double>& curlv() { IMAGAS; return (((extraSPHData*)extraData)->curlv());}
@@ -660,6 +660,7 @@ class ExternalSmoothParticle {
 	  fDensity = p->fDensity;
 	  position = p->position;
 	  velocity = p->velocity;
+	  vPred = p->vPred;
 	  iOrder = p->iOrder;
 	  iType = p->iType;
 	  rung = p->rung;
@@ -671,7 +672,6 @@ class ExternalSmoothParticle {
       iOrderCol = p->iOrderCol;
 #endif
 	  if(TYPETest(p, TYPE_GAS)) {
-	      vPred = p->vPred();
 	      mumax = p->mumax();
               PdV = p->PdV();
               uDotPdV = p->uDotPdV();
@@ -735,6 +735,7 @@ class ExternalSmoothParticle {
       tmp->fDensity = fDensity;
       tmp->position = position;
       tmp->velocity = velocity;
+	  tmp->vPred = vPred;
       tmp->iOrder = iOrder;
       tmp->iType = iType;
       tmp->rung = rung;
@@ -746,7 +747,6 @@ class ExternalSmoothParticle {
       tmp->iOrderCol = iOrderCol;
 #endif
       if(TYPETest(tmp, TYPE_GAS)) {
-	  tmp->vPred() = vPred;
 	  tmp->mumax() = mumax;
           tmp->PdV() = PdV;
           tmp->uDotPdV() = uDotPdV;
@@ -807,6 +807,7 @@ class ExternalSmoothParticle {
   void pup(PUP::er &p) {
     p | position;
     p | velocity;
+    p | vPred;
     p | mass;
     p | fBall;
     p | fDensity;

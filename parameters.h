@@ -29,6 +29,7 @@ typedef struct parameters {
     double dDelta;
     int bEpsAccStep;
     int bGravStep;
+    int bKepStep;
     double dEta;
     int nTruncateRung;
     int iMaxRung;
@@ -67,6 +68,7 @@ typedef struct parameters {
      * Units: set by dMsolUnit and dKpcUnit
      */
     int bDoGas;
+    int bDoDark;
     int bGeometric;
     int bBulkViscosity;
     int bGasAdiabatic;
@@ -181,6 +183,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dDelta;
     p|param.bEpsAccStep;
     p|param.bGravStep;
+    p|param.bKepStep;
     p|param.dEta;
     p|param.nTruncateRung;
     p|param.iMaxRung;
@@ -214,6 +217,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dGrowStartT;
     p|param.dGrowEndT;
     p|param.bDoGas;
+    p|param.bDoDark;
     p|param.bGeometric;
     p|param.bBulkViscosity;
     p|param.bGasAdiabatic;

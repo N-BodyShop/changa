@@ -661,9 +661,9 @@ void SinkFormSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 			dx = nnList[i].dx.x;
 			dy = nnList[i].dx.y;
 			dz = nnList[i].dx.z;
-			dvx = ((-p->vPred()[0] + q1->vPred()[0])*vFac - dx*H)*rs1; /* NB: dx = px - qx */
-			dvy = ((-p->vPred()[1] + q1->vPred()[1])*vFac - dy*H)*rs1;
-			dvz = ((-p->vPred()[2] + q1->vPred()[2])*vFac - dz*H)*rs1;
+			dvx = ((-p->vPred[0] + q1->vPred[0])*vFac - dx*H)*rs1; /* NB: dx = px - qx */
+			dvy = ((-p->vPred[1] + q1->vPred[1])*vFac - dy*H)*rs1;
+			dvz = ((-p->vPred[2] + q1->vPred[2])*vFac - dz*H)*rs1;
 			dvdx[0][0] += dvx*dx;
 			dvdx[0][1] += dvx*dy;
 			dvdx[0][2] += dvx*dz;
@@ -1045,9 +1045,9 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	if(s.bBHMindv == 1){
 	  dvmin = FLT_MAX;
 	  for (i=0;i<nSmooth;++i) {
-	    dvx = (-p->velocity[0] + nnList[i].p->vPred()[0])/aFac - aDot*nnList[i].dx.x;
-	    dvy = (-p->velocity[1] + nnList[i].p->vPred()[1])/aFac - aDot*nnList[i].dx.y;
-	    dvz = (-p->velocity[2] + nnList[i].p->vPred()[2])/aFac - aDot*nnList[i].dx.z;
+	    dvx = (-p->velocity[0] + nnList[i].p->vPred[0])/aFac - aDot*nnList[i].dx.x;
+	    dvy = (-p->velocity[1] + nnList[i].p->vPred[1])/aFac - aDot*nnList[i].dx.y;
+	    dvz = (-p->velocity[2] + nnList[i].p->vPred[2])/aFac - aDot*nnList[i].dx.z;
 	    dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
 	    if (dvcosmo < dvmin) {
 	      dvmin=dvcosmo;
@@ -1070,9 +1070,9 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 	    if(s.bBHMindv == 1) weight = rs*pow(q->c()*q->c()+(dvmin*dvmin),-1.5)/dCosmoDenFac;
 	    else {
-	      dvx = (-p->velocity[0]+q->vPred()[0])/aFac - aDot*nnList[i].dx.x;
-	      dvy = (-p->velocity[1]+q->vPred()[1])/aFac - aDot*nnList[i].dx.y;
-	      dvz = (-p->velocity[2]+q->vPred()[2])/aFac - aDot*nnList[i].dx.z;
+	      dvx = (-p->velocity[0]+q->vPred[0])/aFac - aDot*nnList[i].dx.x;
+	      dvy = (-p->velocity[1]+q->vPred[1])/aFac - aDot*nnList[i].dx.y;
+	      dvz = (-p->velocity[2]+q->vPred[2])/aFac - aDot*nnList[i].dx.z;
 	      dvcosmo = sqrt(dvx*dvx+dvy*dvy+dvz*dvz);
 	      weight = rs*pow(q->c()*q->c()+dvcosmo*dvcosmo,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */
 	    /* cosmo factors put in 7/7/09  JMB */
@@ -1149,9 +1149,9 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 		if(s.bBHMindv == 1) weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+(dvmin*dvmin),-1.5)/dCosmoDenFac;
 		else {
-		  dvx = (-p->velocity[0]+nnList[i].p->vPred()[0])/aFac - nnList[i].dx.x*aDot;
-		  dvy = (-p->velocity[1]+nnList[i].p->vPred()[1])/aFac - nnList[i].dx.y*aDot;
-		  dvz = (-p->velocity[2]+nnList[i].p->vPred()[2])/aFac - nnList[i].dx.z*aDot;
+		  dvx = (-p->velocity[0]+nnList[i].p->vPred[0])/aFac - nnList[i].dx.x*aDot;
+		  dvy = (-p->velocity[1]+nnList[i].p->vPred[1])/aFac - nnList[i].dx.y*aDot;
+		  dvz = (-p->velocity[2]+nnList[i].p->vPred[2])/aFac - nnList[i].dx.z*aDot;
 		  dvcosmo = sqrt(dvx*dvx+dvy*dvy+dvz*dvz);
 		  weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+dvcosmo*dvcosmo,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */
 	    /* cosmo factors put in 7/7/09  JMB */
@@ -1412,9 +1412,9 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	  if(s.bBHMindv == 1){
 	    dvmin = FLT_MAX;
 	    for (i=0;i<nSmooth;++i) {
-	      dvx = (-p->velocity[0] + nnList[i].p->vPred()[0])-aDot*nnList[i].dx.x;
-	      dvy = (-p->velocity[1] + nnList[i].p->vPred()[1])-aDot*nnList[i].dx.y;
-	      dvz = (-p->velocity[2] + nnList[i].p->vPred()[2])-aDot*nnList[i].dx.z;
+	      dvx = (-p->velocity[0] + nnList[i].p->vPred[0])-aDot*nnList[i].dx.x;
+	      dvy = (-p->velocity[1] + nnList[i].p->vPred[1])-aDot*nnList[i].dx.y;
+	      dvz = (-p->velocity[2] + nnList[i].p->vPred[2])-aDot*nnList[i].dx.z;
 	      dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
 	      if (dvcosmo < dvmin) {
 		dvmin=dvcosmo;
@@ -1445,9 +1445,9 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		  weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()
 				  +(dvmin*dvmin),-1.5)/dCosmoDenFac;
 	      else {
-		dvx = (-p->velocity[0]+nnList[i].p->vPred()[0])-aDot*nnList[i].dx.x;
-		dvy = (-p->velocity[1]+nnList[i].p->vPred()[1])-aDot*nnList[i].dx.y;
-		dvz = (-p->velocity[2]+nnList[i].p->vPred()[2])-aDot*nnList[i].dx.z;
+		dvx = (-p->velocity[0]+nnList[i].p->vPred[0])-aDot*nnList[i].dx.x;
+		dvy = (-p->velocity[1]+nnList[i].p->vPred[1])-aDot*nnList[i].dx.y;
+		dvz = (-p->velocity[2]+nnList[i].p->vPred[2])-aDot*nnList[i].dx.z;
 		dvcosmo = sqrt(dvx*dvx+dvy*dvy+dvz*dvz);
 		weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()
 				+dvcosmo*dvcosmo,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */

@@ -116,8 +116,8 @@ void TreePiece::velScale(double dScale, const CkCallback& cb)
     for(unsigned int i = 0; i < myNumParticles; ++i) 
 	{
 	    myParticles[i+1].velocity *= dScale;
-	    if(TYPETest(&myParticles[i+1], TYPE_GAS))
-		myParticles[i+1].vPred() *= dScale;
+	    if(TYPETest(&myParticles[i+1], TYPE_GAS) || TYPETest(&myParticles[i+1], TYPE_DARK))
+		myParticles[i+1].vPred *= dScale;
 	    }
     contribute(cb);
     }
@@ -1454,11 +1454,19 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
       if(p->rung >= iKickRung) {
+      if(bNeedVPred && TYPETest(p, TYPE_DARK)) {
+	      if(bClosing) { // update predicted quantities to end of step
+		  p->vPred = p->velocity
+		      + dDelta[p->rung]*p->treeAcceleration;
+          } else {
+              p->vPred = p->velocity;
+              }
+          }
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
-		  p->vPred() = p->velocity
+		  p->vPred = p->velocity
 		      + dDelta[p->rung]*p->treeAcceleration;
-		  glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
+		  glassDamping(p->vPred, dDelta[p->rung], dGlassDamper);
 		  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 		      p->u() = p->u() + p->uDot()*duDelta[p->rung];
@@ -1597,7 +1605,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  }
 	      else {	// predicted quantities are at the beginning
 			// of step
-		  p->vPred() = p->velocity;
+		  p->vPred = p->velocity;
 		  if(!bGasIsothermal) {
 		      p->uPred() = p->u();
 #ifndef COOLING_NONE
@@ -1669,6 +1677,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 	    myParticles[i].treeAcceleration = 0;
 	    myParticles[i].potential = 0;
 	    myParticles[i].dtGrav = 0;
+        myParticles[i].dtKep = 0;
 	    }
 	}
 
@@ -1694,6 +1703,7 @@ void TreePiece::distribLymanWerner(const CkCallback& cb)
  *                  been set by collider search
  * @param bEpsAccStep Use sqrt(eps/acc) timestepping
  * @param bGravStep Use sqrt(r^3/GM) timestepping
+ * @param bKepStep Use stepping based on peri distance to central star
  * @param bSphStep Use Courant condition
  * @param bViscosityLimitdt Use viscosity in Courant condition
  * @param dEta Factor to use in determing timestep
@@ -1710,9 +1720,9 @@ void TreePiece::distribLymanWerner(const CkCallback& cb)
  * @param cb Callback function reduces currrent maximum rung
  */
 void TreePiece::adjust(int iKickRung, int bCollStep, int bEpsAccStep,
-               int bGravStep, int bSphStep, int bViscosityLimitdt,
-		       double dEta, double dEtaCourant, double dEtauDot,
-                       double dDiffCoeff, double dEtaDiffusion,
+               int bGravStep, int bKepStep, int bSphStep,
+               int bViscosityLimitdt, double dEta, double dEtaCourant,
+               double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, double dhMinOverSoft,
                        double dResolveJeans,
@@ -1757,6 +1767,11 @@ void TreePiece::adjust(int iKickRung, int bCollStep, int bEpsAccStep,
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
 	  }
+      if(bKepStep) {
+      double dt = dEta/sqrt(dAccFac*p->dtKep);
+      if(dt < dTIdeal)
+          dTIdeal = dt;
+      }
       if(bSphStep && TYPETest(p, TYPE_GAS)) {
 	  double dt;
 	  double ph = 0.5*p->fBall;
@@ -1943,7 +1958,7 @@ void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
             /* UnKick -- revert to predicted values -- low order, non
                symplectic :( */  
 
-            p->velocity = p->vPred();
+            p->velocity = p->vPred;
 #ifndef COOLING_NONE
             p->u() = p->uPred();
 #ifdef SUPERBUBBLE
@@ -2022,9 +2037,12 @@ void TreePiece::drift(double dDelta,  // time step in x containing
         }
       }
       boundingBox.grow(p->position);
-      if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
-	  p->vPred() += dvDelta*p->treeAcceleration;
-	  glassDamping(p->vPred(), dvDelta, dGlassDamper);
+      if (bNeedVpred && TYPETest(p, TYPE_DARK)) {
+          p->vPred += dvDelta*p->treeAcceleration;
+      }
+      else if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
+	  p->vPred += dvDelta*p->treeAcceleration;
+	  glassDamping(p->vPred, dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 	      p->uPred() += p->uDot()*duDelta;
@@ -3621,6 +3639,7 @@ void TreePiece::initBuckets() {
         myParticles[i].treeAcceleration = 0;
         myParticles[i].potential = 0;
 	myParticles[i].dtGrav = 0;
+    myParticles[i].dtKep = 0;
 	// node->boundingBox.grow(myParticles[i].position);
         if(bComove && !bPeriodic) {
             /*

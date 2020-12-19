@@ -280,6 +280,10 @@ Main::Main(CkArgMsg* m) {
 	param.bEpsAccStep = 1;
 	prmAddParam(prm, "bEpsAccStep", paramBool, &param.bEpsAccStep,
 		    sizeof(int),"epsacc", "Use sqrt(eps/a) timestepping");
+    param.bKepStep = 0;
+    prmAddParam(prm, "bKepStep", paramBool, &param.bKepStep,
+            sizeof(int),"kepstep",
+            "Use pericenter distance timestepping");
 	param.bGravStep = 0;
 	prmAddParam(prm, "bGravStep", paramBool, &param.bGravStep,
 		    sizeof(int),"gravstep",
@@ -632,6 +636,10 @@ Main::Main(CkArgMsg* m) {
            sizeof(int), "bDoExternalForce", "<Apply external gravity field to particles> = 0");
 
        param.externalForce.AddParams(prm);
+
+	   param.bDoDark = 0;
+	   prmAddParam(prm, "bDoDark", paramBool, &param.bDoDark,
+		    sizeof(int),"dark", "Enable Dark Matter Calculation");
 
 #ifdef COLLISION
        param.bCollision = 0;
@@ -1774,7 +1782,7 @@ void Main::advanceBigCollStep(int iStep) {
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
 	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
 	      bool bBuildTree = (iSub + 1 == driftSteps);
-	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
+	      treeProxy.drift(dDriftFac, (param.bDoGas || param.bDoDark), param.bGasIsothermal,
 			      dKickFac, dTimeSub, nGrowMassDrift, bBuildTree,
                               param.dMaxEnergy,
 			      CkCallbackResumeThread());
@@ -2134,7 +2142,7 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
 
     double a = csmTime2Exp(param.csm,dTime);
     double startTime = CkWallTimer();
-    treeProxy.kick(iActiveRung, dKickFac, bClosing, param.bDoGas,
+    treeProxy.kick(iActiveRung, dKickFac, bClosing, (param.bDoGas || param.bDoDark),
                    param.bGasIsothermal, param.dMaxEnergy, duKick,
                    (param.dConstGamma-1), param.dThermalCondSatCoeff/a,
                    param.feedback->dMultiPhaseMaxTime,
@@ -2427,7 +2435,7 @@ void Main::advanceBigStep(int iStep) {
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
 	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
 	      bool bBuildTree = (iSub + 1 == driftSteps);
-	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
+	      treeProxy.drift(dDriftFac, (param.bDoGas || param.bDoDark), param.bGasIsothermal,
 			      dKickFac, dTimeSub, nGrowMassDrift, bBuildTree,
                               param.dMaxEnergy,
 			      CkCallbackResumeThread());
@@ -4188,7 +4196,7 @@ int Main::adjust(int iKickRung)
     double startTime = CkWallTimer();
     
     treeProxy.adjust(iKickRung, param.collision.bCollStep, param.bEpsAccStep,
-             param.bGravStep, param.bSphStep, param.bViscosityLimitdt,
+             param.bGravStep, param.bKepStep, param.bSphStep, param.bViscosityLimitdt,
 		     param.dEta, param.dEtaCourant, param.dEtauDot,
                      dDiffCoeff, param.dEtaDiffusion,
                      param.dDelta, 1.0/(a*a*a), a,

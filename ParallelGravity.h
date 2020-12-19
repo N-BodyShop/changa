@@ -1741,6 +1741,7 @@ public:
  * @param iKickRung The rung we are on.
  * @param bEpsAccStep Use sqrt(eps/acc) timestepping
  * @param bGravStep Use sqrt(r^3/GM) timestepping
+ * @param bKepStep Use stepping based on peri distance to central star
  * @param bSphStep Use Courant condition
  * @param bViscosityLimitdt Use viscosity in Courant condition
  * @param dEta Factor to use in determing timestep
@@ -1757,12 +1758,12 @@ public:
  * @param cb Callback function reduces currrent maximum rung
  */
   void adjust(int iKickRung, int bCollStep, int bEpsAccStep,
-          int bGravStep, int bSphStep, int bViscosityLimitdt,
-	      double dEta, double dEtaCourant, double dEtauDot,
-              double dDiffCoeff, double dEtaDiffusion,
-	      double dDelta, double dAccFac,
-	      double dCosmoFac, double dhMinOverSoft,
-              double dResolveJeans,
+          int bGravStep, int bKepStep, int bSphStep,
+          int bViscosityLimitdt, double dEta, double dEtaCourant,
+          double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+          double dDelta, double dAccFac,
+          double dCosmoFac, double dhMinOverSoft,
+                  double dResolveJeans,
 	      int bDoGas,
 	      const CkCallback& cb);
   /**

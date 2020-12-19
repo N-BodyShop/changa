@@ -145,7 +145,7 @@ void ExternalForce::applyGasDrag(GravityParticle *p) const
     // Get the cylindrical coordinates of the planetesimal
     // Assume the gas disk lies in the x-y plane
     Vector3D<double> rVec = p->position;
-    Vector3D<double> vVec = p->velocity;
+    Vector3D<double> vVec = p->vPred;
     double r = sqrt(rVec[0]*rVec[0] + rVec[1]*rVec[1]);
     double z = rVec[2];
 
@@ -271,6 +271,20 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p) const
         double idt2 = fabs(ar/r);
         if(idt2 > p->dtGrav)
             p->dtGrav = idt2;
+
+        double mu = p->mass + dCentMass;
+        Vector3D<double> h = cross(p->position, p->vPred);
+        Vector3D<double> tmp = cross(p->vPred, h);
+        Vector3D<double> ecc = (tmp/mu) - (p->position/p->position.length());
+        double ecc_val = ecc.length();
+
+        double sma = dot(h, h)/(mu*(1 - (ecc_val*ecc_val)));
+
+        double rPeri = sma*(1 - ecc_val);
+        double arPeri = -dCentMass/pow(rPeri, 2);
+        p->dtKep = fabs(arPeri/rPeri);
+        if (p->iOrder == 50) { CkPrintf("%g\n", ecc_val); }
+
         }
         
     if(bLogarithmicHalo) {
