@@ -125,7 +125,7 @@ defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@  \
           @FLAG_VSIGVISC@ @FLAG_DAMPING@ @FLAG_DIFFHARMONIC@  \
           @FLAG_TREE_BUILD@ $(debug_defines) @FLAG_INTERLIST@ \
           @FLAG_NSMOOTHINNER@ @FLAG_SPLITGAS@ @FLAG_SIDMINTERACT@ \
-          @FLAG_SUPERBUBBLE@ $(cuda_defines) -DREDUCTION_HELPER)
+          @FLAG_SUPERBUBBLE@ $(cuda_defines))
 
 modules := $(strip -language charm++ -balancer @DEFAULT_LB@   \
             $(foreach m,$(charm_modules),-module $(m))        \
