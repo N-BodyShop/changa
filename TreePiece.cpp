@@ -1482,14 +1482,13 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
       if(p->rung >= iKickRung) {
-          p->velocity[0] += 2.0 * dOrbFreq * p->dPy;
-          p->velocity[1] = p->dPy - 2 * dOrbFreq * p->position[0];
+ 
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
-		  p->vPred() = p->velocity + dDelta[p->rung]*p->treeAcceleration;
+              
+		      p->vPred() = p->velocity + dDelta[p->rung]*p->treeAcceleration;
 
-
-		  glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
+		      glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
 		  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 		      p->u() = p->u() + p->uDot()*duDelta[p->rung];
@@ -1674,12 +1673,16 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #endif
 	      }
+      if (bClosing) {
+          p->velocity[0] += 2.0 * dDelta[p->rung] * dOrbFreq * p->dPy;
+          p->velocity[1] = p->dPy - 2 * dOrbFreq * p->position[0];
+      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
       if (!bClosing) {
           p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->position[0];
 
           // Cross hamiltonian
-          p->velocity[0] += 2.0 * dOrbFreq * p->dPy;
+          p->velocity[0] += 2.0 * dDelta[p->rung] * dOrbFreq * p->dPy;
           p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * p->velocity[0]);
       }
       glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
