@@ -300,10 +300,20 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   ProjectionsControl() {
     setBIconfig();
     LBTurnCommOff();
+#ifndef LB_MANAGER_VERSION
+    // Older Charm++ requires this to avoid excessive delays between successive LBs even
+    // when using AtSync mode
+    LBSetPeriod(0.0);
+#endif
   } 
   ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {
     setBIconfig();
     LBTurnCommOff();
+#ifndef LB_MANAGER_VERSION
+    // Older Charm++ requires this to avoid excessive delays between successive LBs even
+    // when using AtSync mode
+    LBSetPeriod(0.0);
+#endif
   } 
  
   void on(CkCallback cb) { 
