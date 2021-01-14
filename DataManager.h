@@ -300,12 +300,10 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   ProjectionsControl() {
     setBIconfig();
     LBTurnCommOff();
-    LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
   } 
   ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {
     setBIconfig();
     LBTurnCommOff();
-    LBSetPeriod(0.0); // no need for LB interval: we are using Sync Mode
   } 
  
   void on(CkCallback cb) { 
