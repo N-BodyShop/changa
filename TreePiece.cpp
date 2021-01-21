@@ -1677,13 +1677,13 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
           p->velocity[0] += 2.0 * dDelta[p->rung] * dOrbFreq * p->dPy;
           p->velocity[1] = p->dPy - 2 * dOrbFreq * p->position[0];
       }
-	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
+      p->velocity += dDelta[p->rung]*p->treeAcceleration;
       if (!bClosing) {
           p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->position[0];
 
           // Cross hamiltonian
           p->velocity[0] += 2.0 * dDelta[p->rung] * dOrbFreq * p->dPy;
-          p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * p->velocity[0]);
+          p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * dDelta[p->rung] * p->velocity[0]);
       }
       glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
       
