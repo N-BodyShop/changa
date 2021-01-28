@@ -816,9 +816,9 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     CkAssert(q->uPred() < LIGHTSPEED*LIGHTSPEED/fb.dErgPerGmUnit);
     double Tq = CoolCodeEnergyToTemperature(tp->Cool(), &q->CoolParticle(), q->uPred(),
 #ifdef COOLING_GRACKLE
-                                        q->fDensity, /* GRACKLE needs density */
+                                            q->fDensity, /* GRACKLE needs density */
 #endif
-                                        q->fMetals() );
+                                            q->fMetals() );
 	if(Tq < fb.dMultiPhaseMinTemp && weight > 0 && p->fNSN() > 0.0) { //Only use the multiphase state for cooler particles
 		double massHot = q->massHot() + weight*p->fMSN();
 		double deltaMassLoad = weight*p->fMSN()*fb.dFBInitialMassLoad;
