@@ -822,7 +822,7 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
 		double frac = p->massHot()/p->mass;
 		double PoverRho = gammam1*(p->uHot()*frac+p->u()*(1-frac));
 		double fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
-		T = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(),
+                T = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(),
 #ifdef COOLING_GRACKLE
                                                 fDensity, /* GRACKLE needs density */
 #endif
@@ -2070,15 +2070,15 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     /* Check for non-edge hot particle  theta = 45 deg, cos^2 = 0.5 */
     dotcut2 = (xc*xc+yc*yc+zc*zc)*0.5;
     
-	for (i=0;i<nSmooth;++i) {
-		q = nnList[i].p;
-		if (p->iOrder == q->iOrder) continue;
-		if (TYPETest(q, TYPE_DELETED)) continue;
+    for (i=0;i<nSmooth;++i) {
+        q = nnList[i].p;
+        if (p->iOrder == q->iOrder) continue;
+        if (TYPETest(q, TYPE_DELETED)) continue;
         Tq = CoolCodeEnergyToTemperature(tp->Cool(), &q->CoolParticle(), q->uPred(),
 #ifdef COOLING_GRACKLE
-                                     q->fDensity, /* GRACKLE needs density */
+                                         q->fDensity, /* GRACKLE needs density */
 #endif
-                                     q->fMetals() );
+                                         q->fMetals() );
         CkAssert(Tq < 2e11);
         if (q->uHot() == 0 && Tq <= dEvapMinTemp) continue;  
 		dot = xc*nnList[i].dx.x + yc*nnList[i].dx.y + zc*nnList[i].dx.y;
@@ -2093,7 +2093,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     fFactor = dDeltaStarForm*dEvapCoeff*ph*12.5664*1.5/(nHot)/rstot;
 
     mPromoted = 0;
-	for (i=0;i<nSmooth;++i) {
+    for (i=0;i<nSmooth;++i) {
         q = nnList[i].p;
         if (p->iOrder == q->iOrder) continue;
 	    if(TYPETest(q, TYPE_DELETED) || (TYPETest(q, TYPE_FEEDBACK) && !TYPETest(q, TYPE_PROMOTED))) continue;
@@ -2172,9 +2172,9 @@ void ShareWithHotGasSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	double dE,Eadd,factor,Tp;
 	int i,nPromoted;
 
-	CkAssert(TYPETest(p, TYPE_GAS));
-	CkAssert(TYPETest(p, TYPE_FEEDBACK));
-	CkAssert(!TYPETest(p, TYPE_PROMOTED));
+    CkAssert(TYPETest(p, TYPE_GAS));
+    CkAssert(TYPETest(p, TYPE_FEEDBACK));
+    CkAssert(!TYPETest(p, TYPE_PROMOTED));
     Tp = CoolCodeEnergyToTemperature(tp->Cool(), &p->CoolParticle(),
                                      p->uPred(),
 #ifdef COOLING_GRACKLE
