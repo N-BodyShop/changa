@@ -1646,6 +1646,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		      p->uHot() = p->uHot() + p->uHotDot()*duDelta[p->rung];
               if (p->cpHotInit()) {
                  double E = p->uHot();
+                 CkAssert(E > 0.0);
                  double frac = p->massHot()/p->mass;
                  double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
                  double fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */

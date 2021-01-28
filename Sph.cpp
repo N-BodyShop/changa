@@ -914,10 +914,15 @@ void TreePiece::updateuDot(int activeRung,
                 p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
                 if(bUpdateState) p->CoolParticleHot() = cp;
             }
-            else /* If we just got feedback, only set up the uDot */
-            {
+            else if(p->cpHotInit() == 0) {
+                /* If we just got feedback, only set up the uDot */
+                /* If cpHotInit is still 1 at this point, we have recently
+                 * gotten feedback, but the particle (presumably on a long
+                 * timestep has yet to do a updateuDot() with it.  Leave
+                 * uDotHot() at its current value in this case. */
                 p->uHotDot() = ExternalHeating;
                 p->cpHotInit() = 1;
+	        assert(ExternalHeating > 0.0);
             }
             ExternalHeating = p->PdV()*p->u()/uMean;
         }
