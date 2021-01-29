@@ -38,8 +38,8 @@ class ProcLdGreater {
 class Orb3dCommon{
   // pointer to stats->to_proc
   protected:		
-    CkVec<int> *mapping;
-    CkVec<int> *from;
+    decltype(BaseLB::LDStats::to_proc) *mapping;
+    decltype(BaseLB::LDStats::from_proc) *from;
 
     CkVec<float> procload;
 

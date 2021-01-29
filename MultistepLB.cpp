@@ -85,6 +85,7 @@ void MultistepLB::work(BaseLB::LDStats* stats)
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
   int count;
+  const auto numObjs = stats->objData.size();
 
   int numActiveObjects = 0;
   int numInactiveObjects = 0;
@@ -93,11 +94,11 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   int64_t numActiveParticles = 0;
   int64_t totalNumParticles = 0;
 
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < numObjs; i++){
     stats->to_proc[i] = stats->from_proc[i];
   }
 
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < numObjs; i++){
     if (!stats->objData[i].migratable) continue;
 
     LDObjData &odata = stats->objData[i];
@@ -128,7 +129,7 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   CkPrintf("**********************************************\n");
   CkPrintf("Object load predictions phase %d\n", phase);
   CkPrintf("**********************************************\n");
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < numObjs; i++){
       int tp = tpCentroids[i].tp;
       int lb = tpCentroids[i].tag;
     CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
@@ -167,13 +168,13 @@ void MultistepLB::work(BaseLB::LDStats* stats)
 //
 void MultistepLB::greedy(BaseLB::LDStats *stats, int count){
 
-  int numobjs = stats->n_objs;
+  const int numobjs = stats->objData.size();
   int nmig = stats->n_migrateobjs;
   CkPrintf("[GREEDY] objects total %d active %d\n", numobjs,nmig);
 
   TPObject *tp_array = new TPObject[nmig];
   int j = 0;
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < numobjs; i++){
     if(!stats->objData[i].migratable) continue;
     tp_array[j].migratable = stats->objData[i].migratable;
 
@@ -244,7 +245,7 @@ void MultistepLB::greedy(BaseLB::LDStats *stats, int count){
 }
 
 void MultistepLB::work2(BaseLB::LDStats *stats, int count){
-  int numobjs = stats->n_objs;
+  const int numobjs = stats->objData.size();
   int nmig = stats->n_migrateobjs;
 
   if (_lb_args.debug()>=2) {
