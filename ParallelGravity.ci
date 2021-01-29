@@ -396,7 +396,8 @@ mainmodule ParallelGravity {
     entry void assignDomain(const CkCallback &cb);
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
 		     double dvDelta, double duDelta, int nGrowMass,
-		     bool buildTree, double dMaxEnergy, const CkCallback& cb);
+		     bool buildTree, double dMaxEnergy, 
+		     double dOrbFreq, double dTime, const CkCallback& cb);
     entry void starCenterOfMass(const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void colNParts(const CkCallback &cb);

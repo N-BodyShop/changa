@@ -1695,7 +1695,7 @@ public:
         double dMultiPhaseMaxTime, double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
              double duDelta, int nGrowMass, bool buildTree, double dMaxEnergy,
-	     const CkCallback& cb);
+	         double dOrbFreq, double dTime, const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
 #ifdef COOLING_MOLECULARH
   void distribLymanWerner(const CkCallback& cb);

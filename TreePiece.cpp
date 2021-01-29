@@ -1469,7 +1469,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bClosing, // Are we at the end of a timestep
 		     int bNeedVPred, // do we need to update vpred
 		     int bGasIsothermal, // Isothermal EOS
-             double dOrbFreq, // Orbital frequency
+             double dOrbFreq, ///< Orbital frequency
              double dMaxEnergy, // Maximum internal energy of gas.
 		     double duDelta[MAXRUNG+1], // dts for energy
              double gammam1, // Adiabatic index - 1
@@ -1482,12 +1482,9 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
       if(p->rung >= iKickRung) {
- 
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
-              
 		      p->vPred() = p->velocity + dDelta[p->rung]*p->treeAcceleration;
-
 		      glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
 		  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
@@ -1617,12 +1614,9 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  p->fMFracIronPred() = p->fMFracIron();
 #endif
 		  }
-
           if(!bClosing) {	// predicted quantities are at the beginning
 			// of step
 		  p->vPred() = p->velocity;
-
-
 		  if(!bGasIsothermal) {
 		      p->uPred() = p->u();
 #ifndef COOLING_NONE
@@ -2001,6 +1995,11 @@ void TreePiece::assignDomain(const CkCallback &cb)
     contribute(cb);
     }
 
+inline double SHEAR(int ix, double t, Vector3D<cosmoType> fPeriod, double dOrbFreq, GravityParticle *p) {
+    ((ix) < 0 ? fmod(0.5 * fPeriod[1] - 1.5 * (ix) * dOrbFreq * fPeriod[0] * (t), fPeriod[1]) - 0.5 * fPeriod[1] : \
+        (ix) > 0 ? 0.5 * fPeriod[1] - fmod(0.5 * fPeriod[1] + 1.5 * (ix)* dOrbFreq * fPeriod[0] * (t), fPeriod[1]) : 0.0);
+}
+
 void TreePiece::drift(double dDelta,  // time step in x containing
 				      // cosmo scaling
 		      int bNeedVpred, // Update predicted velocities
@@ -2012,7 +2011,9 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 				      // in place
 		      bool buildTree, // is a treebuild happening before the
 				      // next drift?
-                      double dMaxEnergy, // Maximum internal energy of gas.
+              double dMaxEnergy, // Maximum internal energy of gas.
+              double dOrbFreq, // Orbital frequency
+              double dTime,
 		      const CkCallback& cb) {
   callback = cb;		// called by assignKeys()
   deleteTree();
@@ -2027,15 +2028,32 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
+#ifdef SLIDING_PATCH
+      FLOAT fShear = 0.0;
+      p->bAzWrap = 0;
+#endif
       if (p->iOrder >= nGrowMass)
 	  p->position += dDelta*p->velocity;
       if(bPeriodic) {
         for(int j = 0; j < 3; j++) {
           if(p->position[j] >= 0.5*fPeriod[j]){
             p->position[j] -= fPeriod[j];
+#ifdef SLIDING_PATCH
+            if (j == 0) { /* radial wrap */
+                fShear = 1.5 * p->dOrbFreq * p->fPeriod[0];
+                p->position[1] += SHEAR(-1, dTime + dDelta, fPeriod, dOrbFreq, *p);
+            }
+#endif
           }
+
           if(p->position[j] < -0.5*fPeriod[j]){
             p->position[j] += fPeriod[j];
+#ifdef SLIDING_PATCH
+            if (j == 0) { /* radial wrap */
+                fShear = -1.5 * p->dOrbFreq * p->fPeriod[0];
+                p->position[1] += SHEAR(1, dTime + dDelta, fPeriod, dOrbFreq, *p);
+            }
+#endif
           }
 
           bool a = (p->position[j] >= -0.5*fPeriod[j]);
@@ -2051,9 +2069,9 @@ void TreePiece::drift(double dDelta,  // time step in x containing
         }
       }
       boundingBox.grow(p->position);
-      p->vPred() += dvDelta * p->treeAcceleration;
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
-	  glassDamping(p->vPred(), dvDelta, dGlassDamper);
+          p->vPred() += p->treeAcceleration * dvDelta;
+	      glassDamping(p->vPred(), dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 	      p->uPred() += p->uDot()*duDelta;
@@ -2104,6 +2122,12 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 #endif /* DIFFUSION */
 	  }
       }
+#ifdef SLIDING_PATCH
+  p->velocity[1] += fShear;
+  p->dPy -= fShear / 3.0; /* Angular momentum is
+               also changed. */
+#endif
+
   CkAssert(bInBox);
   if(!bInBox){
     CkAbort("binbox2 failed\n");

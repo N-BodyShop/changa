@@ -55,8 +55,6 @@ void ExternalGravity::CheckParams(PRM prm, struct parameters &param)
     // Enable external gravity if any of the flags are set
     if (bBodyForce || bPatch || bCentralBody)
         param.bDoExternalGravity = 1;
-
-    // Calculate dOrbFreq 
 }
 
 /*
