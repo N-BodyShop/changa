@@ -27,10 +27,9 @@ protected:
     if(step == 0) return false;
     return true;
   };
-  virtual bool QueryMigrateStep(int) { return true; };
+  virtual bool
+  QueryMigrateStep(int) { return true; };
   virtual void work(LDStats* stats);
-  virtual void GetObjsToMigrate(int toPe, double load, LDStats *stats,
-      int atlevel, CkVec<LDCommData>& comms, CkVec<LDObjData>& objs);
   virtual CLBStatsMsg* AssembleStats();
 
 private:

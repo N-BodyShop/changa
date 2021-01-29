@@ -45,22 +45,23 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
   int count;
-  
+  const auto num_objs = stats->objData.size();
+
   if(_lb_args.debug() >= 2 && step() > 0) {
       // Write out "particle file" of measured load balance information
       auto achFileName = make_formatted_string("lb_a.%d.sim", step()-1);
       FILE *fp = fopen(achFileName.c_str(), "w");
       CkAssert(fp != NULL);
 
-      int num_migratables = stats->n_objs;
-      for(int i = 0; i < stats->n_objs; i++) {
+      int num_migratables = num_objs;
+      for(int i = 0; i < num_objs; i++) {
         if (!stats->objData[i].migratable) {
           num_migratables--;
         }
       }
       fprintf(fp, "%d %d 0\n", num_migratables, num_migratables);
 
-      for(int i = 0; i < stats->n_objs; i++) {
+      for(int i = 0; i < num_objs; i++) {
         if(!stats->objData[i].migratable) continue;
 
       LDObjData &odata = stats->objData[i];
@@ -83,11 +84,11 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
   int numActiveParticles = 0;
   int totalNumParticles = 0;
  
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < num_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];
   }
   
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < num_objs; i++){
     if(!stats->objData[i].migratable) continue;
 
     LDObjData &odata = stats->objData[i];
@@ -114,7 +115,7 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
       numInactiveObjects);
   if(numInactiveObjects < 1.0*numActiveObjects) {
     // insignificant number of inactive objects; migrate them anyway
-    for(int i = 0; i < stats->n_objs; i++){
+    for(int i = 0; i < num_objs; i++){
       if(!stats->objData[i].migratable) continue;
 
       LDObjData &odata = stats->objData[i];
@@ -134,7 +135,7 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
   CkPrintf("**********************************************\n");
   CkPrintf("Object load predictions phase %d\n", phase);
   CkPrintf("**********************************************\n");
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < num_objs; i++){
       int tp = tpCentroids[i].tp;
       int lb = tpCentroids[i].tag;
     CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
@@ -164,7 +165,7 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
 
 /// @brief ORB3D load balance across nodes (as opposed to processors).
 void MultistepNodeLB_notopo::work2(BaseLB::LDStats *stats, int count){
-  int numobjs = stats->n_objs;
+  const int numobjs = stats->objData.size();
   int nmig = stats->n_migrateobjs;
 
   // this data structure is used by the orb3d strategy
@@ -293,7 +294,7 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
                                   // each node.
   objpemap.resize(numNodes);
   
-  for (int i = 0; i < stats->n_objs; i++) {
+  for (int i = 0; i < stats->objData.size(); i++) {
     if(!stats->objData[i].migratable) continue;
 
     int nd = stats->to_proc[i]/nodeSize;
@@ -397,7 +398,7 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
   vector<vector<int> > objpemap;
   objpemap.resize(stats->count);
   
-  for (int i = 0; i < stats->n_objs; i++) {
+  for (int i = 0; i < stats->objData.size(); i++) {
     if(!stats->objData[i].migratable) continue;
 
     counts[stats->to_proc[i]] += stats->objData[i].wallTime;
