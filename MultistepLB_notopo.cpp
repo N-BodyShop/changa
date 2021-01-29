@@ -59,6 +59,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
   int count;
+  const auto num_objs = stats->objData.size();
 
   if(_lb_args.debug() >= 2 && step() > 0) {
       // Write out "particle file" of measured load balance information
@@ -66,15 +67,15 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
       FILE *fp = fopen(achFileName.c_str(), "w");
       CkAssert(fp != NULL);
 
-      int num_migratables = stats->n_objs;
-      for(int i = 0; i < stats->n_objs; i++) {
+      int num_migratables = num_objs;
+      for(int i = 0; i < num_objs; i++) {
         if (!stats->objData[i].migratable) {
           num_migratables--;
         }
       }
 
       fprintf(fp, "%d %d 0\n", num_migratables, num_migratables);
-      for(int i = 0; i < stats->n_objs; i++) {
+      for(int i = 0; i < num_objs; i++) {
         if (!stats->objData[i].migratable) continue;
 
       LDObjData &odata = stats->objData[i];
@@ -95,11 +96,11 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   int minActiveProc = INT_MAX;
   int maxActiveProc = 0;
 
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < num_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];
   }
 
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < num_objs; i++){
     if (!stats->objData[i].migratable) continue;
 
     LDObjData &odata = stats->objData[i];
@@ -121,7 +122,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   CkPrintf("active PROC range: %d to %d\n", minActiveProc, maxActiveProc);
   if(numActiveObjects < 0.1*numInactiveObjects) {
     // only a small number of active objects, only migrate them
-    for(int i = 0; i < stats->n_objs; i++){
+    for(int i = 0; i < stats->objData.size(); i++){
       if (!stats->objData[i].migratable) continue;
 
       LDObjData &odata = stats->objData[i];
@@ -158,7 +159,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 
 /// @brief ORB3D load balance.
 void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count){
-  int numobjs = stats->n_objs;
+  const int numobjs = stats->objData.size();
   int nmig = stats->n_migrateobjs;
 
   // this data structure is used by the orb3d strategy

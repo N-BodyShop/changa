@@ -40,29 +40,6 @@ HierarchOrbLB::~HierarchOrbLB() {
   delete orblb;
 }
 
-void HierarchOrbLB::GetObjsToMigrate(int toPe, double load, LDStats *stats,
-    int atlevel, CkVec<LDCommData>& comms, CkVec<LDObjData>& objs) {
-  for (int obj=stats->n_objs-1; obj>=0; obj--) {
-    LDObjData &objData = stats->objData[obj];
-    if (!objData.migratable) continue;
-
-    TaggedVector3D* udata = (TaggedVector3D *)objData.getUserData(CkpvAccess(_lb_obj_index));
-
-    if (udata->myNumParticles <= 0) continue;
-    if (objData.wallTime <= load) {
-      if (_lb_args.debug()>2)
-        CkPrintf("[%d] send obj: %d to PE %d (load: %f).\n", CkMyPe(), obj, toPe, objData.wallTime);
-      objs.push_back(objData);
-      // send comm data
-      collectCommData(obj, comms, atlevel);
-      load -= objData.wallTime;
-      CreateMigrationOutObjs(atlevel, stats, obj);
-      stats->removeObject(obj);
-      if (load <= 0.0) break;
-    }
-  }
-}
-
 // only called on leaves
 CLBStatsMsg* HierarchOrbLB::AssembleStats()
 {
@@ -81,10 +58,10 @@ void HierarchOrbLB::refine(LDStats* stats)
 {
   int obj;
   int n_pes = stats->nprocs();
-
+  const auto n_objs = stats->objData.size();
   // get original object mapping
   int* from_procs = Refiner::AllocProcs(n_pes, stats);
-  for(obj=0;obj<stats->n_objs;obj++)  {
+  for(obj=0;obj<n_objs;obj++)  {
     int pe = stats->from_proc[obj];
     from_procs[obj] = pe;
   }
@@ -97,7 +74,7 @@ void HierarchOrbLB::refine(LDStats* stats)
   refiner.Refine(n_pes, stats, from_procs, to_procs);
 
   // Save output
-  for(obj=0;obj<stats->n_objs;obj++) {
+  for(obj=0;obj<n_objs;obj++) {
       int pe = stats->from_proc[obj];
       if (to_procs[obj] != pe) {
         if (_lb_args.debug()>=2)  {

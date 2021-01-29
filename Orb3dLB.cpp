@@ -105,7 +105,7 @@ bool Orb3dLB::QueryBalanceNow(int step){
 
 void Orb3dLB::work(BaseLB::LDStats* stats)
 {
-  int numobjs = stats->n_objs;
+  const int numobjs = stats->objData.size();
 
   CkPrintf("[orb3dlb] %d objects allocating %lu bytes for tp\n", numobjs, numobjs*sizeof(TPObject));
   tps.resize(numobjs);

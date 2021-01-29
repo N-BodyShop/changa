@@ -41,7 +41,7 @@ bool Orb3dLB_notopo::QueryBalanceNow(int step){
 
 void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 {
-  int numobjs = stats->n_objs;
+  const int numobjs = stats->objData.size();
   int nmig = stats->n_migrateobjs;
   double gstarttime = CkWallTimer();
 
@@ -67,7 +67,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   }
   else{
 
-    for(int i = 0; i < stats->n_objs; i++){
+    for(int i = 0; i < numobjs; i++){
       float load;
       load = stats->objData[i].wallTime;
 
@@ -134,7 +134,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
     for(int i = 0; i < numobjs; i++) {
       if (!stats->objData[i].migratable) continue;
 
-	    CkAssert(tps[i].lbindex < stats->n_objs);
+	    CkAssert(tps[i].lbindex < numobjs);
 	    CkAssert(tps[i].lbindex >= 0);
 	    fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d 0.0\n",
 		stats->objData[tps[i].lbindex].wallTime,
