@@ -9,6 +9,7 @@ public:
     double dBodyForceConst;
     int bPatch;              ///< Patch in a disk
     double dCentMass;        ///< Central mass
+    double dCentRad;         ///< Radius of central star
     double dOrbDist;         ///< Distance of the patch from the center
     int bCentralBody;        ///< Mass at the origin
     double dEqRad;           ///< Equatorial radius of central body
@@ -28,7 +29,7 @@ public:
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
-    Vector3D<double> applyGravPotential(GravityParticle *p) const;
+    Vector3D<double> applyGravPotential(GravityParticle *p, int bKepStep) const;
     void applyGasDrag(GravityParticle *p) const;
     inline void pup(PUP::er &p);
     };
@@ -38,6 +39,7 @@ inline void ExternalForce::pup(PUP::er &p) {
      p | dBodyForceConst;
      p | bPatch;
      p | dCentMass;
+     p | dCentRad;
      p | dOrbDist;
      p | bCentralBody;
      p | dEqRad;

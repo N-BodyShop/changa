@@ -1714,6 +1714,8 @@ public:
   void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
   /*****************************/
 
+  void resetDtKep(const CkCallback& cb);
+
   void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
 	    int bNeedVPred, int bGasIsothermal, double dMaxEnergy, double duDelta[MAXRUNG+1],
         double gammam1, double dThermalCondSatCoeff,
@@ -1733,7 +1735,7 @@ public:
  * @param exForce The external force object
  * @param cb Callback function
  */
-  void externalForce(int activeRung, const ExternalForce exForce,
+  void externalForce(int activeRung, const ExternalForce exForce, int bKepStep,
                        const CkCallback& cb);
 
 /**
@@ -1839,6 +1841,7 @@ public:
     void resolveCollision(Collision coll, const ColliderInfo &c1, const ColliderInfo &c2,
                           double baseStep, double timeNow,
                           const CkCallback& cb);
+    void sameHigherRung(int iord1, int rung1, int iord2, int rung2, const CkCallback& cb);
     void resolveWallCollision(Collision coll, const ColliderInfo &c1, const CkCallback& cb);
     void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
     void placeOnCollRung(int iOrder, int collStepRung, const CkCallback& cb);

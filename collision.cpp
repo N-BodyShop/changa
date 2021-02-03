@@ -230,10 +230,18 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
                 if (c[0].iOrderCol != c[1].iOrder) {
                     CkAbort("Warning: Collider pair mismatch\n");
                     }
-                nColl++;
-
-                treeProxy.resolveCollision(param.collision, c[0], c[1], dDelta,
+                // Only resolve the collision if both particles are on the same rung
+                if(c[0].rung == c[1].rung) {
+                    nColl++;
+                    treeProxy.resolveCollision(param.collision, c[0], c[1], dDelta,
                                            dTime, CkCallbackResumeThread());
+                    }
+                // Otherwise, force both particles onto the smaller rung
+                // Collision should get detected again
+                else {
+                    CkPrintf("%d and %d colliding on rungs %d and %d, skipping collision and forcing lower rung\n", c[0].iOrder, c[1].iOrder, c[0].rung, c[1].rung);
+                    treeProxy.sameHigherRung(c[0].iOrder, c[0].rung, c[1].iOrder, c[1].rung, CkCallbackResumeThread());
+                    }
                 }
             }
 
@@ -241,7 +249,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
         } while (bHasCollision);
 
         // Clean up any merged particles
-        addDelParticles();
+        if (nColl) addDelParticles();
     }
 
 /**
@@ -436,6 +444,29 @@ void TreePiece::placeOnCollRung(int iOrder, int collStepRung, const CkCallback& 
     contribute(cb);
     }
 
+void TreePiece::sameHigherRung(int iord1, int rung1, int iord2, int rung2, const CkCallback& cb) {
+    for (unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+        if ((p->iOrder == iord1) || (p->iOrder == iord2)) {
+            p->dtCol = DBL_MAX;
+            p->iOrderCol = -1;
+            if (rung1 > rung2) {
+                if (p->iOrder == iord2) {
+                    CkPrintf("Moving particle %d to rung %d\n", p->iOrder, rung1);
+                    p->rung = rung1;
+                    }
+                }
+            else {
+                if (p->iOrder == iord1) {
+                    CkPrintf("Moving particle %d to rung %d\n", p->iOrder, rung2);
+                    p->rung = rung2;
+                    }
+                }
+            }
+        }
+    contribute(cb);
+    }
+
 /**
  * @brief Place all particles back on rung 0
  *
@@ -503,7 +534,10 @@ void Collision::setMergerRung(GravityParticle *p, const ColliderInfo &c, const C
     double m1 = c.mass;
     double m2 = cMerge.mass;
     double m = m1 + m2;
+    // Since the lower rung particle gets forced onto the higher rung before this point
+    // We should never reach this part of the code any more
     if (c.rung != cMerge.rung) {
+        CkPrintf("Multi-rung merger %d %d, %d %d\n", c.iOrder, c.rung, cMerge.iOrder, cMerge.rung);
         double lastkick1 = LastKickTime(c.rung, baseStep, timeNow);
         double lastkick2 = LastKickTime(cMerge.rung, baseStep, timeNow);
         p->rung = c.rung;
@@ -1070,9 +1104,10 @@ int CollisionSmoothParams::isSmoothActive(GravityParticle *p)
 void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
 {
     double v = p->velocity.length();
+    double dTimeSub = RungToDt(dDelta, p->rung);
     // Different particles can have different fBall sizes. This can potentially
     // cause problems where only 1 of 2 colliding particles detects the collision.
-    p->fBall = (coll.dBallFac*dDelta*v) + (4*p->soft);
+    p->fBall = (coll.dBallFac*dTimeSub*v) + (4*p->soft);
     }
 
 void CollisionSmoothParams::initSmoothCache(GravityParticle *p1)
@@ -1112,7 +1147,7 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     GravityParticle *q;
     int i;    
     double rq, sr, D, dt, rdotv, vRel2, dx2, dt1, dt2;
-    double dTimeSub = RungToDt(dDelta, activeRung);
+    double dTimeSub = RungToDt(dDelta, p->rung);
     dt = DBL_MAX;
     p->dtCol = DBL_MAX;
     p->iOrderCol = -1;

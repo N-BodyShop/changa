@@ -20,6 +20,10 @@ void ExternalForce::AddParams(PRM prm)
     prmAddParam(prm,"dCentMass",paramDouble,&dCentMass,
                 sizeof(double),
                 "fgm","specifies the central mass for Keplerian orbits");
+    dCentRad = 0.0046;
+    prmAddParam(prm,"dCentRad",paramDouble,&dCentRad,
+                sizeof(double),
+                "fgm","central radius of the star, delete bodies which will fall inside of this");
     bPatch = 0;
     prmAddParam(prm,"bPatch",paramBool,&bPatch,
                 sizeof(int),
@@ -100,7 +104,7 @@ void ExternalForce::CheckParams(PRM prm, struct parameters &param)
  * @return The accumulated acceleration on the potential by the particles on this
  * TreePiece
  */
-void TreePiece::externalForce(int iKickRung, const ExternalForce exForce,
+void TreePiece::externalForce(int iKickRung, const ExternalForce exForce, int bKepStep,
                                 const CkCallback& cb)
 {
     CkAssert(bBucketsInited);
@@ -115,7 +119,7 @@ void TreePiece::externalForce(int iKickRung, const ExternalForce exForce,
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
         GravityParticle *p = &myParticles[i];
         if(p->rung >= iKickRung) {
-            pFrameAcc = exForce.applyGravPotential(p);
+            pFrameAcc = exForce.applyGravPotential(p, bKepStep);
 
             if (exForce.bDoGasDrag) {
                 // We don't care about the backreaction on the gas so this
@@ -196,7 +200,7 @@ void ExternalForce::applyGasDrag(GravityParticle *p) const
  *
  * @return The acceleration on the potential by particle p
  */
-Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p) const
+Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p, int bKepStep) const
 {
     Vector3D<double> pFrameAcc(0., 0., 0.);
     if (bBodyForce) {
@@ -204,7 +208,7 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p) const
             p->treeAcceleration.z -= dBodyForceConst;
             p->potential += dBodyForceConst*p->potential;
             double idt2 = dBodyForceConst/p->position.z;
-            if(idt2 > p->dtGrav)
+            if(idt2 > p->dtGrav && !bKepStep)
                 p->dtGrav = idt2;
             }
         else {
@@ -212,7 +216,7 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p) const
             p->potential -= dBodyForceConst*p->position.z;
             if (p->position.z != 0.0) {
                 double idt2 = -dBodyForceConst/p->position.z;
-                if (idt2 > p->dtGrav)
+                if (idt2 > p->dtGrav && !bKepStep)
                     p->dtGrav = idt2;
                 }
             }
@@ -282,8 +286,18 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p) const
 
         double rPeri = sma*(1 - ecc_val);
         double arPeri = -dCentMass/pow(rPeri, 2);
-        p->dtKep = fabs(arPeri/rPeri);
-        if (p->iOrder == 50) { CkPrintf("%g\n", ecc_val); }
+        
+        // Only allow dtKep to be set on the first timestep
+        if (p->dtKep == 0) {
+          p->dtKep = fabs(arPeri/rPeri);
+          CkPrintf("Setting dtKep\n");
+          }
+        //if (p->rung > 10) CkPrintf("Large rung rperi: %g\n", rPeri);
+
+        if (rPeri < dCentRad) { 
+            CkPrintf("Particle %d will collide with star, deleting\n", p->iOrder);
+            deleteParticle(p);
+            }
 
         }
         
@@ -313,6 +327,15 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p) const
         }
     return pFrameAcc;
     }
+
+void TreePiece::resetDtKep(const CkCallback& cb)
+{
+    for (unsigned int i = 1; i<= myNumParticles; ++i) {
+      GravityParticle *q = &myParticles[i];
+      q->dtKep = 0;
+    }
+    contribute(cb);
+}
 
 /*
  * @brief For use when transforming into an accelerating frame of reference. Given

@@ -378,7 +378,7 @@ mainmodule ParallelGravity {
         double dMultiPhaseMaxTime, double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
     entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
-    entry void externalForce(int activeRung, const ExternalForce exForce,
+    entry void externalForce(int activeRung, const ExternalForce exForce, int bKepStep,
                        const CkCallback& cb);
 #ifdef COOLING_MOLECULARH
     entry void distribLymanWerner(const CkCallback& cb);
@@ -406,6 +406,7 @@ mainmodule ParallelGravity {
     entry void emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
 		               const CkCallback &cb);
     entry void assignDomain(const CkCallback &cb);
+    entry void resetDtKep(const CkCallback& cb);
     entry void drift(double dDelta, int bNeedVPred, int bGasIsoThermal,
 		     double dvDelta, double duDelta, int nGrowMass,
 		     bool buildTree, double dMaxEnergy, const CkCallback& cb);
@@ -451,6 +452,7 @@ mainmodule ParallelGravity {
     entry void getCollInfo(int iOrder, const CkCallback& cb);
     entry void resolveCollision(Collision coll, const ColliderInfo &c1, const ColliderInfo &c2,
         double baseStep, double timeNow, const CkCallback& cb);
+    entry void sameHigherRung(int iord1, int rung1, int iord2, int rung2, const CkCallback& cb);
     entry void resolveWallCollision(Collision coll, const ColliderInfo &c1, const CkCallback& cb);
     entry void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
     entry void placeOnCollRung(int iOrder, int collStepRung, const CkCallback& cb);

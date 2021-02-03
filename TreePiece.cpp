@@ -1677,7 +1677,7 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 	    myParticles[i].treeAcceleration = 0;
 	    myParticles[i].potential = 0;
 	    myParticles[i].dtGrav = 0;
-        myParticles[i].dtKep = 0;
+        //myParticles[i].dtKep = 0;
 	    }
 	}
 
@@ -1734,6 +1734,8 @@ void TreePiece::adjust(int iKickRung, int bCollStep, int bEpsAccStep,
   
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     GravityParticle *p = &myParticles[i];
+    if (TYPETest(p, TYPE_DELETED)) continue;
+
     if(p->rung >= iKickRung) {
       double dTIdeal = dDelta;
       double dTGrav, dTCourant, dTEdot;
@@ -3639,7 +3641,7 @@ void TreePiece::initBuckets() {
         myParticles[i].treeAcceleration = 0;
         myParticles[i].potential = 0;
 	myParticles[i].dtGrav = 0;
-    myParticles[i].dtKep = 0;
+    //myParticles[i].dtKep = 0;
 	// node->boundingBox.grow(myParticles[i].position);
         if(bComove && !bPeriodic) {
             /*

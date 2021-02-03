@@ -1766,7 +1766,7 @@ void Main::advanceBigCollStep(int iStep) {
 
               treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
               startTime = CkWallTimer();
-              doCollisions(dTime, dTimeSub, activeRung);
+              doCollisions(dTime, param.dDelta, activeRung);
               double tColl = CkWallTimer() - startTime;
               timings[activeRung].tColl += tColl;
               treeProxy.finishNodeCache(CkCallbackResumeThread());
@@ -2054,7 +2054,7 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
 void Main::externalForce(int iActiveRung)
 {
     CkReductionMsg *msgFrameAcc;
-    treeProxy.externalForce(iActiveRung, param.externalForce,
+    treeProxy.externalForce(iActiveRung, param.externalForce, param.bKepStep,
                               CkCallbackResumeThread((void*&)msgFrameAcc));
     // External gravity may accelerate the coordinate frame
     // (e.g. heliocentric coordinates.)  Retrieve any such acceleration
@@ -2418,7 +2418,7 @@ void Main::advanceBigStep(int iStep) {
 
               treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
               double startTime = CkWallTimer();
-              doCollisions(dTime, dTimeSub, activeRung);
+              doCollisions(dTime, param.dDelta, activeRung);
               double tColl = CkWallTimer() - startTime;
               timings[activeRung].tColl += tColl;
               treeProxy.finishNodeCache(CkCallbackResumeThread());
@@ -3101,6 +3101,7 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	    CkExit();
 	}
 	
+        treeProxy.resetDtKep(CkCallbackResumeThread());
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
         if (bUseCkLoopPar) {
             CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
