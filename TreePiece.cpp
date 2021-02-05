@@ -1465,18 +1465,18 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 
 #include "physconst.h"
 
-inline void updatePatch(int bClosing, double dDelta, GravityParticle& p, double dOrbFreq) {
+inline void updatePatch(int bClosing, double dDelta, GravityParticle *p, double dOrbFreq) {
 #ifdef SLIDING_PATCH
     if (bClosing) {
-        p->velocity[0] += 2.0 * dDelta[p->rung] * dOrbFreq * p->dPy;
+        p->velocity[0] += 2.0 * dDelta * dOrbFreq * p->dPy;
         p->velocity[1] = p->dPy - 2 * dOrbFreq * p->position[0];
     }
     else {
         p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->position[0];
 
         // Cross hamiltonian
-        p->velocity[0] += 2.0 * dDelta[p->rung] * dOrbFreq * p->dPy;
-        p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * dDelta[p->rung] * p->velocity[0]);
+        p->velocity[0] += 2.0 * dDelta * dOrbFreq    * p->dPy;
+        p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * dDelta * p->velocity[0]);
     }
 #endif
 }
@@ -2063,8 +2063,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
             p->position[j] -= fPeriod[j];
 #ifdef SLIDING_PATCH
             if (j == 0) { /* radial wrap */
-                fShear = 1.5 * p->dOrbFreq * p->fPeriod[0];
-                p->position[1] += SHEAR(-1, dTime + dDelta, fPeriod, dOrbFreq, *p);
+                fShear = 1.5 * dOrbFreq * fPeriod[0];
+                p->position[1] += SHEAR(-1, dTime + dDelta, fPeriod, dOrbFreq);
             }
 #endif
           }
@@ -2073,8 +2073,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
             p->position[j] += fPeriod[j];
 #ifdef SLIDING_PATCH
             if (j == 0) { /* radial wrap */
-                fShear = -1.5 * p->dOrbFreq * p->fPeriod[0];
-                p->position[1] += SHEAR(1, dTime + dDelta, fPeriod, dOrbFreq, *p);
+                fShear = -1.5 * dOrbFreq * fPeriod[0];
+                p->position[1] += SHEAR(1, dTime + dDelta, fPeriod, dOrbFreq);
             }
 #endif
           }
@@ -2146,13 +2146,13 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 	  p->fMFracIronPred() += p->fMFracIronDot()*duDelta;
 #endif /* DIFFUSION */
 	  }
+#ifdef SLIDING_PATCH
+      p->velocity[1] += fShear;
+      p->dPy -= fShear / 3.0; /* Angular momentum is
+                   also changed. */
+#endif
       }
   CkMustAssert(bInBox, "binbox2 failed\n");
-#ifdef SLIDING_PATCH
-  p->velocity[1] += fShear;
-  p->dPy -= fShear / 3.0; /* Angular momentum is
-               also changed. */
-#endif
 
   if(buildTree)
     contribute(sizeof(OrientedBox<float>), &boundingBox,
