@@ -1876,8 +1876,8 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
 
     double a = csmTime2Exp(param.csm,dTime);
     double startTime = CkWallTimer();
-    double dOrbFreq = sqrt(param.ExternalGravity.dCentMass / 
-                      pow(param.ExternalGravity.dOrbDist, 3)); // Orbital frequency
+    double dOrbFreq = sqrt(param.externalGravity.dCentMass / 
+                      pow(param.externalGravity.dOrbDist, 3)); // Orbital frequency
                                                                // sqrt(G*M/r^3)
                                                                // with G=1
     treeProxy.kick(iActiveRung, dKickFac, bClosing, param.bDoGas,
@@ -1972,9 +1972,11 @@ void Main::advanceBigStep(int iStep) {
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
 	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
 	      bool bBuildTree = (iSub + 1 == driftSteps);
+          double dOrbFreq = sqrt(param.externalGravity.dCentMass /
+              pow(param.externalGravity.dOrbDist, 3));
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
 			      dKickFac, dTimeSub, nGrowMassDrift, bBuildTree,
-                              param.dMaxEnergy,
+                              param.dMaxEnergy, dOrbFreq, dTime,
 			      CkCallbackResumeThread());
               double tDrift = CkWallTimer() - startTime;
               timings[activeRung].tDrift += tDrift;
@@ -2500,7 +2502,7 @@ void Main::setupICs() {
 	
 // for periodic, puts all particles within the boundary
 // Also assigns keys and sorts.
-  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, 0,
                   CkCallbackResumeThread());
 
   initialForces();
@@ -2638,7 +2640,7 @@ Main::restart(CkCheckpointStatusMsg *msg)
         } else {
             CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
         }
-        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, 0,
                         CkCallbackResumeThread());
 	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
@@ -2853,7 +2855,7 @@ Main::doSimulation()
 	    }
 	// The following drift is called because it deletes the tree
 	// so it won't be saved on disk.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy,
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy, 0, 0,
                         CkCallbackResumeThread());
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
@@ -3043,7 +3045,7 @@ Main::doSimulation()
       if(param.bDoGas && param.bDoDensity) {
 	  // The following call is to get the particles in key order
 	  // before the sort.
-	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, 0,
                           CkCallbackResumeThread());
           domainDecomp(0);
           buildTree(0);
@@ -3662,7 +3664,7 @@ void Main::writeOutput(int iStep)
 	    startTime = CkWallTimer();
 	    // The following call is to get the particles in key order
 	    // before the sort.
-	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, 0,
                             CkCallbackResumeThread());
             domainDecomp(0);
             buildTree(0);
