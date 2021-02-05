@@ -1465,6 +1465,22 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 
 #include "physconst.h"
 
+inline void updatePatch(int bClosing, double dDelta, GravityParticle& p, double dOrbFreq) {
+#ifdef SLIDING_PATCH
+    if (bClosing) {
+        p->velocity[0] += 2.0 * dDelta[p->rung] * dOrbFreq * p->dPy;
+        p->velocity[1] = p->dPy - 2 * dOrbFreq * p->position[0];
+    }
+    else {
+        p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->position[0];
+
+        // Cross hamiltonian
+        p->velocity[0] += 2.0 * dDelta[p->rung] * dOrbFreq * p->dPy;
+        p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * dDelta[p->rung] * p->velocity[0]);
+    }
+#endif
+}
+
 void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bClosing, // Are we at the end of a timestep
 		     int bNeedVPred, // do we need to update vpred
@@ -1484,7 +1500,8 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
       if(p->rung >= iKickRung) {
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
-		      p->vPred() = p->velocity + dDelta[p->rung]*p->treeAcceleration;
+              p->vPred() = p->velocity
+                  + dDelta[p->rung]*p->treeAcceleration;
 		      glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
 		  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
@@ -1614,7 +1631,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  p->fMFracIronPred() = p->fMFracIron();
 #endif
 		  }
-          if(!bClosing) {	// predicted quantities are at the beginning
+          else {	// predicted quantities are at the beginning
 			// of step
 		  p->vPred() = p->velocity;
 		  if(!bGasIsothermal) {
@@ -1667,18 +1684,9 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #endif
 	      }
-      if (bClosing) {
-          p->velocity[0] += 2.0 * dDelta[p->rung] * dOrbFreq * p->dPy;
-          p->velocity[1] = p->dPy - 2 * dOrbFreq * p->position[0];
-      }
+      updatePatch(bClosing, dDelta[p->rung], *p, dOrbFreq);
       p->velocity += dDelta[p->rung]*p->treeAcceleration;
-      if (!bClosing) {
-          p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->position[0];
-
-          // Cross hamiltonian
-          p->velocity[0] += 2.0 * dDelta[p->rung] * dOrbFreq * p->dPy;
-          p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * dDelta[p->rung] * p->velocity[0]);
-      }
+      updatePatch(bClosing, dDelta[p->rung], *p, dOrbFreq);
       glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
       
 	  }
@@ -1993,11 +2001,15 @@ void TreePiece::assignDomain(const CkCallback &cb)
         myParticles[i].interMass = thisIndex;
 	}
     contribute(cb);
-    }
+}
 
-inline double SHEAR(int ix, double t, Vector3D<cosmoType> fPeriod, double dOrbFreq, GravityParticle *p) {
-    ((ix) < 0 ? fmod(0.5 * fPeriod[1] - 1.5 * (ix) * dOrbFreq * fPeriod[0] * (t), fPeriod[1]) - 0.5 * fPeriod[1] : \
-        (ix) > 0 ? 0.5 * fPeriod[1] - fmod(0.5 * fPeriod[1] + 1.5 * (ix)* dOrbFreq * fPeriod[0] * (t), fPeriod[1]) : 0.0);
+inline double SHEAR(int ix,                      ///< Interior or exterior?
+                    double t,                    ///< time, in dTime+dDelta
+                    Vector3D<cosmoType> fPeriod, ///< vector for dxPeriod and dyPeriod
+                    double dOrbFreq)             ///< Orbital frequency
+{
+    return (ix < 0) ? fmod(0.5 * fPeriod[1] - 1.5 * ix * dOrbFreq * fPeriod[0] * t, fPeriod[1]) - 0.5 * fPeriod[1] :
+        (ix > 0) ? 0.5 * fPeriod[1] - fmod(0.5 * fPeriod[1] + 1.5 * ix * dOrbFreq * fPeriod[0] * t, fPeriod[1]) : 0.0;
 }
 
 void TreePiece::drift(double dDelta,  // time step in x containing
@@ -2012,7 +2024,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		      bool buildTree, // is a treebuild happening before the
 				      // next drift?
               double dMaxEnergy, // Maximum internal energy of gas.
-              double dOrbFreq, // Orbital frequency
+              double dOrbFreq, ///< Orbital frequency of patch
               double dTime,
 		      const CkCallback& cb) {
   callback = cb;		// called by assignKeys()
@@ -2029,8 +2041,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
 #ifdef SLIDING_PATCH
-      FLOAT fShear = 0.0;
-      p->bAzWrap = 0;
+      cosmoType fShear = 0.0;
 #endif
       if (p->iOrder >= nGrowMass)
 	  p->position += dDelta*p->velocity;
@@ -2070,8 +2081,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
       }
       boundingBox.grow(p->position);
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
-          p->vPred() += p->treeAcceleration * dvDelta;
-	      glassDamping(p->vPred(), dvDelta, dGlassDamper);
+          p->vPred() += dvDelta * p->treeAcceleration;
+          glassDamping(p->vPred(), dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 	      p->uPred() += p->uDot()*duDelta;

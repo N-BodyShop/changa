@@ -55,7 +55,7 @@ void ExternalGravity::CheckParams(PRM prm, struct parameters &param)
     // Enable external gravity if any of the flags are set
     if (bBodyForce || bPatch || bCentralBody)
         param.bDoExternalGravity = 1;
-}
+    }
 
 /*
  * @brief This function applies the external potential force to every applicable

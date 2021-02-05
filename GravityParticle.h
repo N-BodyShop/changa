@@ -59,8 +59,8 @@ class extraSPHData
     double _fMFracIron;		/* Iron mass fraction  */
     double _fESNrate;		/* SN energy rate  */
     double _fTimeCoolIsOffUntil;/* time cooling is turned back on */
-    Vector3D<double> _vPred;	/* Predicted velocities for velocity 
-                                   dependent forces */
+    Vector3D<double> _vPred;	/* Predicted velocities for velocity
+                                 dependent forces */
     double _uPred;		/* Predicted internal energy */
     double _divv;		/* Diverence of the velocity */
     Vector3D<double> _curlv;	/* Curl of the velocity */
@@ -314,7 +314,6 @@ public:
 #ifdef SLIDING_PATCH
     double dPy; ///< Canonical momentum used to update y-velocity
 #endif
-    Vector3D<double> _vPred;
     // inline Vector3D<double>& vPred() { return _vPred; }
 	Vector3D<cosmoType> treeAcceleration;
 	cosmoType potential;
@@ -367,7 +366,6 @@ public:
           p | dPy;
 #endif
           p | treeAcceleration;
-          p | _vPred;
           p | dtGrav;
           p | fDensity;
           p | fBall;
@@ -642,6 +640,7 @@ class ExternalSmoothParticle {
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
 	  if(TYPETest(p, TYPE_GAS)) {
+          vPred = p->vPred();
 	      mumax = p->mumax();
 	      PdV = p->PdV();
 	      c = p->c();
@@ -708,6 +707,7 @@ class ExternalSmoothParticle {
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
       if(TYPETest(tmp, TYPE_GAS)) {
+      tmp->vPred() = vPred;
       tmp->mumax() = mumax;
 	  tmp->PdV() = PdV;
 	  tmp->c() = c;
