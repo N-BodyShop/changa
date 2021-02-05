@@ -3053,7 +3053,6 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
 #endif
   // recursively build the tree
 
-  double start;
   try {
 #if defined MERGE_REMOTE_REQUESTS
         LocalTreeTraversal traversal;
@@ -4083,7 +4082,6 @@ void TreePiece::doParallelNextBucketWork(int idx, LoopParData* lpdata) {
 #if INTERLIST_VER > 0
   GenericTreeNode* lowestNode = lpdata->lowNodes[idx];
   int currentBucket = lpdata->bucketids[idx];
-  int chunkNum = lpdata->chunkids[idx];
   int startBucket, endBucket;
   getBucketsBeneathBounds(lowestNode, startBucket, endBucket);
 
@@ -4200,7 +4198,7 @@ void TreePiece::calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num) {
 #else
     CkAbort("CkLoop usage only in SMP mode\n");
 #endif
-    double etime = CkWallTimer() - stime;
+    timeforckloop = CkWallTimer() - stime;
 
     setObjTime(timebeforeckloop + timeforckloop);
     LBTurnInstrumentOn();
@@ -6104,7 +6102,6 @@ checkWalkCorrectness();
 // It sets up a tree walk starting at node and initiates it
 void TreePiece::receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source){
   int targetBucket = decodeReqID(reqID);
-  Vector3D<cosmoType> offset = decodeOffset(reqID);
 
   TreeWalk *tw;
   Compute *compute;
