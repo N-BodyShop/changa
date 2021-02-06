@@ -121,6 +121,9 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
 	cl->pgrackle_data->cmb_temperature_floor = 0;
 	cl->bFixTempFloor = 1;
     }
+    if(CoolParam.dSolarMetalFractionByMass >= 0.0) {
+        cl->pgrackle_data->SolarMetalFractionByMass = CoolParam.dSolarMetalFractionByMass;
+    }
     strncpy( cl->grackle_data_file, CoolParam.grackle_data_file, MAXPATHLEN ); // Permanent local copy
     cl->pgrackle_data->grackle_data_file = cl->grackle_data_file; // hdf5 cloudy data file (pointer to permanent copy)
     
@@ -339,8 +342,6 @@ void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, doubl
 #endif
 #endif
 #endif
-    // solar metallicity
-//    metal_density[i] = grackle_data.SolarMetalFractionByMass * density[i];
 
     // No routine in Grackle to use to set up energy sensibly
     // Energy: erg per gm --> code units   assumes neutral gas (as above)
@@ -551,8 +552,12 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 	strcpy(CoolParam->grackle_data_file,"CloudyData_UVB=HM2012.h5\0");
 	prmAddParam(prm,"grackle_data_file",paramString,&CoolParam->grackle_data_file,256,"grackle_data_file",
 	"<cooling table file> (file in hdf5 format, e.g. CloudyData_UVB=HM2012.h5)"); 
-
-	}
+	CoolParam->dSolarMetalFractionByMass = -1.0; // Negative means unset.
+	prmAddParam(prm, "dSolarMetalFractionByMass", paramDouble,
+                    &CoolParam->dSolarMetalFractionByMass, sizeof(double),
+                    "dSolarMetalFractionByMass",
+                    "Grackle assumption about the Solar Metalicity: default is Grackle default");
+}
 	
 
 #if 0
