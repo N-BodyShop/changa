@@ -43,6 +43,7 @@ typedef struct CoolingParametersStruct {
 					// floor is broken.
 
     int bComoving; // part of units
+    double dSolarMetalFractionByMass;   ///< Assumed value of solar metallicity.
     char grackle_data_file[MAXPATHLEN]; // "../../input/CloudyData_UVB=HM2012.h5"; // data file
 } COOLPARAM;
 
