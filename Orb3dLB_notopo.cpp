@@ -105,7 +105,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   }
 
   orbPrepare(tpEvents, box, numobjs, stats);
-  orbPartition(tpEvents,box,stats->count, tps, stats);
+  orbPartition(tpEvents,box,stats->nprocs(), tps, stats);
   int mcount = 0;
 	for(int i = 0; i < numobjs; i++) {
     if (stats->to_proc[i] != stats->from_proc[i]) {
@@ -155,7 +155,6 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 
 void Orb3dLB_notopo::pupDump(PUP::er &p, BaseLB::LDStats *stats, vector<Event> *tpEvents){
   stats->pup(p);
-  p|stats->count;
   for(int i = XDIM; i <= ZDIM; i++){
     p|tpEvents[i];
   }
