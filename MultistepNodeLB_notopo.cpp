@@ -150,7 +150,7 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
   //printData(*stats, phase, NULL);
   CkPrintf("making active processor list\n");
 #endif
-  count = stats->count;
+  count = stats->nprocs();
 
   // let the strategy take over on this modified instrumented data and processor information
   if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
@@ -392,11 +392,11 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
 // Refinement strategy to distribute the TreePieces across PEs
 void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
   
-  double* counts = new double[stats->count];
-  memset(counts, 0.0, stats->count * sizeof(double));
+  double* counts = new double[stats->nprocs()];
+  memset(counts, 0.0, stats->nprocs() * sizeof(double));
   double totalld = 0.0;
   vector<vector<int> > objpemap;
-  objpemap.resize(stats->count);
+  objpemap.resize(stats->nprocs());
   
   for (int i = 0; i < stats->objData.size(); i++) {
     if(!stats->objData[i].migratable) continue;
@@ -405,7 +405,7 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
     totalld += stats->objData[i].wallTime;
     objpemap[stats->to_proc[i]].push_back(i);
   }
-  double avgldperpe = totalld / stats->count;
+  double avgldperpe = totalld / stats->nprocs();
   vector<int> unldpes;
   vector<int> ovldpes;
   double th = 1.05;
@@ -414,7 +414,7 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
   
   int maxcountoftps = 0;
   int pewithmax = -1;
-  for (int i = (stats->count-1); i >= 0; i--) {
+  for (int i = (stats->nprocs()-1); i >= 0; i--) {
     if (counts[i] > th*avgldperpe) {
       ovldpes.push_back(i);
     } else if (counts[i] < (unth*avgldperpe)) {
@@ -433,16 +433,16 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
   //CkPrintf("[%d] is the maxLoadedPe with ld %f ovlded %d unldpes %d\n", ovldpes.front(), counts[ovldpes.front()], ovldpes.size(), unldpes.size());
   //CkPrintf("[%d] is the minLoadedPe with ld %f\n", unldpes.front(), counts[unldpes.front()]);
 
-  int* tmpcounts = new int[stats->count];
-  memcpy(tmpcounts, counts, stats->count * sizeof(int));
+  int* tmpcounts = new int[stats->nprocs()];
+  memcpy(tmpcounts, counts, stats->nprocs() * sizeof(int));
  
   while (undcount < unldpes.size() && ovldpes.size() > 0) {
     int ovlpe = ovldpes.front();
     pop_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
     ovldpes.pop_back();
     bool succ = false;
-    if (ovlpe >= stats->count) {
-      CkPrintf("ovlpe %d stats count %d\n", ovlpe, stats->count);
+    if (ovlpe >= stats->nprocs()) {
+      CkPrintf("ovlpe %d stats count %d\n", ovlpe, stats->nprocs());
       CkAbort("ovle >= count\n");
     }
     for (int k = 0; k < objpemap[ovlpe].size() ; k++) {
