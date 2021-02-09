@@ -43,7 +43,7 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
   int objsPerProc = 8;
   int expandFactor = 4;
   int procsNeeded;
-  procsNeeded = expandFactor*numActiveObjs/objsPerProc > stats->count ? stats->count : expandFactor*numActiveObjs/objsPerProc;
+  procsNeeded = expandFactor*numActiveObjs/objsPerProc > stats->nprocs() ? stats->nprocs() : expandFactor*numActiveObjs/objsPerProc;
 
   /* currently, only the first procsNeeded procs are used - could do something more sophisticated here in the future - FIXME */
 #ifdef MCLBMSV
@@ -144,7 +144,7 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   CkPrintf("making active processor list\n");
 #endif
   makeActiveProcessorList(stats, numActiveObjects);
-  count = stats->count;
+  count = stats->nprocs();
 
   // let the strategy take over on this modified instrumented data and processor information
   work2(stats,count);
@@ -206,7 +206,7 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count){
   CkAssert(numProcessed==nmig);
 
   orbPrepare(tpEvents, box, nmig, stats);
-  orbPartition(tpEvents,box,stats->count,tp_array, stats);
+  orbPartition(tpEvents,box,stats->nprocs(),tp_array, stats);
 
   refine(stats, numobjs);
 

@@ -317,7 +317,7 @@ class Orb3dCommon{
       if (node_partition) {
         maxPieceProc = dMaxBalance * nmig / CkNumNodes();
       } else {
-        maxPieceProc = dMaxBalance*nmig/stats->count;
+        maxPieceProc = dMaxBalance*nmig/stats->nprocs();
       }
 
       if(maxPieceProc < 1.0)
@@ -345,8 +345,8 @@ class Orb3dCommon{
 
       nextProc = 0;
 
-      procload.resize(stats->count);
-      for(int i = 0; i < stats->count; i++){
+      procload.resize(stats->nprocs());
+      for(int i = 0; i < stats->nprocs(); i++){
         procload[i] = stats->procs[i].bg_walltime;
       }
 
@@ -354,8 +354,8 @@ class Orb3dCommon{
 
     void refine(BaseLB::LDStats *stats, int numobjs){
 #ifdef DO_REFINE
-      int *from_procs = Refiner::AllocProcs(stats->count, stats);
-      int *to_procs = Refiner::AllocProcs(stats->count, stats);
+      int *from_procs = Refiner::AllocProcs(stats->nprocs(), stats);
+      int *to_procs = Refiner::AllocProcs(stats->nprocs(), stats);
 #endif
 
       int migr = 0;
@@ -372,7 +372,7 @@ class Orb3dCommon{
 #ifdef DO_REFINE
       CkPrintf("[orb3dlb_notopo] refine\n");
       Refiner refiner(1.050);
-      refiner.Refine(stats->count,stats,from_procs,to_procs);
+      refiner.Refine(stats->nprocs(),stats,from_procs,to_procs);
 
       for(int i = 0; i < numobjs; i++){
         if(to_procs[i] != from_procs[i]) numRefineMigrated++;
@@ -380,9 +380,9 @@ class Orb3dCommon{
       }
 #endif
 
-      double *predLoad = new double[stats->count];
-      double *predCount = new double[stats->count];
-      for(int i = 0; i < stats->count; i++){
+      double *predLoad = new double[stats->nprocs()];
+      double *predCount = new double[stats->nprocs()];
+      for(int i = 0; i < stats->nprocs(); i++){
         predLoad[i] = 0.0;
         predCount[i] = 0.0;
       }
@@ -420,7 +420,7 @@ class Orb3dCommon{
 
       CkPrintf("***************************\n");
       //  CkPrintf("Before LB step %d\n", step());
-      for(int i = 0; i < stats->count; i++){
+      for(int i = 0; i < stats->nprocs(); i++){
         double wallTime = stats->procs[i].total_walltime;
         double idleTime = stats->procs[i].idletime;
         double bgTime = stats->procs[i].bg_walltime;
@@ -459,21 +459,21 @@ class Orb3dCommon{
 
       }
 
-      avgWall /= stats->count;
-      avgIdle /= stats->count;
-      avgBg /= stats->count;
-      avgPred /= stats->count;
-      avgPiece /= stats->count;
+      avgWall /= stats->nprocs();
+      avgIdle /= stats->nprocs();
+      avgBg /= stats->nprocs();
+      avgPred /= stats->nprocs();
+      avgPiece /= stats->nprocs();
 
 #ifdef PRINT_LOAD_PERCENTILES
       double accumVar = 0;
       vector<double> objectWallTimes;
-      for(int i = 0; i < stats->count; i++){
+      for(int i = 0; i < stats->nprocs(); i++){
         double wallTime = stats->procs[i].total_walltime;
         objectWallTimes.push_back(wallTime);
         accumVar += (wallTime - avgWall) * (wallTime - avgWall);
       }
-      double stdDev = sqrt(accumVar / stats->count);
+      double stdDev = sqrt(accumVar / stats->nprocs());
       CkPrintf("Average load: %.3f\n", avgWall);
       CkPrintf("Standard deviation: %.3f\n", stdDev);
 
@@ -496,7 +496,7 @@ class Orb3dCommon{
       float minload, maxload, avgload;
       minload = maxload = procload[0];
       avgload = 0.0;
-      for(int i = 0; i < stats->count; i++){
+      for(int i = 0; i < stats->nprocs(); i++){
         CkPrintf("pe %d load %f box %f %f %f %f %f %f\n", i, procload[i], 
             procbox[i].lesser_corner.x,
             procbox[i].lesser_corner.y,
@@ -510,7 +510,7 @@ class Orb3dCommon{
         if(maxload < procload[i]) maxload = procload[i];
       }
 
-      avgload /= stats->count;
+      avgload /= stats->nprocs();
 
       CkPrintf("Orb3dLB_notopo stats: min %f max %f avg %f max/avg %f\n", minload, maxload, avgload, maxload/avgload);
 #endif

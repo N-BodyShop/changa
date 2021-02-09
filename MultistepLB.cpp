@@ -69,7 +69,7 @@ void MultistepLB::makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveO
   int objsPerProc = 8;
   int expandFactor = 4;
   int procsNeeded;
-  procsNeeded = expandFactor*numActiveObjs/objsPerProc > stats->count ? stats->count : expandFactor*numActiveObjs/objsPerProc;
+  procsNeeded = expandFactor*numActiveObjs/objsPerProc > stats->nprocs() ? stats->nprocs() : expandFactor*numActiveObjs/objsPerProc;
 
   /* currently, only the first procsNeeded procs are used - could do something more sophisticated here in the future - FIXME */
 #ifdef MCLBMSV
@@ -145,7 +145,7 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   CkPrintf("making active processor list\n");
 #endif
   makeActiveProcessorList(stats, numActiveObjects);
-  count = stats->count;
+  count = stats->nprocs();
 
   // let the strategy take over on this modified instrumented data and processor information
   if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
@@ -232,7 +232,7 @@ void MultistepLB::greedy(BaseLB::LDStats *stats, int count){
   CkPrintf("**********************************\n");
   CkPrintf("GREEDY MEASURED CPU LOAD\n");
   CkPrintf("**********************************\n");
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     CkPrintf("[pestats] %d %g %g\n",
                                i,
                                stats->procs[i].total_walltime,
@@ -299,7 +299,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   }
   Node *nodes = new Node[numnodes];
 
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     int t;
     int x,y,z;
     int node;
@@ -318,8 +318,8 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   }
   map(tp_array,nmig,numnodes,nodes,nx,ny,nz,dim);
 
-  float *objload = new float[stats->count];
-  for(int i = 0; i < stats->count; i++){
+  float *objload = new float[stats->nprocs()];
+  for(int i = 0; i < stats->nprocs(); i++){
     objload[i] = 0.0;
   }
   for(j = 0; j < nmig; j++){
@@ -334,7 +334,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   CkPrintf("******************************\n");
   CkPrintf("CPU LOAD PREDICTIONS phase %d\n", phase);
   CkPrintf("******************************\n");
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     CkPrintf("[pestats] %d %g \n",
                                i,
                                objload[i]);
@@ -345,7 +345,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   CkPrintf("******************************\n");
   CkPrintf("MEASURED CPU LOAD\n");
   CkPrintf("******************************\n");
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     CkPrintf("[pestats] %d %g %g\n",
                                i,
                                stats->procs[i].total_walltime,

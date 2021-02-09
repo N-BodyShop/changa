@@ -164,7 +164,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   CkPrintf("[orb3dlb] %d numnodes allocating %lu bytes for nodes\n", numnodes, numnodes*sizeof(Node));
   nodes.resize(numnodes);
 
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     int t;
     int x,y,z;
     int node;
@@ -201,8 +201,8 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
 
   /*
   int migr = 0;
-  float *objload = new float[stats->count];
-  for(int i = 0; i < stats->count; i++){
+  float *objload = new float[stats->nprocs()];
+  for(int i = 0; i < stats->nprocs(); i++){
     objload[i] = 0.0;
   }
   for(int i = 0; i < numobjs; i++){
@@ -214,7 +214,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   CkPrintf("Before LB step %d\n", step());
   CkPrintf("***************************\n");
   CkPrintf("i pe wall cpu idle bg_wall bg_cpu objload\n");
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     CkPrintf("[pestats] %d %d %f %f %f %f\n",
                                i,
                                stats->procs[i].pe,
