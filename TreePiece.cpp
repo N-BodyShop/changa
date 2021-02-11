@@ -1465,17 +1465,21 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 
 #include "physconst.h"
 
-inline void updatePatch(int bClosing, double dDelta, GravityParticle *p, double dOrbFreq) {
+inline void openPatch(int bClosing, double dDelta, GravityParticle *p, double dOrbFreq) {
 #ifdef SLIDING_PATCH
     if (bClosing) {
         p->velocity[0] += 2.0 * dDelta * dOrbFreq * p->dPy;
         p->velocity[1] = p->dPy - 2 * dOrbFreq * p->position[0];
     }
-    else {
+#endif
+}
+inline void closePatch(int bClosing, double dDelta, GravityParticle* p, double dOrbFreq) {
+#ifdef SLIDING_PATCH
+    if (!bClosing) {
         p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->position[0];
 
         // Cross hamiltonian
-        p->velocity[0] += 2.0 * dDelta * dOrbFreq    * p->dPy;
+        p->velocity[0] += 2.0 * dDelta * dOrbFreq * p->dPy;
         p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * dDelta * p->velocity[0]);
     }
 #endif
@@ -1699,10 +1703,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               }
 #endif
 	      }
-          updatePatch(bClosing, dDelta[p->rung], *p, dOrbFreq);
-	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
-          updatePatch(bClosing, dDelta[p->rung], *p, dOrbFreq);
-	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
+      openPatch(bClosing, dDelta[p->rung], p, dOrbFreq);
+      p->velocity += dDelta[p->rung]*p->treeAcceleration;
+      closePatch(bClosing, dDelta[p->rung], p, dOrbFreq);
+      glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
+      
 	  }
       }
   contribute(cb);
