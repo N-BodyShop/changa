@@ -1465,7 +1465,7 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 
 #include "physconst.h"
 
-inline void openPatch(int bClosing, double dDelta, GravityParticle *p, double dOrbFreq) {
+inline void closePatch(int bClosing, double dDelta, GravityParticle *p, double dOrbFreq) {
 #ifdef SLIDING_PATCH
     if (bClosing) {
         p->velocity[0] += 2.0 * dDelta * dOrbFreq * p->dPy;
@@ -1473,7 +1473,7 @@ inline void openPatch(int bClosing, double dDelta, GravityParticle *p, double dO
     }
 #endif
 }
-inline void closePatch(int bClosing, double dDelta, GravityParticle* p, double dOrbFreq) {
+inline void openPatch(int bClosing, double dDelta, GravityParticle* p, double dOrbFreq) {
 #ifdef SLIDING_PATCH
     if (!bClosing) {
         p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->position[0];
@@ -1688,9 +1688,9 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #endif
 	      }
-      openPatch(bClosing, dDelta[p->rung], p, dOrbFreq);
-      p->velocity += dDelta[p->rung]*p->treeAcceleration;
       closePatch(bClosing, dDelta[p->rung], p, dOrbFreq);
+      p->velocity += dDelta[p->rung]*p->treeAcceleration;
+      openPatch(bClosing, dDelta[p->rung], p, dOrbFreq);
       glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
       
 	  }
@@ -2005,15 +2005,6 @@ void TreePiece::assignDomain(const CkCallback &cb)
         myParticles[i].interMass = thisIndex;
 	}
     contribute(cb);
-}
-
-inline double SHEAR(int ix,                      ///< Interior or exterior?
-                    double t,                    ///< time, in dTime+dDelta
-                    Vector3D<cosmoType> fPeriod, ///< vector for dxPeriod and dyPeriod
-                    double dOrbFreq)             ///< Orbital frequency
-{
-    return (ix < 0) ? fmod(0.5 * fPeriod[1] - 1.5 * ix * dOrbFreq * fPeriod[0] * t, fPeriod[1]) - 0.5 * fPeriod[1] :
-        (ix > 0) ? 0.5 * fPeriod[1] - fmod(0.5 * fPeriod[1] + 1.5 * ix * dOrbFreq * fPeriod[0] * t, fPeriod[1]) : 0.0;
 }
 
 void TreePiece::drift(double dDelta,  // time step in x containing

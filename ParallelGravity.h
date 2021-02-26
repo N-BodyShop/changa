@@ -1192,6 +1192,7 @@ private:
 	/// Background density of the Universe
 	double dRhoFac;
 	Vector3D<cosmoType> fPeriod;
+	double dOrbFreq;
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
@@ -1995,13 +1996,22 @@ public:
         // need this in TreeWalk
         GenericTreeNode *getRoot() {return root;}
         // need this in Compute
+	inline double SHEAR(int ix,                      ///< Interior or exterior?
+			double t,                    ///< time, in dTime+dDelta
+			Vector3D<cosmoType> fPeriod, ///< vector for dxPeriod and dyPeriod
+			double dOrbFreq)             ///< Orbital frequency
+		{
+			return (ix < 0) ? fmod(0.5 * fPeriod[1] - 1.5 * ix * dOrbFreq * fPeriod[0] * t, fPeriod[1]) - 0.5 * fPeriod[1] :
+				(ix > 0) ? 0.5 * fPeriod[1] - fmod(0.5 * fPeriod[1] + 1.5 * ix * dOrbFreq * fPeriod[0] * t, fPeriod[1]) : 0.0;
+		}
+	
 	inline Vector3D<cosmoType> decodeOffset(int reqID) {
 	    int offsetcode = reqID >> 22;
 	    int x = (offsetcode & 0x7) - 3;
 	    int y = ((offsetcode >> 3) & 0x7) - 3;
 	    int z = ((offsetcode >> 6) & 0x7) - 3;
 
-	    Vector3D<cosmoType> offset(x*fPeriod.x, y*fPeriod.y, z*fPeriod.z);
+	    Vector3D<cosmoType> offset(x*fPeriod.x, y*fPeriod.y + SHEAR(x, totalTime, fPeriod[1], dOrbFreq), z*fPeriod.z);
 
 	    return offset;
 	    }

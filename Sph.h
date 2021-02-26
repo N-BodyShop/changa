@@ -23,6 +23,8 @@ class DenDvDxSmoothParams : public SmoothParams
     int bStarting;              ///< We are starting (or restarting)
                                 ///  the simulation
     int bHaveAlpha;             ///< Alpha has been read in.
+    double dOrbFreq;            ///< Orbital Frequency
+    Vector3D<cosmoType> fPeriod;///< Dimensions of patch
 
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
@@ -46,7 +48,8 @@ class DenDvDxSmoothParams : public SmoothParams
     /// @param _dAlphaMax Maximum SPH alpha
     DenDvDxSmoothParams(int _iType, int am, CSM csm, double _dTime,
 			int _bActiveOnly, int _bConstantDiffusion,
-                        int _bStarting, int _bHaveAlpha, double _dAlphaMax) {
+                        int _bStarting, int _bHaveAlpha, double _dAlphaMax, 
+                        double _dOrbFreq, Vector3D<cosmoType> _fPeriod) {
 	iType = _iType;
 	activeRung = am;
 	bActiveOnly = _bActiveOnly;
@@ -55,6 +58,8 @@ class DenDvDxSmoothParams : public SmoothParams
         bHaveAlpha = _bHaveAlpha;
 	dAlphaMax = _dAlphaMax;
         dTime = _dTime;
+        dOrbFreq = _dOrbFreq;
+        fPeriod = _fPeriod;
 	if(csm->bComove) {
 	    H = csmTime2Hub(csm,dTime);
 	    a = csmTime2Exp(csm,dTime);
@@ -76,6 +81,8 @@ class DenDvDxSmoothParams : public SmoothParams
 	p|bStarting;
 	p|bHaveAlpha;
 	p|dAlphaMax;
+    p|dOrbFreq;
+    p|fPeriod;
 	}
     };
 
@@ -156,6 +163,8 @@ class PressureSmoothParams : public SmoothParams
     double dMetalDiffusionCoeff;
     double dtFacCourant; // Courant timestep factor
     double dtFacDiffusion; // Diffusion timestep factor
+    double dOrbFreq; // Orbital Frequency
+    Vector3D<cosmoType> fPeriod; // Dimensions of patch
     
     virtual void fcnSmooth(GravityParticle *p, int nSmooth,
 			   pqSmoothNode *nList);
@@ -177,7 +186,8 @@ class PressureSmoothParams : public SmoothParams
     PressureSmoothParams(int _iType, int am, CSM csm, double _dTime,
 			 double _alpha, double _beta,
                          double _dThermalDiff, double _dMetalDiff,
-                         double dEtaCourant, double dEtaDiffusion) {
+                         double dEtaCourant, double dEtaDiffusion,
+                         double _dOrbFreq, Vector3D<cosmoType> _fPeriod) {
 	iType = _iType;
 	activeRung = am;
         dTime = _dTime;
@@ -195,6 +205,8 @@ class PressureSmoothParams : public SmoothParams
 	dMetalDiffusionCoeff = _dMetalDiff;
 	dtFacCourant = dEtaCourant*a*2.0/1.6;
 	dtFacDiffusion = 2.0*dEtaDiffusion;
+    dOrbFreq = _dOrbFreq;
+    fPeriod = _fPeriod;
     }
     PUPable_decl(PressureSmoothParams);
     PressureSmoothParams(CkMigrateMessage *m) : SmoothParams(m) {}
@@ -209,6 +221,8 @@ class PressureSmoothParams : public SmoothParams
 	p|dMetalDiffusionCoeff;
 	p|dtFacCourant;
 	p|dtFacDiffusion;
+    p|dOrbFreq;
+    p|fPeriod;
 	}
     };
 
