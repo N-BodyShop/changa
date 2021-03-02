@@ -30,7 +30,7 @@ Main::initSph()
         // Starting is true
 	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0,
 				 param.bConstantDiffusion, 1, bHaveAlpha,
-                                 param.dConstAlphaMax, param.dOrbFreq, param.fPeriod);
+                                 param.dConstAlphaMax, param.externalGravity.dOrbFreq, param.fPeriod);
 	double startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
@@ -718,7 +718,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// This also marks neighbors of actives
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1,
 				 param.bConstantDiffusion, 0, 0,
-                                 param.dConstAlphaMax, param.dOrbFreq, param.fPeriod);
+                                 param.dConstAlphaMax, param.externalGravity.dOrbFreq, param.fPeriod);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -751,7 +751,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// actives, and those who have actives as neighbors.
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0,
 				 param.bConstantDiffusion, 0, 0,
-                                 param.dConstAlphaMax, param.dOrbFreq, param.fPeriod);
+                                 param.dConstAlphaMax, param.externalGravity.dOrbFreq, param.fPeriod);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -785,7 +785,7 @@ Main::doSph(int activeRung, int bNeedDensity)
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
                                    param.dConstAlpha, param.dConstBeta,
                                    param.dThermalDiffusionCoeff, param.dMetalDiffusionCoeff,
-                                   param.dEtaCourant, param.dEtaDiffusion, param.dOrbFreq, param.fPeriod);
+                                   param.dEtaCourant, param.dEtaDiffusion, param.externalGravity.dOrbFreq, param.fPeriod);
     double startTime = CkWallTimer();
     treeProxy.startReSmooth(&pPressure, CkCallbackResumeThread());
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
