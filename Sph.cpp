@@ -732,7 +732,7 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// additional marking
 	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime,
 				      param.bConstantDiffusion,
-                                      param.dConstAlphaMax);
+                                      param.dConstAlphaMax, param.externalGravity.dOrbFreq, param.fPeriod);
 	startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDenN, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());

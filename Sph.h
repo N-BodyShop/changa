@@ -114,9 +114,9 @@ class DenDvDxNeighborSmParams : public DenDvDxSmoothParams
     /// This calls the DenDvDx constructor, and we assume bActiveOnly,
     /// bStarting, and bHaveAlpha are not set.
     DenDvDxNeighborSmParams(int _iType, int am, CSM csm, double dTime,
-			    int bConstDiffusion, double dAlphaMax)
+			    int bConstDiffusion, double dAlphaMax, double dOrbFreq, Vector3D<cosmoType> _fPeriod)
       : DenDvDxSmoothParams(_iType, am, csm, dTime, 0, bConstDiffusion,
-                            0, 0, dAlphaMax) {}
+                            0, 0, dAlphaMax, dOrbFreq, fPeriod) {}
     PUPable_decl(DenDvDxNeighborSmParams);
     DenDvDxNeighborSmParams(CkMigrateMessage *m) : DenDvDxSmoothParams(m) {}
     virtual void pup(PUP::er &p) {
