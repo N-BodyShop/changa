@@ -1110,6 +1110,14 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvx = (-p->vPred().x + q->vPred().x)*vFac;
 		dvy = (-p->vPred().y + q->vPred().y)*vFac;
 		dvz = (-p->vPred().z + q->vPred().z)*vFac;
+#ifdef SLIDING_PATCH
+        if (dx < 0.0 && (p->position[0] - q->position[0] > 0.0)) {
+            dvy += 1.5 * dOrbFreq * fPeriod[0];
+        }
+        else if (dx > 0.0 && (p->position[0] - q->position[0] < 0.0)) {
+            dvy -= 1.5 * dOrbFreq * fPeriod[0];
+        }
+#endif
 		dvxdx += dvx*dx*rs1;
 		dvxdy += dvx*dy*rs1;
 		dvxdz += dvx*dz*rs1;
@@ -1119,14 +1127,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvzdx += dvz*dx*rs1;
 		dvzdy += dvz*dy*rs1;
 		dvzdz += dvz*dz*rs1;
-#ifdef SLIDING_PATCH
-        if (dx < 0.0 && (p->position[0] - q->position[0] > 0.0)) {
-            dvy += 1.5 * dOrbFreq * fPeriod[0];
-        }
-        else if (dx > 0.0 && (p->position[0] - q->position[0] < 0.0)) {
-            dvy -= 1.5 * dOrbFreq * fPeriod[0];
-        }
-#endif
+
                 divvnorm += (dx*dx+dy*dy+dz*dz)*rs1;
                 /* Grad P estimate */
 		/* This used to be:
