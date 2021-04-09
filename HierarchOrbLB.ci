@@ -1,6 +1,5 @@
 module HierarchOrbLB {
 
-extern module LBDatabase;
 extern module HybridBaseLB;
 
 initnode void lbinit(void);

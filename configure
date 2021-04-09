@@ -4101,13 +4101,6 @@ if test "${MISSING_XDR}" = "yes" ; then
    LDFLAGS="$LDFLAGS -L../xdr"
 fi
 
-# Set up the cha_commitid file
-VOLD=$(test -e VERSION && cat VERSION)
-VNEW=$(cd $srcdir && git describe --long --always)
-if test -n "$VNEW" -a "$VOLD" != "$VNEW"; then
-    echo "const char * const Cha_CommitID = \"$VNEW\";" > cha_commitid.c
-fi
-
 # Compiler-specific options
 # Compiler-specific options for ChaNGa
 
@@ -4497,7 +4490,7 @@ else
 fi
 
 case $interlist in
-	1|2) FLAG_INTERLIST="-DINTERLIST_VER=$interlist";;
+	0|1|2) FLAG_INTERLIST="-DINTERLIST_VER=$interlist";;
 	*  ) as_fn_error $? "invalid argument for '--enable-interlist': $interlist" "$LINENO" 5;;
 esac
 
@@ -5553,9 +5546,6 @@ esac
 # BUILD_CUDA is exported by $CHARMINC/conv-mach-cuda.sh
 if test x$BUILD_CUDA = x; then
 	BUILD_CUDA=0
-fi
-if test x$ENABLE_CUDA = xno -a x$BUILD_CUDA = x1; then
-	as_fn_error $? "Charm++ ($CHARM_PATH) was built with CUDA support enabled." "$LINENO" 5
 fi
 if test x$ENABLE_CUDA = xyes -a x$BUILD_CUDA = x0; then
 	as_fn_error $? "Charm++ ($CHARM_PATH) was not built with CUDA support." "$LINENO" 5

@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "Sorter.h"
+#include "formatted_string.h"
 
 using std::vector;
 using std::list;
@@ -151,9 +152,9 @@ void Sorter::finishPhase(CkReductionMsg *m){
   if(numChares == orbData.size()){ //Move data around
     for(i=0;i<numChares;i++){
 	if(verbosity > 2) {
-	    CkPrintf("%d has %d particles\n",i,binCounts[i]);
-	    CkPrintf("%d has %d gas particles\n",i,binCountsGas[i]);
-	    CkPrintf("%d has %d star particles\n",i,binCountsStar[i]);
+	    CkPrintf("%d has %lu particles\n",i,binCounts[i]);
+	    CkPrintf("%d has %u gas particles\n",i,binCountsGas[i]);
+	    CkPrintf("%d has %u star particles\n",i,binCountsStar[i]);
 	    }
 	treeProxy[i].initBeforeORBSend(binCounts[i], binCountsGas[i],
 				       binCountsStar[i], sortingCallback,
@@ -514,12 +515,12 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     CkPrintf("\n");
     CkPrintf("Nodekeys:");
     for(int j=0;j<nodeKeys.size();j++)
-      CkPrintf("%llx,",nodeKeys[j]);
+      CkPrintf("%s,", make_formatted_string(nodeKeys[j]).c_str());
     CkPrintf("\n");
     if (nodesOpened.size() > 0) {
-      CkPrintf("Nodes opened (%d):",nodesOpened.size());
+      CkPrintf("Nodes opened (%lu):",nodesOpened.size());
       for (int j=0;j<nodesOpened.size();j++)
-        CkPrintf("%llx,",nodesOpened[j]);
+        CkPrintf("%s,", make_formatted_string(nodesOpened[j]).c_str());
       CkPrintf("\n");
     }
   }
@@ -532,9 +533,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   delete m;
 
   if(verbosity>=3){
-    CkPrintf("Nodekeys after (%d):",nodeKeys.size());
+    CkPrintf("Nodekeys after (%lu):",nodeKeys.size());
     for(int i=0;i<nodeKeys.size();i++)
-      CkPrintf("%llx,",nodeKeys[i]);
+      CkPrintf("%s,", make_formatted_string(nodeKeys[i]).c_str());
     CkPrintf("\n");
   }
   if(histogram){
@@ -602,7 +603,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
         root->combine(joinThreshold, nodeKeys, binCounts);
 
 	if(binCounts.size() > numTreePieces) {
-	    CkPrintf("bumping joinThreshold: %d, size: %d\n", joinThreshold,
+	    CkPrintf("bumping joinThreshold: %d, size: %lu\n", joinThreshold,
 		     binCounts.size());
 	    joinThreshold = (int) (1.1*joinThreshold) + 1;
 	    }
@@ -656,7 +657,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     //We also have the final bin counts
 		
     if(binCounts.size() > numTreePieces){
-      CkPrintf("Need %d tree pieces, available %d\n", binCounts.size(), numTreePieces);
+      CkPrintf("Need %lu tree pieces, available %u\n", binCounts.size(), numTreePieces);
       CkAbort("too few tree pieces\n");
     }
 
@@ -970,7 +971,7 @@ void Sorter::adjustSplitters() {
                if(verbosity >=4 ) {
                   CkPrintf("Keys:");
                   for (std::vector<Key>::iterator  it = splitters.begin(); it < splitters.end(); it++) {
-                    CkPrintf("%lx,", *it);
+                    CkPrintf("%s,", make_formatted_string(*it).c_str());
                   }
                   CkPrintf("\n");
                 }

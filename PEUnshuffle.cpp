@@ -16,19 +16,19 @@ void PEUnshuffle::sendParticlesDuringDD(TreePiece *treePiece) {
     // On first call, find the total number of non-empty pieces on this PE.
     // The charm++ location manager gives us this count in cTreePieces
     if(vtpLocal.length() == 1) {
-        CkLocMgr *locMgr = treeProxy.ckLocMgr();  
+        CkLocMgr *locMgr = treeProxy.ckLocMgr();
         locMgr->iterate(cTreePieces);
     }
 
     // check if we have everyone
     if(vtpLocal.length() < cTreePieces.count)
         return;
-            
+
     /// Needed to get boundary keys
     DataManager *dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     /// Store total load on this PE for load balancing calculations
     double tpLoad = 0.0;
-    
+
     /// The last domain
     vector<SFC::Key>::const_iterator endKeys = dm->boundaryKeys.end();
     /// for each TreePiece, the beginning of the domain
@@ -74,7 +74,7 @@ void PEUnshuffle::sendParticlesDuringDD(TreePiece *treePiece) {
             nPartOut += binEnd - vBinBegin[iTp];
             if(saved_phase_len < pTreePiece->savedPhaseLoad.size())
                 saved_phase_len = pTreePiece->savedPhaseLoad.size();
-            
+
             for(GravityParticle *pPart = vBinBegin[iTp]; pPart < binEnd; pPart++) {
                 if(pPart->isGas())
                     nGasOut++;
@@ -82,13 +82,13 @@ void PEUnshuffle::sendParticlesDuringDD(TreePiece *treePiece) {
                     nStarOut++;
             }
         }
-        
+
         if(nPartOut > 0) {
             // We have particles to send for this domain.  Allocate
             // message, populate it and send it out.
             ParticleShuffleMsg *shuffleMsg
                 = new (saved_phase_len, saved_phase_len, nPartOut, nGasOut, nStarOut)
-                ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut, 0.0);
+                ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut);
             memset(shuffleMsg->parts_per_phase, 0, saved_phase_len*sizeof(unsigned int));
 
             /// Total particles on this PE are needed for load calculations.
@@ -111,8 +111,6 @@ void PEUnshuffle::sendParticlesDuringDD(TreePiece *treePiece) {
                 }
 
             }
-            // The total load represented by the particles in this message.
-            shuffleMsg->load = tpLoad * nPartOut / nPEParticles;
             memset(shuffleMsg->loads, 0.0, saved_phase_len*sizeof(double));
 
             // Calculate the partial load per phase

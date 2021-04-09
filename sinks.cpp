@@ -303,7 +303,7 @@ void Main::SetSink()
 	treeProxy.SetSink(param.sinks.dSinkMassMin,
 			  CkCallbackResumeThread((void*&)msg));
 	nSink = *(int *)msg->getData();
-	if (verbosity) CkPrintf("Identified %d sink particles\n", nSink);
+	if (verbosity) CkPrintf("Identified %ld sink particles\n", nSink);
 	delete msg;
 	}
     }
@@ -406,11 +406,11 @@ void Main::FormSinks(double dTime, double dDelta, int iKickRung)
 
 
     if (verbosity)
-	CkPrintf("Sinks Formation: %i candidates +%d sinks\n",nCandidates,
+	CkPrintf("Sinks Formation: %i candidates +%ld sinks\n",nCandidates,
 		 nSinkAdd);
 
     dsec = CkWallTimer() - sec;
-    CkPrintf("Sink Form Done (+%d total) Calculated, Wallclock: %f secs\n\n",
+    CkPrintf("Sink Form Done (+%ld total) Calculated, Wallclock: %g secs\n\n",
 	     nSinkAdd, dsec);
 
     }

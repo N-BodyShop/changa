@@ -5,7 +5,7 @@
 
 /// @brief Group to perform unshuffle across an entire PE in order to
 /// reduce the number of messages used.
-class PEUnshuffle : public CBase_PEUnshuffle 
+class PEUnshuffle : public CBase_PEUnshuffle
 {
     /// TreePieces on this PE
     CkVec<TreePiece*> vtpLocal;

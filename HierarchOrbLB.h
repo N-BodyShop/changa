@@ -21,22 +21,20 @@ public:
 
 protected:
   CentralLB *orblb;
-  CentralLB *refinelb;
 
   void init();
   virtual bool QueryBalanceNow(int step) {
     if(step == 0) return false;
     return true;
   };
-  virtual bool QueryMigrateStep(int) { return true; };
+  virtual bool
+  QueryMigrateStep(int) { return true; };
   virtual void work(LDStats* stats);
-  virtual void GetObjsToMigrate(int toPe, double load, LDStats *stats,
-      int atlevel, CkVec<LDCommData>& comms, CkVec<LDObjData>& objs);
   virtual CLBStatsMsg* AssembleStats();
 
 private:
   CProxy_HierarchOrbLB  thisProxy;
-
+  void refine(LDStats* stats);
 };
 
 #endif /* HIERARCH_ORBLB_H */
