@@ -2496,7 +2496,7 @@ void Main::setupICs() {
 	
 // for periodic, puts all particles within the boundary
 // Also assigns keys and sorts.
-  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, dTime,
+  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, param.externalGravity.dOrbFreq, dTime,
                   CkCallbackResumeThread());
 
   initialForces();
@@ -2634,7 +2634,7 @@ Main::restart(CkCheckpointStatusMsg *msg)
         } else {
             CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
         }
-        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, dTime,
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, param.externalGravity.dOrbFreq, dTime,
                         CkCallbackResumeThread());
 	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
@@ -2849,7 +2849,7 @@ Main::doSimulation()
 	    }
 	// The following drift is called because it deletes the tree
 	// so it won't be saved on disk.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy, 0, 0,
+	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy, param.externalGravity.dOrbFreq, dTime,
                         CkCallbackResumeThread());
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
