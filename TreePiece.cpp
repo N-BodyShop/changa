@@ -93,7 +93,8 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 			    double dEwhCutPar, // Cutoff on Fourier summation
 			    int bPeriodPar,    // Periodic boundaries
 			    int bComovePar,    // Comoving coordinates
-			    double dRhoFacPar  // Background density
+			    double dRhoFacPar,  // Background density
+                double dOrbFreqPar    // Orbital frequency
 			    )
 {
     nReplicas = nRepsPar;
@@ -104,6 +105,7 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
     bPeriodic = bPeriodPar;
     bComove = bComovePar;
     dRhoFac = dRhoFacPar;
+    dOrbFreq = dOrbFreqPar;
     if(ewt == NULL) {
 	ewt = new EWT[nMaxEwhLoop];
     }
@@ -2019,9 +2021,11 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		      bool buildTree, // is a treebuild happening before the
 				      // next drift?
               double dMaxEnergy, // Maximum internal energy of gas.
-              double dOrbFreq, ///< Orbital frequency of patch
+              double _dOrbFreq, ///< Orbital frequency of patch
               double dTime,
 		      const CkCallback& cb) {
+  totalTime = dTime;
+  dOrbFreq = _dOrbFreq;
   callback = cb;		// called by assignKeys()
   deleteTree();
 
@@ -5782,6 +5786,7 @@ void TreePiece::pup(PUP::er& p) {
   // Periodic variables
   p | nReplicas;
   p | fPeriod;
+  p | dOrbFreq;
   p | bEwald;
   p | fEwCut;
   p | dEwhCut;

@@ -1571,7 +1571,7 @@ public:
 
 	void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod, int bEwald,
 			 double fEwCut, double fEwhCut, int bPeriod,
-                         int bComove, double dRhoFac);
+                         int bComove, double dRhoFac, double dOrbFreq);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
 	void calculateEwald(dummyMsg *m);

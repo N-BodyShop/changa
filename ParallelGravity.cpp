@@ -1877,12 +1877,8 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
 
     double a = csmTime2Exp(param.csm,dTime);
     double startTime = CkWallTimer();
-    double dOrbFreq = sqrt(param.externalGravity.dCentMass / 
-                      pow(param.externalGravity.dOrbDist, 3)); // Orbital frequency
-                                                               // sqrt(G*M/r^3)
-                                                               // with G=1
     treeProxy.kick(iActiveRung, dKickFac, bClosing, param.bDoGas,
-                   param.bGasIsothermal, dOrbFreq, param.dMaxEnergy, duKick,
+                   param.bGasIsothermal, param.externalGravity.dOrbFreq, param.dMaxEnergy, duKick,
                    (param.dConstGamma-1), param.dThermalCondSatCoeff/a,
                    param.feedback->dMultiPhaseMaxTime,
                    param.feedback->dMultiPhaseMinTemp,
@@ -1973,11 +1969,9 @@ void Main::advanceBigStep(int iStep) {
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
 	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
 	      bool bBuildTree = (iSub + 1 == driftSteps);
-          double dOrbFreq = sqrt(param.externalGravity.dCentMass /
-              pow(param.externalGravity.dOrbDist, 3));
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
 			      dKickFac, dTimeSub, nGrowMassDrift, bBuildTree,
-                              param.dMaxEnergy, dOrbFreq, dTime,
+                              param.dMaxEnergy, param.externalGravity.dOrbFreq, dTime,
 			      CkCallbackResumeThread());
               double tDrift = CkWallTimer() - startTime;
               timings[activeRung].tDrift += tDrift;
@@ -2165,7 +2159,7 @@ void Main::setupICs() {
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,
-                        0.5*param.csm->dHubble0*param.csm->dHubble0*param.csm->dOmega0);
+                        0.5*param.csm->dHubble0*param.csm->dHubble0*param.csm->dOmega0, param.externalGravity.dOrbFreq);
 
   /******** Particles Loading ********/
   CkPrintf("Loading particles ...");
@@ -2493,7 +2487,7 @@ void Main::setupICs() {
 	
 // for periodic, puts all particles within the boundary
 // Also assigns keys and sorts.
-  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, 0,
+  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, dTime,
                   CkCallbackResumeThread());
 
   initialForces();
@@ -2631,7 +2625,7 @@ Main::restart(CkCheckpointStatusMsg *msg)
         } else {
             CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
         }
-        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, 0,
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, dTime,
                         CkCallbackResumeThread());
 	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
@@ -3610,12 +3604,12 @@ void Main::writeOutput(int iStep)
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
-    // The following call is to get the particles in key order
-    // before the sort.
-    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, 0,
-                    CkCallbackResumeThread());
-    domainDecomp(0);
     if(param.nSteps != 0 && param.bDoDensity) {
+        // The following call is to get the particles in key order
+        // before the sort.
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0, 0,
+            CkCallbackResumeThread());
+        domainDecomp(0);
         buildTree(0);
 
 	if(verbosity)
@@ -3677,6 +3671,15 @@ void Main::writeOutput(int iStep)
 		      << endl;
 	    }
 	}
+    if (param.nSteps != 0) {     // Get particles back to home
+                            // processors for continuing the simulation.
+    // The following call is to get the particles in key order
+    // before the sort.
+
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, param.externalGravity.dOrbFreq, dTime,
+            CkCallbackResumeThread());
+        domainDecomp(0);
+    }
     if(param.iBinaryOut == 6)
         writeNCXML(achFile);
     }

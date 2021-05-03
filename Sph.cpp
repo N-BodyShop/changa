@@ -1112,10 +1112,10 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvz = (-p->vPred().z + q->vPred().z)*vFac;
 #ifdef SLIDING_PATCH
         if (dx < 0.0 && (p->position[0] - q->position[0] > 0.0)) {
-            dvy += 1.5 * dOrbFreq * fPeriod[0];
+            dvy -= 1.5 * dOrbFreq * fPeriod[0];
         }
         else if (dx > 0.0 && (p->position[0] - q->position[0] < 0.0)) {
-            dvy -= 1.5 * dOrbFreq * fPeriod[0];
+            dvy += 1.5 * dOrbFreq * fPeriod[0];
         }
 #endif
 		dvxdx += dvx*dx*rs1;
