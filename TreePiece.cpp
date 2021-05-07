@@ -2034,11 +2034,9 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		      bool buildTree, // is a treebuild happening before the
 				      // next drift?
               double dMaxEnergy, // Maximum internal energy of gas.
-              double _dOrbFreq, ///< Orbital frequency of patch
               double dTime,
 		      const CkCallback& cb) {
   totalTime = dTime;
-  dOrbFreq = _dOrbFreq;
   callback = cb;		// called by assignKeys()
   deleteTree();
 
