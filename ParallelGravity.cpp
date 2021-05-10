@@ -2160,6 +2160,8 @@ void Main::advanceBigStep(int iStep) {
 void Main::setupICs() {
   double startTime;
 
+  param.externalGravity.CheckParams(prm, param);
+
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,
@@ -2300,8 +2302,6 @@ void Main::setupICs() {
       if(param.iStartStep) restartNSIDM();
   }
   
-  param.externalGravity.CheckParams(prm, param);
-
   string achLogFileName = string(param.achOutName) + ".log";
   ofstream ofsLog;
   if(bIsRestarting)

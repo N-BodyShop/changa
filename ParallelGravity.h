@@ -2023,7 +2023,6 @@ public:
 	    int z = ((offsetcode >> 6) & 0x7) - 3;
 
 	    Vector3D<cosmoType> offset(x*fPeriod.x, y*fPeriod.y + SHEAR(x, totalTime, fPeriod[1], dOrbFreq), z*fPeriod.z);
-
 	    return offset;
 	    }
 
