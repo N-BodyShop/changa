@@ -624,6 +624,7 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
         }
     p->velocity = vNew;
     p->w = wNew;
+    p->dtKep = 0;
 
     p->dtCol = DBL_MAX;
 
