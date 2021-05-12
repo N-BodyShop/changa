@@ -57,8 +57,7 @@ public:
     int iCollStepRung;    /* Rung to place nearly-colliding particles on*/
     double dCollStepFac;  /* Inflation factor for particle radius when searching for near-collisions*/
     int bWall;            /* particles will bounce off a wall in the z plane */
-    int bAllowMergers;    /* allow particles to merge if they collide at a slow speed */
-    int bPerfectAcc;      /* all collisions result in a merger */
+    int iCollModel;       /* collision model to use, 0 = merge only, 1 = bounce only, 2 = merge/bounce, 3 = partial accretion */
     double dBallFac;      /* scale factor for collision search radius */
     double dWallPos;      /* location of wall along z axis */
     double dEpsN, dEpsT;  /* normal and transverse coefficients of restitution */
@@ -92,8 +91,7 @@ inline void Collision::pup(PUP::er &p) {
     p | iCollStepRung;
     p | dCollStepFac;
     p | bWall;
-    p | bAllowMergers;
-    p | bPerfectAcc;
+    p | iCollModel;
     p | dBallFac;
     p | dWallPos;
     p | dEpsN;
@@ -112,7 +110,7 @@ inline void Collision::pup(PUP::er &p) {
 class CollisionSmoothParams : public SmoothParams
 {
     int bWall;
-    int bAllowMergers;
+    int iCollModel;
     int bNearCollSearch;
     double dWallPos;
     double dTime, dDelta;
@@ -129,7 +127,7 @@ class CollisionSmoothParams : public SmoothParams
 public:
     CollisionSmoothParams() {}
     CollisionSmoothParams(int _iType, int am, double _dTime, double _dDelta,
-                          int _bWall, double _dWallPos, int _bAllowMergers,
+                          int _bWall, double _dWallPos, int _iCollModel,
                           int _bNearCollSearch, Collision _coll) {
         coll = _coll;
         iType = _iType;
@@ -139,7 +137,7 @@ public:
         dDelta = _dDelta;
         bWall = _bWall;
         dWallPos = _dWallPos;
-        bAllowMergers = _bAllowMergers;
+        iCollModel = _iCollModel;
         bNearCollSearch = _bNearCollSearch;
         }
     PUPable_decl(CollisionSmoothParams);
@@ -151,7 +149,7 @@ public:
         p | dDelta;
         p | dTime;
         p | bWall;
-        p | bAllowMergers;
+        p | iCollModel;
         p | dWallPos;
         p | bNearCollSearch;
     }

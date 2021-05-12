@@ -41,10 +41,6 @@ void Collision::AddParams(PRM prm)
         sizeof(double), "dCollStepFac", "<Factor by which particle radius is inflated\
                                        when searching for near-collisions> = 2.5");
    
-    bAllowMergers = 0;
-    prmAddParam(prm, "bAllowMergers", paramBool, &bAllowMergers,
-        sizeof(int), "bAllowMergers", "<Particles merge on collision if their\
-                                        approach speed is small enough> = 0");
     bWall = 0;
     prmAddParam(prm, "bWall", paramBool, &bWall,
         sizeof(int), "bWall", "<Particles bounce off of a plane pointed in\
@@ -54,9 +50,9 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "dWallPos", paramDouble, &dWallPos,
         sizeof(double), "dWallPos", "<Z coordinate of wall> = 0");
 
-    bPerfectAcc = 0;
-    prmAddParam(prm, "bPerfectAcc", paramBool, &bPerfectAcc,
-        sizeof(int), "bPerfectAcc", "<All collisions result in a merger> = 0");
+    iCollModel = 0;
+    prmAddParam(prm, "iCollModel", paramInt, &iCollModel,
+        sizeof(int), "iCollModel", "<Collision model to use> = 0");
 
     dBallFac = 2.0;
     prmAddParam(prm, "dBallFac", paramDouble, &dBallFac,
@@ -79,10 +75,6 @@ void Collision::AddParams(PRM prm)
 
 void Collision::CheckParams(PRM prm, struct parameters &param)
 {
-    if (bPerfectAcc && !bAllowMergers)
-        CkAbort("Perfect accretion will not occur if mergers are disabled\n");
-    if (bWall && bAllowMergers)
-        CkAbort("Mergers cannot occur while bWall is enabled\n");
 #ifndef COLLISION
     if (param.bCollision)
         CkAbort("ChaNGa must be compiled with the COLLISION flag in order to use collision detection\n");
@@ -128,7 +120,7 @@ void Main::doNearCollisions(double dTime, double dDelta, int activeRung)
 {
     CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta,
        param.collision.bWall, param.collision.dWallPos,
-       param.collision.bAllowMergers, 1, param.collision);
+       param.collision.iCollModel, 1, param.collision);
     treeProxy.startReSmooth(&pCS, CkCallbackResumeThread());
 
     // Need to ensure that both near-colliding particles end up on the collision rung
@@ -192,7 +184,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
         // This sets the 'dtCol' and 'iOrderCol' fields for the particles
         CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta, 
            param.collision.bWall, param.collision.dWallPos,
-           param.collision.bAllowMergers, 0, param.collision);
+           param.collision.iCollModel, 0, param.collision);
         treeProxy.startReSmooth(&pCS, CkCallbackResumeThread());
 
         // Once 'dtCol' and 'iOrderCol' are set, we need to determine which
@@ -249,7 +241,9 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
         } while (bHasCollision);
 
         // Clean up any merged particles
-        if (nColl) addDelParticles();
+        //if (nColl) addDelParticles();
+        // externalForce deletes particles that get too close to star, need to call addDelparticles for that too
+        addDelParticles();
     }
 
 /**
@@ -569,6 +563,96 @@ void Collision::doWallCollision(GravityParticle *p) {
 
 int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
 {
+    int iCollType = -1;
+    if (iCollModel == 0) {
+        doMerger(p, c);
+        iCollType = MERGE;
+        }
+    else if (iCollModel == 1) {
+        doBounce(p, c);
+        iCollType = BOUNCE;
+        }
+    else if (iCollModel == 2) {
+        iCollType = doMergeOrBounce(p, c);
+        }
+    else if (iCollModel == 3) {
+        doPartialAcc(p, c);
+        iCollType = FRAG;
+        }
+
+    return iCollType;
+    }
+
+void Collision::doMerger(GravityParticle *p, const ColliderInfo &c) {
+    Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
+    double radNew;
+    mergeCalc(p->soft*2, p->mass, p->position, p->velocity, p->treeAcceleration,
+              p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
+
+    CkPrintf("Merger info:\niorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y\
+              x2z xNewx xNewy xNewz v1x v1y v1z v2x v2y v2z vNewx vNewy vNewz\
+               w1x w1y w1z w2x w2y w2z wNewx wNewy wNewz\n");
+    CkPrintf("%d %d %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\
+              %g %g %g %g %g %g %g %g %g %g %g %g\n",
+            p->iOrder, c.iOrder, p->mass, c.mass, p->soft*2, c.radius,
+            p->position.x, p->position.y, p->position.z,
+            c.position.x, c.position.y, c.position.z,
+            posNew.x, posNew.y, posNew.z,
+            p->velocity.x, p->velocity.y, p->velocity.z,
+            c.velocity.x, c.velocity.x, c.velocity.z,
+            vNew.x, vNew.y, vNew.z,
+            p->w.x, p->w.y, p->w.z,
+            c.w.x, c.w.y, c.w.z,
+            wNew.x, wNew.y, wNew.z);
+
+    p->dtKep = 0;
+    p->position = posNew;
+    p->treeAcceleration = aNew;
+    p->soft = radNew/2.;
+    p->mass += c.mass;
+    p->velocity = vNew;
+    p->w = wNew;
+    p->dtCol = DBL_MAX;
+    }
+
+void Collision::doBounce(GravityParticle *p, const ColliderInfo &c) {
+    Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
+    bounceCalc(p->soft*2., p->mass, p->position, p->velocity, p->w, &vNew, &wNew, c);
+
+    p->dtKep = 0;
+    p->velocity = vNew;
+    p->w = wNew;
+    p->dtCol = DBL_MAX;
+    }
+
+int Collision::doMergeOrBounce(GravityParticle *p, const ColliderInfo &c) {
+    double alpha = 1000;
+    double radNew;
+    Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
+    mergeCalc(p->soft*2, p->mass, p->position, p->velocity, p->treeAcceleration,
+              p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
+    double Mtot = p->mass + c.mass;
+    double vEsc = sqrt(2.*Mtot/(p->soft*2 + c.radius));
+    double wMax = sqrt(Mtot/(radNew*radNew*radNew));
+
+    double vRel = (p->velocity - c.velocity).length();
+    int iCollType = BOUNCE;
+    if (vRel > (alpha*vEsc) || wNew.length() > wMax) doBounce(p, c);
+    else {
+        doMerger(p, c);
+        iCollType = MERGE;
+        }
+
+    return iCollType;
+    }
+
+void Collision::doPartialAcc(GravityParticle *p, const ColliderInfo &c) {
+    // Is it going to be a problem to do a bounce + mass transfer?
+    // Yes, might as well just follow the full recipie from L+S
+    }
+
+/*int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
+{
     int iCollType = BOUNCE;
     // Calculate the post collision spin and velocity of the particle
     Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
@@ -629,7 +713,7 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
     p->dtCol = DBL_MAX;
 
     return iCollType;
-    }
+    }*/
 
 /// FRAGMENTATION CODE - STILL WORKING ON THIS
 /*
