@@ -919,10 +919,10 @@ void TreePiece::updateuDot(int activeRung,
                 /* If cpHotInit is still 1 at this point, we have recently
                  * gotten feedback, but the particle (presumably on a long
                  * timestep has yet to do a updateuDot() with it.  Leave
-                 * uDotHot() at its current value in this case. */
+                 * uDotHot() at its current value in that case. */
                 p->uHotDot() = ExternalHeating;
                 p->cpHotInit() = 1;
-	        assert(ExternalHeating > 0.0);
+                CkAssert(ExternalHeating >= 0.0);
             }
             ExternalHeating = p->PdV()*p->u()/uMean;
         }
