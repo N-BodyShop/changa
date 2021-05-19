@@ -65,11 +65,14 @@ void PEUnshuffle::sendParticlesDuringDD(TreePiece *treePiece) {
         // First loop over TreePieces is to find totals
         for(int iTp = 0; iTp < vtpLocal.length(); iTp++){
             TreePiece *pTreePiece = vtpLocal[iTp];
+            GravityParticle *pLast = &(pTreePiece->getParticles()[pTreePiece->getNumParticles()+1]);
             GravityParticle *binEnd;
+            if(dummy < *vBinBegin[iTp] || vBinBegin[iTp] == pLast) {
+                vBinEnd.push_back(vBinBegin[iTp]);
+                continue;
+            }
             // find particles in this domain
-            binEnd = upper_bound(vBinBegin[iTp],
-                                 &(pTreePiece->getParticles()[pTreePiece->getNumParticles()+1]),
-                                 dummy);
+            binEnd = upper_bound(vBinBegin[iTp], pLast, dummy);
             vBinEnd.push_back(binEnd);
             nPartOut += binEnd - vBinBegin[iTp];
             if(saved_phase_len < pTreePiece->savedPhaseLoad.size())
