@@ -11,6 +11,7 @@
 #include "OrientedBox.h"
 #include "Reductions.h"
 #include "InOutput.h"
+#include "PEUnshuffle.h"
 #include "ckio.h"
 #include <errno.h>
 #include <float.h>
@@ -1499,6 +1500,12 @@ void TreePiece::ioShuffle(CkReductionMsg *msg)
 
     double tpLoad = getObjTime();
     populateSavedPhaseData(iPrevRungLB, tpLoad, nPrevActiveParts);
+    // XXX make this a run-time parameter.
+    bool bUsePEUnshuffle = true;
+    if(bUsePEUnshuffle) {
+        peUnshuffleProxy.ckLocalBranch()->ioShuffle(this, startParticle);
+        return;
+    }
 
     if (myNumParticles > 0) {
 	// Particles have been sorted in reOrder()
