@@ -3608,7 +3608,7 @@ void Main::writeOutput(int iStep)
         // The following call is to get the particles in key order
         // before the sort.
         treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0,
-            CkCallbackResumeThread());
+                        CkCallbackResumeThread());
         domainDecomp(0);
         buildTree(0);
 
@@ -3669,17 +3669,17 @@ void Main::writeOutput(int iStep)
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		      << endl;
-	    }
-	}
-    if (param.nSteps != 0) {     // Get particles back to home
-                            // processors for continuing the simulation.
-    // The following call is to get the particles in key order
-    // before the sort.
-
+        }
+    }
+    if(param.nSteps != 0) {     // Get particles back to home
+                                // processors for continuing the simulation.
+        // The following call is to get the particles in key order
+        // before the sort.
         treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, dTime,
-            CkCallbackResumeThread());
+                        CkCallbackResumeThread());
         domainDecomp(0);
     }
+        
     if(param.iBinaryOut == 6)
         writeNCXML(achFile);
     }

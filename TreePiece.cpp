@@ -1506,9 +1506,9 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
       if(p->rung >= iKickRung) {
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
-              p->vPred() = p->velocity
-                  + dDelta[p->rung]*p->treeAcceleration;
-		      glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
+		  p->vPred() = p->velocity
+		      + dDelta[p->rung]*p->treeAcceleration;
+		  glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
 		  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 		      p->u() = p->u() + p->uDot()*duDelta[p->rung];
@@ -1545,7 +1545,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                  fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
                  if (p->cpHotInit()) {
                      double E = p->uHot();
-                     double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
+                     double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(),
+#ifdef COOLING_GRACKLE
+                                                               fDensity, /* GRACKLE needs density */
+#endif
+                                                               p->fMetals());
                      CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, TpNC, p->fMetals());
                      p->cpHotInit() = 0;
                  }
@@ -1610,7 +1614,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                       p->cpHotInit() = 0;
               }
               if(p->uHotPred() > 0) {
-                  double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(), p->fMetals());
+                  double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticleHot(), p->uHotPred(),
+#ifdef COOLING_GRACKLE
+                                                            fDensity, /* GRACKLE needs density */
+#endif
+                                                            p->fMetals());
                   if(TpNC < dMultiPhaseMinTemp)//Check to make sure the hot phase is still actually hot
                   {
                      p->uPred() = (p->uPred()*(p->mass-p->massHot()) + p->uHotPred()*p->massHot())/p->mass;
@@ -1637,7 +1645,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  p->fMFracIronPred() = p->fMFracIron();
 #endif
 		  }
-          else {	// predicted quantities are at the beginning
+	      else {	// predicted quantities are at the beginning
 			// of step
 		  p->vPred() = p->velocity;
 		  if(!bGasIsothermal) {
@@ -1661,10 +1669,15 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		      p->uHot() = p->uHot() + p->uHotDot()*duDelta[p->rung];
               if (p->cpHotInit()) {
                  double E = p->uHot();
+                 CkAssert(E > 0.0);
                  double frac = p->massHot()/p->mass;
                  double PoverRho = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
                  double fDensity = p->fDensity*PoverRho/(gammam1*p->uHot()); /* Density of bubble part of particle */
-                 double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(), p->fMetals());
+                 double TpNC = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), p->uHot(),
+#ifdef COOLING_GRACKLE
+                                                           fDensity, /* GRACKLE needs density */
+#endif
+                                                           p->fMetals());
                  CoolInitEnergyAndParticleData(dm->Cool, &p->CoolParticleHot(), &E, fDensity, TpNC, p->fMetals());
                  p->cpHotInit() = 0;
               }
@@ -1690,11 +1703,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #endif
 	      }
-      closePatch(bClosing, dDelta[p->rung], p, dOrbFreq);
-      p->velocity += dDelta[p->rung]*p->treeAcceleration;
-      openPatch(bClosing, dDelta[p->rung], p, dOrbFreq);
-      glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
-      
+          closePatch(bClosing, dDelta[p->rung], p, dOrbFreq);
+	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
+          openPatch(bClosing, dDelta[p->rung], p, dOrbFreq);
+	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
 	  }
       }
   contribute(cb);
@@ -2078,8 +2090,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
       }
       boundingBox.grow(p->position);
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
-          p->vPred() += dvDelta * p->treeAcceleration;
-          glassDamping(p->vPred(), dvDelta, dGlassDamper);
+	  p->vPred() += dvDelta*p->treeAcceleration;
+	  glassDamping(p->vPred(), dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 	      p->uPred() += p->uDot()*duDelta;

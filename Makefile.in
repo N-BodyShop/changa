@@ -234,7 +234,7 @@ $(build_dir)/settings: force
 $(build_dir)/cha_commitid.o: $(build_dir)/cha_commitid.c
 	$(compile-c)
 
-$(build_dir)/cha_commitid.c:
+$(build_dir)/cha_commitid.c: force
 	$(quiet) VER=`cd $(source_dir) && git describe --long --always` && \
 	         echo "const char * const Cha_CommitID = \"$$VER\";" > $(build_dir)/cha_commitid.c
 

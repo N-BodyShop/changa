@@ -60,7 +60,7 @@ class extraSPHData
     double _fESNrate;		/* SN energy rate  */
     double _fTimeCoolIsOffUntil;/* time cooling is turned back on */
     Vector3D<double> _vPred;	/* Predicted velocities for velocity
-                                 dependent forces */
+				   dependent forces */
     double _uPred;		/* Predicted internal energy */
     double _divv;		/* Diverence of the velocity */
     Vector3D<double> _curlv;	/* Curl of the velocity */
@@ -312,9 +312,8 @@ public:
 	SFC::Key key;
 	Vector3D<double> velocity;
 #ifdef SLIDING_PATCH
-    double dPy; ///< Canonical momentum used to update y-velocity
+        double dPy;     ///< Canonical momentum used to update y-velocity
 #endif
-    // inline Vector3D<double>& vPred() { return _vPred; }
 	Vector3D<cosmoType> treeAcceleration;
 	cosmoType potential;
         cosmoType dtGrav;       ///< timestep from gravity; N.B., this
@@ -640,7 +639,7 @@ class ExternalSmoothParticle {
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
 	  if(TYPETest(p, TYPE_GAS)) {
-          vPred = p->vPred();
+	      vPred = p->vPred();
 	      mumax = p->mumax();
 	      PdV = p->PdV();
 	      c = p->c();
@@ -707,8 +706,8 @@ class ExternalSmoothParticle {
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
       if(TYPETest(tmp, TYPE_GAS)) {
-      tmp->vPred() = vPred;
-      tmp->mumax() = mumax;
+	  tmp->vPred() = vPred;
+	  tmp->mumax() = mumax;
 	  tmp->PdV() = PdV;
 	  tmp->c() = c;
 	  tmp->PoverRho2() = PoverRho2;
