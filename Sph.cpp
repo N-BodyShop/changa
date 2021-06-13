@@ -1162,7 +1162,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvzdx += dvz*dx*rs1;
 		dvzdy += dvz*dy*rs1;
 		dvzdz += dvz*dz*rs1;
-
                 divvnorm += (dx*dx+dy*dy+dz*dz)*rs1;
                 /* Grad P estimate */
 		/* This used to be:

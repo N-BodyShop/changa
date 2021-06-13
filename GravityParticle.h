@@ -369,7 +369,7 @@ public:
           p | key;
           p | velocity;
 #ifdef SLIDING_PATCH
-          p | dPy;
+          p | dPy; ///< Canonical momentum used to update y-velocity
 #endif
           p | treeAcceleration;
           p | dtGrav;
