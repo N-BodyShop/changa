@@ -1467,6 +1467,14 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 
 #include "physconst.h"
 
+/**
+* @brief closePatch performs a velocity update to particles
+* at the edge of a sliding patch.
+* @param bClosing bool indicating whether the patch is opening or closing
+* @param dDelta timestep
+* @param p particle to update
+* @param dOrbFreq orbital frequency of rotating patch
+*/
 inline void closePatch(int bClosing, double dDelta, GravityParticle *p, double dOrbFreq) {
 #ifdef SLIDING_PATCH
     if (bClosing) {
@@ -1475,6 +1483,14 @@ inline void closePatch(int bClosing, double dDelta, GravityParticle *p, double d
     }
 #endif
 }
+/**
+* @brief openPatch performs a velocity update to particles
+* at the edge of a sliding patch.
+* @param bClosing bool indicating whether the patch is opening or closing
+* @param dDelta timestep
+* @param p particle to update
+* @param dOrbFreq orbital frequency of rotating patch
+*/
 inline void openPatch(int bClosing, double dDelta, GravityParticle* p, double dOrbFreq) {
 #ifdef SLIDING_PATCH
     if (!bClosing) {
