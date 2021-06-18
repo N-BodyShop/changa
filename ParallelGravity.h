@@ -1192,7 +1192,7 @@ private:
 	/// Background density of the Universe
 	double dRhoFac;
 	Vector3D<cosmoType> fPeriod;
-	double dOrbFreq;
+	double dOrbFreq; ///< Orbital frequency of patch
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
@@ -1691,7 +1691,7 @@ public:
   /*****************************/
 
   void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
-	    int bNeedVPred, int bGasIsothermal, double dOrbFreq, double dMaxEnergy, double duDelta[MAXRUNG+1],
+	    int bNeedVPred, int bGasIsothermal, double dMaxEnergy, double duDelta[MAXRUNG+1],
         double gammam1, double dThermalCondSatCoeff,
         double dMultiPhaseMaxTime, double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
@@ -1997,7 +1997,7 @@ public:
         GenericTreeNode *getRoot() {return root;}
         // need this in Compute
 	inline double SHEAR(int ix,                      ///< Interior or exterior?
-			double t,                    ///< time, in dTime+dDelta
+			double t,                    ///< Current simulation time
 			Vector3D<cosmoType> fPeriod, ///< vector for dxPeriod and dyPeriod
 			double dOrbFreq)             ///< Orbital frequency
 		{
