@@ -1468,7 +1468,8 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 #include "physconst.h"
 
 /**
-* @brief closePatch performs a velocity update to particles
+* @brief closePatch performs a velocity update as part of the kick-cross-drift-cross-kick
+algorithm described in Quinn et al. 2010
 * at the edge of a sliding patch.
 * @param bClosing bool indicating whether the patch is opening or closing
 * @param dDelta timestep
@@ -1484,8 +1485,8 @@ inline void closePatch(int bClosing, double dDelta, GravityParticle *p, double d
 #endif
 }
 /**
-* @brief openPatch performs a velocity update to particles
-* at the edge of a sliding patch.
+* @brief openPatch performs a velocity update as part of the kick-cross-drift-cross-kick
+algorithm described in Quinn et al. 2010
 * @param bClosing bool indicating whether the patch is opening or closing
 * @param dDelta timestep
 * @param p particle to update
@@ -1507,7 +1508,6 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bClosing, // Are we at the end of a timestep
 		     int bNeedVPred, // do we need to update vpred
 		     int bGasIsothermal, // Isothermal EOS
-             double dOrbFreq, ///< Orbital frequency
              double dMaxEnergy, // Maximum internal energy of gas.
 		     double duDelta[MAXRUNG+1], // dts for energy
              double gammam1, // Adiabatic index - 1

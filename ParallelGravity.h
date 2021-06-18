@@ -1203,7 +1203,7 @@ private:
 	/// Background density of the Universe
 	double dRhoFac;
 	Vector3D<cosmoType> fPeriod;
-	double dOrbFreq;
+	double dOrbFreq; ///< Orbital frequency of patch
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
@@ -2008,7 +2008,7 @@ public:
         GenericTreeNode *getRoot() {return root;}
         // need this in Compute
 	inline double SHEAR(int ix,                      ///< Interior or exterior?
-			double t,                    ///< time, in dTime+dDelta
+			double t,                    ///< Current simulation time
 			Vector3D<cosmoType> fPeriod, ///< vector for dxPeriod and dyPeriod
 			double dOrbFreq)             ///< Orbital frequency
 		{
