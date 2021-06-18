@@ -311,6 +311,9 @@ class GravityParticle : public ExternalGravityParticle {
 public:
 	SFC::Key key;
 	Vector3D<double> velocity;
+#ifdef SLIDING_PATCH
+        double dPy;     ///< Canonical momentum used to update y-velocity
+#endif
 	Vector3D<cosmoType> treeAcceleration;
 	cosmoType potential;
         cosmoType dtGrav;       ///< timestep from gravity; N.B., this
@@ -358,6 +361,9 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
+#ifdef SLIDING_PATCH
+          p | dPy;
+#endif
           p | treeAcceleration;
           p | dtGrav;
           p | fDensity;

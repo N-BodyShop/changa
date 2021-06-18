@@ -294,6 +294,9 @@ ARG_ENABLE([rtforce], [Richie-Thomas forces], [FLAG_RTFORCE], [-DRTFORCE], [yes]
 # SIDM interactions
 ARG_ENABLE([sidminter], [SIDM interactions], [FLAG_SIDMINTERACT], [-DSIDMINTERACT], [no])
 
+# Sliding patch (Hill) approximation
+ARG_ENABLE([slidingpatch], [Sliding Patch EOM], [FLAG_SLIDING_PATCH], [-DSLIDING_PATCH], [no])
+
 # -----------------------------------------------------------------------------
 # ---- Charm++ Options --------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -356,7 +359,7 @@ echo "    "Charm path "      " $CHARM_PATH
 echo "    "Charm compiler"   " $CHARMC
 echo "    "C++ compiler"     " $CXX
 echo
-echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
+echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT $FLAG_SLIDING_PATCH
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE $FLAG_SUPERBUBBLE
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
 echo "    "Load balancer "   " $DEFAULT_LB

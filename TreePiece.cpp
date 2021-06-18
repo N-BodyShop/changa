@@ -93,7 +93,8 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 			    double dEwhCutPar, // Cutoff on Fourier summation
 			    int bPeriodPar,    // Periodic boundaries
 			    int bComovePar,    // Comoving coordinates
-			    double dRhoFacPar  // Background density
+			    double dRhoFacPar,  // Background density
+                double dOrbFreqPar    // Orbital frequency
 			    )
 {
     nReplicas = nRepsPar;
@@ -104,6 +105,7 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
     bPeriodic = bPeriodPar;
     bComove = bComovePar;
     dRhoFac = dRhoFacPar;
+    dOrbFreq = dOrbFreqPar;
     if(ewt == NULL) {
 	ewt = new EWT[nMaxEwhLoop];
     }
@@ -1465,6 +1467,43 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 
 #include "physconst.h"
 
+/**
+* @brief closePatch performs a velocity update as part of the kick-cross-drift-cross-kick
+algorithm described in Quinn et al. 2010
+* at the edge of a sliding patch.
+* @param bClosing bool indicating whether the patch is opening or closing
+* @param dDelta timestep
+* @param p particle to update
+* @param dOrbFreq orbital frequency of rotating patch
+*/
+inline void closePatch(int bClosing, double dDelta, GravityParticle *p, double dOrbFreq) {
+#ifdef SLIDING_PATCH
+    if (bClosing) {
+        p->velocity[0] += 2.0 * dDelta * dOrbFreq * p->dPy;
+        p->velocity[1] = p->dPy - 2 * dOrbFreq * p->position[0];
+    }
+#endif
+}
+/**
+* @brief openPatch performs a velocity update as part of the kick-cross-drift-cross-kick
+algorithm described in Quinn et al. 2010
+* @param bClosing bool indicating whether the patch is opening or closing
+* @param dDelta timestep
+* @param p particle to update
+* @param dOrbFreq orbital frequency of rotating patch
+*/
+inline void openPatch(int bClosing, double dDelta, GravityParticle* p, double dOrbFreq) {
+#ifdef SLIDING_PATCH
+    if (!bClosing) {
+        p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->position[0];
+
+        // Cross hamiltonian
+        p->velocity[0] += 2.0 * dDelta * dOrbFreq * p->dPy;
+        p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * dDelta * p->velocity[0]);
+    }
+#endif
+}
+
 void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		     int bClosing, // Are we at the end of a timestep
 		     int bNeedVPred, // do we need to update vpred
@@ -1680,7 +1719,9 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #endif
 	      }
+          closePatch(bClosing, dDelta[p->rung], p, dOrbFreq);
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
+          openPatch(bClosing, dDelta[p->rung], p, dOrbFreq);
 	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
 	  }
       }
@@ -1994,7 +2035,7 @@ void TreePiece::assignDomain(const CkCallback &cb)
         myParticles[i].interMass = thisIndex;
 	}
     contribute(cb);
-    }
+}
 
 void TreePiece::drift(double dDelta,  // time step in x containing
 				      // cosmo scaling
@@ -2007,8 +2048,10 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 				      // in place
 		      bool buildTree, // is a treebuild happening before the
 				      // next drift?
-                      double dMaxEnergy, // Maximum internal energy of gas.
+              double dMaxEnergy, // Maximum internal energy of gas.
+              double dTime,
 		      const CkCallback& cb) {
+  totalTime = dTime;
   callback = cb;		// called by assignKeys()
   deleteTree();
 
@@ -2022,15 +2065,31 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
+#ifdef SLIDING_PATCH
+      cosmoType fShear = 0.0;
+#endif
       if (p->iOrder >= nGrowMass)
 	  p->position += dDelta*p->velocity;
       if(bPeriodic) {
         for(int j = 0; j < 3; j++) {
           if(p->position[j] >= 0.5*fPeriod[j]){
             p->position[j] -= fPeriod[j];
+#ifdef SLIDING_PATCH
+            if (j == 0) { /* radial wrap */
+                fShear = 1.5 * dOrbFreq * fPeriod[0];
+                p->position[1] += SHEAR(-1, dTime + dDelta, fPeriod, dOrbFreq);
+            }
+#endif
           }
+
           if(p->position[j] < -0.5*fPeriod[j]){
             p->position[j] += fPeriod[j];
+#ifdef SLIDING_PATCH
+            if (j == 0) { /* radial wrap */
+                fShear = -1.5 * dOrbFreq * fPeriod[0];
+                p->position[1] += SHEAR(1, dTime + dDelta, fPeriod, dOrbFreq);
+            }
+#endif
           }
 
           bool a = (p->position[j] >= -0.5*fPeriod[j]);
@@ -2098,6 +2157,11 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 	  p->fMFracIronPred() += p->fMFracIronDot()*duDelta;
 #endif /* DIFFUSION */
 	  }
+#ifdef SLIDING_PATCH
+      p->velocity[1] += fShear;
+      p->dPy -= fShear / 3.0; /* Angular momentum is
+                   also changed. */
+#endif
       }
   CkAssert(bInBox);
   if(!bInBox){
@@ -5748,6 +5812,7 @@ void TreePiece::pup(PUP::er& p) {
   // Periodic variables
   p | nReplicas;
   p | fPeriod;
+  p | dOrbFreq;
   p | bEwald;
   p | fEwCut;
   p | dEwhCut;
