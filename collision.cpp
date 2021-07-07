@@ -205,7 +205,6 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
             c[0] = *(ColliderInfo *)msgChk->getData();
             c[0].dtCol = c[1].dtCol;
             }
-        delete msgChk;
 
         // If the collision is going to happen during this timestep, resolve it now
         if (c[0].dtCol <= dDelta) {
@@ -223,10 +222,15 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
                     CkAbort("Warning: Collider pair mismatch\n");
                     }
                 // Only resolve the collision if both particles are on the same rung
-                if(c[0].rung == c[1].rung) {
+                if (c[0].rung == c[1].rung) {
                     nColl++;
+                    CkReductionMsg *msgChk1;
                     treeProxy.resolveCollision(param.collision, c[0], c[1], dDelta,
-                                           dTime, CkCallbackResumeThread());
+                                           dTime, CkCallbackResumeThread((void*&)msgChk1));
+                    string achCollLogFileName = string(param.achOutName) + ".coll";
+                    int *collType = (int *)msgChk1->getData();
+                    logCollision(dTime, c, *collType, achCollLogFileName.c_str());
+                    delete msgChk1;
                     }
                 // Otherwise, force both particles onto the smaller rung
                 // Collision should get detected again
@@ -236,6 +240,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
                     }
                 }
             }
+        delete msgChk;
 
         // Velocities and positions may have changed, keep looking for collisions
         } while (bHasCollision);
@@ -244,6 +249,32 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
         //if (nColl) addDelParticles();
         // externalForce deletes particles that get too close to star, need to call addDelparticles for that too
         addDelParticles();
+    }
+
+///
+/// \brief Output collision event to log file
+///
+
+void
+Main::logCollision(double dTime, ColliderInfo *c, int collType, const char *achCollLogFileName)
+{
+    static int first = 1;
+    FILE *fpLog = fopen(achCollLogFileName, "a");
+    if(first && (!bIsRestarting || dTimeOld == 0.0)) {
+        fprintf(fpLog, "# time collType iorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y x2z v1x v1y v1z v2x v2y v2z w1x w1y w1z w2x w2y w2z\n");
+        first = 0;
+        }
+    CkPrintf("colltype: %d\n", collType);
+    fprintf(fpLog, "%g %d %d %d %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
+                   dTime, collType, c[0].iOrder, c[1].iOrder, c[0].mass, c[1].mass, c[0].radius, c[1].radius,
+                   c[0].position[0], c[0].position[1], c[0].position[2],
+                   c[1].position[0], c[1].position[1], c[1].position[2],
+                   c[0].velocity[0], c[0].velocity[1], c[0].velocity[2],
+                   c[1].velocity[0], c[1].velocity[1], c[1].velocity[2],
+                   c[0].w[0], c[0].w[1], c[0].w[2],
+                   c[1].w[0], c[1].w[1], c[1].w[2]);
+                   
+    fclose(fpLog);
     }
 
 /**
@@ -368,7 +399,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
                                  const ColliderInfo &c2, double baseStep,
                                  double timeNow, const CkCallback& cb) {
     GravityParticle *p;
-    int iCollResult;
+    int iCollResult = -1;
     // Colliders need to be handled individually because only one
     // of the two could be on this tree piece
     for (unsigned int i=1; i <= myNumParticles; i++) {
@@ -395,7 +426,6 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
             iCollResult = coll.doCollision(p, c1);
             if (iCollResult == MERGE) {
                 if (c2.mass > c1.mass) {
-                    CkPrintf("%g %g\n", p->mass, c1.mass);
                     CkPrintf("Merge %d into %d\n", p->iOrder, c1.iOrder);
                     coll.setMergerRung(p, c1, c2, baseStep, timeNow);
                 }
@@ -408,7 +438,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
             }
         }
 
-    contribute(cb);
+    contribute(sizeof(int), &iCollResult, CkReduction::max_int, cb);
     }
 
 /**
@@ -588,22 +618,6 @@ void Collision::doMerger(GravityParticle *p, const ColliderInfo &c) {
     double radNew;
     mergeCalc(p->soft*2, p->mass, p->position, p->velocity, p->treeAcceleration,
               p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
-
-    CkPrintf("Merger info:\niorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y\
-              x2z xNewx xNewy xNewz v1x v1y v1z v2x v2y v2z vNewx vNewy vNewz\
-               w1x w1y w1z w2x w2y w2z wNewx wNewy wNewz\n");
-    CkPrintf("%d %d %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\
-              %g %g %g %g %g %g %g %g %g %g %g %g\n",
-            p->iOrder, c.iOrder, p->mass, c.mass, p->soft*2, c.radius,
-            p->position.x, p->position.y, p->position.z,
-            c.position.x, c.position.y, c.position.z,
-            posNew.x, posNew.y, posNew.z,
-            p->velocity.x, p->velocity.y, p->velocity.z,
-            c.velocity.x, c.velocity.x, c.velocity.z,
-            vNew.x, vNew.y, vNew.z,
-            p->w.x, p->w.y, p->w.z,
-            c.w.x, c.w.y, c.w.z,
-            wNew.x, wNew.y, wNew.z);
 
     p->dtKep = 0;
     p->position = posNew;
