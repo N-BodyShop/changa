@@ -1783,12 +1783,12 @@ public:
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, double gammam1, const CkCallback& cb);
+			int bUpdateState, double gammam1, double dResolveJeans, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
     void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
-        double dEvapMinTemp, double dDtCourantFac, const CkCallback &cb);
+        double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);
     void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
         double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);
