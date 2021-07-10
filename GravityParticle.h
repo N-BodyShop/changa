@@ -65,7 +65,10 @@ class extraSPHData
     double _divv;		/* Diverence of the velocity */
     Vector3D<double> _curlv;	/* Curl of the velocity */
     double _mumax;		/* */
-    double _PdV;
+    double _PdV;                /*!< Total work done by gas */
+    double _uDotPdV;            /*!< Change in energy from compression */
+    double _uDotAV;             /*!< Change in Energy from AV */
+    double _uDotDiff;           /*!< Change in Energy from diffusion */
     double _c;			/* Speed of Sound */
     double _PoverRho2;		/* Pressure/rho^2 */
     double _BalsaraSwitch;	/* Pressure/rho^2 */
@@ -127,6 +130,9 @@ class extraSPHData
     inline Vector3D<double>& curlv() {return _curlv;}
     inline double& mumax() {return _mumax;}
     inline double& PdV() {return _PdV;}
+    inline double& uDotPdV() {return _uDotPdV;}
+    inline double& uDotAV() {return _uDotAV;}
+    inline double& uDotDiff() {return _uDotDiff;}
     inline double& c() {return _c;}
     inline double& PoverRho2() {return _PoverRho2;}
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
@@ -186,7 +192,10 @@ class extraSPHData
 	p | _divv;
 	p | _curlv;
 	p | _mumax;
-	p | _PdV;
+        p | _PdV;
+        p | _uDotPdV;
+        p | _uDotAV;
+        p | _uDotDiff;
 	p |  _c;
 	p | _PoverRho2;
 	p | _BalsaraSwitch;
@@ -411,7 +420,10 @@ public:
 	inline double& divv() { IMAGAS; return (((extraSPHData*)extraData)->divv());}
 	inline Vector3D<double>& curlv() { IMAGAS; return (((extraSPHData*)extraData)->curlv());}
 	inline double& mumax() { IMAGAS; return (((extraSPHData*)extraData)->mumax());}
-	inline double& PdV() { IMAGAS; return (((extraSPHData*)extraData)->PdV());}
+        inline double& PdV() { IMAGAS; return (((extraSPHData*)extraData)->PdV());}
+        inline double& uDotPdV() { IMAGAS; return (((extraSPHData*)extraData)->uDotPdV());}
+        inline double& uDotAV() { IMAGAS; return (((extraSPHData*)extraData)->uDotAV());}
+        inline double& uDotDiff() { IMAGAS; return (((extraSPHData*)extraData)->uDotDiff());}
 	inline double& c() { IMAGAS; return (((extraSPHData*)extraData)->c());}
 	inline double& PoverRho2() { IMAGAS; return (((extraSPHData*)extraData)->PoverRho2());}
 	inline double& BalsaraSwitch() { IMAGAS; return (((extraSPHData*)extraData)->BalsaraSwitch());}
@@ -576,6 +588,9 @@ class ExternalSmoothParticle {
   Vector3D<cosmoType> treeAcceleration;
   double mumax;
   double PdV;
+  double uDotPdV;
+  double uDotAV;
+  double uDotDiff;
   double c;
   double PoverRho2;
   double BalsaraSwitch;
@@ -635,7 +650,10 @@ class ExternalSmoothParticle {
 	  if(TYPETest(p, TYPE_GAS)) {
 	      vPred = p->vPred();
 	      mumax = p->mumax();
-	      PdV = p->PdV();
+              PdV = p->PdV();
+              uDotPdV = p->uDotPdV();
+              uDotAV = p->uDotAV();
+              uDotDiff = p->uDotDiff();
 	      c = p->c();
 	      PoverRho2 = p->PoverRho2();
 	      BalsaraSwitch = p->BalsaraSwitch();
@@ -702,7 +720,10 @@ class ExternalSmoothParticle {
       if(TYPETest(tmp, TYPE_GAS)) {
 	  tmp->vPred() = vPred;
 	  tmp->mumax() = mumax;
-	  tmp->PdV() = PdV;
+          tmp->PdV() = PdV;
+          tmp->uDotPdV() = uDotPdV;
+          tmp->uDotAV() = uDotAV;
+          tmp->uDotDiff() = uDotDiff;
 	  tmp->c() = c;
 	  tmp->PoverRho2() = PoverRho2;
 	  tmp->BalsaraSwitch() = BalsaraSwitch;
@@ -773,6 +794,9 @@ class ExternalSmoothParticle {
     p | vPred;
     p | mumax;
     p | PdV;
+    p | uDotPdV;
+    p | uDotAV;
+    p | uDotDiff;
     p | c;
     p | PoverRho2;
     p | BalsaraSwitch;

@@ -1815,11 +1815,13 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
     if(verbosity)
         CkPrintf("uDot update: Rung %d ... ", iActiveRung);
     double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+    double a = csmTime2Exp(param.csm,dTime);
     if(param.bGasCooling)
         dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
     treeProxy.updateuDot(iActiveRung, duKick, dStartTime,
                          param.bGasCooling, bUpdateState, bAll,
                          (param.dConstGamma-1),
+                         param.dResolveJeans/a,
                          CkCallbackResumeThread());
     double tuDot = CkWallTimer() - startTime;
     timings[iActiveRung].tuDot += tuDot;
