@@ -10,7 +10,11 @@ CkpvExtern(int, _lb_obj_index);
 
 using namespace std;
 
-CreateLBFunc_Def(Orb3dLB, "3d ORB mapping of tree piece space onto 3d processor mesh");
+static void lbinit()
+{
+    LBRegisterBalancer<Orb3dLB>("Orb3dLB",
+      "3d ORB mapping of tree piece space onto 3d processor mesh");
+}
 
 static int comparx(const void *a, const void *b){
   const TPObject *ta = (const TPObject*)(a);

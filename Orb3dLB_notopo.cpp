@@ -24,7 +24,11 @@ void Orb3dLB_notopo::init() {
 
 using namespace std;
 
-CreateLBFunc_Def(Orb3dLB_notopo, "3d ORB mapping of tree piece space onto 3d processor mesh");
+static void lbinit()
+{
+    LBRegisterBalancer<Orb3dLB_notopo>("Orb3dLB_notopo",
+      "3D ORB mapping of treepiece space onto processors without topology information");
+}
 
 Orb3dLB_notopo::Orb3dLB_notopo(const CkLBOptions &opt): CBase_Orb3dLB_notopo(opt)
 {
