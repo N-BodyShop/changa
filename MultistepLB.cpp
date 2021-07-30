@@ -10,7 +10,11 @@ extern CProxy_TreePiece treeProxy;
 CkpvExtern(int, _lb_obj_index);
 using namespace std;
 
-CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses Orb3D for larger steps, greedy otherwise");
+static void lbinit()
+{
+    LBRegisterBalancer<MultistepLB>("MultistepLB",
+      "Works best with multistepped runs; uses Orb3D for large steps, greedy otherwise");
+}
 
 void MultistepLB::init() {
   lbname = "MultistepLB";
