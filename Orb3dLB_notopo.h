@@ -12,9 +12,6 @@
 
 #include "pup_stl.h"
 
-void CreateOrb3dLB_notopo();
-BaseLB * AllocateOrb3dLB_notopo();
-
 /// @brief Load balancer that divides work according to a 3D spatial
 /// ORB.
 class Orb3dLB_notopo : public CBase_Orb3dLB_notopo, public Orb3dCommon {

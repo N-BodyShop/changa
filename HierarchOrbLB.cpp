@@ -20,7 +20,6 @@ static void lbinit()
 }
 
 CkpvExtern(int, _lb_obj_index);
-extern BaseLB* AllocateOrb3dLB_notopo();
 
 void HierarchOrbLB::init() {
   lbname = (char *)"HierarchOrbLB";
