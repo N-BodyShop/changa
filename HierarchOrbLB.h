@@ -10,8 +10,6 @@
 
 #include "CentralLB.h"
 
-void CreateHierarchOrbLB();
-
 class HierarchOrbLB : public CBase_HierarchOrbLB
 {
 public:
