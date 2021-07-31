@@ -23,9 +23,6 @@
 
 #include "MultistepLB.decl.h"
 
-void CreateMultistepLB();
-BaseLB * AllocateMultistepLB();
-
 //**************************************
 // ORB3DLB functions
 //**************************************

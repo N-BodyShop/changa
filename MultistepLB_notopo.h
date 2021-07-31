@@ -21,10 +21,6 @@
 
 #include "MultistepLB_notopo.decl.h"
 
-void CreateMultistepLB_notopo();
-BaseLB * AllocateMultistepLB_notopo();
-
-
 /// @brief Multistep load balancer where no processor topology
 /// information is used.
 ///
