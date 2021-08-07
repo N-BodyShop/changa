@@ -613,8 +613,6 @@ double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in y
     double dA0old =  70.908586,
       dA1old = -4.0643123;
 
-    double temp, dAlog10;
-
     dStarAge = dTime - sfEvent->dTimeForm;
     if (dStarAge >= 0 ) { /*Test that it is not a Black Hole */
       if (dStarAge != 0) {
