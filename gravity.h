@@ -407,7 +407,6 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
   int computed = 0;
   Vector3D<cosmoType> r;
   cosmoType rsq;
-  cosmoType twoh, a, b, c, d;
   MultipoleMoments &m = node->moments;
 
   Vector3D<cosmoType> cm(m.cm + offset);
@@ -446,6 +445,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 		  &particles[j].treeAcceleration.z, &magai);
       cosmoType idt2 = (particles[j].mass + m.totalMass)*dir*dir*dir;
 #else
+      cosmoType twoh, a, b, c, d;
       twoh = CONVERT_TO_COSMO_TYPE(m.soft + particles[j].soft);
       SPLINEQ(dir, rsq, twoh, a, b, c, d);
       cosmoType qirx = CONVERT_TO_COSMO_TYPE m.xx*r.x 

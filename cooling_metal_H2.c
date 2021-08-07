@@ -1105,7 +1105,7 @@ void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, do
 
   xnHlog = (nHlog - cl->MetalnHlogMin)*cl->rDeltanHlog; 
   inHlog = xnHlog;
-  if (inHlog == cl->nnHMetalTable - 1) inHlog == cl->nnHMetalTable - 2; /*CC; To prevent running over the table.  Should not be used*/
+  if (inHlog == cl->nnHMetalTable - 1) inHlog = cl->nnHMetalTable - 2; /*CC; To prevent running over the table.  Should not be used*/
   
   Cool000 = cl->MetalCoolln[iz][inHlog][iTlog];
   Cool001 = cl->MetalCoolln[iz][inHlog][iTlog+1];
@@ -1197,9 +1197,6 @@ double clCoolTotal ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMet
 
   double en_B=rho*CL_B_gm;
   double LowTCool;
-  double s_dust, s_self;
-  s_dust = clDustShield(Y->HI*en_B, Y->H2*en_B, ZMetal, Rate->CorreLength);
-  s_self = clSelfShield(Y->H2*en_B, Rate->CorreLength);
 
   if (Rate->T > cl->R.Tcmb)
       LowTCool = clCoolLowT(Rate->T)*cl->R.Cool_LowTFactor*en_B*ZMetal;
@@ -2845,8 +2842,6 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
   double t=0;
   clDerivsData *d = clData;
   STIFF *sbs = d->IntegratorContext;
-  int its = 0;
-  FILE *fp; 
   time_t startTime, endTime;
  
   if (tStep == 0) return;
@@ -3358,13 +3353,11 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 			     double rhoCode, double ZMetal, double *posCode, 
 			     double tStep, double columnL ) {
 	PERBARYON Y;
-	double T,E,rho;
+	double E;
 
 	double dLymanWerner = cp->dLymanWerner;
 
 	E = CoolCodeEnergyToErgPerGm( cl, *ECode );
-	T = CoolEnergyToTemperature( cl, cp, E, ZMetal);
-	rho = CodeDensityToComovingGmPerCc(cl,rhoCode );
 	CoolPARTICLEtoPERBARYON(cl, &Y, cp, ZMetal);
 #ifdef NOEXTHEAT
 	ExternalHeatingCode = 0;
