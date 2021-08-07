@@ -308,7 +308,6 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
   double th = 1.20;
   double uth = 0.9;
   
-  int maxcountoftps = 0;
   for (int i = (numNodes-1); i >= 0; i--) {
     if (counts[i] > th*avgldperpe) {
       ovldpes.push_back(i);

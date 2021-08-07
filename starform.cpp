@@ -303,7 +303,6 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     double dTimeStarForm = (dDelta > dDeltaStarForm ? dDelta : dDeltaStarForm);
 
 #ifdef COOLING_MOLECULARH
-    double yH;
     double dMprob;
     if (dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
     else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
