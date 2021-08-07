@@ -1108,7 +1108,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         ih2 = invH2(p); 
         ih = sqrt(ih2); 
 	vFac = 1./(a*a); /* converts v to xdot */
-	fNorm = M_1_PI*ih2*sqrt(ih2);
+	fNorm = M_1_PI*ih2*ih;
 	fDensity = 0.0;
 	dvxdx = 0; dvxdy = 0; dvxdz= 0;
 	dvydx = 0; dvydy = 0; dvydz= 0;

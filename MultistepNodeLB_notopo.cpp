@@ -308,8 +308,6 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
   double th = 1.20;
   double uth = 0.9;
   
-  int maxcountoftps = 0;
-  int pewithmax = -1;
   for (int i = (numNodes-1); i >= 0; i--) {
     if (counts[i] > th*avgldperpe) {
       ovldpes.push_back(i);
@@ -341,7 +339,6 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
     int ovlpe = ovldpes.front();
     pop_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
     ovldpes.pop_back();
-    bool succ = false;
     for (int k = 0; k < objpemap[ovlpe].size() ; k++) {
       int i = objpemap[ovlpe][k];
       if (undcount > unldpes.size()) {
@@ -378,7 +375,6 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
         ovldpes.push_back(n_proc);
         push_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
       }
-      succ = true;
       sort(unldpes.begin(), unldpes.end(), PeLdLesser(counts));
       break;
     }
@@ -410,10 +406,7 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
   vector<int> ovldpes;
   double th = 1.05;
   double unth = 0.9;
-  int total_its = 0;
   
-  int maxcountoftps = 0;
-  int pewithmax = -1;
   for (int i = (stats->nprocs()-1); i >= 0; i--) {
     if (counts[i] > th*avgldperpe) {
       ovldpes.push_back(i);
@@ -440,7 +433,6 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
     int ovlpe = ovldpes.front();
     pop_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
     ovldpes.pop_back();
-    bool succ = false;
     if (ovlpe >= stats->nprocs()) {
       CkPrintf("ovlpe %d stats count %d\n", ovlpe, stats->nprocs());
       CkAbort("ovle >= count\n");
@@ -479,7 +471,6 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
         ovldpes.push_back(n_proc);
         push_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
       }
-      succ = true;
       sort(unldpes.begin(), unldpes.end(), PeLdLesser(counts));
       break;
     }
