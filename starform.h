@@ -136,6 +136,7 @@ class StarLog : public PUP::able
     std::vector<StarLogEvent> seTab;		/* The actual table */
  StarLog() : nOrdered(0),fileName("starlog") {}
     void flush();
+    static void logMetaData(std::ofstream &ofsLog);
     PUPable_decl(StarLog);
  StarLog(CkMigrateMessage *m) : PUP::able(m) {}
     void pup(PUP::er& p) {

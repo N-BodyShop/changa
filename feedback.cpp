@@ -166,9 +166,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     CkPrintf("SNII feedback: %g ergs/solar mass\n", dSNETotal);
     dEarlyETotal = dSNETotal*dEarlyFeedbackFrac;
 #ifndef DTADJUST
-    if (bAGORAFeedback) {
-        CkAbort("DTADJUST must be enabled to use AGORA feedback\n");
-        }
+    CkMustAssert(!bAgoraFeedback, "DTADJUST must be enabled to use AGORA feedback\n");
 #endif
     }
 
@@ -812,7 +810,11 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     if(weight > 0) TYPESet(q, TYPE_FEEDBACK);
 #ifdef SUPERBUBBLE
     CkAssert(q->uPred() < LIGHTSPEED*LIGHTSPEED/fb.dErgPerGmUnit);
-    double Tq = CoolEnergyToTemperature(tp->Cool(), &q->CoolParticle(), fb.dErgPerGmUnit*q->uPred(), q->fMetals() );
+    double Tq = CoolCodeEnergyToTemperature(tp->Cool(), &q->CoolParticle(), q->uPred(),
+#ifdef COOLING_GRACKLE
+                                            q->fDensity, /* GRACKLE needs density */
+#endif
+                                            q->fMetals() );
 	if(Tq < fb.dMultiPhaseMinTemp && weight > 0 && p->fNSN() > 0.0) { //Only use the multiphase state for cooler particles
 		double massHot = q->massHot() + weight*p->fMSN();
 		double deltaMassLoad = weight*p->fMSN()*fb.dFBInitialMassLoad;
