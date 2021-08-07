@@ -52,6 +52,12 @@ PUPbytes(COOLPARAM);
 
 #define MERGE_REMOTE_REQUESTS_VERBOSE /*CkPrintf*/
 
+/// @brief CkAssert() replacement works even in production mode.
+inline void CkMustAssert(bool cond, const char *err)
+{
+    if (!cond) CkAbort(err);
+}
+
 using namespace std;
 
 using namespace Tree;
@@ -432,6 +438,10 @@ class Main : public CBase_Main {
 	std::string basefilename;
         /// Save parameters for output
         OutputParams *pOutput;
+    // NChilada file names used to generate the XML description
+    CkVec<std::string> *NCgasNames;
+    CkVec<std::string> *NCdarkNames;
+    CkVec<std::string> *NCstarNames;
 	/// globally finished IO
 	CkCallback cbIO;
         /// Save file token for CkIO
@@ -567,6 +577,8 @@ public:
         void cbIOComplete(CkMessage *msg);
         void cbIOClosed(CkMessage *msg);
         std::string getNCNextOutput(OutputParams& params);
+    void writeNCXML(std::string filename);
+    void NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string family);
 	void updateSoft();
 	void growMass(double dTime, double dDelta);
 	void initSph();
@@ -1777,12 +1789,12 @@ public:
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, double gammam1, const CkCallback& cb);
+			int bUpdateState, double gammam1, double dResolveJeans, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
     void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
-        double dEvapMinTemp, double dDtCourantFac, const CkCallback &cb);
+        double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);
     void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
         double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);

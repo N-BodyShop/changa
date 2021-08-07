@@ -33,7 +33,7 @@ private:
   ComparatorFn compares[NDIMS];
   ComparatorFn pc[NDIMS];
 
-  CkVec<int> *mapping;
+  decltype(LDStats::to_proc) *mapping;
 
   int procsPerNode;
 

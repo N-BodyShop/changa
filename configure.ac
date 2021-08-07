@@ -170,7 +170,7 @@ AC_ARG_ENABLE([interlist],
 	[AS_HELP_STRING([--enable-interlist], [interaction list version])],
 	[interlist=$enableval], [interlist=2])
 case $interlist in
-	1|2) FLAG_INTERLIST="-DINTERLIST_VER=$interlist";;
+	0|1|2) FLAG_INTERLIST="-DINTERLIST_VER=$interlist";;
 	*  ) AC_MSG_ERROR([invalid argument for '--enable-interlist': $interlist]);;
 esac
 AC_SUBST([FLAG_INTERLIST])
