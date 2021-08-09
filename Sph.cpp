@@ -1120,11 +1120,11 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvy = (-p->vPred().y + q->vPred().y)*vFac;
 		dvz = (-p->vPred().z + q->vPred().z)*vFac;
 #ifdef SLIDING_PATCH
-        if (dx < 0.0 && (p->position[0] - q->position[0] > 0.0)) {
-            dvy -= 1.5 * dOrbFreq * fPeriod[0];
+        if (dx < 0.0 && (p->position.x - q->position.x > 0.0)) {
+            dvy -= 1.5 * dOrbFreq * fPeriod.y;
         }
-        else if (dx > 0.0 && (p->position[0] - q->position[0] < 0.0)) {
-            dvy += 1.5 * dOrbFreq * fPeriod[0];
+        else if (dx > 0.0 && (p->position.x - q->position.x < 0.0)) {
+            dvy += 1.5 * dOrbFreq * fPeriod.y;
         }
 #endif
 		dvxdx += dvx*dx*rs1;
@@ -1584,11 +1584,11 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         params.dx = nnList[i].dx;
         dv = p->vPred() - q->vPred();
 #ifdef SLIDING_PATCH
-        if (params.dx.x < 0.0 && (p->position[0] - q->position[0] > 0.0)) {
-            dv[1] += 1.5 * dOrbFreq * fPeriod[0];
+        if (params.dx.x < 0.0 && (p->position.x - q->position.x > 0.0)) {
+            dv[1] += 1.5 * dOrbFreq * fPeriod.x;
         }
-        else if (params.dx.x > 0.0 && (p->position[0] - q->position[0] < 0.0)) {
-            dv[1] -= 1.5 * dOrbFreq * fPeriod[0];
+        else if (params.dx.x > 0.0 && (p->position.x - q->position.x < 0.0)) {
+            dv[1] -= 1.5 * dOrbFreq * fPeriod.x;
         }
 #endif
         params.dvdotdr = vFac*dot(dv, params.dx) + fDist2*H;
