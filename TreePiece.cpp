@@ -1469,8 +1469,7 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 
 /**
 * @brief closePatch performs a velocity update as part of the kick-cross-drift-cross-kick
-algorithm described in Quinn et al. 2010
-* at the edge of a sliding patch.
+* algorithm described in Quinn et al. 2010
 * @param bClosing bool indicating whether the patch is opening or closing
 * @param dDelta timestep
 * @param p particle to update
@@ -1479,14 +1478,14 @@ algorithm described in Quinn et al. 2010
 inline void closePatch(int bClosing, double dDelta, GravityParticle *p, double dOrbFreq) {
 #ifdef SLIDING_PATCH
     if (bClosing) {
-        p->velocity[0] += 2.0 * dDelta * dOrbFreq * p->dPy;
-        p->velocity[1] = p->dPy - 2 * dOrbFreq * p->position[0];
+        p->velocity.x += 2.0 * dDelta * dOrbFreq * p->dPy;
+        p->velocity.y = p->dPy - 2 * dOrbFreq * p->position.x;
     }
 #endif
 }
 /**
 * @brief openPatch performs a velocity update as part of the kick-cross-drift-cross-kick
-algorithm described in Quinn et al. 2010
+* algorithm described in Quinn et al. 2010
 * @param bClosing bool indicating whether the patch is opening or closing
 * @param dDelta timestep
 * @param p particle to update
