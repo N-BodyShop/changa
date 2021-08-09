@@ -1494,11 +1494,11 @@ inline void closePatch(int bClosing, double dDelta, GravityParticle *p, double d
 inline void openPatch(int bClosing, double dDelta, GravityParticle* p, double dOrbFreq) {
 #ifdef SLIDING_PATCH
     if (!bClosing) {
-        p->dPy = p->velocity[1] + 2.0 * dOrbFreq * p->position[0];
+        p->dPy = p->velocity.x + 2.0 * dOrbFreq * p->position.x;
 
         // Cross hamiltonian
-        p->velocity[0] += 2.0 * dDelta * dOrbFreq * p->dPy;
-        p->velocity[1] = p->dPy - dOrbFreq * p->position[0] - dOrbFreq * (p->position[0] + 2.0 * dDelta * p->velocity[0]);
+        p->velocity.x += 2.0 * dDelta * dOrbFreq * p->dPy;
+        p->velocity.y = p->dPy - dOrbFreq * p->position.x - dOrbFreq * (p->position.x + 2.0 * dDelta * p->velocity.x);
     }
 #endif
 }
