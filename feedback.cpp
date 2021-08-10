@@ -166,9 +166,7 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
     CkPrintf("SNII feedback: %g ergs/solar mass\n", dSNETotal);
     dEarlyETotal = dSNETotal*dEarlyFeedbackFrac;
 #ifndef DTADJUST
-    if (bAGORAFeedback) {
-        CkAbort("DTADJUST must be enabled to use AGORA feedback\n");
-        }
+    CkMustAssert(!bAgoraFeedback, "DTADJUST must be enabled to use AGORA feedback\n");
 #endif
     }
 
@@ -615,8 +613,6 @@ double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in y
     double dA0old =  70.908586,
       dA1old = -4.0643123;
 
-    double temp, dAlog10;
-
     dStarAge = dTime - sfEvent->dTimeForm;
     if (dStarAge >= 0 ) { /*Test that it is not a Black Hole */
       if (dStarAge != 0) {
@@ -729,8 +725,8 @@ void DistStellarFeedbackSmoothParams::combSmoothCache(GravityParticle *p1,
 void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, pqSmoothNode *nList)
 {
     GravityParticle *q;
-    double fNorm,ih2,r2,rs,rstot,fNorm_u,fNorm_Pres,fAveDens;
-    int i,counter;
+    double fNorm,ih2,r2,rs,fNorm_u,fNorm_Pres,fAveDens;
+    int i;
     int nHeavy = 0;
     
     if ( p->fMSN() == 0.0 ){return;} /* Is there any feedback mass? */
@@ -738,7 +734,6 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     CkAssert(TYPETest(p, TYPE_STAR));
     CkAssert(nSmooth > 0);
     ih2 = invH2(p);
-    rstot = 0.0;  
     fNorm_u = 0.0;
     fNorm_Pres = 0.0;
     fAveDens = 0.0;
@@ -778,7 +773,6 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
     fNorm_Pres *= (gamma-1.0);
     
     fNorm_u = 1./fNorm_u;
-    counter=0;
     for (i=0;i<nSmooth;++i) {
 	double weight;
 	q = nList[i].p;
@@ -839,7 +833,7 @@ void DistStellarFeedbackSmoothParams::DistFBMME(GravityParticle *p,int nSmooth, 
 void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, pqSmoothNode *nList)
 {
     GravityParticle *q;
-    double fNorm,ih2,r2,rs,rstot,fNorm_u,fNorm_Pres,fAveDens,f2h2;
+    double fNorm,ih2,r2,rs,fNorm_u,fNorm_Pres,fAveDens,f2h2;
     double fBlastRadius,fShutoffTime,fmind;
     double dAge, aFac, dCosmoDenFac;
     int i,counter,imind;
@@ -858,7 +852,6 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
     ih2 = invH2(p);
     aFac = a;
     dCosmoDenFac = aFac*aFac*aFac;
-    rstot = 0.0;  
     fNorm_u = 0.0;
     fNorm_Pres = 0.0;
     fAveDens = 0.0;
@@ -922,7 +915,6 @@ void DistStellarFeedbackSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth, 
 	    ih2 = 4.0/f2h2;
 	    }
 	
-	rstot = 0.0;  
 	fNorm_u = 0.0;
 	
 	for (i=0;i<nSmooth;++i) {
