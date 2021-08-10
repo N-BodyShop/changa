@@ -12,6 +12,41 @@ using namespace std;
 
 CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses Orb3D for larger steps, greedy otherwise");
 
+//**************************************
+// ORB3DLB functions
+//**************************************
+static int comparx(const void *a, const void *b){
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.x < tb->centroid.x ? -1 : ta->centroid.x > tb->centroid.x ? 1 : 0;
+}
+static int compary(const void *a, const void *b){
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.y < tb->centroid.y ? -1 : ta->centroid.y > tb->centroid.y ? 1 : 0;
+}
+static int comparz(const void *a, const void *b){
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.z < tb->centroid.z ? -1 : ta->centroid.z > tb->centroid.z ? 1 : 0;
+}
+
+static int pcx(const void *a, const void *b){
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->x < tb->x ? -1 : ta->x > tb->x ? 1 : 0;
+}
+static int pcy(const void *a, const void *b){
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->y < tb->y ? -1 : ta->y > tb->y ? 1 : 0;
+}
+static int pcz(const void *a, const void *b){
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->z < tb->z ? -1 : ta->z > tb->z ? 1 : 0;
+}
+
 void MultistepLB::init() {
   lbname = "MultistepLB";
 

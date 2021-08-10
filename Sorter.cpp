@@ -819,9 +819,7 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 
 	if(verbosity >= 4)
 		ckout << "Sorter: On iteration " << numIterations << endl;
-        if(numIterations >= 1000) { // Sorter has not converged.
-            CkAbort("SFC Domain decomposition has not converged\n");
-        }
+        CkMustAssert(numIterations < 1000, "SFC Domain decomposition has not converged\n");
 	
 	//sum up the individual bin counts, so each bin has the count of it and all preceding
 	partial_sum(binCounts.begin(), binCounts.end(), binCounts.begin());

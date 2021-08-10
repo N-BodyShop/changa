@@ -1130,8 +1130,7 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "bBulkViscosity parameter ignored." << endl;
 	    }
 #ifdef COOLING_NONE
-        if(param.bGasCooling)
-	    CkAbort("Gas cooling requested but not compiled in");
+        CkMustAssert(!param.bGasCooling, "Gas cooling requested but not compiled in");
 #endif
 	if(param.bGasCooling) {
 	    CkAssert(prmSpecified(prm, "dMsolUnit")
@@ -1226,14 +1225,10 @@ Main::Main(CkArgMsg* m) {
 		}
 
 #ifndef DIFFUSION
-	if (prmSpecified(prm,"dMetalDiffusionCoeff")) {
-	    CkAbort("Metal Diffusion Rate specified but not compiled for\nUse -DDIFFUSION during compilation\n");
-	    }
+        CkMustAssert(!prmSpecified(prm,"dMetalDiffusionCoeff"), "Metal Diffusion Rate specified but not compiled for\nUse -DDIFFUSION during compilation\n");
 #endif
 #ifdef NODIFFUSIONTHERMAL
-	if (prmSpecified(prm,"dThermalDiffusionCoeff")) {
-	    CkAbort("Thermal Diffusion Rate specified but not compiled for\n");
-	    }
+        CkMustAssert(!prmSpecified(prm, "dThermalDiffusionCoeff"), "Thermal Diffusion Rate specified but not compiled for\n");
 #endif
 
         if (domainDecomposition == SFC_peano_dec) peanoKey = 3;
@@ -1257,16 +1252,14 @@ Main::Main(CkArgMsg* m) {
 
 	if (verbosity) 
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
-	if(_cacheLineDepth < 0)
-		CkAbort("Cache Line depth must be greater than or equal to 0");
+    CkMustAssert(_cacheLineDepth >= 0, "Cache Line depth must be greater than or equal to 0");
 
         if(verbosity)
           ckerr << "Prefetching..." << (_prefetch?"ON":"OFF") << endl;
   
         if (verbosity)
 	  ckerr << "Number of chunks for remote tree walk set to " << _numChunks << endl;
-	if (_numChunks <= 0)
-	  CkAbort("Number of chunks for remote tree walk must be greater than 0");
+    CkMustAssert(_numChunks > 0, "Number of chunks for remote tree walk must be greater than 0");
 
         if(verbosity)
           ckerr << "Chunk Randomization..." << (_randChunks?"ON":"OFF") << endl;
@@ -1815,11 +1808,13 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
     if(verbosity)
         CkPrintf("uDot update: Rung %d ... ", iActiveRung);
     double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+    double a = csmTime2Exp(param.csm,dTime);
     if(param.bGasCooling)
         dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
     treeProxy.updateuDot(iActiveRung, duKick, dStartTime,
                          param.bGasCooling, bUpdateState, bAll,
                          (param.dConstGamma-1),
+                         param.dResolveJeans/a,
                          CkCallbackResumeThread());
     double tuDot = CkWallTimer() - startTime;
     timings[iActiveRung].tuDot += tuDot;
@@ -2297,8 +2292,7 @@ void Main::setupICs() {
       ofsLog.open(achLogFileName.c_str(), ios_base::app);
   else
       ofsLog.open(achLogFileName.c_str(), ios_base::trunc);
-  if(!ofsLog)
-      CkAbort("Error opening log file.");
+  CkMustAssert(bool(ofsLog), "Error opening log file.");
       
 #define xstr(s) str(s)
 #define str(s) #s
@@ -2473,8 +2467,7 @@ void Main::setupICs() {
     }
   ofsLog << endl;
   ofsLog.close();
-  if(!ofsLog)
-      CkAbort("Error closing log file");
+  CkMustAssert(bool(ofsLog), "Error closing log file");
 
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
@@ -2645,8 +2638,7 @@ Main::restart(CkCheckpointStatusMsg *msg)
         doSimulation();
 	}
     else {
-        if(msg->status != CK_CHECKPOINT_SUCCESS)
-            CkAbort("Checkpoint failed! Is there a disk problem?\n");
+        CkMustAssert(msg->status == CK_CHECKPOINT_SUCCESS, "Checkpoint failed! Is there a disk problem?\n");
 
 	ofstream ofsCheck("lastcheckpoint", ios_base::trunc);
 	ofsCheck << bChkFirst << endl;
@@ -2887,22 +2879,18 @@ Main::doSimulation()
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
           if(param.iBinaryOut == 6) {
               // Set up N-Chilada directory structure
-              if(safeMkdir(achFile.c_str()) != 0)
-                  CkAbort("Can't create N-Chilada directories\n");
+              CkMustAssert(safeMkdir(achFile.c_str()) == 0, "Can't create N-Chilada directories\n");
               if(nTotalSPH > 0) {
                     string dirname(string(achFile) + "/gas");
-                    if(safeMkdir(dirname.c_str()) != 0)
-                        CkAbort("Can't create N-Chilada directories\n");
+                    CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
                     }
               if(nTotalDark > 0) {
                     string dirname(string(achFile) + "/dark");
-                    if(safeMkdir(dirname.c_str()) != 0)
-                        CkAbort("Can't create N-Chilada directories\n");
+                    CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
                     }
               if(nTotalStar > 0) {
                     string dirname(string(achFile) + "/star");
-                    if(safeMkdir(dirname.c_str()) != 0)
-                        CkAbort("Can't create N-Chilada directories\n");
+                    CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
                     }
               }
 	  ckout << "Outputting densities ...";
@@ -3342,22 +3330,18 @@ void Main::writeOutput(int iStep)
         }
     else { // N-Chilada output
         // Set up N-Chilada directory structure
-        if(safeMkdir(achFile) != 0)
-            CkAbort("Can't create N-Chilada directories\n");
+        CkMustAssert(safeMkdir(achFile) == 0, "Can't create N-Chilada directories\n");
         if(nTotalSPH > 0) {
             string dirname(string(achFile) + "/gas");
-            if(safeMkdir(dirname.c_str()) != 0)
-                CkAbort("Can't create N-Chilada directories\n");
+            CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
             }
         if(nTotalDark > 0) {
             string dirname(string(achFile) + "/dark");
-            if(safeMkdir(dirname.c_str()) != 0)
-                CkAbort("Can't create N-Chilada directories\n");
+            CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
             }
         if(nTotalStar > 0) {
             string dirname(string(achFile) + "/star");
-            if(safeMkdir(dirname.c_str()) != 0)
-                CkAbort("Can't create N-Chilada directories\n");
+            CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
             }
         NCgasNames = new CkVec<std::string>;
         NCdarkNames = new CkVec<std::string>;
@@ -3558,10 +3542,9 @@ void Main::writeOutput(int iStep)
 #endif /*COOLING_MOLECULARH*/
 #endif
 #ifdef DIFFUSION
-        if(param.bDoGas)
+        if (param.bStarForm || param.bFeedback) {
             treeProxy[0].outputASCII(pMetalsDotOut, param.bParaWrite,
                                      CkCallbackResumeThread());
-	if (param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputASCII(pOxDotOut, param.bParaWrite,
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pFeDotOut, param.bParaWrite,
@@ -3875,8 +3858,7 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		  auto file_name = make_formatted_string("%s.photogenic", param.achOutName);
 		  char const* achFile = file_name.c_str();
 		  FILE *fp = fopen(achFile, "r" );
-		  if(fp == NULL)
-		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
+          CkMustAssert(!(fp == NULL), "DumpFrame: photogenic specified, but no photogenic file\n");
 		  fclose(fp);
 
                   CkReductionMsg *msg;
