@@ -2838,7 +2838,6 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
   const int array_length=5; /*Arrays expanded for H2*/
 
   double y[array_length],yin[array_length],EMin,YTotal ;
-  double dHeat, dCool;
   double t=0;
   clDerivsData *d = clData;
   STIFF *sbs = d->IntegratorContext;
@@ -2875,6 +2874,7 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
 
 #ifdef COOLDEBUG
   double  T, s_dust, s_self, en_B = d->rho*CL_B_gm; /*only used for debug*/
+  double dHeat, dCool;
   T = clTemperature( Y->Total, *E );
   s_dust = clDustShield(Y->HI*en_B, Y->H2*en_B, d->ZMetal, d->Rate.CorreLength);
   s_self = clSelfShield(Y->H2*en_B, d->Rate.CorreLength);
@@ -3228,11 +3228,9 @@ double CoolCodeEnergyToTemperature( COOL *cl, COOLPARTICLE *cp, double E, double
 
 void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns, char *suffix )
 {
-   int localcntTable = 0;
-
-
-   *nTableColumns = 0;
+   *nTableColumns = 0;          /* *.UV file is not read */
 #if (0)
+   int localcntTable = 0;
    if (CoolParam->bMetal) { 
        /* Use self-consistent UV from metal data file for metal cooling */
        return; 
