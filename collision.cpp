@@ -22,6 +22,10 @@ void Collision::AddParams(PRM prm)
         sizeof(double), "dDelDist", "<Distance away from the origin before particles are\
                                       deleted> = 1000.0");
 
+    dRadInf = 1.0;
+    prmAddParam(prm, "dRadInf", paramDouble, &dRadInf,
+        sizeof(double), "dRadInf", "<Inflation factor for radius of particles, used for bounce vs merge check> = 1.0");
+
     bCollStep = 0;
     prmAddParam(prm, "bCollStep", paramBool, &bCollStep,
         sizeof(int), "bCollStep", "<Place particles on a near-collision trajectory\
@@ -640,14 +644,16 @@ void Collision::doBounce(GravityParticle *p, const ColliderInfo &c) {
     }
 
 int Collision::doMergeOrBounce(GravityParticle *p, const ColliderInfo &c) {
-    double alpha = 1000;
+    double alpha = 1;
     double radNew;
     Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
     mergeCalc(p->soft*2, p->mass, p->position, p->velocity, p->treeAcceleration,
               p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
+    // Use the actual radius of the body here, not the inflated collision cross section
+    double radActual = radNew/dRadInf;
     double Mtot = p->mass + c.mass;
-    double vEsc = sqrt(2.*Mtot/(p->soft*2 + c.radius));
-    double wMax = sqrt(Mtot/(radNew*radNew*radNew));
+    double vEsc = sqrt(2.*Mtot/((p->soft*2 + c.radius)/dRadInf));
+    double wMax = sqrt(Mtot/(radActual*radActual*radActual));
 
     double vRel = (p->velocity - c.velocity).length();
     int iCollType = BOUNCE;

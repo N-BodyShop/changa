@@ -51,9 +51,9 @@ void ExternalForce::AddParams(PRM prm)
     bDoGasDrag = 0;
     prmAddParam(prm, "bDoGasDrag", paramBool, &bDoGasDrag,
         sizeof(int), "bDoGasDrag", "<Apply external gas drag force to planetesimals> = 0");
-    dRadInf = 1.0;
-    prmAddParam(prm, "dRadInf", paramDouble, &dRadInf,
-        sizeof(double), "dRadInf", "<Inflation factor for radius of particles> = 1.0");
+    dRadInfGas = 1.0;
+    prmAddParam(prm, "dRadInfGas", paramDouble, &dRadInfGas,
+        sizeof(double), "dRadInfGas", "<Inflation factor for radius of particles, used for gas drag calculations> = 1.0");
     dSigma0 = 1700.0;
     prmAddParam(prm, "dSigma0", paramDouble, &dSigma0,
         sizeof(double), "dSigma0", "<Gas surface density at 1 AU (in g/cm^2)> = 1700.0");
@@ -183,7 +183,7 @@ void ExternalForce::applyGasDrag(GravityParticle *p) const
     Vector3D<double> thetaHat(phiX, phiY, 0);
     Vector3D<double> vGas = gasSpeed*thetaHat;
 
-    double rPl = p->soft*2/dRadInf;
+    double rPl = p->soft*2/dRadInfGas;
     Vector3D<double> vRel = vVec - vGas;
     // Morishima 2010 eq 1
     Vector3D<double> aDrag = -1/(2*p->mass)*dCD*M_PI
