@@ -655,14 +655,16 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c, double dCe
         doPartialAcc(p, c);
         iCollType = FRAG;
         }
+    else if (iCollModel == 4) {
+	iCollType = doTakashi(p, c);
+	}
     // Canup 95, surface escape velocity modified
     // by tidal force
-    else if (iCollModel == 4) {
+    else if (iCollModel == 5) {
         iCollType = doTidalAcc(p, c, dCentMass);
         if (iCollType == MERGE) doMerger(p, c);
         else doBounce(p, c);
         }
-
     return iCollType;
     }
 
@@ -712,6 +714,41 @@ int Collision::doMergeOrBounce(GravityParticle *p, const ColliderInfo &c) {
         iCollType = MERGE;
         }
 
+    return iCollType;
+    }
+
+int Collision::doTakashi(GravityParticle *p, const ColliderInfo &c) {
+    double radNew;
+    Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
+    mergeCalc(p->soft*2, p->mass, p->position, p->velocity, p->treeAcceleration,
+	      p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
+    double Mtot = p->mass + c.mass;
+    double T = (c.mass - p->mass) / Mtot;
+    Vector3D<double> pRel = (p->position - c.position);
+    Vector3D<double> vRel = (p->velocity - c.velocity);
+    double am = cross(vRel,pRel).length();
+    double sintheta = am / (vRel.length() * pRel.length());
+    double theta = 1 - sintheta;
+    double udc1 = -0.00863;
+    double udc2 = -0.107;
+    double udc3 = 1.73;
+    double udc4 = 1.11;
+    double udc5 = 1.94;
+    double vCr = ((udc1 * pow(T,2) * pow(theta,udc5)) + (udc2 * pow(T,2)) + (udc3 * pow(theta,udc5)) + udc4) * vRel.length();
+    double wMax = sqrt(Mtot/(radNew*radNew*radNew));
+
+	
+    int iCollType = BOUNCE;
+    if (vRel.length() > vCr || wNew.length() > wMax) {
+       CkPrintf("Bounce\n");
+       doBounce(p, c);
+        }
+    else {
+	CkPrintf("Merge\n");
+        doMerger(p, c);
+        iCollType = MERGE;
+        }
+    
     return iCollType;
     }
 
