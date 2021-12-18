@@ -879,8 +879,8 @@ void TreePiece::updateuDot(int activeRung,
 	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
         fDensity = p->fDensity;
         if (bCool) {
-             CoolCodePressureOnDensitySoundSpeed(cl, &p->CoolParticle(),
-                     p->uPred(), p->fDensity(),
+             CoolCodePressureOnDensitySoundSpeed(dm->Cool, &p->CoolParticle(),
+                     p->uPred(), fDensity,
                      gammam1+1, gammam1, &PoverRhoGas,
                      &cGas);
         }
@@ -1421,11 +1421,11 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
 	if (TYPETest(p, TYPE_GAS)) {
         CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/cl->dErgPerGmUnit);
         double cGas;
-	    CoolCodePressureOnDensitySoundSpeed(cl, &p->CoolParticle(),
-						p->uPred(), p->fDensity(),
-						gamma, gammam1, &PoverRho,
-						&cGas);
-        
+        CoolCodePressureOnDensitySoundSpeed(cl, &p->CoolParticle(),
+                                            p->uPred(), p->fDensity,
+                                            gamma, gammam1, &PoverRho,
+                                            &cGas);
+
         PoverRhoGas = PoverRho;
         PoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
         if(PoverRho < PoverRhoJeans) PoverRho = PoverRhoJeans;
