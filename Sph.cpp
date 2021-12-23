@@ -691,8 +691,13 @@ void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
 #endif
 #endif
 	    p->uPred() = p->u();
-	    }
-	}
+#ifdef SUPERBUBBLE
+            if(p->uHot() > 0) {
+                p->uHotPred() = p->uHot();
+            }
+#endif
+        }
+    }
     contribute(cb);
     }
 
