@@ -291,6 +291,9 @@ ARG_ENABLE([vsigvisc], [alternative Monahan artificial viscosity], [FLAG_VSIGVIS
 # Richie-Thomas forces (Pressure SPH)
 ARG_ENABLE([rtforce], [Richie-Thomas forces], [FLAG_RTFORCE], [-DRTFORCE], [yes])
 
+# Jeans pressure floor based on gravitational softening
+ARG_ENABLE([jeanssoft], [gravitational softening jeans floor], [FLAG_JEANSSOFTONLY], [-DJEANSSOFTONLY], [yes])
+
 # SIDM interactions
 ARG_ENABLE([sidminter], [SIDM interactions], [FLAG_SIDMINTERACT], [-DSIDMINTERACT], [no])
 
@@ -357,7 +360,7 @@ echo "    "Charm compiler"   " $CHARMC
 echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
-echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE $FLAG_SUPERBUBBLE
+echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
