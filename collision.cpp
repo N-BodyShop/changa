@@ -413,7 +413,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
         if (p->iOrder == c1.iOrder) {
             iCollResult = coll.doCollision(p, c2);
             if (iCollResult == MERGE) {
-                if ((p->mass > c2.mass) || ((p->mass == c2.mass) && (p->iOrder < c2.iOrder))) {
+                if ((c1.mass > c2.mass) || ((c1.mass == c2.mass) && (c1.iOrder < c2.iOrder))) {
                     CkPrintf("Merge %d into %d\n", c2.iOrder, p->iOrder);
                     coll.setMergerRung(p, c2, c1, baseStep, timeNow);
                 }
@@ -431,7 +431,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
         if (p->iOrder == c2.iOrder) {
             iCollResult = coll.doCollision(p, c1);
             if (iCollResult == MERGE) {
-                if ((p->mass > c2.mass) || ((p->mass == c2.mass) && (p->iOrder < c2.iOrder))) {
+                if ((c2.mass > c1.mass) || ((c2.mass == c1.mass) && (c2.iOrder < c1.iOrder))) {
                     CkPrintf("Merge %d into %d\n", c1.iOrder, p->iOrder);
                     coll.setMergerRung(p, c1, c2, baseStep, timeNow);
                 }

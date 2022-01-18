@@ -290,7 +290,6 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p, int bKepS
         // Only allow dtKep to be set on the first timestep
         if (p->dtKep == 0) {
           p->dtKep = fabs(arPeri/rPeri);
-          CkPrintf("Setting dtKep\n");
           }
         //if (p->rung > 10) CkPrintf("Large rung rperi: %g\n", rPeri);
 
