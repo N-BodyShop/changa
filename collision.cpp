@@ -83,6 +83,10 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
     if (param.bCollision)
         CkAbort("ChaNGa must be compiled with the COLLISION flag in order to use collision detection\n");
 #endif
+#ifdef CHANGESOFT
+    if (param.iCollModel != 1)
+        CkAbort("ChaNGa must be compiled without the CHANGESOFT flag to allow for particle radii to grow during mergers\n");
+#endif
     }
 
 /**
