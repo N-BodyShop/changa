@@ -122,6 +122,7 @@ typedef struct parameters {
     ExternalForce externalForce;
 #ifdef COLLISION
     int bCollision;
+    int iCollModel;
     int bWall;
     double dWallPos;
     Collision collision;
@@ -272,6 +273,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.externalForce;
 #ifdef COLLISION
     p|param.bCollision;
+    p|param.iCollModel;
     p|param.collision;
 #endif
     p|param.iRandomSeed;

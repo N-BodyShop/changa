@@ -269,10 +269,10 @@ Main::logCollision(double dTime, ColliderInfo *c, int collType, const char *achC
     static int first = 1;
     FILE *fpLog = fopen(achCollLogFileName, "a");
     if(first && (!bIsRestarting || dTimeOld == 0.0)) {
-        fprintf(fpLog, "# time collType iorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y x2z v1x v1y v1z v2x v2y v2z w1x w1y w1z w2x w2y w2z\n");
+        fprintf(fpLog, "time collType iorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y x2z v1x v1y v1z v2x v2y v2z w1x w1y w1z w2x w2y w2z\n");
         first = 0;
         }
-    fprintf(fpLog, "%g %d %d %d %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
+    fprintf(fpLog, "%g %d %d %d %.15g %.15g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
                    dTime, collType, c[0].iOrder, c[1].iOrder, c[0].mass, c[1].mass, c[0].radius, c[1].radius,
                    c[0].position[0], c[0].position[1], c[0].position[2],
                    c[1].position[0], c[1].position[1], c[1].position[2],
@@ -407,6 +407,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
                                  double timeNow, const CkCallback& cb) {
     GravityParticle *p;
     int iCollResult = -1;
+    double eps = 1e-15; // Due to roundoff error, mass comparisons are approximate
     // Colliders need to be handled individually because only one
     // of the two could be on this tree piece
     // To be consistent with genga, in the event of a merger,
@@ -417,7 +418,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
         if (p->iOrder == c1.iOrder) {
             iCollResult = coll.doCollision(p, c2);
             if (iCollResult == MERGE) {
-                if ((c1.mass > c2.mass) || ((c1.mass == c2.mass) && (c1.iOrder < c2.iOrder))) {
+		if ((c1.mass > (c2.mass + eps*c2.mass)) || ((fabs(c1.mass - c2.mass)/c1.mass < eps) && (c1.iOrder < c2.iOrder))) {
                     CkPrintf("Merge %d into %d\n", c2.iOrder, p->iOrder);
                     coll.setMergerRung(p, c2, c1, baseStep, timeNow);
                 }
@@ -435,7 +436,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
         if (p->iOrder == c2.iOrder) {
             iCollResult = coll.doCollision(p, c1);
             if (iCollResult == MERGE) {
-                if ((c2.mass > c1.mass) || ((c2.mass == c1.mass) && (c2.iOrder < c1.iOrder))) {
+		if ((c2.mass > (c1.mass + eps*c1.mass)) || ((fabs(c2.mass - c1.mass)/c1.mass < eps) && (c2.iOrder < c1.iOrder))) {
                     CkPrintf("Merge %d into %d\n", c1.iOrder, p->iOrder);
                     coll.setMergerRung(p, c1, c2, baseStep, timeNow);
                 }
