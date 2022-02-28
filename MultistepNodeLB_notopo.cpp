@@ -45,22 +45,23 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
   int count;
-  
+  const auto num_objs = stats->objData.size();
+
   if(_lb_args.debug() >= 2 && step() > 0) {
       // Write out "particle file" of measured load balance information
       auto achFileName = make_formatted_string("lb_a.%d.sim", step()-1);
       FILE *fp = fopen(achFileName.c_str(), "w");
       CkAssert(fp != NULL);
 
-      int num_migratables = stats->n_objs;
-      for(int i = 0; i < stats->n_objs; i++) {
+      int num_migratables = num_objs;
+      for(int i = 0; i < num_objs; i++) {
         if (!stats->objData[i].migratable) {
           num_migratables--;
         }
       }
       fprintf(fp, "%d %d 0\n", num_migratables, num_migratables);
 
-      for(int i = 0; i < stats->n_objs; i++) {
+      for(int i = 0; i < num_objs; i++) {
         if(!stats->objData[i].migratable) continue;
 
       LDObjData &odata = stats->objData[i];
@@ -83,11 +84,11 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
   int numActiveParticles = 0;
   int totalNumParticles = 0;
  
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < num_objs; i++){
     stats->to_proc[i] = stats->from_proc[i];
   }
   
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < num_objs; i++){
     if(!stats->objData[i].migratable) continue;
 
     LDObjData &odata = stats->objData[i];
@@ -114,7 +115,7 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
       numInactiveObjects);
   if(numInactiveObjects < 1.0*numActiveObjects) {
     // insignificant number of inactive objects; migrate them anyway
-    for(int i = 0; i < stats->n_objs; i++){
+    for(int i = 0; i < num_objs; i++){
       if(!stats->objData[i].migratable) continue;
 
       LDObjData &odata = stats->objData[i];
@@ -134,7 +135,7 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
   CkPrintf("**********************************************\n");
   CkPrintf("Object load predictions phase %d\n", phase);
   CkPrintf("**********************************************\n");
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < num_objs; i++){
       int tp = tpCentroids[i].tp;
       int lb = tpCentroids[i].tag;
     CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
@@ -149,7 +150,7 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
   //printData(*stats, phase, NULL);
   CkPrintf("making active processor list\n");
 #endif
-  count = stats->count;
+  count = stats->nprocs();
 
   // let the strategy take over on this modified instrumented data and processor information
   if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
@@ -164,7 +165,7 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
 
 /// @brief ORB3D load balance across nodes (as opposed to processors).
 void MultistepNodeLB_notopo::work2(BaseLB::LDStats *stats, int count){
-  int numobjs = stats->n_objs;
+  const int numobjs = stats->objData.size();
   int nmig = stats->n_migrateobjs;
 
   // this data structure is used by the orb3d strategy
@@ -293,7 +294,7 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
                                   // each node.
   objpemap.resize(numNodes);
   
-  for (int i = 0; i < stats->n_objs; i++) {
+  for (int i = 0; i < stats->objData.size(); i++) {
     if(!stats->objData[i].migratable) continue;
 
     int nd = stats->to_proc[i]/nodeSize;
@@ -307,8 +308,6 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
   double th = 1.20;
   double uth = 0.9;
   
-  int maxcountoftps = 0;
-  int pewithmax = -1;
   for (int i = (numNodes-1); i >= 0; i--) {
     if (counts[i] > th*avgldperpe) {
       ovldpes.push_back(i);
@@ -340,7 +339,6 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
     int ovlpe = ovldpes.front();
     pop_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
     ovldpes.pop_back();
-    bool succ = false;
     for (int k = 0; k < objpemap[ovlpe].size() ; k++) {
       int i = objpemap[ovlpe][k];
       if (undcount > unldpes.size()) {
@@ -377,7 +375,6 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
         ovldpes.push_back(n_proc);
         push_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
       }
-      succ = true;
       sort(unldpes.begin(), unldpes.end(), PeLdLesser(counts));
       break;
     }
@@ -391,29 +388,26 @@ void MultistepNodeLB_notopo::balanceTPsNode(BaseLB::LDStats* stats) {
 // Refinement strategy to distribute the TreePieces across PEs
 void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
   
-  double* counts = new double[stats->count];
-  memset(counts, 0.0, stats->count * sizeof(double));
+  double* counts = new double[stats->nprocs()];
+  memset(counts, 0.0, stats->nprocs() * sizeof(double));
   double totalld = 0.0;
   vector<vector<int> > objpemap;
-  objpemap.resize(stats->count);
+  objpemap.resize(stats->nprocs());
   
-  for (int i = 0; i < stats->n_objs; i++) {
+  for (int i = 0; i < stats->objData.size(); i++) {
     if(!stats->objData[i].migratable) continue;
 
     counts[stats->to_proc[i]] += stats->objData[i].wallTime;
     totalld += stats->objData[i].wallTime;
     objpemap[stats->to_proc[i]].push_back(i);
   }
-  double avgldperpe = totalld / stats->count;
+  double avgldperpe = totalld / stats->nprocs();
   vector<int> unldpes;
   vector<int> ovldpes;
   double th = 1.05;
   double unth = 0.9;
-  int total_its = 0;
   
-  int maxcountoftps = 0;
-  int pewithmax = -1;
-  for (int i = (stats->count-1); i >= 0; i--) {
+  for (int i = (stats->nprocs()-1); i >= 0; i--) {
     if (counts[i] > th*avgldperpe) {
       ovldpes.push_back(i);
     } else if (counts[i] < (unth*avgldperpe)) {
@@ -432,16 +426,15 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
   //CkPrintf("[%d] is the maxLoadedPe with ld %f ovlded %d unldpes %d\n", ovldpes.front(), counts[ovldpes.front()], ovldpes.size(), unldpes.size());
   //CkPrintf("[%d] is the minLoadedPe with ld %f\n", unldpes.front(), counts[unldpes.front()]);
 
-  int* tmpcounts = new int[stats->count];
-  memcpy(tmpcounts, counts, stats->count * sizeof(int));
+  int* tmpcounts = new int[stats->nprocs()];
+  memcpy(tmpcounts, counts, stats->nprocs() * sizeof(int));
  
   while (undcount < unldpes.size() && ovldpes.size() > 0) {
     int ovlpe = ovldpes.front();
     pop_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
     ovldpes.pop_back();
-    bool succ = false;
-    if (ovlpe >= stats->count) {
-      CkPrintf("ovlpe %d stats count %d\n", ovlpe, stats->count);
+    if (ovlpe >= stats->nprocs()) {
+      CkPrintf("ovlpe %d stats count %d\n", ovlpe, stats->nprocs());
       CkAbort("ovle >= count\n");
     }
     for (int k = 0; k < objpemap[ovlpe].size() ; k++) {
@@ -478,7 +471,6 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
         ovldpes.push_back(n_proc);
         push_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
       }
-      succ = true;
       sort(unldpes.begin(), unldpes.end(), PeLdLesser(counts));
       break;
     }

@@ -634,6 +634,7 @@ FLAG_SANITIZER
 PROJECTIONS
 DEFAULT_LB
 FLAG_SIDMINTERACT
+FLAG_JEANSSOFTONLY
 FLAG_RTFORCE
 FLAG_VSIGVISC
 FLAG_CULLENALPHA
@@ -751,6 +752,7 @@ enable_superbubble
 enable_cullenalpha
 enable_vsigvisc
 enable_rtforce
+enable_jeanssoft
 enable_sidminter
 enable_default_lb
 enable_projections
@@ -1408,6 +1410,7 @@ Optional Features:
   --enable-cullenalpha    Cullen Dehnen artificial viscosity
   --enable-vsigvisc       alternative Monahan artificial viscosity
   --enable-rtforce        Richie-Thomas forces
+  --enable-jeanssoft      gravitational softening jeans floor
   --enable-sidminter      SIDM interactions
   --enable-default-lb     default load balancer
   --enable-projections    Charm++ projections
@@ -4879,6 +4882,21 @@ fi
 
 
 
+# Jeans pressure floor based on gravitational softening
+	# Check whether --enable-jeanssoft was given.
+if test "${enable_jeanssoft+set}" = set; then :
+  enableval=$enable_jeanssoft; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-jeanssoft': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=yes
+fi
+
+	if test x$val = xyes; then FLAG_JEANSSOFTONLY=-DJEANSSOFTONLY; else FLAG_JEANSSOFTONLY=""; fi
+
+
+
 # SIDM interactions
 	# Check whether --enable-sidminter was given.
 if test "${enable_sidminter+set}" = set; then :
@@ -5565,9 +5583,6 @@ esac
 # BUILD_CUDA is exported by $CHARMINC/conv-mach-cuda.sh
 if test x$BUILD_CUDA = x; then
 	BUILD_CUDA=0
-fi
-if test x$ENABLE_CUDA = xno -a x$BUILD_CUDA = x1; then
-	as_fn_error $? "Charm++ ($CHARM_PATH) was built with CUDA support enabled." "$LINENO" 5
 fi
 if test x$ENABLE_CUDA = xyes -a x$BUILD_CUDA = x0; then
 	as_fn_error $? "Charm++ ($CHARM_PATH) was not built with CUDA support." "$LINENO" 5
@@ -6947,7 +6962,7 @@ echo "    "Charm compiler"   " $CHARMC
 echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
-echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE $FLAG_SUPERBUBBLE
+echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH

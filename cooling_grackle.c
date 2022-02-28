@@ -114,6 +114,16 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
         };
     cl->pgrackle_data->metal_cooling = CoolParam.metal_cooling;          // metal cooling on
     cl->pgrackle_data->UVbackground = CoolParam.UVbackground;           // UV background on
+    // Grackle implements a temperature floor from the CMB.
+    cl->pgrackle_data->cmb_temperature_floor = CoolParam.cmb_temperature_floor;
+    cl->bFixTempFloor = 0;
+    if(CoolParam.cmb_temperature_floor && CoolParam.bBrokenGrackleFloor) {
+	cl->pgrackle_data->cmb_temperature_floor = 0;
+	cl->bFixTempFloor = 1;
+    }
+    if(CoolParam.dSolarMetalFractionByMass >= 0.0) {
+        cl->pgrackle_data->SolarMetalFractionByMass = CoolParam.dSolarMetalFractionByMass;
+    }
     strncpy( cl->grackle_data_file, CoolParam.grackle_data_file, MAXPATHLEN ); // Permanent local copy
     cl->pgrackle_data->grackle_data_file = cl->grackle_data_file; // hdf5 cloudy data file (pointer to permanent copy)
     
@@ -134,6 +144,13 @@ double COOL_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     return 0;
 }
 
+void COOL_SET_ARRAY0(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        cp->HI = val;
+#endif
+}
+
 double COOL_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
     if(cl->pgrackle_data->primordial_chemistry > 0)
@@ -143,6 +160,13 @@ double COOL_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     return 0;
 }
 
+void COOL_SET_ARRAY1(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        cp->HII = val;
+#endif
+}
+
 double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
     if(cl->pgrackle_data->primordial_chemistry > 0)
@@ -150,6 +174,13 @@ double COOL_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
     else
 #endif
     return 0;
+}
+
+void COOL_SET_ARRAY2(COOL *cl, COOLPARTICLE *cp, double ZMetal, double val) {
+#if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
+    if(cl->pgrackle_data->primordial_chemistry > 0)
+        cp->HeI = val;
+#endif
 }
 
 double COOL_ARRAY3(COOL *cl, COOLPARTICLE *cp, double ZMetal) {
@@ -255,10 +286,6 @@ void CoolSetTime( COOL *cl, double dTime, double z ) {
     cl->my_units.density_units = cl->dComovingGmPerCcUnit/pow(a_value, 3.0);
     cl->my_units.length_units = cl->dKpcUnit*KPCCM*a_value; // cm
     cl->my_units.velocity_units = cl->dKpcUnit*KPCCM / cl->my_units.time_units;
-    if (initialize_chemistry_data(&cl->my_units) == 0) {
-        fprintf(stderr, "Grackle Error in initialize_chemistry_data.\n");
-        assert(0);
-    }
 }
 
 
@@ -315,8 +342,6 @@ void CoolInitEnergyAndParticleData( COOL *cl, COOLPARTICLE *cp, double *E, doubl
 #endif
 #endif
 #endif
-    // solar metallicity
-//    metal_density[i] = grackle_data.SolarMetalFractionByMass * density[i];
 
     // No routine in Grackle to use to set up energy sensibly
     // Energy: erg per gm --> code units   assumes neutral gas (as above)
@@ -420,8 +445,36 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, d
             fprintf(stderr, "Grackle Error in solve_chemistry.\n");
             assert(0);
     }
-    
+
     assert(energy > 0.0);
+    if(cl->bFixTempFloor) {
+        double temperature;
+        if (calculate_temperature(&cl->my_units, &my_fields, &temperature) == 0) {
+            fprintf(stderr, "Grackle Error in calculate_temperature.\n");
+            assert(0);
+        }
+        const double dTCMB0 = 2.725; /* CMB temperature at z = 0 */
+        double dTCMB_z = dTCMB0/cl->my_units.a_value;
+        if(temperature < dTCMB_z) {
+            int itr = 0;
+            const double dTol = 0.99;  /* get floor to this accuracy */
+            do {
+                energy *= dTCMB_z/temperature; /* Assume that energy
+                                                 scales linearly with
+                                                 temperature */
+                if (calculate_temperature(&cl->my_units, &my_fields, &temperature) == 0) {
+                    fprintf(stderr, "Grackle Error in calculate_temperature.\n");
+                    assert(0);
+                }
+                itr++;
+            } while(temperature < dTol*dTCMB_z && itr < 50);
+
+            if(temperature < dTCMB_z*dTol) {
+                fprintf(stderr, "temp: %g, CMB: %g\n", temperature, dTCMB_z);
+            }
+            assert(itr < 50);
+        }
+    }
     *E = energy;
 
 #if (GRACKLE_PRIMORDIAL_CHEMISTRY_MAX>=1)
@@ -483,14 +536,28 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 	CoolParam->UVbackground = 1;
 	prmAddParam(prm,"UVbackground",paramBool,&CoolParam->UVbackground,sizeof(int),"UVbackground",
 				"on = +UVbackground");
+        CoolParam->cmb_temperature_floor = 1;
+        prmAddParam(prm,"cmb_temperature_floor", paramBool,
+                    &CoolParam->cmb_temperature_floor, sizeof(int),
+                    "grackle_cmb_tfloor",
+                    "grackle cmb_temperature_floor parameter, [on]");
+        CoolParam->bBrokenGrackleFloor = 0;
+        prmAddParam(prm,"bBrokenGrackleFloor", paramBool,
+                    &CoolParam->bBrokenGrackleFloor, sizeof(int),
+                    "broken_grackle_tfloor",
+                    "assume the grackle cmb temperature floor is broken [off]");
 	CoolParam->bComoving = 1;
 	prmAddParam(prm,"bComoving",paramBool,&CoolParam->bComoving,sizeof(int),"bComoving",
 				"on = +bComoving");
 	strcpy(CoolParam->grackle_data_file,"CloudyData_UVB=HM2012.h5\0");
 	prmAddParam(prm,"grackle_data_file",paramString,&CoolParam->grackle_data_file,256,"grackle_data_file",
 	"<cooling table file> (file in hdf5 format, e.g. CloudyData_UVB=HM2012.h5)"); 
-
-	}
+	CoolParam->dSolarMetalFractionByMass = -1.0; // Negative means unset.
+	prmAddParam(prm, "dSolarMetalFractionByMass", paramDouble,
+                    &CoolParam->dSolarMetalFractionByMass, sizeof(double),
+                    "dSolarMetalFractionByMass",
+                    "Grackle assumption about the Solar Metalicity: default is Grackle default");
+}
 	
 
 #if 0
