@@ -241,7 +241,7 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		CmiLock(dm->lockStarLog);
             if(stfm.bUseStoch){
                 CmiLock(dm->lockHMStarLog);
-                CkAssert(dm->starLog->seTab.size()==dm->hmstarLog->seTab.size());
+                CkAssert(dm->starLog->seTab.size()==dm->hmStarLog->seTab.size());
                 }
                 // Record current spot in seTab
                 iSeTab.push_back(dm->starLog->seTab.size());
