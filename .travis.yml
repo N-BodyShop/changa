@@ -11,7 +11,7 @@ matrix:
       name: "ChaNGa with NetLRTS-Linux SMP Charm++"
       dist: xenial
       script:
-        - git clone git://github.com/N-BodyShop/utility.git
+        - git clone https://github.com/N-BodyShop/utility.git
         - export STRUCT_DIR=$TRAVIS_BUILD_DIR/utility/structures
         - wget http://charm.cs.illinois.edu/distrib/$CHARM_VERSION.tar.gz
         - tar -xzf $CHARM_VERSION.tar.gz
