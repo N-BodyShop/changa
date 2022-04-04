@@ -111,6 +111,36 @@ mainmodule ParallelGravity {
   PUPable DistDeletedGasSmoothParams;
   PUPable AGORApreCheckSmoothParams;
   PUPable DistStellarFeedbackSmoothParams;
+#ifdef VORONOI
+  PUPable VoronoiSmoothParams;
+  PUPable RhoOutputParams;
+  PUPable IeOutputParams;
+  PUPable PresOutputParams;
+  PUPable EntropyOutputParams;
+  PUPable VxOutputParams;
+  PUPable VyOutputParams;
+  PUPable VzOutputParams;
+  PUPable GxOutputParams;
+  PUPable GyOutputParams;
+  PUPable GzOutputParams;
+#ifdef MHD
+  PUPable BxOutputParams;
+  PUPable ByOutputParams;
+  PUPable BzOutputParams;
+  PUPable AxOutputParams;
+  PUPable AyOutputParams;
+  PUPable AzOutputParams;
+#endif
+#ifdef RADIATION
+  PUPable EradOutputParams;
+  PUPable FrxOutputParams;
+  PUPable FryOutputParams;
+  PUPable FrzOutputParams;
+#endif
+  PUPable NumSearchOutputParams;
+  PUPable NumNeighborsOutputParams;
+//  PUPable HydroParticle;
+#endif // VORONOI
   PUPable SinkFormTestSmoothParams;
   PUPable SinkFormSmoothParams;
   PUPable BHDensitySmoothParams;
@@ -147,7 +177,9 @@ mainmodule ParallelGravity {
   PUPable DenOutputParams;
   PUPable HsmOutputParams;
   PUPable SoftOutputParams;
+#ifndef VORONOI
   PUPable PresOutputParams;
+#endif
   PUPable DivVOutputParams;
   PUPable PDVOutputParams;
   PUPable MuMaxOutputParams;
@@ -200,8 +232,8 @@ mainmodule ParallelGravity {
   group [migratable] ProjectionsControl {
     entry ProjectionsControl();
     entry [notrace] void on(CkCallback);
-    entry [notrace] void off(CkCallback);                     
-  };                                                          
+    entry [notrace] void off(CkCallback);
+  };
 
 #ifdef REDUCTION_HELPER
   group [migratable] ReductionHelper {
@@ -246,12 +278,18 @@ mainmodule ParallelGravity {
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 			 COOLPARAM inParam, const CkCallback& cb);
+    entry void initUserGravity( Parameters param, const CkCallback& cb);
     entry void dmCoolTableRead(double dTableData[nData], int nData, const CkCallback& cb);
     entry void CoolingSetTime(double z, double dTime, const CkCallback& cb);
     entry void SetStarCM(double dCenterOfMass[4], const CkCallback& cb);
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
+#ifdef VORONOI
+    entry void setupMovingMesh(Parameters param, const CkCallback &cb);
+    entry void setupDtRungs( Parameters param, const double dTime, const CkCallback &cb);
+#endif
+
   };
 
   array [1D] TreePiece {
@@ -263,7 +301,7 @@ mainmodule ParallelGravity {
 
     // entry void report();
 
-    entry void nextBucket(dummyMsg *m);	
+    entry void nextBucket(dummyMsg *m);
     entry void nextBucketSmooth(dummyMsg *msg);
     entry void nextBucketReSmooth(dummyMsg *msg);
     entry void nextBucketMarkSmooth(dummyMsg *msg);
@@ -275,8 +313,8 @@ mainmodule ParallelGravity {
     entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(dummyMsg *m);
-    entry [notrace] void EwaldGPUComplete(); 
-    entry [notrace] void EwaldGPU(); 
+    entry [notrace] void EwaldGPUComplete();
+    entry [notrace] void EwaldGPU();
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
     entry void loadNChilada(const std::string& filename, const double dTuFac,
@@ -365,6 +403,7 @@ mainmodule ParallelGravity {
         double gammam1, double dThermalCondSatCoeff,
         double dMultiPhaseMaxTime, double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
+    entry void applyUserGravity(int iKickRung, double dTime, Parameters param, const CkCallback& cb);
     entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
     entry void externalGravity(int activeRung, const ExternalGravity exGrav,
                        const CkCallback& cb);
@@ -422,11 +461,26 @@ mainmodule ParallelGravity {
     entry void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
         double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);
+#ifdef VORONOI
+    entry void resetHydroParticle(const CkCallback &cb);
+    entry void infoFromHydroParticle( int activeRung, double voroKick, const CkCallback &cb, const bool activeOnly);
+    entry void setupHydroParticleRungs( int _iRung, const CkCallback &cb);
+    entry void checkHydroParticle(const CkCallback &cb);
+    entry void setFBallHydroParticle( int activeRung, const CkCallback &cb);
+    entry void getGlobalInfo(const CkCallback &cb);
+    entry void getGlobalStatistics(int activeRung, const CkCallback &cb);
+    entry void getGlobalDistributions( const CkCallback &cb);
+#ifdef MHD
+    entry void getGlobalBfield( double dt, const CkCallback &cb);
+    entry void updateHydroParticleBfield( const double bx, const double by,
+            const double bz, const CkCallback &cb);
+#endif
+#endif // VORONOI
 #ifdef SPLITGAS
     entry void SplitGas(double dInitGasMass,const CkCallback& cb);
 #endif
     entry void initRand(int iRand, const CkCallback &cb);
-    entry void FormStars(Stfm param, double dTime, double dDelta, 
+    entry void FormStars(Stfm param, double dTime, double dDelta,
     	       		 double dCosmoFac, const CkCallback& cb);
     entry void flushStarLog(const CkCallback& cb);
     entry void Feedback(Fdbk fb, double dTime, double dDelta,
@@ -439,6 +493,8 @@ mainmodule ParallelGravity {
     entry void DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) ;
     entry void liveVizDumpFrameInit(liveVizRequestMsg * msg);
     entry void setProjections(int bOn);
+    entry void getTreeStatistics(const CkCallback &cb);
+
 #ifdef PUSH_GRAVITY
     entry void buildTree(int bucketSize, const CkCallback& cb, bool merge);
 #else

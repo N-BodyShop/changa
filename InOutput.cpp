@@ -1276,7 +1276,7 @@ void write_tipsy_gas(Tipsy::TipsyWriter &w, GravityParticle &p,
     gp.metals = p.fMetals();
     if(bCool) {
 #ifndef COOLING_NONE
-#ifdef COOLING_GRACKLE
+#if defined(COOLING_GRACKLE) || defined(COOLING_HELM) || defined(COOLING_SROEOS) || defined(COOLING_MESA)
         gp.temp = CoolCodeEnergyToTemperature(Cool, &p.CoolParticle(), p.u(),
                                               p.fDensity, p.fMetals());
 #else
@@ -1635,8 +1635,11 @@ void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 	memcpy(&myParticles[nPart+1], incomingParticlesMsg[iMsg]->particles,
 	       incomingParticlesMsg[iMsg]->n*sizeof(GravityParticle));
 	nPart += incomingParticlesMsg[iMsg]->n;
-	memcpy(&mySPHParticles[nSPH], incomingParticlesMsg[iMsg]->pGas,
-	       incomingParticlesMsg[iMsg]->nSPH*sizeof(extraSPHData));
+        // using the proper assignment constructors as oppose to memcpy
+        // memcpy is a bad thing here -- prevent use of containers in extraSPHData
+	for( int iSph = 0; iSph < incomingParticlesMsg[iMsg]->nSPH; iSph++ ) {
+	   mySPHParticles[iSph+nSPH] = incomingParticlesMsg[iMsg]->pGas[iSph];
+        }
 	nSPH += incomingParticlesMsg[iMsg]->nSPH;
 	memcpy(&myStarParticles[nStar], incomingParticlesMsg[iMsg]->pStar,
 	       incomingParticlesMsg[iMsg]->nStar*sizeof(extraStarData));

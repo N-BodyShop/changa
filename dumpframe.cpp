@@ -191,7 +191,7 @@ double VecType(int iType, GravityParticle *p, DataManager *dm, double duTFac,
     switch (iType) {
 #ifndef COOLING_NONE
     case OUT_TEMP_ARRAY: 
-#ifdef COOLING_GRACKLE
+#if defined(COOLING_GRACKLE) || defined(COOLING_HELM) || defined(COOLING_SROEOS) || defined(COOLING_MESA)
 	return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(), 
             p->u(),p->fDensity, p->fMetals());
 #else

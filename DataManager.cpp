@@ -1175,3 +1175,14 @@ void DataManager::clearInstrument(CkCallback const& cb){
 }
 
 #endif // CUDA
+
+#ifdef VORONOI
+void DataManager::setupDtRungs( Parameters param, const double dTime, const CkCallback &cb) {
+  HydroUtils::instance -> maxRungs = MAXRUNG;
+  for (int iRung=0; iRung<=MAXRUNG; iRung++) {
+    double dt = RungToDt(param.dDelta, iRung);
+    HydroUtils::instance -> dtRung[ iRung] = csmComoveDriftFac(param.csm, dTime, dt);
+  }
+  contribute(cb);
+}
+#endif // VORONOI

@@ -630,6 +630,8 @@ ENABLE_CUDA
 NVCC_PATH
 FLAG_GPU_LOCAL_TREE_WALK
 LIBOBJS
+FLAG_RADIATION
+FLAG_MOVING_MESH
 FLAG_SANITIZER
 PROJECTIONS
 DEFAULT_LB
@@ -653,6 +655,8 @@ FLAG_TREE_BUILD
 FLAG_INTERLIST
 FLAG_DTADJUST
 FLAG_BIGKEYS
+MHD_ENABLE
+FLAG_MHD
 FLAG_CHANGESOFT
 HEXADECAPOLE
 FLAG_FLOAT
@@ -681,6 +685,9 @@ AR
 CHARM_PATH
 HAVE_GIT
 CHARMC
+SROEOS_DIR
+ATHENA_DIR
+VORO_DIR
 STRUCT_DIR
 USER_LDFLAGS
 USER_CXXFLAGS
@@ -705,6 +712,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -733,6 +741,7 @@ enable_arch
 enable_float
 enable_hexadecapole
 enable_changesoft
+enable_mhd
 enable_bigkeys
 enable_dtadjust
 enable_interlist
@@ -756,6 +765,8 @@ enable_default_lb
 enable_projections
 enable_opts
 enable_sanitizer
+enable_moving_mesh
+enable_radiation
 with_cuda_level
 with_cuda
 enable_gpu_local_tree_walk
@@ -812,6 +823,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
@@ -1064,6 +1076,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1201,7 +1222,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1354,6 +1375,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -1389,6 +1411,7 @@ Optional Features:
   --enable-float          use single-precision gravity calculations
   --enable-hexadecapole   hexadecapole expansions in gravity
   --enable-changesoft     physical softening
+  --enable-mhd            enable mhd
   --enable-bigkeys        128 bit hash keys
   --enable-dtadjust       emergency timestep adjust
   --enable-interlist      interaction list version
@@ -1413,6 +1436,8 @@ Optional Features:
   --enable-projections    Charm++ projections
   --enable-opts           DEPRECATED - Do not use
   --enable-sanitizer      LLVM sanitizers
+  --enable-moving_mesh    Use moving mesh
+  --enable-radiation      use time dependent radiation
   --enable-gpu-local-tree-walk
                           Do local tree walk on GPU
 
@@ -2332,6 +2357,15 @@ USER_LDFLAGS=$LDFLAGS
 if test "x$STRUCT_DIR" = "x"; then
 	STRUCT_DIR=$srcdir/../utility/structures
 fi
+
+
+VORO_DIR=$srcdir/other-codes/voro++-0.4.6
+ATHENA_DIR=$srcdir/other-codes/athena
+SROEOS_DIR=$srcdir/other-codes/sroeos
+
+
+
+
 
 
 ac_config_headers="$ac_config_headers config.h $STRUCT_DIR/config.h"
@@ -4454,6 +4488,25 @@ fi
 
 
 
+#MHD
+# Check whether --enable-mhd was given.
+if test "${enable_mhd+set}" = set; then :
+  enableval=$enable_mhd; mhd=$enableval
+else
+  mhd=no
+fi
+
+if test "$mhd" = "yes" ; then
+    echo "MHD selected"
+    FLAG_MHD="-DMHD"
+    MHD_ENABLE=1
+else
+    FLAG_MHD=""
+    MHD_ENABLE=""
+fi
+
+
+
 # 128 bit keys:
 	# Check whether --enable-bigkeys was given.
 if test "${enable_bigkeys+set}" = set; then :
@@ -4611,10 +4664,14 @@ case $cooling in
 	metal   ) FLAG_COOLING="-DCOOLING_METAL";;
 	H2      ) FLAG_COOLING="-DCOOLING_MOLECULARH";;
 	grackle	) FLAG_COOLING="-DCOOLING_GRACKLE";;
+   ad      ) FLAG_COOLING="-DCOOLING_AD";;
+   mesa    ) FLAG_COOLING="-DCOOLING_MESA";;
+   sroeos  ) FLAG_COOLING="-DCOOLING_SROEOS";;
 	*		) as_fn_error $? "invalid argument for '--enable-cooling': $cooling" "$LINENO" 5;;
 esac
 
 
+# Cooling:
 if test "$cooling" = "grackle" ; then
    ac_cv_libhdf5="yes"
    { $as_echo "$as_me:${as_lineno-$LINENO}: checking for H5Fcreate in -lhdf5" >&5
@@ -5029,6 +5086,37 @@ ac_compiler_gnu=$ac_cv_c_compiler_gnu
 
 
 fi
+
+
+#moving mesh
+	# Check whether --enable-moving_mesh was given.
+if test "${enable_moving_mesh+set}" = set; then :
+  enableval=$enable_moving_mesh; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-moving_mesh': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then FLAG_MOVING_MESH=-DVORONOI; else FLAG_MOVING_MESH=""; fi
+
+
+
+#radiation
+	# Check whether --enable-radiation was given.
+if test "${enable_radiation+set}" = set; then :
+  enableval=$enable_radiation; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-radiation': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then FLAG_RADIATION=-DRADIATION; else FLAG_RADIATION=""; fi
+
+
 
 
 # Checks for typedefs, structures, and compiler characteristics.

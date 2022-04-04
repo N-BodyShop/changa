@@ -11,6 +11,7 @@
 #include "Sph.h"
 #include "SphUtils.h"
 #include "physconst.h"
+#include "UserGravity.h"
 #include "formatted_string.h"
 
 #include <float.h>
@@ -74,6 +75,10 @@ bool arrayFileExists(const std::string filename, const int64_t count) ;
 void Main::initCooling()
 {
 #ifndef COOLING_NONE
+#ifdef COOLING_AD
+    param.CoolParam.dGamma = param.dConstGamma;
+    param.CoolParam.dMu    = param.dMeanMolWeight;
+#endif
     dMProxy.initCooling(param.dGmPerCcUnit, param.dComovingGmPerCcUnit,
 		    param.dErgPerGmUnit, param.dSecUnit, param.dKpcUnit,
 		    param.CoolParam, CkCallbackResumeThread());
@@ -126,6 +131,13 @@ void Main::initCooling()
             }
         }
 #endif
+  // do the source terms
+  ckout << "Calculating source term ...";
+  double startTime = CkWallTimer();
+  dMProxy.initUserGravity( param, CkCallbackResumeThread());
+  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+            << endl;
+  
     }
 
 /**
@@ -168,6 +180,16 @@ DataManager::dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb
 #endif
     contribute(cb);
     }
+
+void DataManager::initUserGravity( Parameters param, const CkCallback& cb) {
+  UserGravity::initUserGravityParameters( param);
+  UserGravity::initConstants( param.iUserGravityType, param.dSecUnit, (3.0857e21*param.dKpcUnit),
+      param.vPeriod.x, param.vPeriod.y, param.vPeriod.z);
+
+  UserGravity::initUserGravity();
+  contribute(cb);
+
+}
 
 ///
 /// @brief function from PKDGRAV to read an ASCII table
@@ -685,9 +707,16 @@ void TreePiece::RestartEnergy(double dTuFac, // T to internal energy
             CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle(), p->fMetals());
 #else
             CoolPARTICLEtoPERBARYON(cl, &Y, &p->CoolParticle());
+#if defined( COOLING_SROEOS) || defined( COOLING_MESA) || defined( COOLING_AD)
+            double E;
+	    CoolInitEnergyAndParticleData(cl, &p->CoolParticle(), &E,
+					  p->fDensity, T, p->fMetals() );
+	    p->u() = E;
+#else
+	    p->u() = clThermalEnergy(Y.Total,T)*cl->diErgPerGmUnit;
 #endif
             
-	    p->u() = clThermalEnergy(Y.Total,T)*cl->diErgPerGmUnit;
+#endif
 #endif
 #endif
 	    p->uPred() = p->u();
@@ -793,7 +822,7 @@ Main::doSph(int activeRung, int bNeedDensity)
     
     treeProxy.ballMax(activeRung, 1.0+param.ddHonHLimit,
 		      CkCallbackResumeThread());
-    }
+}
 
 /*
  * Initialize energy and ionization state for cooling particles
@@ -1109,7 +1138,6 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	GravityParticle *q;
 	int i;
 	unsigned int qiActive;
-
         ih2 = invH2(p); 
         ih = sqrt(ih2); 
 	vFac = 1./(a*a); /* converts v to xdot */
@@ -1185,8 +1213,7 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		}
 
         if (qiActive)
-          TYPESet(p,TYPE_NbrOfACTIVE);
-		
+          TYPESet(p,TYPE_NbrOfACTIVE);		
         p->fDensity = fNorm*fDensity;
 #ifdef SUPERBUBBLE
     fDensityU *= fNorm;
@@ -1484,6 +1511,41 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
     // Use shadow array to avoid reduction conflict
     smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
+
+void TreePiece::getTreeStatistics(const CkCallback &cb)
+{
+    GravityParticle *p;
+    int numGas = 0;
+    int index = getIndex(); // get the index of the chare
+    bool first_time = true;
+    double x_min, x_max, y_min, y_max, z_min, z_max;
+    for(int i=1; i<= myNumParticles; ++i) {
+      p = &myParticles[i];
+      if (TYPETest(p, TYPE_GAS)) { 
+	numGas++;
+	Vector3D<double> position = p -> position;
+	if( !first_time ) {
+	  if( x_min > position.x) x_min = position.x;
+	  if( x_max < position.x) x_max = position.x;
+
+	  if( y_min > position.y) y_min = position.y;
+	  if( y_max < position.y) y_max = position.y;
+	  
+	  if( z_min > position.z) z_min = position.z;
+	  if( z_max < position.z) z_max = position.z;
+	}
+	else {
+	  x_min = position.x; x_max = x_min;
+	  y_min = position.y; y_max = y_min;
+	  z_min = position.z; z_max = z_min;
+	  first_time = false;
+	}
+      } 
+    }
+    CkPrintf("Chare : %d %d %d %5.3e %5.3e %5.3e %5.3e %5.3e %5.3e\n" , index, numGas, myNumParticles, x_min, x_max, y_min, y_max, z_min, z_max);
+
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
+}
 
 int PressureSmoothParams::isSmoothActive(GravityParticle *p) 
 {

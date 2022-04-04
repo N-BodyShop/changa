@@ -6,6 +6,7 @@
  */
 
 #ifdef COOLING_NONE
+#include <stdlib.h>
 #include "param.h"
 
 typedef struct CoolingParametersStruct {
@@ -14,7 +15,7 @@ typedef struct CoolingParametersStruct {
 
 typedef struct CoolingPKDStruct COOL;
 
-struct CoolingPKDStruct { 
+struct CoolingPKDStruct {
    double     dTime;
 };
 
@@ -51,6 +52,18 @@ inline void CoolAddParams( COOLPARAM *CoolParam, PRM ) {};
 #include "cooling_bate.h"
 #else
 
+#ifdef COOLING_AD
+#include "cooling_ad.h"
+#else
+
+#ifdef COOLING_MESA
+#include "cooling_mesa.h"
+#else
+
+#ifdef COOLING_SROEOS
+#include "cooling_sroeos.h"
+#else
+
 #ifdef COOLING_BOLEY
 #include "cooling_boley.h"
 #else
@@ -65,7 +78,10 @@ inline void CoolAddParams( COOLPARAM *CoolParam, PRM ) {};
 #endif
 #endif
 #endif
+#endif
+#endif
 
 #endif
 
+#endif
 #endif

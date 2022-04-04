@@ -323,9 +323,9 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
   int whichTreePiece;
 };
 #endif
-    
+
 /// Class to count added and deleted particles
-class CountSetPart 
+class CountSetPart
 {
  public:
     int index;			/* chare index */
@@ -412,7 +412,7 @@ inline double PoverRhoFloorJeans(double dResolveJeans, GravityParticle *p)
 #else
     double l2 = 0.25*p->fBall*p->fBall;
 #ifdef JEANSSOFT
-    double e2 = p->soft*p->soft; 
+    double e2 = p->soft*p->soft;
     if (l2 < e2) l2 = e2; /* Jeans scale can't be smaller than softening */
 #endif
 #endif
@@ -456,7 +456,7 @@ class Main : public CBase_Main {
 	int64_t nMaxOrderGas;  /* Maximum iOrders */
 	int64_t nMaxOrderDark;
 	int64_t nMaxOrder;
-	
+
 	double dTime;		/* Simulation time */
 	double dTime0;		///< Simulation time at dStep = 0
 	double dEcosmo;		/* variables for integrating
@@ -518,7 +518,7 @@ class Main : public CBase_Main {
                    = tEmergAdjust = tKick = tDrift = tCache = 0.0;
                }
            };
-       
+
        CkVec<timing_fields> timings;  ///< One element for each rung.
        void writeTimings(int iStep);
 
@@ -536,6 +536,10 @@ class Main : public CBase_Main {
        void turnProjectionsOff();
 #endif
 
+#ifdef VORONOI
+       bool useVoronoiICs = false;
+       bool needFinalVoroInit = true;
+#endif
 
 public:
 
@@ -587,6 +591,19 @@ public:
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
+#ifdef VORONOI
+	void doVoroStart(int activeRung, double dt = 0., bool initialize = false);
+  void doVoroStartOld(int activeRung, double dt = 0., bool initialize = false);
+
+  void doVoroSolve(int activeRung, double dt = 0.);
+	void doVoroEnd(int activeRung, double dt = 0.);
+	void initVoro();
+	void getGlobalInfo( int activeRung);
+  void setupVoroICs();
+#ifdef MHD
+  void getGlobalBfield( double dt, double &bx, double &by, double &bz);
+#endif
+#endif //VORONOI
 	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
@@ -702,7 +719,7 @@ struct NonLocalMomentsClient {
     clientNode(NULL)
   {}
 
-  NonLocalMomentsClient(TreePiece *tp, GenericTreeNode *node) : 
+  NonLocalMomentsClient(TreePiece *tp, GenericTreeNode *node) :
     clientTreePiece(tp),
     clientNode(node)
   {}
@@ -713,7 +730,7 @@ struct NonLocalMomentsClientList {
   GenericTreeNode *targetNode;
   CkVec<NonLocalMomentsClient> clients;
 
-  NonLocalMomentsClientList() : 
+  NonLocalMomentsClientList() :
     targetNode(NULL)
   {}
 
@@ -745,8 +762,8 @@ class TreePiece : public CBase_TreePiece {
    template<typename T> friend class GenericList;
 #endif
 
-   friend class RemoteTreeBuilder; 
-   friend class LocalTreeBuilder; 
+   friend class RemoteTreeBuilder;
+   friend class LocalTreeBuilder;
 
    /// @brief Walk for gravity prefetch
    TreeWalk *sTopDown;
@@ -758,7 +775,7 @@ class TreePiece : public CBase_TreePiece {
 #endif
    Compute *sGravity, *sPrefetch;
    SmoothCompute *sSmooth;
-   
+
    Opt *sLocal, *sRemote, *sPref;
    Opt *optSmooth;
 
@@ -796,7 +813,7 @@ class TreePiece : public CBase_TreePiece {
    CkVec<double> foreignParticleAccelerations;
 
    map<int,CkSectionInfo> cookieJar;
-  
+
    BucketMsg *createBucketMsg();
    void unpackBuckets(BucketMsg *, GenericTreeNode *&foreignBuckets, int &numForeignBuckets);
    void calculateForces(GenericTreeNode *foreignBuckets, int numForeignBuckets);
@@ -869,14 +886,14 @@ class TreePiece : public CBase_TreePiece {
 #ifdef CUDA
         // this variable holds the number of buckets active at
         // the start of an iteration
-        // it is used to ascertain how many buckets still need to 
+        // it is used to ascertain how many buckets still need to
         // be processed via the stateReady function with regard
-        // to their local and remote-no-resume walks. 
+        // to their local and remote-no-resume walks.
         // if all numActiveBuckets
         // have been processed but we still have leftover nodes/particles
         // in the list of interations to the sent to the gpu, we flush
         // the list
-        int numActiveBuckets; 
+        int numActiveBuckets;
         int myNumActiveParticles;
         // First and Last indices of GPU particle
         int FirstGPUParticleIndex;
@@ -902,7 +919,7 @@ class TreePiece : public CBase_TreePiece {
             return myNumParticles;
           }
           else{
-            return myNumActiveParticles; 
+            return myNumActiveParticles;
           }
         }
 
@@ -910,7 +927,7 @@ class TreePiece : public CBase_TreePiece {
           return myNumActiveParticles;
         }
 
-        void calculateNumActiveParticles(){ 
+        void calculateNumActiveParticles(){
           myNumActiveParticles = 0;
           for(int i = 1; i <= myNumParticles; i++){
             if(myParticles[i].rung >= activeRung){
@@ -946,7 +963,7 @@ class TreePiece : public CBase_TreePiece {
                 continue;
               }
               BucketActiveInfo *binfo = &(bucketActiveInfo[b]);
-              
+
               int buckstart = bucket->firstParticle;
               int buckend = bucket->lastParticle;
               GravityParticle *buckparts = bucket->particlePointer;
@@ -999,7 +1016,7 @@ class TreePiece : public CBase_TreePiece {
         double localPartListConstructionTime;
         double remotePartListConstructionTime;
         double remoteResumePartListConstructionTime;
-        
+
         int nLocalNodeReqs;
         int nRemoteNodeReqs;
         int nRemoteResumeNodeReqs;
@@ -1048,8 +1065,8 @@ class TreePiece : public CBase_TreePiece {
 	/// Time read in from input file
 	double dStartTime;
 
-private:        
-	// liveViz 
+private:
+	// liveViz
 	liveVizRequestMsg * savedLiveVizMsg;
 
         LBStrategy foundLB;
@@ -1335,7 +1352,7 @@ private:
   EwaldData *h_idata;
   CkCallback *cbEwaldGPU;
 #endif
-  void EwaldGPU(); 
+  void EwaldGPU();
   void EwaldGPUComplete();
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
@@ -1416,7 +1433,7 @@ public:
             sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
             nPrevActiveParts(0) {
 	  dm = NULL;
-	  foundLB = Null; 
+	  foundLB = Null;
 	  iterationNo=0;
 	  usesAtSync = true;
 	  pTreeNodes = NULL;
@@ -1703,6 +1720,7 @@ public:
              double duDelta, int nGrowMass, bool buildTree, double dMaxEnergy,
 	     const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
+  void applyUserGravity(int iKickRung, double dTime, Parameters param, const CkCallback& cb);
 #ifdef COOLING_MOLECULARH
   void distribLymanWerner(const CkCallback& cb);
 #endif /*COOLING_MOLECULARH*/
@@ -1776,7 +1794,7 @@ public:
   void colNParts(const CkCallback &cb);
   /// Assign iOrders to recently added particles.
   void newOrder(const NewMaxOrder *nStarts, const int n, const CkCallback &cb) ;
-  
+
   /// Update total particle numbers
   void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
 		 int64_t _nTotalStar, const CkCallback &cb);
@@ -1798,6 +1816,22 @@ public:
     void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
         double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);
+
+#ifdef VORONOI
+  void resetHydroParticle( const CkCallback &cb);
+  void infoFromHydroParticle( int activeRung, double voroKick, const CkCallback &cb, const bool activeOnly);
+  void setupHydroParticleRungs( int _iRung, const CkCallback &cb);
+  void checkHydroParticle( const CkCallback &cb);
+  void setFBallHydroParticle( int activeRung, const CkCallback &cb);
+  void getGlobalInfo( const CkCallback &cb);
+  void getGlobalStatistics( int activeRung, const CkCallback &cb);
+  void getGlobalDistributions( const CkCallback &cb);
+#ifdef MHD
+  void getGlobalBfield( double dt, const CkCallback &cb);
+  void updateHydroParticleBfield( const double bx, const double by,
+          const double bz, const CkCallback &cb);
+#endif
+#endif //VORONOI
 #ifdef SPLITGAS
 	void SplitGas(double dInitGasMass, const CkCallback& cb);
 #endif
@@ -1818,7 +1852,7 @@ public:
 	void DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) ;
 	void liveVizDumpFrameInit(liveVizRequestMsg *msg);
 	void setProjections(int bOn);
-
+	void getTreeStatistics( const CkCallback &cb);
 	/// \brief Charm entry point to build the tree (called by Main).
 #ifdef PUSH_GRAVITY
 	void buildTree(int bucketSize, const CkCallback& cb, bool merge);
@@ -2033,7 +2067,7 @@ public:
         std::map<NodeKey,NonLocalMomentsClientList> nonLocalMomentsClients;
         bool localTreeBuildComplete;
         int getResponsibleIndex(int first, int last);
-        
+
 
         GenericTreeNode *boundaryParentReady(GenericTreeNode *parent);
         void accumulateMomentsFromChild(GenericTreeNode *parent, GenericTreeNode *child);
@@ -2064,7 +2098,7 @@ void printGenericTree(GenericTreeNode* node, std::ostream& os) ;
 
 #ifdef REDUCTION_HELPER
 
-class TreePieceCounter : public CkLocIterator { 
+class TreePieceCounter : public CkLocIterator {
   public:
     TreePieceCounter() { reset(); }
     void addLocation(CkLocation &loc);
@@ -2101,7 +2135,7 @@ class ReductionHelper : public CBase_ReductionHelper {
 #endif
 
 /// @brief Used to count non-empty treepieces on the local processor.
-class NonEmptyTreePieceCounter : public CkLocIterator {            
+class NonEmptyTreePieceCounter : public CkLocIterator {
   public:
     NonEmptyTreePieceCounter() { reset(); }
     void addLocation(CkLocation &loc);

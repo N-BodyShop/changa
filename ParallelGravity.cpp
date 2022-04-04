@@ -1,11 +1,12 @@
 /**
- * @mainpage ChaNGa: Charm++ N-body Gravity 
  * 
+ * @mainpage ChaNGa: Charm++ N-body Gravity
+ *
  * For internal documentation of the operation of this code please see the
  * following classes:
- * 
+ *
  * Main: Overall control flow of the program.
- * 
+ *
  * TreePiece: Structure that holds the particle data and tree
  * structure in each object.
  *
@@ -17,7 +18,7 @@
  *
  * GravityParticle: Per particle data structure.
  */
- 
+
 #include <stdint.h>
 #include <iostream>
 
@@ -49,6 +50,11 @@
 #ifdef CUDA
 // for default per-list parameters
 #include "cuda_typedef.h"
+#endif
+
+#ifdef VORONOI
+#include "HydroParticle.h"
+#include "VoronoiSmoothParams.h"
 #endif
 
 extern char *optarg;
@@ -135,7 +141,7 @@ int localPartsPerReq;
 int remotePartsPerReq;
 int remoteResumePartsPerReq;
 
-// multi-stepping particle transfer strategy 
+// multi-stepping particle transfer strategy
 // switch threshold
 double largePhaseThreshold;
 
@@ -167,11 +173,11 @@ CProxy_ProjectionsControl prjgrp;
 /* The following is for backward compatibility and deprecated */
 #define GASMODEL_UNSET -1
 enum GasModel {
-	GASMODEL_ADIABATIC, 
-	GASMODEL_ISOTHERMAL, 
-	GASMODEL_COOLING, 
+	GASMODEL_ADIABATIC,
+	GASMODEL_ISOTHERMAL,
+	GASMODEL_COOLING,
 	GASMODEL_GLASS
-	}; 
+	};
 
 int doDumpLB;
 int lbDumpIteration;
@@ -248,13 +254,16 @@ Main::Main(CkArgMsg* m) {
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
 
         prefetchDoneUE = traceRegisterUserEvent("PrefetchDone");
-	
+
 	prmInitialize(&prm,_Leader,_Trailer);
 	csmInitialize(&param.csm);
 
 	param.dDelta = 0.0;
 	prmAddParam(prm, "dDelta", paramDouble, &param.dDelta,
 		    sizeof(double),"dt", "Base Timestep for integration");
+	param.dDeltaMin = 0.0;
+	prmAddParam(prm, "dDeltaMin", paramDouble, &param.dDeltaMin,
+		    sizeof(double),"dtmin", "min Timestep for check integration");
 	param.iMaxRung = MAXRUNG;
 	prmAddParam(prm, "iMaxRung", paramInt, &param.iMaxRung,
 		    sizeof(int),"mrung", "Maximum timestep rung (IGNORED)");
@@ -296,7 +305,7 @@ Main::Main(CkArgMsg* m) {
 #endif
 	prmAddParam(prm, "bDtAdjust", paramBool, &param.bDtAdjust,
 		    sizeof(int),"dtadj", "Emergency adjust of timesteps");
-	
+
 	param.bBenchmark = 0;
 	prmAddParam(prm, "bBenchmark", paramBool, &param.bBenchmark,
 		    sizeof(int),"bench", "Benchmark only; no output or checkpoints");
@@ -419,7 +428,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "bComove", paramBool, &param.csm->bComove,
 		    sizeof(int),"cm", "Comoving coordinates");
 	param.csm->dHubble0 = 0.0;
-	prmAddParam(prm,"dHubble0",paramDouble,&param.csm->dHubble0, 
+	prmAddParam(prm,"dHubble0",paramDouble,&param.csm->dHubble0,
 		    sizeof(double),"Hub", "<dHubble0> = 0.0");
 	param.csm->dOmega0 = 1.0;
 	prmAddParam(prm,"dOmega0",paramDouble,&param.csm->dOmega0,
@@ -532,7 +541,7 @@ Main::Main(CkArgMsg* m) {
 #ifdef CULLENALPHA
 	param.dConstAlphaMax = 4.0;
 	prmAddParam(prm, "dConstAlphaMax", paramDouble, &param.dConstAlphaMax,
-		    sizeof(double), "AlphaMax", 
+		    sizeof(double), "AlphaMax",
 		    "< Cullen and Dehnen Alpha Max constant in viscosity> = 1.0");
 #endif
 	param.dConstGamma = 5.0/3.0;
@@ -580,6 +589,318 @@ Main::Main(CkArgMsg* m) {
 	param.dEtauDot = 0.25;
 	prmAddParam(prm,"dEtauDot",paramDouble,&param.dEtauDot,
 		    sizeof(double),"etau", "<uDot criterion> = 0.25");
+	param.dVoroKick = 1.0;
+	prmAddParam(prm,"dVoroKick",paramDouble,&param.dVoroKick,
+		    sizeof(double),"vorokick", "<voro kick scale> = 1.0");
+	param.dVoroMesh = 1.0;
+	prmAddParam(prm,"dVoroMesh",paramDouble,&param.dVoroMesh,
+		    sizeof(double),"voromesh", "<voro mesh adjust> = 1.0");
+	param.dHydroTheta = 0.5;
+	prmAddParam(prm,"dHydroTheta",paramDouble,&param.dHydroTheta,
+		    sizeof(double),"HydroTheta", "<gradient limiter> = 0.5");
+	param.iRiemannSolver = 0; //0 for HLLC, 1 for HLL, . . .
+	prmAddParam(prm,"iRiemannSolver",paramInt,&param.iRiemannSolver,
+		    sizeof(int),"RiemannSolver", "<Riemann Solver> = 0");
+	param.dSmallRho = 1e-30;
+	prmAddParam(prm,"dSmallRho",paramDouble,&param.dSmallRho,
+		    sizeof(double),"smallrho", "<Small Rho> = 1e-30");
+    param.bUseEntropy = 1;
+	prmAddParam(prm,"bUseEntropy",paramInt,&param.bUseEntropy,
+		    sizeof(int),"useEntropy", "<use entropy> = 1");
+    param.bUseOldGravMethod = 0;
+	prmAddParam(prm,"bUseOldGravMethod",paramInt,&param.bUseOldGravMethod,
+		    sizeof(int),"useOldGrav", "<use old grav formulation> = 0");
+    param.bUseEOSSpeedup=1;
+	prmAddParam(prm,"bUseEOSSpeedup",paramInt,&param.bUseEOSSpeedup,
+		    sizeof(int),"useEOSSpeedup", "<use EOS Speedup> = 1");
+    param.bUseVanLeer = 1;
+	prmAddParam(prm,"bUseVanLeer",paramInt,&param.bUseVanLeer,
+		    sizeof(int),"use van leer", "<use van leer timestepping> = 1");
+    param.dMachThreshold = 1.1;
+	prmAddParam(prm,"dMachThreshold",paramDouble,&param.dMachThreshold,
+		    sizeof(double),"machThresold", "<mach threshold> = 1.1");
+    param.dRedSpeedOfLight = 0.;
+	prmAddParam(prm,"dRedSpeedOfLight",paramDouble,&param.dRedSpeedOfLight,
+		    sizeof(double),"reducedSpeedOfLight", "<Reduced Speed of Light> = 0. defaults to c");
+	param.iParticleTrack = -1;
+	prmAddParam(prm,"iParticleTrack",paramInt,&param.iParticleTrack,
+		    sizeof(int),"particletrack", "<tracker> = -1");
+	param.iAngleTrack = -1;
+	prmAddParam(prm,"iAngleTrack",paramInt,&param.iAngleTrack,
+		    sizeof(int),"angletrack", "<tracker> = -1");
+	param.bFirstOrder = 0;
+	prmAddParam(prm,"bFirstOrder",paramInt,&param.bFirstOrder,
+		    sizeof(int),"first_order", "<firstOrder> = 0");
+        param.dgrav = 0.;
+	prmAddParam(prm,"dgrav",paramDouble,&param.dgrav,
+		    sizeof(double),"grav", "<grav> = 0.0");
+        param.dgravL = 0.;
+	prmAddParam(prm,"dgravL",paramDouble,&param.dgravL,
+		    sizeof(double),"gravL", "<gravL> = 0.0");
+        param.iUserGravityType = 0;
+	prmAddParam(prm,"iUserGravType",paramInt,&param.iUserGravityType,
+		    sizeof(int),"userGravityType", "<type> = 0");
+    param.dKlo = 1.;
+    prmAddParam(prm,"dKlo",paramDouble,&param.dKlo,
+            sizeof(double), "klo", "klo=1");
+    param.dKhi = 2.;
+    prmAddParam(prm,"dKhi",paramDouble,&param.dKhi,
+            sizeof(double), "khi", "khi=2");
+    param.dKslope = -2.;
+    prmAddParam(prm,"dKslope",paramDouble,&param.dKslope,
+            sizeof(double), "kslope", "kslope=-2");
+    param.dTurbAmplitude = 0.;
+    prmAddParam(prm,"dTurbAmplitude",paramDouble,&param.dTurbAmplitude,
+            sizeof(double), "TurbAmplitude", "amplitude=0.");
+    param.iTurbSeed = 123;        
+    prmAddParam(prm,"iTurbSeed",paramInt,&param.iTurbSeed,
+            sizeof(int), "TurbSeed", "seed=123");
+    param.rGravFile[0] = '\0';
+    prmAddParam(prm,"rGravFile",paramString,param.rGravFile,
+		    256, "I", "radial gravity file name");
+        param.dMbh = 0.;
+	prmAddParam(prm,"dMbh",paramDouble,&param.dMbh,
+		    sizeof(double),"Pacyzski-Witta potential BH", "<Mbh> = 0.0");
+        param.dxbh = 0.;
+	prmAddParam(prm,"dxbh",paramDouble,&param.dxbh,
+		    sizeof(double),"Pacyzski-Witta potential BH position" , "<xbh> = 0.0");
+        param.dybh = 0.;
+	prmAddParam(prm,"dybh",paramDouble,&param.dybh,
+		    sizeof(double),"Pacyzski-Witta potential BH position" , "<ybh> = 0.0");
+        param.dzbh = 0.;
+	prmAddParam(prm,"dzbh",paramDouble,&param.dzbh,
+		    sizeof(double),"Pacyzski-Witta potential BH position" , "<zbh> = 0.0");
+        param.dvxbh = 0.;
+	prmAddParam(prm,"dvxbh",paramDouble,&param.dvxbh,
+		    sizeof(double),"Pacyzski-Witta potential BH position" , "<xbh> = 0.0");
+        param.dvybh = 0.;
+	prmAddParam(prm,"dvybh",paramDouble,&param.dvybh,
+		    sizeof(double),"Pacyzski-Witta potential BH position" , "<ybh> = 0.0");
+        param.dvzbh = 0.;
+	prmAddParam(prm,"dvzbh",paramDouble,&param.dvzbh,
+		    sizeof(double),"Pacyzski-Witta potential BH position" , "<zbh> = 0.0");
+        param.drbhSoft = 0.;
+	prmAddParam(prm,"drbhSoft",paramDouble,&param.drbhSoft,
+		    sizeof(double),"Pacyzski-Witta potential BH softening", "<rbh> = 0.0");
+	param.dBx = 0.;
+	prmAddParam(prm,"dBx",paramDouble,&param.dBx,
+			  sizeof(double),"global_Bx", "<Bx> = 0");
+	param.dBy = 0.;
+	prmAddParam(prm,"dBy",paramDouble,&param.dBy,
+				sizeof(double),"global_By", "<By> = 0");
+	param.dBz = 0.;
+	prmAddParam(prm,"dBz",paramDouble,&param.dBz,
+				sizeof(double),"global_Bz", "<Bz> = 0");
+	param.dVPsi = 0.;
+	prmAddParam(prm,"dVPsi",paramDouble,&param.dVPsi,
+				sizeof(double),"global_Vpsi", "<Vpsi> = 0");
+
+    param.dRadPosx1 = 0.;
+	prmAddParam(prm,"dRadPosx1",paramDouble,&param.dRadPosx1,
+				sizeof(double),"rad source 1 x-pos", "<dRadPosx1> = 0");
+
+    param.dRadPosy1 = 0.;
+	prmAddParam(prm,"dRadPosy1",paramDouble,&param.dRadPosy1,
+				sizeof(double),"rad source 1 y-pos", "<dRadPosy1> = 0");
+
+    param.dRadPosz1 = 0.;
+	prmAddParam(prm,"dRadPosz1",paramDouble,&param.dRadPosz1,
+				sizeof(double),"rad source 1 z-pos", "<dRadPosz1> = 0");
+
+    param.dRadPosx2 = 0.;
+	prmAddParam(prm,"dRadPosx2",paramDouble,&param.dRadPosx2,
+				sizeof(double),"rad source 2 x-pos", "<dRadPosx2> = 0");
+
+    param.dRadPosy2 = 0.;
+	prmAddParam(prm,"dRadPosy2",paramDouble,&param.dRadPosy2,
+				sizeof(double),"rad source 2 y-pos", "<dRadPosy2> = 0");
+
+    param.dRadPosz2 = 0.;
+	prmAddParam(prm,"dRadPosz2",paramDouble,&param.dRadPosz2,
+				sizeof(double),"rad source 1 z-pos", "<dRadPosz2> = 0");
+
+    param.dRadNormx1 = 0.;
+	prmAddParam(prm,"dRadNormx1",paramDouble,&param.dRadNormx1,
+				sizeof(double),"rad source 1 x-pos", "<dRadNormx1> = 0");
+
+    param.dRadNormy1 = 0.;
+	prmAddParam(prm,"dRadNormy1",paramDouble,&param.dRadNormy1,
+				sizeof(double),"rad source 1 y-pos", "<dRadNormy1> = 0");
+
+    param.dRadNormz1 = 0.;
+	prmAddParam(prm,"dRadNormz1",paramDouble,&param.dRadNormz1,
+				sizeof(double),"rad source 1 z-pos", "<dRadNormz1> = 0");
+
+    param.dRadNormx2 = 0.;
+	prmAddParam(prm,"dRadNormx2",paramDouble,&param.dRadNormx2,
+				sizeof(double),"rad source 2 x-pos", "<dRadNormx2> = 0");
+
+    param.dRadNormy2 = 0.;
+	prmAddParam(prm,"dRadNormy2",paramDouble,&param.dRadNormy2,
+				sizeof(double),"rad source 2 y-pos", "<dRadNormy2> = 0");
+
+    param.dRadNormz2 = 0.;
+	prmAddParam(prm,"dRadNormz2",paramDouble,&param.dRadNormz2,
+				sizeof(double),"rad source 1 z-pos", "<dRadNormz2> = 0");
+
+    param.dRadMu0 = 1.;
+	prmAddParam(prm,"dRadMu0",paramDouble,&param.dRadMu0,
+				sizeof(double),"rad source angle", "<dRadMu0> = 1");
+
+    param.dRadRadius = 0.;
+	prmAddParam(prm,"dRadRadius",paramDouble,&param.dRadRadius,
+				sizeof(double),"rad source radius", "<dRadRadius> = 0");
+
+        param.dRadTeff = 0.;
+	prmAddParam(prm,"dRadTeff",paramDouble,&param.dRadTeff,
+				sizeof(double),"rad source Idot (CGS)", "<dRadTeff> = 0");
+
+        param.dRadY0 = 0.;
+	prmAddParam(prm,"dRadY0",paramDouble,&param.dRadY0,
+				sizeof(double),"rad source slab position", "<dRadY0> = 0");
+        param.dRadDeltaY = 0.;
+	prmAddParam(prm,"dRadDeltaY",paramDouble,&param.dRadDeltaY,
+				sizeof(double),"rad source slab thickness", "<dRadDeltaY> = 0");
+        param.dRadTinit = 0.;
+	prmAddParam(prm,"dRadTinit",paramDouble,&param.dRadTinit,
+				sizeof(double),"rad init T radiation (CGS)", "<dRadTinit> = 0");
+        param.dRadMuinit = -1.;
+	prmAddParam(prm,"dRadMuinit",paramDouble,&param.dRadMuinit,
+				sizeof(double),"rad init mu0 radiation (CGS)", "<dRadMuinit> = -1.");
+        param.bRadPointSource = 0;
+	prmAddParam(prm,"bRadPointSource",paramInt,&param.bRadPointSource,
+				sizeof(int),"use point sources", "<bradpointsource> = 0");
+        param.bRadSlabSource = 0;
+	prmAddParam(prm,"bRadSlabSource",paramInt,&param.bRadSlabSource,
+				sizeof(int),"use slab sources", "<bradpointsource> = 0");
+        param.bRadNoLorentz = 0;
+	prmAddParam(prm,"bRadNoLorentz",paramInt,&param.bRadNoLorentz,
+				sizeof(int),"no Lorentz transform", "<bradNoLorentz> = 0");
+        param.bRadNoHydro = 0;
+	prmAddParam(prm,"bRadNoHydro",paramInt,&param.bRadNoHydro,
+				sizeof(int),"no hydro update from radiation", "<bradpointsource> = 0");
+    strcpy( param.opacityName, "SimpleOpacity");
+    prmAddParam(prm,"OpacityName",paramString,param.opacityName,
+		    256, "I", "registered opacity name name");
+    param.dSimpleKappaPl = 1.;
+	prmAddParam(prm,"dSimpleKappaPlanck",paramDouble,&param.dSimpleKappaPl,
+				sizeof(double),"planck mean opacity", "<dSimpleKappaPlanck> = 1.");    
+    param.dSimpleKappaMean = 1.;
+	prmAddParam(prm,"dSimpleKappaMean",paramDouble,&param.dSimpleKappaMean,
+				sizeof(double),"J mean opacity", "<dSimpleKappaMean> = 1.");    
+    param.dSimpleKappaSca = 1.0;
+	prmAddParam(prm,"dSimpleKappaScatter",paramDouble,&param.dSimpleKappaSca,
+				sizeof(double),"mean scattering opacity", "<dSimpleKappaScatter> = 1.0");   
+    for( int i = 0; i < 6; i++) { 
+        param.dRhoBoundary[i] = 1e-30;
+        param.dBoundaries[i] = 0.;
+        param.bUseRadiation[i] = 0;
+        char xboundName[256], yboundName[256], zboundName[256];
+        sprintf( xboundName, "dBoundaryx%i", i+1);
+        prmAddParam(prm, xboundName,paramDouble,&param.dBoundaries[i].x,
+	    			sizeof(double),"x boundary", "<dBoundaryx> = 0.");    
+        sprintf( yboundName, "dBoundaryy%i", i+1);
+	    prmAddParam(prm, yboundName,paramDouble,&param.dBoundaries[i].y,
+	    			sizeof(double),"x boundary", "<dBoundaryx> = 0.");    
+        sprintf( zboundName, "dBoundaryz%i", i+1);
+	    prmAddParam(prm, zboundName,paramDouble,&param.dBoundaries[i].z,
+	    			sizeof(double),"x boundary", "<dBoundaryx> = 0.");    
+        char rhoboundName[256], radboundName[256];
+        sprintf( rhoboundName, "dRhoBoundary%i", i+1);
+    	prmAddParam(prm,rhoboundName,paramDouble,&param.dRhoBoundary[i],
+				sizeof(double),"rho boundary", "<dRhoBoundary> = 1.e-30");    
+        sprintf( radboundName, "bUseRadiation%i", i+1);
+    	prmAddParam(prm,radboundName,paramInt,&param.bUseRadiation[i],
+				sizeof(int),"rad boundary", "<dRhoBoundary> = 1.e-30");    
+    }   
+    param.iNumBoundaries = 0;
+    prmAddParam(prm,"iNumBoundaries",paramInt,&param.iNumBoundaries,
+				sizeof(int),"num absorbing boundary conditions", "<iNumboundaries> = 0");
+    param.dRhoSpherical = param.dSmallRho;
+    prmAddParam(prm,"dRhoSpherical",paramDouble,&param.dRhoSpherical,
+            sizeof(double),"rho boundary", "<dRhoSpherical> = dSmallRho");    
+    param.dTempSpherical = -1;
+    prmAddParam(prm,"dTempSpherical",paramDouble,&param.dTempSpherical,
+            sizeof(double),"temp boundary", "<dTempSpherical> = dSmallTemp");    
+    param.dSphericalBCRadius = -1;
+    prmAddParam(prm,"dSphericalBCRadius",paramDouble,&param.dSphericalBCRadius,
+            sizeof(double),"radius", "<dSphericalBCRadius> = -1");    
+    param.dSphericalBC = 0;
+    prmAddParam(prm, "dSphericalBCx", paramDouble,&param.dSphericalBC.x,
+            sizeof(double),"x center", "<dSphericalBCx> = 0.");    
+    prmAddParam(prm, "dSphericalBCy", paramDouble,&param.dSphericalBC.y,
+            sizeof(double),"y center", "<dSphericalBCy> = 0.");    
+    prmAddParam(prm, "dSphericalBCz", paramDouble,&param.dSphericalBC.z,
+            sizeof(double),"z center", "<dSphericalBCz> = 0.");    
+    param.dTauBoundary = 1.;
+    	prmAddParam(prm,"dTauBoundary",paramDouble,&param.dTauBoundary,
+				sizeof(double),"tau boundary", "<dTauBoundary> = 1.");  
+    strcpy( param.problemGeneratorName, "None");
+    prmAddParam(prm,"ProblemGeneratorName",paramString,param.problemGeneratorName,
+		    256, "I", "registered opacity name name");
+    param.dWaveRho = 0.;
+	prmAddParam(prm,"dWaveRho",paramDouble,&param.dWaveRho,
+				sizeof(double),"rho", "<rho> = 0.0");   
+    param.dWaveCs = 0.;
+	prmAddParam(prm,"dWaveCs",paramDouble,&param.dWaveCs,
+				sizeof(double),"cs", "<cs> = 0.0");   
+    param.dWaveAmplitude = 0.;
+	prmAddParam(prm,"dWaveAmplitude",paramDouble,&param.dWaveAmplitude,
+				sizeof(double),"amp", "<amp> = 0.0");   
+    param.dWaveKxBox = 0.;
+	prmAddParam(prm,"dWaveKxBox",paramDouble,&param.dWaveKxBox,
+				sizeof(double),"kx", "<kx> = 0.0");   
+    param.dWaveRhoReal = 0.;
+	prmAddParam(prm,"dWaveRhoReal",paramDouble,&param.dWaveRhoReal,
+				sizeof(double),"rho", "<rho> = 0.0");   
+    param.dWaveRhoImag = 0.;
+	prmAddParam(prm,"dWaveRhoImag",paramDouble,&param.dWaveRhoImag,
+				sizeof(double),"rho phase", "<rho phase> = 0.0");   
+    param.dWaveVxReal = 0.;
+	prmAddParam(prm,"dWaveVxReal",paramDouble,&param.dWaveVxReal,
+				sizeof(double),"vx", "<vx> = 0.0");   
+    param.dWaveVxImag = 0.;
+	prmAddParam(prm,"dWaveVxImag",paramDouble,&param.dWaveVxImag,
+				sizeof(double),"vx phase", "<vx phase> = 0.0");   
+    param.dWaveIeReal = 0.;
+	prmAddParam(prm,"dWaveIeReal",paramDouble,&param.dWaveIeReal,
+				sizeof(double),"ie", "<ie> = 0.0");   
+    param.dWaveIeImag = 0.;
+	prmAddParam(prm,"dWaveIeImag",paramDouble,&param.dWaveIeImag,
+				sizeof(double),"Ie Imag", "<ie phase> = 0.0");  
+    param.dWaveErReal = 0.;
+	prmAddParam(prm,"dWaveErReal",paramDouble,&param.dWaveErReal,
+				sizeof(double),"er real", "<er real> = 0.0");   
+    param.dWaveErImag = 0.;
+	prmAddParam(prm,"dWaveErImag",paramDouble,&param.dWaveErImag,
+				sizeof(double),"er imag", "<er imag> = 0.0");   
+    param.dWaveFrReal = 0.;
+	prmAddParam(prm,"dWaveFrReal",paramDouble,&param.dWaveFrReal,
+				sizeof(double),"Fr real", "<er real> = 0.0");   
+    param.dWaveFrImag = 0.;
+	prmAddParam(prm,"dWaveFrImag",paramDouble,&param.dWaveFrImag,
+				sizeof(double),"Fr imag", "<er imag> = 0.0");   
+    param.dDeltaX = 1.;
+	prmAddParam(prm,"dDeltaX",paramDouble,&param.dDeltaX,
+				sizeof(double),"Delta X", "<delta x> = 1.0");   
+    param.dvx = 0.;
+	prmAddParam(prm,"dVx",paramDouble,&param.dvx,
+				sizeof(double),"vx", "<vx> = 0.0");   
+
+    param.bDoCheckNaN = 0;
+	prmAddParam(prm,"bDoCheckNaN",paramInt,&param.bDoCheckNaN,
+				sizeof(int),"checkNaN", "<default> = 0");
+                
+    param.bDoOutputPres = 0;
+	prmAddParam(prm,"bDoOutputPres",paramInt,&param.bDoOutputPres,
+				sizeof(int),"output press and entropy", "<default> = 0");
+
+    param.bDoOutputGrav = 0;
+	prmAddParam(prm,"bDoOutputGrav",paramInt,&param.bDoOutputGrav,
+				sizeof(int),"output grav acceleration", "<default> = 0");
+        param.bDoVoroStats = 0;
+	prmAddParam(prm,"bDoVoroStats",paramInt,&param.bDoVoroStats,
+				sizeof(int),"output neighbors + stats", "<bradpointsource> = 0");
 	param.nTruncateRung = 0;
         prmAddParam(prm,"nTruncateRung",paramInt,&param.nTruncateRung,
 		    sizeof(int),"nTR",
@@ -691,7 +1012,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dFracLoadBalance",paramDouble,&param.dFracLoadBalance,
 		    sizeof(double), "fraclb",
 		    "Minimum active particles for load balancing");
-	
+
 	bDumpFrame = 0;
 	df = NULL;
 	param.dDumpFrameStep = -1.0;
@@ -717,15 +1038,15 @@ Main::Main(CkArgMsg* m) {
 	param.bStaticTest = 0;
 	prmAddParam(prm, "bStaticTest", paramBool, &param.bStaticTest,
 		    sizeof(int),"st", "Static test of performance");
-	
+
 	_randChunks = 1;
 	prmAddParam(prm, "bRandChunks", paramBool, &_randChunks,
 		    sizeof(int),"rand", "Randomize the order of remote chunk computation (default: ON)");
-	
+
 	_nocache = 0;
 	// prmAddParam(prm, "bNoCache", paramBool, &_nocache,
 	//	    sizeof(int),"nc", "Disable the CacheManager caching behaviour");
-	
+
         param.iVerbosity = 0;
 	prmAddParam(prm, "iVerbosity", paramInt, &param.iVerbosity,
 		    sizeof(int),"v", "Verbosity");
@@ -789,7 +1110,7 @@ Main::Main(CkArgMsg* m) {
 
 
 #ifdef SELECTIVE_TRACING
-        /* tracing control */ 
+        /* tracing control */
         monitorRung = 12;
         prmAddParam(prm, "iTraceRung", paramInt, &monitorRung,
               sizeof(int),"traceRung", "Gravity starting rung to trace selectively");
@@ -838,7 +1159,7 @@ Main::Main(CkArgMsg* m) {
 
         CkAssert(!(doDumpLB && doSimulateLB));
 
-    
+
           // jetley - cuda parameters
 #ifdef CUDA
 
@@ -885,10 +1206,10 @@ Main::Main(CkArgMsg* m) {
           }
           numInitDecompBins = numBins;
         }
-	
+
 	if(bVDetails && !param.iVerbosity)
 	    param.iVerbosity = 1;
-	
+
 	if(prmSpecified(prm, "iMaxRung")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "iMaxRung parameter ignored. MaxRung is " << MAXRUNG
@@ -983,14 +1304,14 @@ Main::Main(CkArgMsg* m) {
 		  << endl;
 	    param.iOutInterval = 1;
 	    }
-	    
+
 	if(param.iLogInterval <= 0) {
 	    ckerr << "WARNING: ";
 	    ckerr << "iLogInterval is non-positive; setting to 1."
 		  << endl;
 	    param.iLogInterval = 1;
 	    }
-	    
+
 	if (param.bPhysicalSoft) {
 	    if (!param.csm->bComove) {
 		ckerr << "WARNING: bPhysicalSoft reset to 0 for non-comoving (bComove == 0)\n";
@@ -1001,7 +1322,7 @@ Main::Main(CkArgMsg* m) {
 	    CkAbort("CHANGESOFT needed");
 #endif
 	    }
-	
+
         dTimeOld = 0.0; // Reset if this is restarting from an output.
 
 	/*
@@ -1080,6 +1401,11 @@ Main::Main(CkArgMsg* m) {
 
 #endif
 
+	if(prmSpecified(prm, "lbcommCutoffMsgs")) {
+	    ckerr << "WARNING: ";
+	    ckerr << "lbcommcut parameter ignored." << endl;
+	    }
+
 	if(prmSpecified(prm, "bGeometric")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bGeometric parameter ignored." << endl;
@@ -1091,7 +1417,7 @@ Main::Main(CkArgMsg* m) {
 	if(prmSpecified(prm, "iGasModel")) {
 	    switch(iGasModel) {
 	    case GASMODEL_ADIABATIC:
-		param.bGasAdiabatic = 1;	
+		param.bGasAdiabatic = 1;
 		break;
 	    case GASMODEL_ISOTHERMAL:
 		param.bGasIsothermal = 1;
@@ -1101,7 +1427,7 @@ Main::Main(CkArgMsg* m) {
 		break;
 		}
 	    }
-		
+
 	if(param.bGasCooling && (param.bGasIsothermal || param.bGasAdiabatic)) {
 	    ckerr << "WARNING: ";
 	    ckerr << "More than one gas model set.  ";
@@ -1124,7 +1450,7 @@ Main::Main(CkArgMsg* m) {
             ckerr << endl;
             CkAbort("Bad value for dConstGamma");
             }
-        
+
 	if(prmSpecified(prm, "bBulkViscosity")) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bBulkViscosity parameter ignored." << endl;
@@ -1250,20 +1576,20 @@ Main::Main(CkArgMsg* m) {
 #undef xstr
         ckerr << "Running on " << CkNumPes() << " processors/ "<< CkNumNodes() <<" nodes with " << numTreePieces << " TreePieces" << endl;
 
-	if (verbosity) 
+	if (verbosity)
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
     CkMustAssert(_cacheLineDepth >= 0, "Cache Line depth must be greater than or equal to 0");
 
         if(verbosity)
           ckerr << "Prefetching..." << (_prefetch?"ON":"OFF") << endl;
-  
+
         if (verbosity)
 	  ckerr << "Number of chunks for remote tree walk set to " << _numChunks << endl;
     CkMustAssert(_numChunks > 0, "Number of chunks for remote tree walk must be greater than 0");
 
         if(verbosity)
           ckerr << "Chunk Randomization..." << (_randChunks?"ON":"OFF") << endl;
-  
+
 	if(param.achInFile[0]) {
 	    basefilename = param.achInFile;
 	}else{
@@ -1307,8 +1633,8 @@ Main::Main(CkArgMsg* m) {
             CkAbort("None of the implemented decompositions specified");
           }
         }
-	
-	CkArrayOptions opts(numTreePieces); 
+
+	CkArrayOptions opts(numTreePieces);
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	if (domainDecomposition == Oct_dec) {
             CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
@@ -1342,7 +1668,7 @@ Main::Main(CkArgMsg* m) {
 
         peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
         dfDataProxy = CProxy_DumpFrameData::ckNew();
-	
+
 	// create CacheManagers
 	// Gravity particles
 	cacheGravPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
@@ -1366,11 +1692,11 @@ Main::Main(CkArgMsg* m) {
 
 	if(verbosity)
 	  ckerr << "Created " << numTreePieces << " pieces of tree" << endl;
-	
+
 	CProxy_Main(thishandle).setupICs();
 }
 
-/// 
+///
 /// @brief Restart Main constructor
 ///
 /// This is only called when restarting from a checkpoint.
@@ -1396,7 +1722,7 @@ void Main::niceExit() {
 ///
 /// Function to determine the start time of the simulation.
 /// Modifies dTime member of main.
-void Main::getStartTime() 
+void Main::getStartTime()
 {
 	// Grab starting time.
 	if(param.csm->bComove) {
@@ -1430,7 +1756,7 @@ void Main::getStartTime()
                     ckerr << "Badly specified final redshift, check -zto parameter."
                           << endl;
                     CkExit();
-                    } 
+                    }
 
 		if (!prmArgSpecified(prm,"nSteps") &&
 		    prmArgSpecified(prm,"dDelta")) {
@@ -1474,7 +1800,7 @@ void Main::getStartTime()
 	    treeProxy.velScale(dAStart*dAStart, CkCallbackResumeThread());
 	    }
 	else {  // not Comove
-	    dTime = treeProxy[0].ckLocal()->dStartTime; 
+	    dTime = treeProxy[0].ckLocal()->dStartTime;
 	    if(verbosity > 0)
 		ckout << "Input file, Time:" << dTime << endl;
 	    double tTo = dTime + (param.nSteps-param.iStartStep)*param.dDelta;
@@ -1490,12 +1816,12 @@ void Main::getStartTime()
     }
 
 /// @brief Return true if we need to write an output
-/// 
+///
 /// Advances iOut attribute, therefore this can only be called once
 /// per timestep.
 ///
 int Main::bOutTime()
-{	
+{
     if (iOut < vdOutTime.size()) {
 	if (dTime >= vdOutTime[iOut]) {
 	    ++iOut;
@@ -1518,7 +1844,7 @@ void Main::getOutTimes()
     double z,a,n,t;
     char achIn[80];
     string achFileName = string(param.achOutName) + ".red";
-	
+
     fp = fopen(achFileName.c_str(),"r");
     if (!fp) {
 	if (verbosity && param.csm->bComove)
@@ -1529,7 +1855,7 @@ void Main::getOutTimes()
     while (1) {
 	if (!fgets(achIn,80,fp))
 	    break;
-	
+
         ret = 1; // default return if redshift is invalid
 	switch (achIn[0]) {
 	case 'z':
@@ -1582,7 +1908,7 @@ void Main::getOutTimes()
     }
 
 // determine if we need a smaller step for dumping frames
-inline int Main::nextMaxRungIncDF(int nextMaxRung) 
+inline int Main::nextMaxRungIncDF(int nextMaxRung)
 {
     if (bDumpFrame && nextMaxRung < df[0]->iMaxRung)
 	nextMaxRung = df[0]->iMaxRung;
@@ -1591,7 +1917,7 @@ inline int Main::nextMaxRungIncDF(int nextMaxRung)
 
 /// @brief wait for gravity in the case of concurrent SPH
 inline void Main::waitForGravity(const CkCallback &cb, double startTime,
-                                 int activeRung) 
+                                 int activeRung)
 {
     if(param.bConcurrentSph && param.bDoGravity) {
 #ifdef PUSH_GRAVITY
@@ -1864,9 +2190,11 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
             dKickFac[iRung] = csmComoveKickFac(param.csm, dTime, 0.5*dTimeSub);
         }
     }
+#ifndef VORONOI
     if(param.bDoGas) {
         updateuDot(iActiveRung, duKick, dStartTime, 1, 1);
     }
+#endif
     if(bClosing) // For a closing kick, gravity may not have finished
         waitForGravity(cbGravity, gravStartTime, iActiveRung);
 
@@ -1882,6 +2210,7 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
     timings[iActiveRung].tKick += tKick;
     if(verbosity)
         CkPrintf("Kick took %g seconds.\n", tKick);
+#ifndef VORONOI
     if(bClosing) {
         // 1/2 step uDot update to end of step
         if(iActiveRung > 0 && param.bDoGas) {
@@ -1890,6 +2219,7 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
             updateuDot(iActiveRung-1, duKick, dStartTime, 0, 0);
         }
     }
+#endif
 }
 
 ///
@@ -1907,13 +2237,30 @@ void Main::advanceBigStep(int iStep) {
   int nextMaxRung = 0; // the rung that determines the smallest time for advancing
 
   while (currentStep < MAXSUBSTEPS) {
-
+    CkPrintf("Starting at the top\n");
+    double driftStep;
     if(!param.bStaticTest) {
       CkAssert(param.dDelta != 0.0);
       timings[activeRung].count++;
+#ifdef DTADJUST
       emergencyAdjust(activeRung);
+#endif
       // Find new rung for active particles
+      CkPrintf("calling adjust top\n");
+      
       nextMaxRung = adjust(activeRung);
+#ifdef VORONOI
+      if( verbosity) CkPrintf( "Setup Hydro Rungs ");
+      
+      { // declare a subscope for setup Hydro Rungs
+        double startTime = CkWallTimer();
+        //treeProxy.setupHydroParticleRungs( nextMaxRung, CkCallbackResumeThread());
+        treeProxy.setupHydroParticleRungs( param.bFastGas ? -1 : nextMaxRung, CkCallbackResumeThread());
+
+        //nextMaxRung++;
+        if( verbosity) CkPrintf( "took %g seconds.\n", CkWallTimer()-startTime);
+      }
+#endif
       if((param.bStarForm || param.bFeedback)
          && param.stfm->iStarFormRung > nextMaxRung)
           nextMaxRung = param.stfm->iStarFormRung; // Force stepping at star
@@ -1923,7 +2270,7 @@ void Main::advanceBigStep(int iStep) {
       if(verbosity) ckout << "MaxRung: " << nextMaxRung << endl;
 
       CkAssert(nextMaxRung <= MAXRUNG); // timesteps WAY too short
- 
+
       if(verbosity)
 	  memoryStats();
       // Opening Kick
@@ -1940,27 +2287,43 @@ void Main::advanceBigStep(int iStep) {
       while(driftRung > nextMaxRung) {
 	  driftRung--;
 	  driftSteps <<= 1;
-	  }
+      }
       driftRung = nextMaxRungIncDF(nextMaxRung);
       if(param.bDoGas && (driftRung == nextMaxRung)) {
 	  driftRung++;
 	  driftSteps <<=1;
-	  }
-      
+      }
       double dTimeSub = RungToDt(param.dDelta, driftRung);
+#ifdef VORONOI
+      if( param.bDoGas) { // setup drift times
+        double startTime = CkWallTimer();
+        CkPrintf("Setup Dt Rungs\n");
+        dMProxy.setupDtRungs( param, dTime, CkCallbackResumeThread());   
+        if( needFinalVoroInit) {
+          CkPrintf( "Final initialization of Voro\n");
+          //doVoroStart(0, 0., false);
+          needFinalVoroInit = false;
+        }
+        if(verbosity)
+          CkPrintf("Setup Dt Rungs took %g seconds.\n", CkWallTimer() - startTime);
+     
+      }
+      driftStep = 0.;
+#endif
       // Drift of smallest step
-      for(int iSub = 0; iSub < driftSteps; iSub++) 
-	  {
+      for(int iSub = 0; iSub < driftSteps; iSub++)
+	{
 	      if(verbosity)
 		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
+              
+          double startTime = CkWallTimer();
 
-              double startTime = CkWallTimer();
 	      // Only effective if growmass parameters have been set.
 	      growMass(dTime, dTimeSub);
 	      // Are the GrowMass particles locked in place?
 	      int nGrowMassDrift = param.nGrowMass;
 	      if(param.bDynGrowMass) nGrowMassDrift = 0;
-	      
+
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
 	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
 	      bool bBuildTree = (iSub + 1 == driftSteps);
@@ -1973,18 +2336,24 @@ void Main::advanceBigStep(int iStep) {
               if(verbosity)
                   CkPrintf("Drift took %g seconds.\n", tDrift);
 
+#ifdef VORONOI
+	      if(param.bDoGas && false)
+            	  doVoroEnd(activeRung, 2.*dDriftFac);
+#endif
+
 	      // Advance time to end of smallest step
 	      dTime += dTimeSub;
 	      currentStep += RungToSubsteps(driftRung);
-	      /* 
+	      /*
 	       ** Dump Frame
 	       */
 	      double dStep = iStep + ((double) currentStep)/MAXSUBSTEPS;
 	      if (param.dDumpFrameTime > 0 && dTime >= df[0]->dTime)
 		  DumpFrame(dTime, dStep );
-	      else if(param.dDumpFrameStep > 0 && dStep >= df[0]->dStep) 
+	      else if(param.dDumpFrameStep > 0 && dStep >= df[0]->dStep)
 		  DumpFrame(dTime, dStep );
 	      // Update uDot at the 1/2 way point.
+#ifndef VORONOI
 	      if(param.bDoGas && (iSub+1 == driftSteps >> 1)) {
                   double duKick[MAXRUNG+1] = {};
                   double dStartTime[MAXRUNG+1] = {};
@@ -1993,6 +2362,7 @@ void Main::advanceBigStep(int iStep) {
                   dStartTime[nextMaxRung] = dTime; // only updating this rung
                   updateuDot(nextMaxRung, duKick, dStartTime, 0, 0);
               }
+#endif
           }
     }
 
@@ -2013,7 +2383,7 @@ void Main::advanceBigStep(int iStep) {
         loadBalance(PHASE_FEEDBACK);
         if(param.bStarForm)
             FormStars(dTime, param.stfm->dDeltaStarForm);
-        if(param.bFeedback) 
+        if(param.bFeedback)
             StellarFeedback(dTime, param.stfm->dDeltaStarForm);
         }
     if(param.sinks.bDoSinks) {
@@ -2032,7 +2402,7 @@ void Main::advanceBigStep(int iStep) {
           << nextMaxRung << ". ";
 
     countActive(activeRung);
-    
+
     if(verbosity > 1)
 	memoryStats();
 
@@ -2063,15 +2433,31 @@ void Main::advanceBigStep(int iStep) {
     startGravity(cbGravity, activeRung, &gravStartTime);
     if(param.bDoExternalGravity)
         externalGravity(activeRung);
+    if(param.iUserGravityType > 0) {
+        CkPrintf("Applying UserGravity\n");
+	treeProxy.applyUserGravity(activeRung, dTime, param, CkCallbackResumeThread());
+        } 
 
     if(verbosity > 1)
 	memoryStats();
     if(param.bDoGas) {
-        doSph(activeRung);
+#ifndef VORONOI
+      doSph(activeRung);
+#endif
+#ifdef VORONOI
+      double startTime = CkWallTimer();
+      doVoroEnd( activeRung, driftStep);
+      CkPrintf( "CALL doVoroStart\n");
+      doVoroStart(activeRung, driftStep);
+      CkPrintf( "CALL doVoroSolve\n");
+      doVoroSolve(activeRung, driftStep);
+      CkPrintf( "Voronoi Computation took %g seconds at rung %d\n ", CkWallTimer()-startTime, activeRung);
+#endif
+
         if(verbosity && !param.bConcurrentSph)
             memoryStatsCache();
-        }
-    
+    }
+
     if(!param.bStaticTest) {
         // Closing Kick
         kick(true, activeRung, nextMaxRung, cbGravity, gravStartTime);
@@ -2106,6 +2492,7 @@ void Main::advanceBigStep(int iStep) {
     cacheSmoothPart.collectStatistics(CkCallbackResumeThread((void*&)cs));
     ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
+    CkPrintf("Starting NodeCache\n");
 
     if(param.feedback->bAGORAFeedback) {
         // Reduce the time step size for AGORA feedback-receiving particles
@@ -2138,7 +2525,7 @@ void Main::advanceBigStep(int iStep) {
 
   }
 }
-    
+
 ///
 /// @brief Load particles into pieces
 ///
@@ -2178,10 +2565,10 @@ void Main::setupICs() {
           // Assume Tipsy format
           // Try loading Tipsy format; first just grab the header.
           CkPrintf(" trying Tipsy ...");
-	    
+
           bool bInDPos = false;
           bool bInDVel = false;
-  
+
           Tipsy::PartialTipsyFile ptf(basefilename, 0, 0);
           if(!ptf.loadedSuccessfully()) {
               ckerr << endl << "Couldn't load the tipsy file \""
@@ -2208,7 +2595,7 @@ void Main::setupICs() {
 
   ckout << " took " << (CkWallTimer() - startTime) << " seconds."
         << endl;
-	    
+
   nTotalParticles = treeProxy[0].ckLocal()->nTotalParticles;
   nTotalSPH = treeProxy[0].ckLocal()->nTotalSPH;
   nTotalDark = treeProxy[0].ckLocal()->nTotalDark;
@@ -2225,7 +2612,7 @@ void Main::setupICs() {
   ckout << "N: " << nTotalParticles << endl;
   if(particlesPerChare == 0)
       particlesPerChare = nTotalParticles/numTreePieces;
-  
+
   if(nTotalSPH == 0 && param.bDoGas) {
       ckerr << "WARNING: no SPH particles and bDoGas is set\n";
       param.bDoGas = 0;
@@ -2241,6 +2628,14 @@ void Main::setupICs() {
               param.bDtAdjust = 1;
           }
       }
+
+#ifdef VORONOI
+  if( param.bDoGas ) {
+      setupVoroICs();
+      if( !param.bGasCooling) // BAD THINGS ARE ABOUT TO HAPPEN
+        ckerr << "WARNING: VORONOI and bGasCooling is not on" << endl;
+  }
+#endif
   getStartTime();
   /* The following is used to help restart DumpFrame. */
   dTime0 = dTime - param.dDelta*param.iStartStep;
@@ -2248,7 +2643,7 @@ void Main::setupICs() {
   for(iOut = 0; iOut < vdOutTime.size(); iOut++) {
       if(dTime < vdOutTime[iOut]) break;
       }
-	
+
   if(param.bGasCooling || param.bStarForm) {
       initCooling();
       if(param.iStartStep) restartGas();
@@ -2265,7 +2660,7 @@ void Main::setupICs() {
 
   if(param.bStarForm)
       initStarLog();
-	
+
   if(param.bFeedback)
       param.feedback->CheckParams(prm, param);
   else
@@ -2442,11 +2837,11 @@ void Main::setupICs() {
 	  }
       ofsLog << endl;
       }
-  
+
   ofsLog.close();
-	
+
   prmLogParam(prm, achLogFileName.c_str());
-	
+
   ofsLog.open(achLogFileName.c_str(), ios_base::app);
   if(param.bStarForm)
       StarLog::logMetaData(ofsLog);
@@ -2477,7 +2872,7 @@ void Main::setupICs() {
         param.bEpsAccStep = 0;
     }
   }
-	
+
 // for periodic, puts all particles within the boundary
 // Also assigns keys and sorts.
   treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
@@ -2491,7 +2886,7 @@ int CheckForStop()
 	/*
 	 ** Checks for existence of STOPFILE in run directory. If
 	 ** found, the file is removed and the return status is set
-	 ** to 1, otherwise 0. 
+	 ** to 1, otherwise 0.
 	 */
 
 	FILE *fp = NULL;
@@ -2607,11 +3002,11 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	prmAddParam(prm, "bUseCkLoopPar", paramBool, &param.bUseCkLoopPar, sizeof(int),
 		    "useckloop", "enable CkLoop to parallelize within node");
 
-        int processSimfile = 0; 
+        int processSimfile = 0;
 	if(!prmArgProc(prm,CmiGetArgc(args->argv),args->argv,processSimfile)) {
 	    CkExit();
 	}
-	
+
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
         if (bUseCkLoopPar) {
             CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
@@ -2672,7 +3067,7 @@ Main::initialForces()
 #ifdef PUSH_GRAVITY
   treeProxy.findTotalMass(CkCallbackResumeThread());
 #endif
-  
+
   // Balance load initially after decomposition
   loadBalance(-1);
 
@@ -2681,7 +3076,7 @@ Main::initialForces()
 
   if(verbosity)
       memoryStats();
-  
+
 #ifdef CUDA
   ckout << "Init. Accel. ...";
   double dInitAccelTime = CkWallTimer();
@@ -2690,7 +3085,7 @@ Main::initialForces()
         << endl;
 #endif
 
-      
+
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
   double gravStartTime;
@@ -2700,8 +3095,14 @@ Main::initialForces()
   if(param.bDoGas) {
       // Get star center of mass
       starCenterOfMass();
+
+#ifdef VORONOI
+      // Initialized VORONOI
+      initVoro();
+#else
       // Initialize SPH
       initSph();
+#endif
       }
 
   waitForGravity(cbGravity, gravStartTime, 0);
@@ -2720,7 +3121,7 @@ Main::initialForces()
   CkReductionMsg *tps;
   treeProxy.collectStatistics(CkCallbackResumeThread((void*&)tps));
   ((TreePieceStatistics*)tps->getData())->printTo(ckerr);
-  
+
   /********* Cache Statistics ********/
   CkReductionMsg *cs;
   cacheNode.collectStatistics(CkCallbackResumeThread((void*&)cs));
@@ -2730,8 +3131,8 @@ Main::initialForces()
   cacheSmoothPart.collectStatistics(CkCallbackResumeThread((void*&)cs));
   ((CkCacheStatistics*)cs->getData())->printTo(ckerr);
 #endif
-  
-  /* 
+
+  /*
    ** Dump Frame Initialization
    */
   DumpFrameInit(dTime0, 0.0, param.iStartStep > 0);
@@ -2742,7 +3143,7 @@ Main::initialForces()
   /* Initialize the liveViz module */
 
     liveVizConfig lvConfig(true,true);
-    
+
     int funcIndex = CkIndex_TreePiece::liveVizDumpFrameInit(NULL);
     CkCallback* lvcb = new CkCallback(funcIndex, treeProxy);
 
@@ -2778,7 +3179,7 @@ Main::doSimulation()
       ckout << "KillAT: Stopping after " << (CkWallTimer()-dSimStartTime) << " seconds\n";
       break;
     }
-    
+
     if (verbosity) ckout << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
     starCenterOfMass();
@@ -2807,7 +3208,7 @@ Main::doSimulation()
 	writeOutput(iStep);
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
     }
-	  
+
     if(!iStop && param.iWallRunTime > 0) {
 	if (param.iWallRunTime*60. - (CkWallTimer()-dSimStartTime)
 	    < stepTime*1.5) {
@@ -2818,7 +3219,7 @@ Main::doSimulation()
 	    iStop = 1;
 	    }
 	}
-    
+
     if((param.bBenchmark == 0)
        && (iStop || (param.iCheckInterval && iStep%param.iCheckInterval == 0))) {
 	string achCheckFileName(param.achOutName);
@@ -3062,25 +3463,25 @@ Main::doSimulation()
   }
 
   treeProxy[0].flushStarLog(CkCallbackResumeThread());
-	
+
 #if COSMO_STATS > 0
   ckerr << "Outputting statistics ...";
   startTime = CkWallTimer();
   //Interval<unsigned int> dummy;
-	
+
   treeProxy[0].outputStatistics(CkCallbackResumeThread());
 
   ckerr << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 #endif
 
   ckout << "Done." << endl;
-	
+
 #ifdef HPM_COUNTER
   cacheNode.stopHPM(CkCallbackResumeThread());
   cacheGravPart.stopHPM(CkCallbackResumeThread());
   cacheSmoothPart.stopHPM(CkCallbackResumeThread());
 #endif
-  ckout << endl << "******************" << endl << endl; 
+  ckout << endl << "******************" << endl << endl;
   // Some memory cleanup
   // This is just for debugging memory problems, so comment it out for
   // now to avoid tickling QD bugs.
@@ -3129,10 +3530,10 @@ Main::writeTimings(int iStep)
     string achTimeFileName = string(param.achOutName) + ".timings";
     timing_fields tTotal;
     tTotal.clear();
-    
+
     FILE *fpTime = fopen(achTimeFileName.c_str(), "a");
     CkAssert(fpTime != NULL);
-    
+
     fprintf(fpTime, "# Timings for step %d\n", iStep);
     fprintf(fpTime, "# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache\n");
     for(int i = 0; i < timings.size(); i++) {
@@ -3188,9 +3589,9 @@ Main::calcEnergy(double dTime, double wallTime, const char *achLogFileName)
     static int first = 1;
 
     FILE *fpLog = fopen(achLogFileName, "a");
-    
+
     double a = csmTime2Exp(param.csm, dTime);
-    
+
     if(first && (!bIsRestarting || dTimeOld == 0.0)) {
 	fprintf(fpLog, "# time redshift TotalEVir TotalE Kinetic Virial Potential TotalECosmo Ethermal Lx Ly Lz Wallclock\n");
 	dEcosmo = 0.0;
@@ -3217,13 +3618,13 @@ Main::calcEnergy(double dTime, double wallTime, const char *achLogFileName)
     double dEtotal = dEnergy[0] + dEnergy[2] - dEcosmo + a*a*dEnergy[6];
     // Energy using the virial of Clausius
     double dEtotalVir = dEnergy[0] + dEnergy[1] - dEcosmo + a*a*dEnergy[6];
-    
+
     fprintf(fpLog, "%g %g %g %g %g %g %g %g %g %g %g %g %g\n", dTime, z,
 	    dEtotalVir, dEtotal, dEnergy[0], dEnergy[1], dEnergy[2], dEcosmo,
 	    dEnergy[6], dEnergy[3], dEnergy[4],
 	    dEnergy[5], wallTime);
     fclose(fpLog);
-    
+
     delete msg;
 }
 
@@ -3279,7 +3680,7 @@ void delete_dir_tree (const char* achDir) {
 /// @param iStep Timestep we are outputting, used for file name.
 ///
 
-void Main::writeOutput(int iStep) 
+void Main::writeOutput(int iStep)
 {
     double dOutTime;
     double dvFac;
@@ -3295,19 +3696,19 @@ void Main::writeOutput(int iStep)
 	dOutTime = dTime;
 	dvFac = 1.0;
 	}
-    
+
     if(verbosity) {
 	ckout << "ReOrder particles ...";
 	startTime = CkWallTimer();
 	}
-    
+
     treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
 
     double duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
-    
+
     if(verbosity) {
         ckout << "Writing binary file ...";
         startTime = CkWallTimer();
@@ -3378,7 +3779,7 @@ void Main::writeOutput(int iStep)
     if(verbosity)
         ckout << " took " << (CkWallTimer() - startTime) << " seconds."
               << endl;
-    
+
     if(verbosity) {
 	ckout << "Writing arrays ...";
 	startTime = CkWallTimer();
@@ -3423,6 +3824,35 @@ void Main::writeOutput(int iStep)
     CsOutputParams pCSOut(achFile, param.iBinaryOut, dOutTime);
     RungOutputParams pRung(achFile, param.iBinaryOut, dOutTime);
 
+#ifdef VORONOI
+    RhoOutputParams rhoOut(achFile, param.iBinaryOut, dOutTime);
+    IeOutputParams iEOut(achFile, param.iBinaryOut, dOutTime);
+    PresOutputParams presOut(achFile, param.iBinaryOut, dOutTime);
+    EntropyOutputParams entropyOut(achFile, param.iBinaryOut, dOutTime);
+    VxOutputParams vxOut(achFile, param.iBinaryOut, dOutTime, dvFac);
+    VyOutputParams vyOut(achFile, param.iBinaryOut, dOutTime, dvFac);
+    VzOutputParams vzOut(achFile, param.iBinaryOut, dOutTime, dvFac);
+    GxOutputParams gxOut(achFile, param.iBinaryOut, dOutTime, dvFac);
+    GyOutputParams gyOut(achFile, param.iBinaryOut, dOutTime, dvFac);
+    GzOutputParams gzOut(achFile, param.iBinaryOut, dOutTime, dvFac);
+#ifdef MHD
+    BxOutputParams bxOut(achFile, param.iBinaryOut, dOutTime);
+    ByOutputParams byOut(achFile, param.iBinaryOut, dOutTime);
+    BzOutputParams bzOut(achFile, param.iBinaryOut, dOutTime);
+    AxOutputParams axOut(achFile, param.iBinaryOut, dOutTime);
+    AyOutputParams ayOut(achFile, param.iBinaryOut, dOutTime);
+    AzOutputParams azOut(achFile, param.iBinaryOut, dOutTime);
+#endif 
+#ifdef RADIATION
+    EradOutputParams EradOut(achFile, param.iBinaryOut, dOutTime);
+    FrxOutputParams FrxOut(achFile, param.iBinaryOut, dOutTime);
+    FryOutputParams FryOut(achFile, param.iBinaryOut, dOutTime);
+    FrzOutputParams FrzOut(achFile, param.iBinaryOut, dOutTime);
+#endif
+    NumSearchOutputParams NSearchOut(achFile, param.iBinaryOut, dOutTime);
+    NumNeighborsOutputParams NNeighborsOut(achFile, param.iBinaryOut, dOutTime);
+#endif // VORONOI
+
     if (param.iBinaryOut) {
         outputBinary(pRung, param.bParaWrite, CkCallbackResumeThread());
 #ifdef CULLENALPHA
@@ -3459,7 +3889,7 @@ void Main::writeOutput(int iStep)
 	if(param.bDoSoftOutput && param.iBinaryOut != 6) {
 	    outputBinary(pSoftOut, param.bParaWrite, CkCallbackResumeThread());
             }
-	    
+
 	if(param.bDohOutput && param.iBinaryOut != 6) {
 	    outputBinary(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
             }
@@ -3487,6 +3917,40 @@ void Main::writeOutput(int iStep)
                                              CkCallbackResumeThread());
                 }
             }
+#ifdef VORONOI
+        outputBinary( rhoOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( iEOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( vxOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( vyOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( vzOut, param.bParaWrite, CkCallbackResumeThread());
+        if( param.bDoOutputPres) {
+            outputBinary( presOut, param.bParaWrite, CkCallbackResumeThread());
+            outputBinary( entropyOut, param.bParaWrite, CkCallbackResumeThread());
+        }
+        if( param.bDoOutputGrav) {
+            outputBinary( gxOut, param.bParaWrite, CkCallbackResumeThread());
+            outputBinary( gyOut, param.bParaWrite, CkCallbackResumeThread());
+            outputBinary( gzOut, param.bParaWrite, CkCallbackResumeThread());
+        }
+#ifdef MHD
+        outputBinary( bxOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( byOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( bzOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( axOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( ayOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( azOut, param.bParaWrite, CkCallbackResumeThread());
+#endif
+#ifdef RADIATION
+        outputBinary( EradOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( FrxOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( FryOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary( FrzOut, param.bParaWrite, CkCallbackResumeThread());
+#endif
+        if( param.bDoVoroStats) { 
+           outputBinary( NSearchOut, param.bParaWrite, CkCallbackResumeThread());
+           outputBinary( NNeighborsOut, param.bParaWrite, CkCallbackResumeThread());
+        }
+#endif //VORONOI
         //SIDM
         if(param.iSIDMSelect!=0) {
 #ifdef SIDMINTERACT
@@ -3574,6 +4038,33 @@ void Main::writeOutput(int iStep)
 					    CkCallbackResumeThread());
 	      }
 	  }
+#ifdef VORONOI
+        treeProxy[0].outputASCII( rhoOut, param.bParaWrite, CkCallbackResumeThread());
+        treeProxy[0].outputASCII( iEOut, param.bParaWrite, CkCallbackResumeThread());
+        treeProxy[0].outputASCII( vxOut, param.bParaWrite, CkCallbackResumeThread());
+        treeProxy[0].outputASCII( vyOut, param.bParaWrite, CkCallbackResumeThread());
+        treeProxy[0].outputASCII( vzOut, param.bParaWrite, CkCallbackResumeThread());
+        if( param.bDoOutputPres) { 
+            treeProxy[0].outputASCII( presOut, param.bParaWrite, CkCallbackResumeThread());
+            treeProxy[0].outputASCII( entropyOut, param.bParaWrite, CkCallbackResumeThread());
+        }
+        if( param.bDoOutputGrav) {
+            treeProxy[0].outputASCII( gxOut, param.bParaWrite, CkCallbackResumeThread());
+            treeProxy[0].outputASCII( gyOut, param.bParaWrite, CkCallbackResumeThread());
+            treeProxy[0].outputASCII( gzOut, param.bParaWrite, CkCallbackResumeThread());
+        }
+#ifdef MHD
+        treeProxy[0].outputASCII( bxOut, param.bParaWrite, CkCallbackResumeThread());
+        treeProxy[0].outputASCII( byOut, param.bParaWrite, CkCallbackResumeThread());
+        treeProxy[0].outputASCII( bzOut, param.bParaWrite, CkCallbackResumeThread());
+        treeProxy[0].outputASCII( axOut, param.bParaWrite, CkCallbackResumeThread());
+        treeProxy[0].outputASCII( ayOut, param.bParaWrite, CkCallbackResumeThread());
+        treeProxy[0].outputASCII( azOut, param.bParaWrite, CkCallbackResumeThread());
+#endif
+#ifdef RADIATION
+        treeProxy[0].outputASCII( EradOut, param.bParaWrite, CkCallbackResumeThread());
+#endif
+#endif // VORONOI
         //SIDM
         if(param.iSIDMSelect!=0) {
 #ifdef SIDMINTERACT
@@ -3583,7 +4074,7 @@ void Main::writeOutput(int iStep)
 #endif
             }
 	}
-      
+
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -3676,14 +4167,14 @@ void Main::writeOutput(int iStep)
 /// @param iKickRung Rung (and above) about to be kicked.
 ///
 
-int Main::adjust(int iKickRung) 
+int Main::adjust(int iKickRung)
 {
     CkReductionMsg *msg;
     double a = csmTime2Exp(param.csm,dTime);
-    double dDiffCoeff = (param.dMetalDiffusionCoeff > param.dThermalDiffusionCoeff ? 
+    double dDiffCoeff = (param.dMetalDiffusionCoeff > param.dThermalDiffusionCoeff ?
         param.dMetalDiffusionCoeff : param.dThermalDiffusionCoeff);
     double startTime = CkWallTimer();
-    
+
     treeProxy.adjust(iKickRung, param.bEpsAccStep, param.bGravStep,
 		     param.bSphStep, param.bViscosityLimitdt,
 		     param.dEta, param.dEtaCourant, param.dEtauDot,
@@ -3724,17 +4215,17 @@ int Main::adjust(int iKickRung)
 ///
 /// This routine is for information only.
 ///
-void Main::rungStats() 
+void Main::rungStats()
 {
     CkReductionMsg *msg;
     treeProxy.rungStats(CkCallbackResumeThread((void*&)msg));
     int64_t *nInRung = (int64_t *)msg->getData();
-    
+
     ckout << "Rung distribution: (";
     for(int iRung = 0; iRung <= MAXRUNG; iRung++)
 	ckout << " " << nInRung[iRung] << ",";
     ckout << ")" << endl;
-    
+
     delete msg;
     }
 
@@ -3744,18 +4235,18 @@ void Main::rungStats()
 /// Calls TreePiece::countActive() and sets Main::nActiveGrav and
 /// Main::nActiveSPH.
 ///
-void Main::countActive(int activeRung) 
+void Main::countActive(int activeRung)
 {
     CkReductionMsg *msg;
     treeProxy.countActive(activeRung, CkCallbackResumeThread((void*&)msg));
     int64_t *nActive = (int64_t *)msg->getData();
-    
+
     nActiveGrav = nActive[0];
     nActiveSPH = nActive[1];
-    
+
     ckout << "Gravity Active: " << nActive[0]
 	  << ", Gas Active: " << nActive[1] << endl ;
-    
+
     delete msg;
     }
 
@@ -3772,11 +4263,11 @@ void Main::emergencyAdjust(int iRung)
 {
     if(!param.bDtAdjust || iRung == 0) return;
     double startTime = CkWallTimer();
-    
+
     if(verbosity) CkPrintf("Check for Emergency Adjust, Rung: %d\n", iRung);
     double dDelta = RungToDt(param.dDelta, iRung);
     double dDeltaThresh = 0.5*dDelta;
-    
+
     CkReductionMsg *msg;
     treeProxy.emergencyAdjust(iRung, param.dDelta, dDeltaThresh,
                               CkCallbackResumeThread((void*&)msg));
@@ -3852,7 +4343,7 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
                                   param.bPeriodic, param.vPeriod);
                     df[i]->duTFac = (param.dConstGamma-1)*param.dMeanMolWeight/param.dGasConst;
 		    }
-		    
+
 		/* Read in photogenic particle list */
 		if (df[0]->bGetPhotogenic) {
 		  auto file_name = make_formatted_string("%s.photogenic", param.achOutName);
@@ -3930,11 +4421,11 @@ void Main::DumpFrame(double dTime, double dStep)
 
 		pstDumpVoxel(msr->pst, &in, sizeof(struct inDumpVoxel), NULL, NULL );
 		dsec1 = msrTime() - sec;
-		
+
 		dfFinishVoxel( msr->df, dTime, dStep, &in );
-		
+
 		dsec2 = msrTime() - sec;
-		
+
 		printf("DF Dumped Voxel %i at %g (Wallclock: Render %f tot %f secs).\n",
 			   df->nFrame-1,dTime,dsec1,dsec2);
 #endif
@@ -3945,7 +4436,7 @@ void Main::DumpFrame(double dTime, double dStep)
 		double *com = NULL;
 		CkReductionMsg *msgCOM;
 		CkReductionMsg *msgCOMbyType;
-		
+
 		if (df[i]->bGetCentreOfMass) {
 		    treeProxy.getCOM(CkCallbackResumeThread((void*&)msgCOM), 0);
 		    com = (double *)msgCOM->getData();
@@ -3979,7 +4470,7 @@ void Main::DumpFrame(double dTime, double dStep)
 		unsigned char *gray;
 
 		dfFinishFrame(df[i], dTime, dStep, &in, Image, false, &gray);
-		
+
 		delete msgDF;
 
 		if (df[i]->bGetCentreOfMass) {
@@ -4000,10 +4491,10 @@ void Main::DumpFrame(double dTime, double dStep)
 void Main::addDelParticles()
 {
     CkReductionMsg *msg;
-    
+
     if(verbosity)
 	CkPrintf("Changing Particle number\n");
-	
+
     treeProxy.colNParts(CkCallbackResumeThread((void*&)msg));
     // an array of one element per treepiece produced by CkReduction::concat
     // @TODO: replace this with a proper scan
@@ -4041,7 +4532,7 @@ void Main::addDelParticles()
  * Diagnostic function to summmarize memory usage across all
  * processors
  */
-void Main::memoryStats() 
+void Main::memoryStats()
 {
     CkReductionMsg *msg;
     dMProxy.memoryStats(CkCallbackResumeThread((void*&)msg));
@@ -4055,7 +4546,7 @@ void Main::memoryStats()
  * Diagnostic function to summmarize cache memory usage across all
  * processors
  */
-void Main::memoryStatsCache() 
+void Main::memoryStatsCache()
 {
     CkReductionMsg *msg;
     treeProxy.memCacheStats(CkCallbackResumeThread((void*&)msg));
@@ -4078,7 +4569,7 @@ void registerStatistics() {
 #endif
 }
 
-void Main::pup(PUP::er& p) 
+void Main::pup(PUP::er& p)
 {
     CBase_Main::pup(p);
     p | basefilename;
@@ -4105,7 +4596,7 @@ void Main::pup(PUP::er& p)
     }
 
 
-void Main::liveVizImagePrep(liveVizRequestMsg *msg) 
+void Main::liveVizImagePrep(liveVizRequestMsg *msg)
 {
   double dExp;
 
@@ -4115,9 +4606,9 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
   CkReductionMsg *msgCOMbyType;
   struct DumpFrameContext df_temp;
 
-  // only do the first Director 
+  // only do the first Director
 
-  df_temp = *df[0];  
+  df_temp = *df[0];
 
   if (df_temp.bGetCentreOfMass) {
       treeProxy.getCOM(CkCallbackResumeThread((void*&)msgCOM), 1);
@@ -4138,7 +4629,7 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
 #endif
 
   dExp = csmTime2Exp(param.csm,dTime);
-  dfSetupFrame(&df_temp, dTime, 0.0, dExp, com, &in, 
+  dfSetupFrame(&df_temp, dTime, 0.0, dExp, com, &in,
 		     msg->req.wid, msg->req.ht );
   CkCallback cb(CkCallback::ignore);
   treeProxy.DumpFrame(in, cb, true);
@@ -4147,7 +4638,7 @@ void Main::liveVizImagePrep(liveVizRequestMsg *msg)
       delete msgCOM;
   if (df_temp.bGetPhotogenic)
       delete msgCOMbyType;
-  
+
 }
 
 #ifdef SELECTIVE_TRACING
@@ -4211,11 +4702,11 @@ void GenericTreeNode::getGraphViz(std::ostream &out){
   uint64_t upper = getKey() >> 64;
   out << upper << lower
     << "[label=\"" << upper << lower
-#else    
+#else
   out << getKey()
     << "[label=\"" << getKey()
 #endif
-    << " " 
+    << " "
     << typeString(getType())
     << "\\n"
     << moments.totalMass << " "

@@ -1,0 +1,33 @@
+# Lets try some Shock Tubers 
+#
+bPeriodic       = 1
+bParaRead       = 1
+bParaWrite      = 1
+achInFile       = shocktube.std
+achOutName      = shocktube
+dConstGamma     = 1.4
+dGasConst       = 0.4
+dMeanMolWeight  = 1.0
+
+#bVariableAlpha  = 0
+bDoDensity = 0
+bVDetails       = 2
+iCheckInterval  = 10000
+bKDK            = 1 
+iMaxRung        = 1
+dEta            = 0.3
+bStandard       = 1
+bDoGravity      = 0
+bComove         = 0
+bCannonical     = 1
+bGeometric      = 0
+iGasModel       = 0
+dxPeriod        = 16.
+dyPeriod        = 1.
+dzPeriod        = 1.
+nSteps          = 200
+dDelta          = 0.01
+iOutInterval    = 20
+iLogInterval    = 1
+bOverwrite      = 1
+dEtaCourant     = 0.4

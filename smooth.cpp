@@ -855,6 +855,10 @@ void ReSmoothCompute::bucketCompare(TreePiece *ownerTP,
 	Vector3D<double> dr = particles[j].position - rp;
 	
 	if(rOld*rOld*(1.+dSearchEps) >= dr.lengthSquared()) {  // Add to list
+#ifdef VORONOI
+            if( !p->hydroParticle().isNeighbor( particles[j].iOrder))
+                continue;
+#endif
 	    pqSmoothNode pqNew;
 	    pqNew.fKey = dr.lengthSquared();
 	    pqNew.dx = dr;

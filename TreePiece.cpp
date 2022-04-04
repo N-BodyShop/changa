@@ -35,6 +35,10 @@
 #include "CkLoopAPI.h"
 #include "formatted_string.h"
 
+#include "parameters.h"
+#include "UserGravity.h"
+#include "UserRadGravity.h"
+
 #if !CMK_LB_USER_DATA
 #error "Please recompile charm with --enable-lbuserdata"
 #endif
@@ -113,7 +117,7 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 // comoving coordinates.
 void TreePiece::velScale(double dScale, const CkCallback& cb)
 {
-    for(unsigned int i = 0; i < myNumParticles; ++i) 
+    for(unsigned int i = 0; i < myNumParticles; ++i)
 	{
 	    myParticles[i+1].velocity *= dScale;
 	    if(TYPETest(&myParticles[i+1], TYPE_GAS))
@@ -277,7 +281,7 @@ void TreePiece::sendORBParticles(){
   int nCounts = myBinCountsORB.size()/3; // Gas counts are in second
 					 // half and star counts are
 					 // in third half
-  
+
   for(iter=orbBoundaries.begin();iter!=orbBoundaries.end();iter++,i++){
 	iter2=iter;
 	iter2++;
@@ -309,7 +313,7 @@ void TreePiece::sendORBParticles(){
 			}
 		    }
 		}
-	
+
 	    if(i==thisIndex){
 		acceptORBParticles(*iter,myBinCountsORB[i], pGasOut,
 				   myBinCountsORB[nCounts+i], pStarOut,
@@ -684,7 +688,7 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
     traceUserBracketEvent(boundaryEvaluationUE, startTimer, CmiWallTimer());
 #endif
   }
-  
+
   //send my bin counts back in a reduction
 #ifdef REDUCTION_HELPER
   reductionHelperProxy.ckLocalBranch()->reduceBinCounts(numBins, myCounts, cb);
@@ -899,8 +903,10 @@ void TreePiece::mergeAllParticlesAndSaveCentroid() {
   // myTmpShuffle__Particle holds the particles that came from external
   // TreePieces
   // Copy the gas and star data from the tmpshufflemsg array
-  memcpy(&mySPHParticles[nSPH], &myTmpShuffleSphParticle[0],
-      myTmpShuffleSphParticle.size()*sizeof(extraSPHData));
+  // Don't use memcpy here because it messes with std::vector in extraSPHData
+  for( int iSph = 0; iSph < myTmpShuffleSphParticle.size(); iSph++) {
+     mySPHParticles[nSPH + iSph] = myTmpShuffleSphParticle[iSph];
+  }
   nSPH += myTmpShuffleSphParticle.size();
   memcpy(&myStarParticles[nStar], &myTmpShuffleStarParticle[0],
       myTmpShuffleStarParticle.size()*sizeof(extraStarData));
@@ -926,8 +932,10 @@ void TreePiece::mergeAllParticlesAndSaveCentroid() {
 
   // Now copy the SPH and Star for particles that moved within the TreePiece
   if (myShuffleMsg != NULL) {
-    memcpy(&mySPHParticles[nSPH], myShuffleMsg->pGas,
-        (myShuffleMsg->nSPH)*sizeof(extraSPHData));
+    // again don't use memcpy here
+    for( int iSph = 0; iSph < myShuffleMsg->nSPH; iSph++) {
+      mySPHParticles[nSPH + iSph] = myShuffleMsg->pGas[iSph];
+    }
     nSPH += (myShuffleMsg->nSPH);
     memcpy(&myStarParticles[nStar], myShuffleMsg->pStar,
         (myShuffleMsg->nStar)*sizeof(extraStarData));
@@ -1283,8 +1291,10 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       memcpy(&myParticles[nPart+1], incomingParticlesMsg[iMsg]->particles,
           incomingParticlesMsg[iMsg]->n*sizeof(GravityParticle));
       nPart += incomingParticlesMsg[iMsg]->n;
-      memcpy(&mySPHParticles[nSPH], incomingParticlesMsg[iMsg]->pGas,
-          incomingParticlesMsg[iMsg]->nSPH*sizeof(extraSPHData));
+      // another place not to use memcpy
+      for( int iSph = 0; iSph < incomingParticlesMsg[iMsg]->nSPH; iSph++) {
+        mySPHParticles[nSPH + iSph] = incomingParticlesMsg[iMsg]->pGas[iSph];
+      }
       nSPH += incomingParticlesMsg[iMsg]->nSPH;
       memcpy(&myStarParticles[nStar], incomingParticlesMsg[iMsg]->pStar,
           incomingParticlesMsg[iMsg]->nStar*sizeof(extraStarData));
@@ -1481,6 +1491,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
       if(p->rung >= iKickRung) {
+#ifndef VORONOI
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
 		  p->vPred() = p->velocity
@@ -1682,12 +1693,18 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
 	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
+#else
+    // don't kick if it is gas
+		if( !TYPETest(p, TYPE_GAS)) {
+			p->velocity += dDelta[p->rung]*p->treeAcceleration;
+		}
+#endif
 	  }
       }
   contribute(cb);
 }
 
-void TreePiece::initAccel(int iKickRung, const CkCallback& cb) 
+void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 {
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	if(myParticles[i].rung >= iKickRung) {
@@ -1701,6 +1718,30 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
     contribute(cb);
     }
 
+void TreePiece::applyUserGravity(int iKickRung, double dTime, Parameters param, const CkCallback& cb)
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	if(myParticles[i].rung >= iKickRung) {
+            if( param.iUserGravityType != 0) {
+                double gx, gy, gz, dtg;
+                double x, y, z;
+                x = myParticles[i].position.x;
+                y = myParticles[i].position.y;
+                z = myParticles[i].position.z;
+                UserGravity::instance -> getGravity( dTime, x, y, z, gx, gy, gz, dtg);
+                myParticles[i].treeAcceleration.x += gx;  
+                myParticles[i].treeAcceleration.y += gy;  
+                myParticles[i].treeAcceleration.z += gz;  
+		
+		if( dtg < myParticles[i].dtGrav)
+	            myParticles[i].dtGrav = dtg;
+                } 
+	    }
+	}
+
+    contribute(cb);
+}
+    
 #ifdef COOLING_MOLECULARH
 void TreePiece::distribLymanWerner(const CkCallback& cb) 
 {
@@ -1780,6 +1821,18 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
 	  }
+#ifdef VORONOI
+      if (TYPETest(p, TYPE_GAS)) {
+	        double acc = dAccFac*p->treeAcceleration.length();
+	        double dtGrav = dEta*sqrt(0.25*p->fBall/acc);
+                dTIdeal = min(dDelta, dtGrav); // reset the time
+		dTCourant = dEtaCourant*dCosmoFac*p->hydroParticle().getTimeStep();
+		if( dTCourant < dTIdeal) { 
+			dTIdeal = dTCourant;
+			dTEdot = dTCourant;
+		}
+	}
+#else
       if(bSphStep && TYPETest(p, TYPE_GAS)) {
 	  double dt;
 	  double ph = 0.5*p->fBall;
@@ -1788,7 +1841,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	  p->dtNew() = FLT_MAX;
 #else	  
 	  if (p->mumax() > 0.0) {
-	      if (bViscosityLimitdt) 
+	      if (bViscosityLimitdt)
 		  dt = dEtaCourant*dCosmoFac*(ph /(p->c() + 0.6*(p->c() + 2*p->BalsaraSwitch()*p->mumax())));
 	      else
 		  dt = dEtaCourant*dCosmoFac*(ph/(p->c() + 0.6*(p->c() + 2*p->mumax())));
@@ -1827,7 +1880,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
               double uEff = dPoverRhoJeans/(GAMMA_JEANS-1)
                   + p->fDensity*p->PoverRho2();
 	      dt = dEtauDot*uEff/fabs(p->PdV());
-	      if (dt < dTIdeal) 
+	      if (dt < dTIdeal)
 		  dTIdeal = dt;
 	      }
           dTEdot = dt;
@@ -1850,21 +1903,30 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	      dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff());  
 	      if (dt < dTIdeal) dTIdeal = dt;
 	      }
-#endif
+#endif/*DIFFUSION*/
           dTEdot = dt;
-#endif
+#endif/*SUPERBUBBLE*/
 	  }
+#endif/*VORONOI*/
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
+#ifdef VORONOI //We take half-steps for Voronoi
+      iNewRung++;
+      // don't change rung if it is in a halfstep
+      if( p->isGas() && !p->hydroParticle().isActive( iKickRung))
+        iNewRung = p->rung;
+#endif /*VORONOI*/
       if(iNewRung > 29) {
 	CkError("Small timestep dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
 		p->treeAcceleration.length());
 	if(p->isGas())
 		CkError("Small gas dt: %g, dtgrav: %g, dtcourant: %g, dtEdot: %g\n",
 			dTIdeal, dTGrav, dTCourant, dTEdot);
-	}
+      }
       if(iNewRung > MAXRUNG) {
-	CkError("dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
+        Vector3D<cosmoType> pos = p->position;
+	CkError("iOrder: %ld, pos: (%.3e,%.3e,%.3e), dt: %g, soft: %g, accel: %g\n", p->iOrder, 
+          pos.x, pos.y, pos.z, dTIdeal, p->soft,
 		p->treeAcceleration.length());
 	CkAbort("Timestep too small");
 	}
@@ -2035,11 +2097,12 @@ void TreePiece::drift(double dDelta,  // time step in x containing
           bool b = (p->position[j] < 0.5*fPeriod[j]);
 
           // Sanity Checks
-          bInBox = bInBox && a; 
+          bInBox = bInBox && a;
           bInBox = bInBox && b;
         }
         if(!bInBox){
-          CkPrintf("[%d] p: %f,%f,%f\n", thisIndex, p->position[0], p->position[1], p->position[2]);
+          CkPrintf("[%d] p: %ld, %f,%f,%f\n", thisIndex, p->iOrder, p->position[0], p->position[1], p->position[2]);
+          CkPrintf("v: %5.2e,%5.2e,%5.2e t: %5.2e\n", p->velocity[0], p->velocity[1], p->velocity[2], dDelta);
           CkAbort("binbox failed\n");
         }
       }
@@ -2108,7 +2171,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 
 /// @brief  Adjust particlePointer attribute of all the nodes in the
 /// tree.
-/// 
+///
 ///  Call this if "myParticles" is about to change, but you still need
 ///  the tree.
 
@@ -2155,8 +2218,10 @@ void TreePiece::newParticle(GravityParticle *p)
                     nTmpStore);
             CkAssert(nTmpStore > nStoreSPH);
             extraSPHData *myTmpParticles = new extraSPHData[nTmpStore];
-            memcpy(myTmpParticles, mySPHParticles,
-                   (myNumSPH)*sizeof(extraSPHData));
+            // don't use memcpy here
+            for( int iSph = 0; iSph < myNumSPH; iSph++) {
+                myTmpParticles[iSph] = mySPHParticles[iSph];
+            }
             for(int i = 1; i <= myNumParticles; i++) {
                 // assign pointers
                 if(myParticles[i].isGas()) {
@@ -2218,7 +2283,7 @@ void TreePiece::colNParts(const CkCallback &cb)
     counts.nDelStar = 0;
     unsigned int i, j;
     int newNPart = myNumParticles; // the number of particles may change.
-    
+
     for(i = 1, j = 1; i <= myNumParticles; ++i) {
 	if(j < i)
 	    myParticles[j] = myParticles[i];
@@ -2275,9 +2340,9 @@ void TreePiece::newOrder(const NewMaxOrder *nStarts, const int n,
 	GravityParticle *p = &myParticles[i];
 	boundingBox.grow(p->position);
 	if(p->iOrder == -1) {
-	    if (p->isGas()) 
+	    if (p->isGas())
 		p->iOrder = nStartSPH++;
-	    else if (p->isDark()) 
+	    else if (p->isDark())
 		p->iOrder = nStartDark++;
 	    else {
 		/* Also record iOrder in the starLog table. */
@@ -2298,12 +2363,12 @@ void TreePiece::newOrder(const NewMaxOrder *nStarts, const int n,
 	       growOrientedBox_float,
 	       CkCallback(CkIndex_TreePiece::assignKeys(0), pieces));
     }
-    
+
 /**
  * Update total particle numbers.
  */
 void TreePiece::setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
-			  int64_t _nTotalStar, const CkCallback &cb) 
+			  int64_t _nTotalStar, const CkCallback &cb)
 {
     nTotalSPH = _nTotalSPH;
     nTotalDark = _nTotalDark;
@@ -2521,14 +2586,14 @@ TreePiece::setTypeFromFile(int iSetMask, char *file, const CkCallback& cb)
 /*
  * Render this processors portion of the image
  */
-void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump) 
+void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
 {
     void *Image = dfDataProxy.ckLocalBranch()->Image;
     GravityParticle *p;
     for (int i=1; i<=myNumParticles; ++i) {
 	p = &(myParticles[i]);
 	switch (in.iRender) {
-	case DF_RENDER_POINT: 
+	case DF_RENDER_POINT:
 	    dfRenderParticlePoint(&in, Image, p, dm);
 	    break;
 	case DF_RENDER_TSC:
@@ -2542,15 +2607,15 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
 	    break;
 	    }
 	}
-    
-    if(!liveVizDump) 
+
+    if(!liveVizDump)
 	contribute(cb);
     else
       {
 	// this is the RGB 3-byte/pixel image created from floating point image
 	// data in dfFinishFrame - here we just create the pointer to pass in
 	unsigned char *gray;
-	
+
 
 	dfFinishFrame(NULL, 0, 0, &in, Image, true, &gray);
 
@@ -2574,7 +2639,7 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
  */
 
 #ifdef PUSH_GRAVITY
-void TreePiece::buildTree(int bucketSize, const CkCallback& cb, bool _merge) 
+void TreePiece::buildTree(int bucketSize, const CkCallback& cb, bool _merge)
 #else
 void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
 #endif
@@ -2604,7 +2669,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
   // used to indicate whether trees on SMP node should be
   // merged or not: we do not merge trees when pushing, to
   // increase concurrency
-  doMerge = _merge; 
+  doMerge = _merge;
 #endif
 
   // decide which logic are we using to divide the particles: Oct or ORB
@@ -2617,7 +2682,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
                    CkCallback(CkIndex_TreePiece::recvdBoundaries(0), thisProxy));
         return;
         }
-    if (myNumParticles > 0) {  
+    if (myNumParticles > 0) {
 #ifdef COSMO_PRINT
       CkPrintf("[%d] Keys: %016llx %016llx\n",thisIndex,myParticles[1].key,myParticles[myNumParticles].key);
 #endif
@@ -2642,7 +2707,7 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
         if (myPlace != 0) {
           thisProxy[dm->responsibleIndex[myPlace-1]].recvBoundary(bounds[0], RIGHT);
         }
-        if (myPlace != (dm->responsibleIndex.size()-1)) { 
+        if (myPlace != (dm->responsibleIndex.size()-1)) {
           thisProxy[dm->responsibleIndex[myPlace+1]].recvBoundary(bounds[1], LEFT);
         }
       }
@@ -2688,7 +2753,7 @@ void TreePiece::recvBoundary(SFC::Key key, NborDir dir) {
     }
 
     if (dir == LEFT) {
-      if (myPlace != (dm->responsibleIndex.size()-1)) { 
+      if (myPlace != (dm->responsibleIndex.size()-1)) {
         thisProxy[dm->responsibleIndex[myPlace+1]].recvBoundary(key, LEFT);
       }
     } else if (dir == RIGHT) {
@@ -2983,7 +3048,7 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   if (dm == NULL) {
       dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
   }
-  
+
   if (myNumParticles == 0) {
 #ifdef PUSH_GRAVITY
     if(doMerge){
@@ -3069,8 +3134,8 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
         return;
 
 #elif defined SPLIT_PHASE_TREE_BUILD
-        LocalTreeTraversal traversal; 
-        // Try to construct the non-local part of the tree: 
+        LocalTreeTraversal traversal;
+        // Try to construct the non-local part of the tree:
         // this results in early dispatch of remote moment
         // requests
         RemoteTreeBuilder w1(this,true);
@@ -3172,13 +3237,13 @@ void TreePiece::mergeNonLocalRequestsDone(){
 
   // at this point, I might have completed building
   // the entire tree, since:
-  // (a) I must have finished building the 
-  //     RemoteTree, otherwise the PETreeMerger 
+  // (a) I must have finished building the
+  //     RemoteTree, otherwise the PETreeMerger
   //     wouldn't have invoked this method on me
-  
+
   // (b) I might have received all the moments for
   //     which I was a client
-  
+
   // 4. Respond to remote requests for local moments
   processRemoteRequestsForMoments();
 
@@ -3416,7 +3481,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 #ifdef MERGE_REMOTE_REQUESTS
   deliverMomentsToClients(node);
 #endif
- 
+
   // look if we can compute the moments of some ancestors, and eventually send
   // them to a requester
   GenericTreeNode *parent = node->parent;
@@ -3429,8 +3494,8 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
  // If we are merging remote requests, since we only build the skeleton
   // top-level tree (i.e. RemoteTree) in the first pass (RemoteTreeBuilder)
   // we might not have computed the moments of internal siblings of this node
-  // Moreover, we do not decrement the remoteIndex of the parent for these 
-  // Internal children whose moments have not yet been computed. Therefore, 
+  // Moreover, we do not decrement the remoteIndex of the parent for these
+  // Internal children whose moments have not yet been computed. Therefore,
   // we want to avoid the situation wherein a Boundary parent node's non-Internal
   // child's moments are received in this invocation, but the moments of the
   // parent have not yet been computed. We can be sure that the Internal childrens'
@@ -3438,7 +3503,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
   if(!localTreeBuildComplete) return;
 #endif
 
-  while (parent != NULL && 
+  while (parent != NULL &&
          parent->remoteIndex == 0) {
     GenericTreeNode *parentsParent = boundaryParentReady(parent);
 #ifdef MERGE_REMOTE_REQUESTS
@@ -3782,11 +3847,11 @@ void TreePiece::finishBucket(int iBucket) {
       // are copied back from gpu; can markwalkdone only
       // after this, otherwise there is a race condition
       // between the start of the next iteration, wherein
-      // the treepiece registers itself afresh with the 
+      // the treepiece registers itself afresh with the
       // data manager. if during this time the particles
       // haven't been copied (and updateParticles hasn't
       // been called), the registeredTreePieces list will
-      // not be reset, so that the data manager gets 
+      // not be reset, so that the data manager gets
       // confused.
       dm->transferParticleVarsBack();
       //dm->freeLocalTreeMemory();
@@ -3893,7 +3958,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
 
   int currentBucket = sLocalGravityState->currentBucket;
   if(verbosity >= 4)
-	CkPrintf("[%d] walking bucket %d\n", thisIndex, currentBucket);	
+	CkPrintf("[%d] walking bucket %d\n", thisIndex, currentBucket);
 
   bool useckloop = false;
   int yield_num = _yieldPeriod;
@@ -3957,7 +4022,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
       CmiMemoryCheck();
 #endif
       // book-keeping
-#if COSMO_PRINT_BK > 1 
+#if COSMO_PRINT_BK > 1
       CkPrintf("[%d] active local bucket book-keep\n", thisIndex);
 #endif
 
@@ -3994,7 +4059,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
       // keep moving forward until an active bucket is reached
       // all (inactive) buckets encountered meanwhile are
       // finished
-#if COSMO_PRINT_BK > 1 
+#if COSMO_PRINT_BK > 1
       CkPrintf("[%d] inactive local bucket book-keep\n", thisIndex);
 #endif
       currentBucket += doBookKeepingForTargetInactive(-1, !useckloop, sLocalGravityState);
@@ -4033,7 +4098,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
   } else {
 
 #if INTERLIST_VER > 0 && defined CUDA
-    // The local walk might have some outstanding computation requests 
+    // The local walk might have some outstanding computation requests
     // at this point. Flush these lists to GPU
     DoubleWalkState *ds = (DoubleWalkState *)sLocalGravityState;
     ListCompute *lc = (ListCompute *)sGravity;
@@ -4296,7 +4361,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         rstate->placedRoots[msg->chunkNum] = true;
         rstate->level = 0;
         sGravity->initState(rstate);
-        
+
 #if COSMO_PRINT_BK > 0
         CkPrintf("[%d] CGR: placing chunk %d root %ld (type %s) replicas\n", thisIndex, msg->chunkNum, chunkRoot->getKey(), typeString(chunkRoot->getType()));
 #endif
@@ -4380,7 +4445,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       CmiMemoryCheck();
 #endif
 
-#if COSMO_PRINT_BK > 1 
+#if COSMO_PRINT_BK > 1
       CkPrintf("[%d] active remote bucket book-keep current: %d end: %d chunk: %d\n", thisIndex, sRemoteGravityState->currentBucket, end, msg->chunkNum);
 #endif
 
@@ -4442,7 +4507,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
     sRemoteGravityState->currentBucket = 0;
 
 #if INTERLIST_VER > 0 && defined CUDA
-    // The remote walk might have some outstanding computation requests 
+    // The remote walk might have some outstanding computation requests
     // at this point. Flush these lists to GPU
     DoubleWalkState *ds = (DoubleWalkState *)sRemoteGravityState;
     ListCompute *lc = (ListCompute *)sGravity;
@@ -4477,7 +4542,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
 
 #ifdef CUDA
-      // The remote-resume walk might have some outstanding computation requests 
+      // The remote-resume walk might have some outstanding computation requests
       // at this point. Flush these lists to GPU
       DoubleWalkState *ds = (DoubleWalkState *)sInterListStateRemoteResume;
       ListCompute *lc = (ListCompute *)sGravity;
@@ -4523,7 +4588,7 @@ int TreePiece::doBookKeepingForTargetActive(int curbucket, int end,
       // the per bucket, per chunk counts are balanced as follows:
       // initialize in startiteration: +1
       // for request sent to gpu: +1
-      // initial walk completed: -1 (this is where we are in the code currently) 
+      // initial walk completed: -1 (this is where we are in the code currently)
       // for each request completed: -1 (this happens in cudaCallback)
       gravityState->counterArrays[0][j]--;
 #if COSMO_PRINT_BK > 1
@@ -4553,7 +4618,7 @@ int TreePiece::doBookKeepingForTargetInactive(int chunkNum, bool updatestate,
   // prevRemoteBucket keeps track of last *active* bucket
   // if it is -1, the lca turns out to be chunkroot
   // otherwise, the lca is some other valid node
-#if COSMO_PRINT_BK > 1 
+#if COSMO_PRINT_BK > 1
   CkPrintf("[%d] inactive remote bucket book-keep chunk: %d\n", thisIndex, chunkNum);
 #endif
   while(gravityState->currentBucket < numBuckets &&
@@ -4709,7 +4774,7 @@ void TreePiece::finishNodeCache(const CkCallback& cb)
 
 void TreePiece::startPushGravity(int am, double myTheta){
   LBTurnInstrumentOn();
-  
+
   iterationNo++;
   activeRung = am;
   theta = myTheta;
@@ -4735,7 +4800,7 @@ BucketMsg *TreePiece::createBucketMsg(){
   // First count the number of active particles and buckets
   for(int i = 0; i < bucketList.size(); i++){
     GenericTreeNode *bucket = bucketList[i];
-    int buckStart = bucket->firstParticle; 
+    int buckStart = bucket->firstParticle;
     int buckEnd = bucket->lastParticle;
     GravityParticle *buckParticles = bucket->particlePointer;
     saveNumActiveParticles = numActiveParticles;
@@ -4761,14 +4826,14 @@ BucketMsg *TreePiece::createBucketMsg(){
   for(int i = 0; i < bucketList.size(); i++){
     // source bucket
     GenericTreeNode *sbucket = bucketList[i];
-    int buckStart = sbucket->firstParticle; 
+    int buckStart = sbucket->firstParticle;
     int buckEnd = sbucket->lastParticle;
     GravityParticle *buckParticles = sbucket->particlePointer;
     saveNumActiveParticles = numActiveParticles;
     for(int j = 0; j <= buckEnd-buckStart; j++){
       if(buckParticles[j].rung >= activeRung){
         // copy active particle to bucket msg
-        msg->particles[numActiveParticles] = buckParticles[j]; 
+        msg->particles[numActiveParticles] = buckParticles[j];
         numActiveParticles++;
       }
     }
@@ -4882,12 +4947,12 @@ void TreePiece::recvPushAccelerations(CkReductionMsg *msg){
   int numUpdates = 0;
   int numFields = 4;
   for(int i = 1; i <= myNumParticles; i++){
-    if(myParticles[i].rung >= activeRung){ 
+    if(myParticles[i].rung >= activeRung){
       myParticles[i].treeAcceleration.x = accelerations[j];
       myParticles[i].treeAcceleration.y = accelerations[j+1];
       myParticles[i].treeAcceleration.z = accelerations[j+2];
 
-      myParticles[i].interMass = accelerations[j+3]; 
+      myParticles[i].interMass = accelerations[j+3];
       j += numFields;
       numUpdates++;
 
@@ -4960,7 +5025,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     bBucketsInited = true;
     return;
   }
-  
+
   // allocate and zero out statistics counters
   if (oldNumChunks != numChunks ) {
     delete[] nodeInterRemote;
@@ -5052,7 +5117,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   sInterListStateRemoteResume->counterArrays[1] = remoteWalkState->counterArrays[1];
 #endif
 
-  
+
   // remaining Chunk[]
   for(int i = 0; i < numChunks; i++) {
     remoteWalkState->counterArrays[1][i] = numBuckets;
@@ -5070,7 +5135,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #if INTERLIST_VER > 0
   sInterListWalk = walk;
 
-  // cuda - need number of active buckets this iteration so 
+  // cuda - need number of active buckets this iteration so
   // that we can flush accumulated interactions to gpu when
   // we realize no more computation requests will be received
   // (i.e. all buckets have finished their RNR/Local walks)
@@ -5119,17 +5184,17 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 	  ((ListCompute *)sGravity)->initCudaState(lstate, numBuckets, localNodesPerReq, localPartsPerReq, false);
           // ditto
           lstate->nodes = NULL;
-          // allocate space for local particles 
+          // allocate space for local particles
           // if this is a small phase; we do not transfer
           // all particles owned by this processor in small
-          // phases and so refer to particles inside an 
+          // phases and so refer to particles inside an
           // auxiliary array shipped with computation requests.
           // this auxiliary array is 'particles', below:
           if(largePhase()){
             lstate->particles = NULL;
-          }     
+          }
           else{
-            // allocate an amount of space that 
+            // allocate an amount of space that
             // depends on the rung
             lstate->particles = new CkVec<CompactPartData>(AVG_SOURCE_PARTICLES_PER_ACTIVE*myNumActiveParticles);
             lstate->particles->length() = 0;
@@ -5170,7 +5235,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
 #endif // INTERLIST_VER
 
-  sLocalGravityState->myNumParticlesPending = numBuckets; 
+  sLocalGravityState->myNumParticlesPending = numBuckets;
   sRemoteGravityState->numPendingChunks = numChunks;
   // current remote bucket
   sRemoteGravityState->currentBucket = 0;
@@ -5213,7 +5278,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   if (bEwald) thisProxy[thisIndex].EwaldInit();
 #if defined CUDA
   // ask datamanager to serialize local trees
-  // prefetch can occur concurrently with this, 
+  // prefetch can occur concurrently with this,
   // though calculateGravityLocal can only come
   // afterwards.
   dm->serializeLocalTree();
@@ -5269,7 +5334,7 @@ void TreePiece::initiatePrefetch(int chunk){
 }
 
 void TreePiece::commenceCalculateGravityLocal(){
-#if INTERLIST_VER > 0 
+#if INTERLIST_VER > 0
   // must set placedRoots to false before starting local comp.
   DoubleWalkState *lstate = (DoubleWalkState *)sLocalGravityState;
   lstate->placedRoots[0] = false;
@@ -5365,7 +5430,7 @@ void TreePiece::startlb(const CkCallback &cb, int activeRung){
   iActiveRungLB = activeRung;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
-  
+
   unsigned int i;
 
   if(activeRung == 0){
@@ -6137,7 +6202,7 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
   State *state;
 
   CkAssert(awi < maxAwi);
-  
+
   // retrieve the activewalk record
   ActiveWalk &a = activeWalks[awi];
   //tw = a.tw;
@@ -6178,7 +6243,7 @@ void TreePiece::receiveParticlesCallback(ExternalGravityParticle *egp, int num, 
   else {
       CkAssert(0);
       }
-  
+
   c->reassoc(source, activeRung, a.o);
   c->recvdParticles(egp,num,chunk,reqID,state,this, remoteBucket);
 }
@@ -6282,7 +6347,7 @@ void TreePiece::finishedChunk(int chunk){
 }
 
 void TreePiece::markWalkDone() {
-    
+
     // There are always two walks to wait for: one saying that all
     // computation for our buckets are done and one saying that all
     // outstanding cache requests are satisfied.
@@ -6445,7 +6510,7 @@ void TreePiece::getBucketsBeneathBounds(GenericTreeNode *&source, int &start, in
 
 // called when missed data is received
 void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *state){
-#if COSMO_PRINT_BK > 1 
+#if COSMO_PRINT_BK > 1
   CkPrintf("[%d] data received book-keep\n", thisIndex);
 #endif
   for(int i = start; i < end; i++){
@@ -6469,7 +6534,7 @@ void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *s
 
 // called on a miss
 void TreePiece::updateUnfinishedBucketState(int start, int end, int n, int chunk, State *state){
-#if COSMO_PRINT_BK > 1 
+#if COSMO_PRINT_BK > 1
   CkPrintf("[%d] data missed book-keep (%d)\n", thisIndex, chunk);
 #endif
   for(int i = start; i < end; i++){
@@ -6488,11 +6553,11 @@ void TreePiece::updateUnfinishedBucketState(int start, int end, int n, int chunk
 /* create this chare's portion of the image
    We're lazy, so use the existing DumpFrame framework
 */
- void TreePiece::liveVizDumpFrameInit(liveVizRequestMsg *msg) 
+ void TreePiece::liveVizDumpFrameInit(liveVizRequestMsg *msg)
  {
-   
+
    savedLiveVizMsg = msg;
-   
+
    if(thisIndex == 0) {
         ckerr << "Calling liveViz setup on main chare" << endl;
 	mainChare.liveVizImagePrep(msg);
@@ -6514,7 +6579,7 @@ void TreePiece::setProjections(int bOn)
 /*
  * Gather memory use statistics recorded during the tree walk
  */
-void TreePiece::memCacheStats(const CkCallback &cb) 
+void TreePiece::memCacheStats(const CkCallback &cb)
 {
     int memOut[4];
     memOut[0] = memWithCache;
@@ -6546,7 +6611,7 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
   centroid.y = 0.0;
   centroid.z = 0.0;
   for(int i = 1; i <= myNumParticles; i++){
-    centroid += myParticles[i].position; 
+    centroid += myParticles[i].position;
   }
   if(myNumParticles > 0){
     centroid /= myNumParticles;
@@ -6554,15 +6619,6 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
 
   TaggedVector3D tv(centroid, handle, myNumParticles, myNumParticles, 0, 0);
   tv.tp = thisIndex;
-
-  /*
-  CkPrintf("[%d] centroid %f %f %f\n", 
-                      thisIndex,
-                      tv.vec.x,
-                      tv.vec.y,
-                      tv.vec.z
-                      );
-  */
 
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
@@ -6623,7 +6679,7 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
 // the owners.
 int TreePiece::getResponsibleIndex(int first, int last){
     int which = first + (thisIndex % (1 + last - first));
-    if(verbosity > 3) 
+    if(verbosity > 3)
 	CkPrintf("[tp %d] choosing responsible index %d from %d to %d\n",
 		 thisIndex,
 		 dm->responsibleIndex[which], first, last);
@@ -6677,7 +6733,7 @@ void ReductionHelper::countTreePieces(const CkCallback &cb){
 
 void ReductionHelper::reduceBinCounts(int nBins, int64_t *binCounts, const CkCallback &cb){
   numTreePiecesCheckedIn++;
-  
+
   //CkPrintf("ReductionHelper %d recvd %d/%d contributions\n", CkMyPe(), numTreePiecesCheckedIn, myNumTreePieces);
 
   if(numTreePiecesCheckedIn == 1){
@@ -6713,11 +6769,9 @@ void TreePieceCounter::reset() {
 }
 
 void ReductionHelper::senseLocalTreePieces(){
-  localTreePieces.reset();                          
-  CkLocMgr *mgr = treeProxy.ckLocMgr();        
-  mgr->iterate(localTreePieces);              
+  localTreePieces.reset();
+  CkLocMgr *mgr = treeProxy.ckLocMgr();
+  mgr->iterate(localTreePieces);
 }
 
 #endif
-
-

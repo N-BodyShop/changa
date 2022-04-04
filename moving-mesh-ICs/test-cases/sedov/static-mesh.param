@@ -1,0 +1,56 @@
+# Performance options
+nCacheDepth     = 4
+bConcurrentSph  = 0
+nDomainDecompose= 0
+nBucket         = 8
+bPrefetch       = 1
+# Merger
+#
+bPeriodic       = 1
+bParaRead       = 1
+bParaWrite      = 1
+dTheta          = 0.9
+dTheta2         = 1.0
+nReplicas       = 1
+achInFile       = sedov.std
+achOutName       = test_out
+bViscosityLimiter = 1
+iViscosityLimiter = 1
+#bVariableAlpha = 1
+bDoDensity      = 1
+bVDetails       = 2
+nSmooth         = 64
+dHubble0        = 2.894405
+dVoroKick       = 0.
+dHydroTheta     = 1. # 0.5 by default
+dSmallRho       = 1.e-30 # 1d-30 by default
+bVertical_grav  = 0 # 0 by default
+dOmega0         = 1.0
+dRedTo          = 0.0
+iCheckInterval  = 1000
+dExtraStore     = 0.5
+bKDK            = 1
+iMaxRung        = 30
+dEta            = 0.3
+dEtaCourant     = 0.8
+bStandard       = 1
+bDoGravity      = 0
+bComove         = 0
+bCannonical     = 1
+bGeometric      = 0
+iGasModel       = 2
+dPeriod         = 2e12
+#dxPeriod        = 3e11
+#dyPeriod        = 3e11
+#dzPeriod        = 3e11
+dConstGamma     = 1.67
+dGasConst       = 0.315e1
+dMeanMolWeight  = 1.0
+nSteps          = 1000
+dDelta          = 0.00516
+iOutInterval    = 100
+iLogInterval    = 1
+bOverwrite      = 0
+dMsolUnit       = 5.028e-34
+dKpcUnit        = 3.2408e-22
+

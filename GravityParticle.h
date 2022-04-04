@@ -14,6 +14,10 @@
 #define NEED_DT
 #endif
 
+#ifdef VORONOI
+#include "HydroParticle.h"
+#endif
+
 /// @brief Object to bookkeep a Bucket Walk.
 class BucketGravityRequest {
 public:
@@ -45,6 +49,20 @@ class ExternalGravityParticle {
   }
 #endif
 };
+
+#ifdef VORONOI
+class extraVoronoiData;
+class extraVoronoiData {
+ private: 
+  HydroParticle _hp;
+ public:
+  inline HydroParticle& hp() { return _hp;}
+  void pup( PUP::er &p) {
+    p | _hp;
+  }
+};
+#endif
+
 
 /// @brief Extra data needed for SPH
 class extraSPHData 
@@ -98,6 +116,9 @@ class extraSPHData
     double _fMFracIronDot;
     double _fMFracOxygenPred;
     double _fMFracIronPred;
+#endif
+#ifdef VORONOI
+    HydroParticle _hp;     /* Voronoi data*/
 #endif
 #ifdef SUPERBUBBLE
     COOLPARTICLE _CoolParticleHot;	
@@ -161,6 +182,9 @@ class extraSPHData
     inline double& fMFracIronDot() {return _fMFracIronDot;}
     inline double& fMFracIronPred() {return _fMFracIronPred;}
 #endif
+#ifdef VORONOI
+    inline HydroParticle &hydroParticle() { return _hp;}
+#endif
 #ifdef SUPERBUBBLE
     inline COOLPARTICLE& CoolParticleHot() {return _CoolParticleHot;}
     inline int& cpHotInit() {return _cpHotInit;}
@@ -221,6 +245,9 @@ class extraSPHData
 	p| _fMFracOxygenPred;
 	p| _fMFracIronDot;
 	p| _fMFracIronPred;
+#endif
+#ifdef VORONOI
+	p | _hp;
 #endif
 #ifdef SUPERBUBBLE
 	p((char *) &_CoolParticleHot, sizeof(_CoolParticleHot)); /* PUPs as bytes */
@@ -338,7 +365,6 @@ public:
 	double dt;
 #endif
 	void *extraData;	/* SPH or Star particle data */
-
 #if COSMO_STATS > 1
 	double intcellmass;
 	double intpartmass;
@@ -449,6 +475,9 @@ public:
 	inline double& fMFracIronDot() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronDot());}
 	inline double& fMFracOxygenPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracOxygenPred());}
 	inline double& fMFracIronPred() { IMAGAS; return (((extraSPHData*)extraData)->fMFracIronPred());}
+#endif
+#ifdef VORONOI
+	inline HydroParticle &hydroParticle() { IMAGAS; return (((extraSPHData*)extraData)->hydroParticle());}
 #endif
 #ifdef SUPERBUBBLE
 	inline COOLPARTICLE& CoolParticleHot() { IMAGAS; return (((extraSPHData*)extraData)->CoolParticleHot());}
@@ -629,8 +658,11 @@ class ExternalSmoothParticle {
   double dTimeFB;
   int iBucketOff;               /* Used by the Cache */
 
-  ExternalSmoothParticle() {}
-
+#ifdef VORONOI
+  HydroParticle hp;
+#endif
+  ExternalSmoothParticle(){}
+ 
   ExternalSmoothParticle(GravityParticle *p) 
       {
 	  mass = p->mass;
@@ -691,6 +723,9 @@ class ExternalSmoothParticle {
 #ifdef DTADJUST
           dt = p->dt;
           dtNew = p->dtNew();
+#endif
+#ifdef VORONOI
+	      hp = p->hydroParticle();
 #endif
 	      dTimeFB = p->dTimeFB();
 	      }
@@ -760,6 +795,9 @@ class ExternalSmoothParticle {
 #ifdef DTADJUST
       tmp->dt = dt;
       tmp->dtNew() = dtNew;
+#endif
+#ifdef VORONOI
+	  tmp->hydroParticle() = hp; 
 #endif
 	  tmp->dTimeFB() = dTimeFB;
 	  }
@@ -831,6 +869,9 @@ class ExternalSmoothParticle {
     p | iEaterOrder;
     p | dTimeFB;
     p | iBucketOff;
+#ifdef VORONOI
+    p | hp;
+#endif
   }
 #endif
 };

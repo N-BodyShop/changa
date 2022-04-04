@@ -262,6 +262,7 @@ public:
     void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);
+    void initUserGravity( Parameters param, const CkCallback& cb);
     void initStarLog(std::string _fileName, const CkCallback &cb);
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift
@@ -270,6 +271,10 @@ public:
     void SetStarCM(double dCenterOfMass[4], const CkCallback& cb);
     void memoryStats(const CkCallback& cb);
     void resetReadOnly(Parameters param, const CkCallback &cb);
+#ifdef VORONOI
+    void setupMovingMesh(Parameters param, const CkCallback &cb);
+    void setupDtRungs( Parameters param, const double dTime, const CkCallback &cb);
+#endif
 
   public:
   static Tree::GenericTreeNode *pickNodeFromMergeList(int n, GenericTreeNode **gtn, int &nUnresolved, int &pickedIndex);

@@ -109,6 +109,10 @@ structures_path     := @STRUCT_DIR@
 charm_util_path     := @CHARM_PATH@/tmp
 cache_lib_path      := @CHARM_PATH@/tmp/libs/ck-libs/cache
 threadsafe_ht_path  := $(cache_lib_path)/threadsafe_hashtable
+voro_path           := @VORO_DIR@
+athena_path         := @ATHENA_DIR@
+sroeos_path         := @SROEOS_DIR@
+
 
 # ------- Modules to build ----------------------------------------------------
 changa_modules := $(strip MultistepLB MultistepLB_notopo \
@@ -126,11 +130,14 @@ defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@  \
           @FLAG_JEANSSOFTONLY@ \
           @FLAG_TREE_BUILD@ $(debug_defines) @FLAG_INTERLIST@ \
           @FLAG_NSMOOTHINNER@ @FLAG_SPLITGAS@ @FLAG_SIDMINTERACT@ \
-          @FLAG_SUPERBUBBLE@ $(cuda_defines) -DREDUCTION_HELPER)
+          @FLAG_SUPERBUBBLE@ $(cuda_defines) -DREDUCTION_HELPER \
+          @FLAG_MOVING_MESH@ @FLAG_RADIATION@ @FLAG_MHD@)
 
 modules := $(strip -language charm++ -balancer @DEFAULT_LB@   \
             $(foreach m,$(charm_modules),-module $(m))        \
             $(foreach m,$(changa_modules),-module $(m)))
+
+moving_mesh_targets := 
 
 includes := $(strip -I$(structures_path) -I$(cache_lib_path)  \
       -I$(source_dir) -I$(threadsafe_ht_path) -I$(build_dir)  \
@@ -154,6 +161,13 @@ ld_flags  := $(basic_ldflags) @USER_LDFLAGS@ @LDFLAGS@ $(LDFLAGS)
 c_srcs   := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.c))
 cxx_srcs := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.cpp))
 
+# Add the moving mesh sources (if any)
+ifeq (-DVORONOI,@FLAG_MOVING_MESH@)
+  moving_mesh_targets += $(athena_path)/libathena.a $(voro_path)/src/libvoro++.a
+  ld_libs += -L$(voro_path)/src -lvoro++
+  cxx_flags += -I$(voro_path)/src
+endif 
+
 # Add the cooling sources (if any)
 ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
   c_srcs += $(source_dir)/cooling_planet.c
@@ -172,6 +186,28 @@ ifeq (-DCOOLING_MOLECULARH,@FLAG_COOLING@)
 endif
 ifeq (-DCOOLING_GRACKLE,@FLAG_COOLING@)
   c_srcs += $(source_dir)/cooling_grackle.c
+endif
+ifeq (-DCOOLING_AD,@FLAG_COOLING@)
+  c_srcs += $(source_dir)/cooling_ad.c
+endif
+ifeq (-DCOOLING_MESA,@FLAG_COOLING@)
+  c_srcs += $(source_dir)/cooling_mesa.c
+  ld_libs += -L$(MESA_DIR)/lib -leos -lchem -linterp_2d -linterp_1d -lnum -lf2crlibm -lcrlibm -lmtx -lconst -lutils -lmesalapack -lmesablas -openmp
+	ld_libs += -lgfortran
+  moving_mesh_targets += $(build_dir)/mesaeos_lib.o
+ifndef MESA_DIR
+$(error using COOLING_MESA, but MESA_DIR is not set)
+endif
+endif
+ifeq (-DCOOLING_SROEOS,@FLAG_COOLING@)
+  c_srcs += $(source_dir)/cooling_sroeos.c
+  moving_mesh_targets += $(sroeos_path)/libnuc_eos.a
+  ld_libs += -L$(sroeos_path) -lnuc_eos -L$(HDF5ROOT)/lib -lhdf5
+  cxx_flag += -I$(sroeos_path) -I$(HDF5ROOT)/include
+  c_flags += -I$(sroeos_path) -I$(HDF5ROOT)/include
+ifndef HDF5ROOT
+$(error using COOLING_SROEOS, but HDF5ROOT is not set)
+endif
 endif
 
 sources := $(c_srcs) $(cxx_srcs)
@@ -244,7 +280,7 @@ $(objects): $(build_dir)/settings
 
 $(build_dir)/$(target): $(build_dir)/cha_commitid.o
 $(build_dir)/$(target): $(foreach m,$(changa_modules),libmodule$(m).a)
-$(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a
+$(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a $(moving_mesh_targets)
 	$(link-charmc)
 ifneq ($(notdir $(charmrun)),charmrun)
 	$(quiet) if [ -e $(build_dir)/charmrun ]; then 									\
@@ -267,6 +303,20 @@ endif
 $(structures_path)/libTipsy.a:
 	$(quiet) cd $(structures_path); $(MAKE) libTipsy.a
 
+$(voro_path)/src/libvoro++.a:
+	cd $(voro_path)/src; $(MAKE) -j4 CXX=$(charmc) CFLAGS="$(cxx_flags)"
+
+$(sroeos_path)/libnuc_eos.a:
+	cd $(sroeos_path); $(MAKE) -j4 CXX=$(charmc) CC=$(charmc) CFLAGS="$(cxx_flags)" HDF5INCS="-I$(HDF5ROOT)/include" HDF5LIBS="-L$(HDF5ROOT)/lib -lhdf5"
+
+$(athena_path)/libathena.a:
+	cd $(athena_path); $(MAKE) -j4 MHD=@MHD_ENABLE@ CXX=$(charmc) CC=$(charmc) CFLAGS="$(cxx_flags)"
+
+mesa_flags := "-Wno-uninitialized -fno-range-check -fmax-errors=12  -fprotect-parens -fno-sign-zero -fbacktrace -ggdb -finit-real=snan  -fbounds-check -Wuninitialized -Warray-bounds  -ffixed-form -ffixed-line-length-132 -x f77-cpp-input"
+
+$(build_dir)/mesaeos_lib.o: $(source_dir)/mesaeos_lib.f
+	$(charmc) -o $(build_dir)/mesaeos_lib.o $(OPTS) $(mesa_flags) -I$(MESA_DIR)/include  $(source_dir)/mesaeos_lib.f
+
 $(build_dir)/libmodule%.a: $(build_dir)/%.o
 	@ echo Creating library $@...
 	$(quiet) $(AR) $@ $^
@@ -279,9 +329,13 @@ docs:
 .PHONY: clean
 clean:
 	@ echo Cleaning...
-	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files) settings
+	$(quiet) $(RM) $(objects) *~ *.decl.h *.def.h $(depend_files) settings $(moving_mesh_targets) $(target) $(build_dir)/ChaNGa
 	$(quiet) $(RM) $(foreach m,$(changa_modules),libmodule$(m).a)
 	$(quiet) cd $(structures_path); $(MAKE) clean
+	$(quiet) cd $(voro_path)/src; $(MAKE) clean
+	$(quiet) cd $(sroeos_path); $(MAKE) clean
+	$(quiet) cd $(athena_path); $(MAKE) clean
+
 
 .PHONY: dist-clean
 dist-clean: clean

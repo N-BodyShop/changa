@@ -5,7 +5,9 @@
 
 class OutputParams;
 #include "DataManager.h"
-
+#ifdef VORONOI
+#include "HydroParticle.h"
+#endif
 int64_t ncGetCount(std::string typedir);
 
 /// @brief Base class for output parameters.
@@ -260,6 +262,679 @@ class VelOutputParams : public OutputParams
 	}
     };
 
+#ifdef VORONOI
+class RhoOutputParams : public OutputParams
+{
+ public:
+    int iPrim;
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)) {
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iPrim];
+        } else 
+            return 0.0; 
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { if(TYPETest( p, TYPE_GAS)) p->hydroParticle().setPrimitives( iPrim, val);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    RhoOutputParams() {}
+    RhoOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "rho"; sNChilExt = "rho";
+        dTime = _dTime;
+        iType = TYPE_GAS; iPrim = iRho;}
+    PUPable_decl(RhoOutputParams);
+    RhoOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+        p|iPrim;
+	}
+    };
+class IeOutputParams : public OutputParams
+{
+ public:
+    int iPrim;
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)) {
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iPrim]*6.67e-8;
+        } else 
+            return 0.0; 
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { if(TYPETest( p, TYPE_GAS)) p->hydroParticle().setPrimitives( iPrim, val);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    IeOutputParams() {}
+    IeOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "ie"; sNChilExt = "ie";
+        dTime = _dTime; 
+        iType = TYPE_GAS; iPrim = iIntE;}
+    PUPable_decl(IeOutputParams);
+    IeOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+        p|iPrim;
+	}
+    };
+class PresOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)) {
+            const int iOrder = p->hydroParticle().iOrder; 
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            printf("%d %.3e %.3e %.3e\n", iOrder, primitives[iRho], primitives[iIntE], log10(p->hydroParticle().getPressure(false)));
+            return log10(p->hydroParticle().getPressure(false));
+        } else 
+            return 0.0; 
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    PresOutputParams() {}
+    PresOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "pres"; sNChilExt = "pres";
+        dTime = _dTime; 
+        iType = TYPE_GAS;}
+    PUPable_decl(PresOutputParams);
+    PresOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+class EntropyOutputParams : public OutputParams
+{
+ public:
+    int iPrim;
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)) {
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iPrim]; 
+        } else 
+            return 0.0; 
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    EntropyOutputParams() {}
+    EntropyOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "s"; sNChilExt = "s";
+        dTime = _dTime; 
+        iType = TYPE_GAS; iPrim=iS;}
+    PUPable_decl(EntropyOutputParams);
+    EntropyOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+        p|iPrim;
+	}
+    };
+class VxOutputParams : public OutputParams 
+{
+ public:
+    double dVFac; 
+    int iPrim;
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iPrim]*dVFac; 
+            }
+        else 
+            return 0.0;
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { if(TYPETest( p, TYPE_GAS)) p->hydroParticle().setPrimitives( iPrim, val);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    VxOutputParams() {}
+    VxOutputParams(std::string _fileName, int _iBinaryOut, double _dTime, double _dVFac) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "vx"; sNChilExt = "vx";
+        dTime = _dTime; dVFac = _dVFac; 
+        iType = TYPE_GAS; iPrim = ivx;}
+    PUPable_decl(VxOutputParams);
+    VxOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+        p|dVFac;
+        p|iPrim;
+	}
+    };
+class VyOutputParams : public OutputParams 
+{
+ public:
+    double dVFac; 
+    int iPrim;
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iPrim]*dVFac; 
+            }
+        else 
+            return 0.0;
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { if(TYPETest( p, TYPE_GAS)) p->hydroParticle().setPrimitives( iPrim, val);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    VyOutputParams() {}
+    VyOutputParams(std::string _fileName, int _iBinaryOut, double _dTime, double _dVFac) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "vy"; sNChilExt = "vy";
+        dTime = _dTime; dVFac = _dVFac; 
+        iType = TYPE_GAS; iPrim = ivy;}
+    PUPable_decl(VyOutputParams);
+    VyOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+        p|dVFac;
+        p|iPrim;
+	}
+    };
+class VzOutputParams : public OutputParams 
+{
+ public:
+    double dVFac; 
+    int iPrim;
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iPrim]*dVFac; 
+            }
+        else 
+            return 0.0;
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { if(TYPETest( p, TYPE_GAS)) p->hydroParticle().setPrimitives( iPrim, val);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    VzOutputParams() {}
+    VzOutputParams(std::string _fileName, int _iBinaryOut, double _dTime, double _dVFac) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "vz"; sNChilExt = "vz";
+        dTime = _dTime; dVFac = _dVFac; 
+        iType = TYPE_GAS; iPrim = ivz;}
+    PUPable_decl(VzOutputParams);
+    VzOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+        p|dVFac;
+        p|iPrim;
+	}
+    };
+class GxOutputParams : public OutputParams 
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            dVector grav = p->hydroParticle().getParticleAcceleration();
+            return grav[0]; 
+            }
+        else 
+            return 0.0;
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    GxOutputParams() {}
+    GxOutputParams(std::string _fileName, int _iBinaryOut, double _dTime, double _dVFac) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "gx"; sNChilExt = "gx";
+        dTime = _dTime; ; 
+        iType = TYPE_GAS;}
+    PUPable_decl(GxOutputParams);
+    GxOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+class GyOutputParams : public OutputParams 
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            dVector grav = p->hydroParticle().getParticleAcceleration();
+            return grav[1]; 
+            }
+        else 
+            return 0.0;
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    GyOutputParams() {}
+    GyOutputParams(std::string _fileName, int _iBinaryOut, double _dTime, double _dVFac) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "gy"; sNChilExt = "gy";
+        dTime = _dTime; ; 
+        iType = TYPE_GAS;}
+    PUPable_decl(GyOutputParams);
+    GyOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+class GzOutputParams : public OutputParams 
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            dVector grav = p->hydroParticle().getParticleAcceleration();
+            return grav[2]; 
+            }
+        else 
+            return 0.0;
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    GzOutputParams() {}
+    GzOutputParams(std::string _fileName, int _iBinaryOut, double _dTime, double _dVFac) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "gz"; sNChilExt = "gz";
+        dTime = _dTime; ; 
+        iType = TYPE_GAS;}
+    PUPable_decl(GzOutputParams);
+    GzOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+
+#ifdef MHD
+/// @brief Output B-field
+class BxOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iBx];  
+        }
+        return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { if(TYPETest( p, TYPE_GAS)) p->hydroParticle().setPrimitives( iBx, val);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    BxOutputParams() {}
+    BxOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
+    BxOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "Bx"; sNChilExt = "Bx";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(BxOutputParams);
+    BxOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class ByOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iBy];  
+        }
+        return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { if(TYPETest( p, TYPE_GAS)) p->hydroParticle().setPrimitives( iBy, val);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    ByOutputParams() {}
+    ByOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
+    ByOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "By"; sNChilExt = "By";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(ByOutputParams);
+    ByOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class BzOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iBz];  
+        }
+        return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { if(TYPETest( p, TYPE_GAS)) p->hydroParticle().setPrimitives( iBz, val);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    BzOutputParams() {}
+    BzOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
+    BzOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "Bz"; sNChilExt = "Bz";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(BzOutputParams);
+    BzOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class AxOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iAx];  
+        }
+        return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { if(TYPETest( p, TYPE_GAS)) p->hydroParticle().setPrimitives( iAx, val);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    AxOutputParams() {}
+    AxOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
+    AxOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "Ax"; sNChilExt = "Ax";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(AxOutputParams);
+    AxOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class AyOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iAy];  
+        }
+        return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { if(TYPETest( p, TYPE_GAS)) p->hydroParticle().setPrimitives( iAy, val);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    AyOutputParams() {}
+    AyOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
+    AyOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "Ay"; sNChilExt = "Ay";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(AyOutputParams);
+    AyOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class AzOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)){
+            varVector primitives;
+            p->hydroParticle().getPrimitives( primitives);
+            return primitives[iAz];  
+        }
+        return 0.0;
+    }
+    virtual Vector3D<double> vValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) { if(TYPETest( p, TYPE_GAS)) p->hydroParticle().setPrimitives( iAz, val);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    AzOutputParams() {}
+    AzOutputParams(std::string _fileName) { bFloat = 1; bVector = 0; fileName = _fileName;}
+    AzOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "Az"; sNChilExt = "Az";
+        dTime = _dTime;
+        iType = TYPE_GAS; }
+    PUPable_decl(AzOutputParams);
+    AzOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+
+#endif //MHD
+
+#ifdef RADIATION
+class EradOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)) {
+            return p->hydroParticle().getRadEnergy();
+        } else 
+            return 0.0; 
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    EradOutputParams() {}
+    EradOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "erad"; sNChilExt = "erad";
+        dTime = _dTime; 
+        iType = TYPE_GAS;}
+    PUPable_decl(EradOutputParams);
+    EradOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class FrxOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)) {
+            return p->hydroParticle().getRadFlux()[0];
+        } else 
+            return 0.0; 
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    FrxOutputParams() {}
+    FrxOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "Frx"; sNChilExt = "Frx";
+        dTime = _dTime; 
+        iType = TYPE_GAS;}
+    PUPable_decl(FrxOutputParams);
+    FrxOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class FryOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)) {
+            return p->hydroParticle().getRadFlux()[1];
+        } else 
+            return 0.0; 
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    FryOutputParams() {}
+    FryOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "Fry"; sNChilExt = "Fry";
+        dTime = _dTime; 
+        iType = TYPE_GAS;}
+    PUPable_decl(FryOutputParams);
+    FryOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class FrzOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)) {
+            return p->hydroParticle().getRadFlux()[2];
+        } else 
+            return 0.0; 
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    FrzOutputParams() {}
+    FrzOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "Frz"; sNChilExt = "Frz";
+        dTime = _dTime; 
+        iType = TYPE_GAS;}
+    PUPable_decl(FrzOutputParams);
+    FrzOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+#endif // RADIATION
+
+class NumSearchOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)) {
+            return 1.*p->hydroParticle().getNumSearch();
+        } else 
+            return 0.; 
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    NumSearchOutputParams() {}
+    NumSearchOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "nsearch"; sNChilExt = "nsearch";
+        dTime = _dTime; 
+        iType = TYPE_GAS;}
+    PUPable_decl(NumSearchOutputParams);
+    NumSearchOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
+class NumNeighborsOutputParams : public OutputParams
+{
+ public:
+    virtual double dValue(GravityParticle *p) {
+        if (TYPETest(p, TYPE_GAS)) {
+            return 1.*p->hydroParticle().getNumNeighbors();
+        } else 
+            return 0; 
+        }
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {}
+    NumNeighborsOutputParams() {}
+    NumNeighborsOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "nNei"; sNChilExt = "nNei";
+        dTime = _dTime; 
+        iType = TYPE_GAS;}
+    PUPable_decl(NumNeighborsOutputParams);
+    NumNeighborsOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+#endif // VORONOI
+
 /// @brief Output particle gravitational potential
 class PotOutputParams : public OutputParams
 {
@@ -317,7 +992,7 @@ class TempOutputParams : public OutputParams
     virtual double dValue(GravityParticle *p) {
         if(bGasCooling) {
 #ifndef COOLING_NONE
-#ifdef COOLING_GRACKLE
+#if defined(COOLING_GRACKLE) || defined(COOLING_HELM) || defined(COOLING_SROEOS) || defined(COOLING_MESA)
             return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(),
                 p->u(), p->fDensity, p->fMetals());
 #else
@@ -466,6 +1141,7 @@ class SoftOutputParams : public OutputParams
     };
 
 /// @brief Output pressure.
+#ifndef VORONOI
 class PresOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p)
@@ -496,6 +1172,7 @@ class PresOutputParams : public OutputParams
 	}
     };
 
+#endif
 /// @brief Output variable alpha
 class AlphaOutputParams : public OutputParams
 {

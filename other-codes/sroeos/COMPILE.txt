@@ -1,0 +1,15 @@
+Requriements:
+-------------
+
+* C++ compiler
+* HDF5
+
+
+Compiling nuceoscxx:
+--------------------
+
+* copy make.inc_example to make.inc
+* edit make.inc to set up your compiler, libraries etc.
+* type make
+
+

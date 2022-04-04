@@ -19,6 +19,15 @@ if test "x$STRUCT_DIR" = "x"; then
 fi
 AC_SUBST([STRUCT_DIR])
 
+VORO_DIR=$srcdir/other-codes/voro++-0.4.6
+ATHENA_DIR=$srcdir/other-codes/athena
+SROEOS_DIR=$srcdir/other-codes/sroeos
+
+AC_SUBST([VORO_DIR])
+AC_SUBST([ATHENA_DIR])
+AC_SUBST([SROEOS_DIR])
+
+
 AC_CONFIG_HEADER([config.h $STRUCT_DIR/config.h])
 
 AC_ARG_VAR([CHARMC], "Charm compiler")
@@ -159,6 +168,21 @@ ARG_ENABLE([hexadecapole], [hexadecapole expansions in gravity], [HEXADECAPOLE],
 # physical softening in comoving coordinates
 ARG_ENABLE([changesoft], [physical softening], [FLAG_CHANGESOFT], [-DCHANGESOFT], [yes])
 
+#MHD
+AC_ARG_ENABLE([mhd],
+	[AS_HELP_STRING([--enable-mhd], [enable mhd])],
+	[mhd=$enableval], [mhd=no])
+if test "$mhd" = "yes" ; then
+    echo "MHD selected"
+    FLAG_MHD="-DMHD"
+    MHD_ENABLE=1
+else
+    FLAG_MHD=""
+    MHD_ENABLE=""
+fi
+AC_SUBST([FLAG_MHD])
+AC_SUBST([MHD_ENABLE])
+
 # 128 bit keys:
 ARG_ENABLE([bigkeys], [128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [no])
 
@@ -227,13 +251,17 @@ case $cooling in
 	metal   ) FLAG_COOLING="-DCOOLING_METAL";;
 	H2      ) FLAG_COOLING="-DCOOLING_MOLECULARH";;
 	grackle	) FLAG_COOLING="-DCOOLING_GRACKLE";;
+   ad      ) FLAG_COOLING="-DCOOLING_AD";;
+   mesa    ) FLAG_COOLING="-DCOOLING_MESA";;
+   sroeos  ) FLAG_COOLING="-DCOOLING_SROEOS";;
 	*		) AC_MSG_ERROR([invalid argument for '--enable-cooling': $cooling]);;
 esac
 AC_SUBST([FLAG_COOLING])
 
+# Cooling:
 if test "$cooling" = "grackle" ; then
    ac_cv_libhdf5="yes"
-   AC_CHECK_LIB([hdf5], [H5Fcreate], [], [ac_cv_libhdf5=no]) 
+   AC_CHECK_LIB([hdf5], [H5Fcreate], [], [ac_cv_libhdf5=no])
    if test $ac_cv_libhdf5 = "no" ; then
        AC_MSG_WARN([HDF5 library needed for Grackle, but not found]);
        AC_MSG_WARN([Try setting LDFLAGS environment with -L<hd5libdir>]);
@@ -250,7 +278,7 @@ if test "$cooling" = "grackle" ; then
        AC_MSG_WARN([Try setting CPPFLAGS environment with -I <grackledir>])
        exit
    fi
-   AC_CHECK_LIB([grackle], [initialize_chemistry_data], [], [ac_cv_libgrackle=no], [-lhdf5]) 
+   AC_CHECK_LIB([grackle], [initialize_chemistry_data], [], [ac_cv_libgrackle=no], [-lhdf5])
    if test $ac_cv_libgrackle = "no" ; then
        AC_MSG_WARN([grackle library needed for Grackle, but not found]);
        AC_MSG_WARN([Try setting LDFLAGS environment with -L<gracklelibdir>]);
@@ -331,6 +359,13 @@ if test ! x$FLAG_SANITIZER = xno; then
 fi
 AC_SUBST([FLAG_SANITIZER])
 
+#moving mesh
+ARG_ENABLE([moving_mesh], [Use moving mesh], [FLAG_MOVING_MESH], [-DVORONOI], [no])
+
+#radiation
+ARG_ENABLE([radiation], [use time dependent radiation], [FLAG_RADIATION], [-DRADIATION], [no])
+
+AC_SUBST([FLAG_MOVING_MESH])
 # Checks for typedefs, structures, and compiler characteristics.
 AC_HEADER_STDBOOL
 AC_C_CONST

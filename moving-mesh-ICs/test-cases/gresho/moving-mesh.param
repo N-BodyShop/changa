@@ -1,0 +1,43 @@
+#Phil's recommendation
+dHydroTheta=0.4
+dEtaCourant             = 0.7
+nSmooth                 = 64 # only for set-up really
+
+bStandard               = 1 #Input and Output in tipsy standard format
+bPeriodic               = 1
+dxPeriod = 1.0
+dyPeriod = 1.0
+
+dzPeriod = 0.4  # Adjust for case 0.4 32,   0.2 64,   0.1 128,   0.05 256
+achInFile               = gresho32.std
+achOutName              = gresho32
+iOutInterval            = 10
+iLogInterval            = 1
+
+nSteps                  = 30
+dDelta                  = 0.1
+iMaxRung                = 20
+dEta                    = 0.185
+
+nTruncateRung           = 32
+dFracNoDomainDecomp     = 0.1
+
+iGasModel               = 0  # No cooling I think
+dGasConst = .666666667
+dConstGamma = 1.66666667
+dMeanMolWeight = 1.  #dTuFac = 1
+
+bViscosityLimiter 	= 1
+bFastGas        	= 1
+
+bStarForm 		= 0
+
+bDoGravity 		= 0
+dSoft           	= 0.1
+
+dTheta			= 0.7
+bKDK                   	= 1 
+bCannonical            	= 1
+bGeometric             	= 0
+bVDetails              	= 1
+
