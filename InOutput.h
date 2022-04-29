@@ -302,7 +302,7 @@ class IeOutputParams : public OutputParams
         if (TYPETest(p, TYPE_GAS)) {
             varVector primitives;
             p->hydroParticle().getPrimitives( primitives);
-            return primitives[iPrim]*6.67e-8;
+            return primitives[iPrim];
         } else 
             return 0.0; 
         }
