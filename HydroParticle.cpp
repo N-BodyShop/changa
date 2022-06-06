@@ -688,14 +688,17 @@ bool HydroParticle::checkSolution( std::unordered_map<int, HydroParticle*>& map)
      std::unordered_map<int,HydroParticle*>::const_iterator elem = map.find (nId);
 
      if( elem == map.end()){
-       if( nId > 0)
+       if( nId > 0) {
          printf( "This should never happen %d %d !!\n", iOrder, nId);
+         noChange = false;
+       }
        continue;
      }
 
      HydroParticle *neighbor = map[nId]; //HydroParticleMap::getInstance() ->
 
   }
+  return noChange;
 }
 
 bool HydroParticle::getChange( int nId, double* change) {

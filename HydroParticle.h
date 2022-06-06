@@ -569,7 +569,7 @@ public:
     con2Prim();
   }
 
-  bool check(){ check("");}
+  bool check(){ return check("");}
   bool check( const char *string);
   bool isNeighbor( int nId);
   bool isActive( int activeRung);
