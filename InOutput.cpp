@@ -288,6 +288,9 @@ void TreePiece::loadTipsy(const std::string& filename,
                         load_tipsy_star<double,double>(r, myParticles[i+1]);
                     iStar++;
 		}
+                // File corruption checks
+                CkAssert(myParticles[i+1].mass >= 0.0);
+                CkAssert(myParticles[i+1].soft >= 0.0);
 #ifdef SIDMINTERACT
 		myParticles[i+1].iNSIDMInteractions = 0;
 #endif
