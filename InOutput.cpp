@@ -24,9 +24,7 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
 {
     Tipsy::gas_particle_t<TPos, TVel> gp;
     
-    if(!r.getNextGasParticle_t(gp)) {
-        CkAbort("failed to read gas particle!");
-        }
+    CkMustAssert(r.getNextGasParticle_t(gp), "failed to read gas particle!");
     p.mass = gp.mass;
     p.position = gp.pos;
     p.velocity = gp.vel;
@@ -74,7 +72,6 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     p.uHotDot() = 0.0;
     p.massHot() = 0.0;
     p.fThermalCond() = 0.0;
-    p.fThermalLength() = 0.0;
     p.fPromoteSum() = 0.0;
     p.fPromoteSumuPred() = 0.0;
     p.fPromoteuPredInit() = 0.0;
@@ -85,9 +82,7 @@ template <typename TPos, typename TVel>
 void load_tipsy_dark(Tipsy::TipsyReader &r, GravityParticle &p) 
 {
     Tipsy::dark_particle_t<TPos, TVel> dp;
-    if(!r.getNextDarkParticle_t(dp)) {
-        CkAbort("failed to read dark particle!");
-        }
+    CkMustAssert(r.getNextDarkParticle_t(dp), "failed to read dark particle!");
 	p.mass = dp.mass;
 	p.position = dp.pos;
 	p.velocity = dp.vel;
@@ -104,9 +99,7 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
 {
     Tipsy::star_particle_t<TPos, TVel> sp;
 
-    if(!r.getNextStarParticle_t(sp)) {
-        CkAbort("failed to read star particle!");
-        }
+    CkMustAssert(r.getNextStarParticle_t(sp), "failed to read star particle!");
     p.mass = sp.mass;
     p.position = sp.pos;
     p.velocity = sp.vel;
@@ -256,10 +249,7 @@ void TreePiece::loadTipsy(const std::string& filename,
 	    }
 	allocateStars();
 	
-	if(!r.seekParticleNum(startParticle)) {
-		CkAbort("Couldn't seek to my particles!");
-		return;
-		}
+    CkMustAssert(r.seekParticleNum(startParticle), "Couldn't seek to my particles!");
 	
 	Tipsy::gas_particle gp;
 	Tipsy::dark_particle dp;
@@ -298,6 +288,9 @@ void TreePiece::loadTipsy(const std::string& filename,
                         load_tipsy_star<double,double>(r, myParticles[i+1]);
                     iStar++;
 		}
+                // File corruption checks
+                CkAssert(myParticles[i+1].mass >= 0.0);
+                CkAssert(myParticles[i+1].soft >= 0.0);
 #ifdef SIDMINTERACT
 		myParticles[i+1].iNSIDMInteractions = 0;
 #endif
@@ -614,7 +607,6 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         myParts[i].uHotDot() = 0.0;
         myParts[i].massHot() = 0.0;
         myParts[i].fThermalCond() = 0.0;
-        myParts[i].fThermalLength() = 0.0;
         myParts[i].fPromoteSum() = 0.0;
         myParts[i].fPromoteSumuPred() = 0.0;
         myParts[i].fPromoteuPredInit() = 0.0;
@@ -813,8 +805,7 @@ void TreePiece::loadNChilada(const std::string& filename,
 	nTotalDark = ncGetCount(filename + "/dark/pos");
 	nTotalStar = ncGetCount(filename + "/star/pos");
 	nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
-        if(nTotalParticles <= 0)
-            CkAbort("No particles can be read.  Check file permissions\n");
+    CkMustAssert(nTotalParticles > 0, "No particles can be read.  Check file permissions\n");
 	dStartTime = fh_time;
 
         bool skipLoad = !isLoadingPiece(thisIndex, numTreePieces);
@@ -1364,8 +1355,7 @@ void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
     
     if(nStartWrite == 0)
 	w.writeHeader();
-    if(!w.seekParticleNum(nStartWrite))
-	CkAbort("bad seek");
+    CkMustAssert(w.seekParticleNum(nStartWrite), "bad seek");
     for(unsigned int i = 0; i < myNumParticles; i++) {
 	if(myParticles[i+1].isGas()) {
             if(!bDoublePos)

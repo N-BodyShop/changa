@@ -46,7 +46,6 @@ bool Orb3dLB_notopo::QueryBalanceNow(int step){
 void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 {
   const int numobjs = stats->objData.size();
-  int nmig = stats->n_migrateobjs;
   double gstarttime = CkWallTimer();
 
   vector<Event> tpEvents[NDIMS];

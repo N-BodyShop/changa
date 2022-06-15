@@ -65,7 +65,10 @@ class extraSPHData
     double _divv;		/* Diverence of the velocity */
     Vector3D<double> _curlv;	/* Curl of the velocity */
     double _mumax;		/* */
-    double _PdV;
+    double _PdV;                /*!< Total work done by gas */
+    double _uDotPdV;            /*!< Change in energy from compression */
+    double _uDotAV;             /*!< Change in Energy from AV */
+    double _uDotDiff;           /*!< Change in Energy from diffusion */
     double _c;			/* Speed of Sound */
     double _PoverRho2;		/* Pressure/rho^2 */
     double _BalsaraSwitch;	/* Pressure/rho^2 */
@@ -105,7 +108,6 @@ class extraSPHData
     double _massHot; /* Hot phase mass*/
     double _fDensityU; /* Energy-scaled density */
     double _fThermalCond; /* Conduction rate */
-    double _fThermalLength; /* Conduction length */
     double _fPromoteSum; /* Total evaporated mass */
     double _fPromoteSumuPred; /* Total evaporating energy */
     double _fPromoteuPredInit; /* Original energy pre-evaporation */
@@ -127,12 +129,15 @@ class extraSPHData
     inline Vector3D<double>& curlv() {return _curlv;}
     inline double& mumax() {return _mumax;}
     inline double& PdV() {return _PdV;}
+    inline double& uDotPdV() {return _uDotPdV;}
+    inline double& uDotAV() {return _uDotAV;}
+    inline double& uDotDiff() {return _uDotDiff;}
     inline double& c() {return _c;}
     inline double& PoverRho2() {return _PoverRho2;}
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
     inline double& fBallMax() {return _fBallMax;}
 #ifdef CULLENALPHA
-    inline const double CullenAlpha() const {return _CullenAlpha;}
+    inline double CullenAlpha() const {return _CullenAlpha;}
     inline double& CullenAlpha() {return _CullenAlpha;}
     inline double& TimeDivV() {return _TimeDivV;}
     inline double& dvds() {return _dvds;}
@@ -165,7 +170,6 @@ class extraSPHData
     inline double& massHot() {return _massHot;}
     inline double& fDensityU() {return _fDensityU;}
     inline double& fThermalCond() {return _fThermalCond;}
-    inline double& fThermalLength() {return _fThermalLength;}
     inline double& fPromoteSum() {return _fPromoteSum;}
     inline double& fPromoteSumuPred() {return _fPromoteSumuPred;}
     inline double& fPromoteuPredInit() {return _fPromoteuPredInit;}
@@ -186,7 +190,10 @@ class extraSPHData
 	p | _divv;
 	p | _curlv;
 	p | _mumax;
-	p | _PdV;
+        p | _PdV;
+        p | _uDotPdV;
+        p | _uDotAV;
+        p | _uDotDiff;
 	p |  _c;
 	p | _PoverRho2;
 	p | _BalsaraSwitch;
@@ -224,7 +231,6 @@ class extraSPHData
     p| _massHot;
     p| _fDensityU;
     p| _fThermalCond;
-    p| _fThermalLength;
     p| _fPromoteSum;
     p| _fPromoteSumuPred;
     p| _fPromoteuPredInit;
@@ -272,8 +278,8 @@ class extraStarData
     inline double& dMDot() {return _dMDot;}
     inline double& dDeltaM() {return _dDeltaM;}
 #ifdef COOLING_MOLECULARH
-    inline const double dStarLymanWerner() const {return _dStarLymanWerner;} 
-    inline double& dStarLymanWerner() {return _dStarLymanWerner;} 
+    inline double dStarLymanWerner() const {return _dStarLymanWerner;}
+    inline double& dStarLymanWerner() {return _dStarLymanWerner;}
 #endif /*COOLING_MOLECULARH*/
     void pup(PUP::er &p) {
 	p | _fMetals;
@@ -411,13 +417,16 @@ public:
 	inline double& divv() { IMAGAS; return (((extraSPHData*)extraData)->divv());}
 	inline Vector3D<double>& curlv() { IMAGAS; return (((extraSPHData*)extraData)->curlv());}
 	inline double& mumax() { IMAGAS; return (((extraSPHData*)extraData)->mumax());}
-	inline double& PdV() { IMAGAS; return (((extraSPHData*)extraData)->PdV());}
+        inline double& PdV() { IMAGAS; return (((extraSPHData*)extraData)->PdV());}
+        inline double& uDotPdV() { IMAGAS; return (((extraSPHData*)extraData)->uDotPdV());}
+        inline double& uDotAV() { IMAGAS; return (((extraSPHData*)extraData)->uDotAV());}
+        inline double& uDotDiff() { IMAGAS; return (((extraSPHData*)extraData)->uDotDiff());}
 	inline double& c() { IMAGAS; return (((extraSPHData*)extraData)->c());}
 	inline double& PoverRho2() { IMAGAS; return (((extraSPHData*)extraData)->PoverRho2());}
 	inline double& BalsaraSwitch() { IMAGAS; return (((extraSPHData*)extraData)->BalsaraSwitch());}
 	inline double& fBallMax() { IMAGAS; return (((extraSPHData*)extraData)->fBallMax());}
 #ifdef CULLENALPHA
-        inline const double CullenAlpha() const {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
+        inline double CullenAlpha() const {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
         inline double& CullenAlpha() {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
         inline double& TimeDivV() {IMAGAS; return (((extraSPHData*)extraData)->TimeDivV());}
         inline double& dvds() {IMAGAS; return (((extraSPHData*)extraData)->dvds());}
@@ -450,7 +459,6 @@ public:
 	inline double& massHot() { IMAGAS; return (((extraSPHData*)extraData)->massHot());}
 	inline double& fDensityU() { IMAGAS; return (((extraSPHData*)extraData)->fDensityU());}
 	inline double& fThermalCond() { IMAGAS; return (((extraSPHData*)extraData)->fThermalCond());}
-	inline double& fThermalLength() { IMAGAS; return (((extraSPHData*)extraData)->fThermalLength());}
 	inline double& fPromoteSum() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteSum());}
 	inline double& fPromoteSumuPred() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteSumuPred());}
 	inline double& fPromoteuPredInit() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteuPredInit());}
@@ -474,8 +482,8 @@ public:
 	inline double& dDeltaM() { IMASTAR; return (((extraStarData*)extraData)->dDeltaM());}
 	inline double& dMDot() { IMASTAR; return (((extraStarData*)extraData)->dMDot());}
 #ifdef COOLING_MOLECULARH
-	inline const double dStarLymanWerner() const { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());}	
-	inline double& dStarLymanWerner() { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());} 
+        inline double dStarLymanWerner() const { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());}
+        inline double& dStarLymanWerner() { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());}
 #endif /*COOLING_MOLECULARH*/
 
 // See above debugging macros
@@ -576,6 +584,9 @@ class ExternalSmoothParticle {
   Vector3D<cosmoType> treeAcceleration;
   double mumax;
   double PdV;
+  double uDotPdV;
+  double uDotAV;
+  double uDotDiff;
   double c;
   double PoverRho2;
   double BalsaraSwitch;
@@ -609,7 +620,6 @@ class ExternalSmoothParticle {
   double massHot;
   double fDensityU;
   double fThermalCond;
-  double fThermalLength;
   double fPromoteSum;
   double fPromoteSumuPred;
   double fPromoteuPredInit;
@@ -635,7 +645,10 @@ class ExternalSmoothParticle {
 	  if(TYPETest(p, TYPE_GAS)) {
 	      vPred = p->vPred();
 	      mumax = p->mumax();
-	      PdV = p->PdV();
+              PdV = p->PdV();
+              uDotPdV = p->uDotPdV();
+              uDotAV = p->uDotAV();
+              uDotDiff = p->uDotDiff();
 	      c = p->c();
 	      PoverRho2 = p->PoverRho2();
 	      BalsaraSwitch = p->BalsaraSwitch();
@@ -671,7 +684,6 @@ class ExternalSmoothParticle {
           massHot = p->massHot();
           fDensityU = p->fDensityU();
           fThermalCond = p->fThermalCond();
-          fThermalLength = p->fThermalLength();
           fPromoteSum = p->fPromoteSum();
           fPromoteSumuPred = p->fPromoteSumuPred();
           fPromoteuPredInit = p->fPromoteuPredInit();
@@ -702,7 +714,10 @@ class ExternalSmoothParticle {
       if(TYPETest(tmp, TYPE_GAS)) {
 	  tmp->vPred() = vPred;
 	  tmp->mumax() = mumax;
-	  tmp->PdV() = PdV;
+          tmp->PdV() = PdV;
+          tmp->uDotPdV() = uDotPdV;
+          tmp->uDotAV() = uDotAV;
+          tmp->uDotDiff() = uDotDiff;
 	  tmp->c() = c;
 	  tmp->PoverRho2() = PoverRho2;
 	  tmp->BalsaraSwitch() = BalsaraSwitch;
@@ -738,7 +753,6 @@ class ExternalSmoothParticle {
       tmp->massHot() = massHot;
       tmp->fDensityU() = fDensityU;
       tmp->fThermalCond() = fThermalCond;
-      tmp->fThermalLength() = fThermalLength;
       tmp->fPromoteSum() = fPromoteSum;
       tmp->fPromoteSumuPred() = fPromoteSumuPred;
       tmp->fPromoteuPredInit() = fPromoteuPredInit;
@@ -773,6 +787,9 @@ class ExternalSmoothParticle {
     p | vPred;
     p | mumax;
     p | PdV;
+    p | uDotPdV;
+    p | uDotAV;
+    p | uDotDiff;
     p | c;
     p | PoverRho2;
     p | BalsaraSwitch;
@@ -806,7 +823,6 @@ class ExternalSmoothParticle {
     p | massHot;
     p | fDensityU;
     p | fThermalCond;
-    p | fThermalLength;
     p | fPromoteSum;
     p | fPromoteSumuPred;
     p | fPromoteuPredInit;
