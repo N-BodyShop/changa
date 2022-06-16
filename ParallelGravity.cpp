@@ -2164,7 +2164,9 @@ void Main::setupICs() {
       struct stat s;
       int err = stat(basefilename.c_str(), &s);
       if(err == -1) {
-          ckerr << "File error: " << basefilename.c_str() << endl;
+          char *achErr = strerror(errno);
+          ckerr << "File error: " << basefilename.c_str() << ": " << achErr
+                << endl;
           CkExit();
           return;
           }
