@@ -1141,6 +1141,10 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Enabling SPH" << endl;
 	    param.bDoGas = 1;
 	    }
+        if(!param.bStarForm && !prmSpecified(prm, "bDoStellarLW")) {
+            // Stellar LW output is meaningless if we are not forming stars.
+            param.bDoStellarLW = 0;
+            }
 	if(param.bDoGas && !(param.bGasCooling || param.bGasAdiabatic
 			     || param.bGasIsothermal)) {
 	    ckerr << "Defaulting to Adiabatic Gas Model." << endl;
