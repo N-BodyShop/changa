@@ -2853,7 +2853,7 @@ Main::doSimulation()
 
   /******** Shutdown process ********/
 
-  if(param.nSteps == 0) {
+  if(param.nSteps == 0 && param.bBenchmark == 0) {
       string achFile = string(param.achOutName) + ".000000";
       // assign each particle its domain for diagnostic.
       treeProxy.assignDomain(CkCallbackResumeThread());
