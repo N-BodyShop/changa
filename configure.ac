@@ -289,7 +289,7 @@ ARG_ENABLE([cullenalpha], [Cullen Dehnen artificial viscosity], [FLAG_CULLENALPH
 ARG_ENABLE([vsigvisc], [alternative Monahan artificial viscosity], [FLAG_VSIGVISC], [-DVSIGVISC], [yes])
 
 # Geometryic Density forces (Gasoline2 Wadsley+ 2007)
-ARG_ENABLE([rtforce], [Geometric Density forces], [FLAG_GDFORCE], [-DGDFORCE], [yes])
+ARG_ENABLE([gdforce], [Geometric Density forces], [FLAG_GDFORCE], [-DGDFORCE], [yes])
 
 # Jeans pressure floor based on gravitational softening
 ARG_ENABLE([jeanssoft], [gravitational softening jeans floor], [FLAG_JEANSSOFTONLY], [-DJEANSSOFTONLY], [yes])
