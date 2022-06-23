@@ -635,7 +635,7 @@ PROJECTIONS
 DEFAULT_LB
 FLAG_SIDMINTERACT
 FLAG_JEANSSOFTONLY
-FLAG_RTFORCE
+FLAG_GDFORCE
 FLAG_VSIGVISC
 FLAG_CULLENALPHA
 FLAG_SUPERBUBBLE
@@ -749,7 +749,7 @@ enable_feedbacklimit
 enable_superbubble
 enable_cullenalpha
 enable_vsigvisc
-enable_rtforce
+enable_gdforce
 enable_jeanssoft
 enable_sidminter
 enable_default_lb
@@ -1406,7 +1406,7 @@ Optional Features:
   --enable-superbubble    superbubble feedback
   --enable-cullenalpha    Cullen Dehnen artificial viscosity
   --enable-vsigvisc       alternative Monahan artificial viscosity
-  --enable-rtforce        Richie-Thomas forces
+  --enable-gdforce        Geometric Density forces (Gasoline2)
   --enable-jeanssoft      gravitational softening jeans floor
   --enable-sidminter      SIDM interactions
   --enable-default-lb     default load balancer
@@ -4849,17 +4849,17 @@ fi
 
 
 # Richie-Thomas forces (Pressure SPH)
-	# Check whether --enable-rtforce was given.
-if test "${enable_rtforce+set}" = set; then :
-  enableval=$enable_rtforce; case "$enableval" in
+	# Check whether --enable-gdforce was given.
+if test "${enable_gdforce+set}" = set; then :
+  enableval=$enable_gdforce; case "$enableval" in
 		  yes | no ) val=$enableval;;
-		  *) as_fn_error $? "invalid argument for '--enable-rtforce': $enableval" "$LINENO" 5;;
+		  *) as_fn_error $? "invalid argument for '--enable-gdforce': $enableval" "$LINENO" 5;;
 	 esac
 else
   val=yes
 fi
 
-	if test x$val = xyes; then FLAG_RTFORCE=-DRTFORCE; else FLAG_RTFORCE=""; fi
+	if test x$val = xyes; then FLAG_GDFORCE=-DGDFORCE; else FLAG_GDFORCE=""; fi
 
 
 
@@ -6943,7 +6943,7 @@ echo "    "Charm compiler"   " $CHARMC
 echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
-echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
+echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH

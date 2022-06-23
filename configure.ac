@@ -288,8 +288,8 @@ ARG_ENABLE([cullenalpha], [Cullen Dehnen artificial viscosity], [FLAG_CULLENALPH
 # Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
 ARG_ENABLE([vsigvisc], [alternative Monahan artificial viscosity], [FLAG_VSIGVISC], [-DVSIGVISC], [yes])
 
-# Richie-Thomas forces (Pressure SPH)
-ARG_ENABLE([rtforce], [Richie-Thomas forces], [FLAG_RTFORCE], [-DRTFORCE], [yes])
+# Geometryic Density forces (Gasoline2 Wadsley+ 2007)
+ARG_ENABLE([rtforce], [Geometric Density forces], [FLAG_GDFORCE], [-DGDFORCE], [yes])
 
 # Jeans pressure floor based on gravitational softening
 ARG_ENABLE([jeanssoft], [gravitational softening jeans floor], [FLAG_JEANSSOFTONLY], [-DJEANSSOFTONLY], [yes])
