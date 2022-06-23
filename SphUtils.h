@@ -46,7 +46,7 @@ inline double switchCombine(GravityParticle *a, GravityParticle *b) {
  * @return b if rtforce is compiled, otherwise return a
  */
 inline double rhoDivv(const double a, const double b) {
-#ifdef RTFORCE
+#ifdef GDFORCE
     return b;
 #else
     return a;

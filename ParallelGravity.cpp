@@ -2379,8 +2379,8 @@ void Main::setupICs() {
 #ifdef FEEDBACKDIFFLIMIT
   ofsLog << " FEEDBACKDIFFLIMIT";
 #endif
-#ifdef RTFORCE
-  ofsLog << " RTFORCE";
+#ifdef GDFORCE
+  ofsLog << " GDFORCE";
 #endif
 #ifdef CULLENALPHA
   ofsLog << " CULLENALPHA";
