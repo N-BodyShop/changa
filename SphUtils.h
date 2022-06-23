@@ -42,8 +42,8 @@ inline double switchCombine(GravityParticle *a, GravityParticle *b) {
 }
 
 /**
- * @brief rhoDivv can be used for switching between using rtforce and not
- * @return b if rtforce is compiled, otherwise return a
+ * @brief rhoDivv can be used for switching between using gdforce and not
+ * @return b if gdforce is compiled, otherwise return a
  */
 inline double rhoDivv(const double a, const double b) {
 #ifdef GDFORCE
