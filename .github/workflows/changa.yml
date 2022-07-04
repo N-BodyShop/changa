@@ -18,6 +18,7 @@ jobs:
         cd ..
     - name: build-changa
       run: |
+        export CHARM_VERSION=7.0.0
         git clone https://github.com/N-bodyshop/utility
         export CHARM_DIR=$PWD/charm-v$CHARM_VERSION
         ./configure
