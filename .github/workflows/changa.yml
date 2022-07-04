@@ -26,5 +26,5 @@ jobs:
         make -j4
     - name: test-changa
       run: |
-        cd changa/teststep
+        cd teststep
         make test
