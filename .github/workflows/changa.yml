@@ -1,0 +1,28 @@
+name: ChaNGa
+
+on: pull_request
+
+jobs:
+  build:
+    runs-on: ubuntu-latest
+
+    steps:
+    - uses: actions/checkout@v2
+    - name: build-charm++
+      run: |
+        export CHARM_VERSION=charm-7.0.0
+        wget http://charm.cs.illinois.edu/distrib/$CHARM_VERSION.tar.gz
+        tar -xzf $CHARM_VERSION.tar.gz
+        cd $CHARM_VERSION
+        ./build ChaNGa netlrts-linux-x86_64 smp --with-production --enable-error-checking -j4
+        cd ..
+    - name: build-changa
+      run: |
+        git clone https://github.com/N-bodyshop/utility
+        export CHARM_DIR=$PWD/$CHARM_VERSION
+        ./configure
+        make -j4
+    - name: test-changa
+      run: |
+        cd changa/teststep
+        make test
