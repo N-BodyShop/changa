@@ -20,6 +20,7 @@ jobs:
       run: |
         export CHARM_VERSION=7.0.0
         git clone https://github.com/N-bodyshop/utility
+        export STRUCT_DIR=$PWD/utility/structures
         export CHARM_DIR=$PWD/charm-v$CHARM_VERSION
         ./configure
         make -j4
