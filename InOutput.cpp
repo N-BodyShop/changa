@@ -1355,6 +1355,9 @@ void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
     
     if(nStartWrite == 0)
 	w.writeHeader();
+    if(myNumParticles == 0)     // no particles to write
+        return;
+    
     CkMustAssert(w.seekParticleNum(nStartWrite), "bad seek");
     for(unsigned int i = 0; i < myNumParticles; i++) {
 	if(myParticles[i+1].isGas()) {
