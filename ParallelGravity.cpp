@@ -3483,9 +3483,11 @@ void Main::writeOutput(int iStep)
 	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
 	    outputBinary(pIOrdOut, param.bParaWrite, CkCallbackResumeThread());
+        if(param.bDoGas 
 #ifndef SPLITGAS
-	    if(param.bStarForm) 
+	   && param.bStarForm
 #endif
+           )
         {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
@@ -3570,9 +3572,11 @@ void Main::writeOutput(int iStep)
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
 	    treeProxy[0].outputASCII(pIOrdOut, param.bParaWrite,
 					CkCallbackResumeThread());
+        if(param.bDoGas 
 #ifndef SPLITGAS
-	    if(param.bStarForm) 
+	   && param.bStarForm
 #endif
+           )
         {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
