@@ -1,4 +1,4 @@
-name: ChaNGa
+name: ChaNGa-SMP
 
 on: pull_request
 
@@ -14,7 +14,7 @@ jobs:
         wget http://charm.cs.illinois.edu/distrib/charm-$CHARM_VERSION.tar.gz
         tar -xzf charm-$CHARM_VERSION.tar.gz
         cd charm-v$CHARM_VERSION
-        ./build ChaNGa netlrts-linux-x86_64 --with-production --enable-error-checking -j4
+        ./build ChaNGa netlrts-linux-x86_64 smp --with-production --enable-error-checking -j4
         cd ..
     - name: build-changa
       run: |
