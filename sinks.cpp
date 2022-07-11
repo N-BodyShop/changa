@@ -1145,7 +1145,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		/* don't accrete gas that doesn't have the BH
 		 * in its smoothing length  JMB 10/22/08 */
 		/* make this an optional parameter JMB 9/21/12 */
-		/* if (nnList[i].p->rung < s.iSinkCurrentRung) continue; /* JMB 7/9/09 */
+		// if (nnList[i].p->rung < s.iSinkCurrentRung) continue; /* JMB 7/9/09 */
 
 		if(s.bBHMindv == 1) weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+(dvmin*dvmin),-1.5)/dCosmoDenFac;
 		else {

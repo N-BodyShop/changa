@@ -3163,7 +3163,7 @@ void NonEmptyTreePieceCounter::reset() {
 void TreePiece::mergeNonLocalRequestsDone(){
   // 3. Construct the treepiece-local portions of the tree
 
-  MERGE_REMOTE_REQUESTS_VERBOSE("[%d] mergeNonLocalRequestsDone\n", thisIndex);
+  MERGE_REMOTE_REQUESTS_VERBOSE(("[%d] mergeNonLocalRequestsDone\n", thisIndex));
 
   LocalTreeTraversal traversal;
   LocalTreeBuilder localTreeBuilder(this);
@@ -3395,7 +3395,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
                                      const int64_t nSPH) {
   GenericTreeNode *node = keyToNode(key);
   CkAssert(node != NULL);
-  MERGE_REMOTE_REQUESTS_VERBOSE("[%d] receiveRemoteMoments %llu\n",thisIndex,key);
+  MERGE_REMOTE_REQUESTS_VERBOSE(("[%d] receiveRemoteMoments %llu\n",thisIndex,key));
   // assign the incoming moments to the node
   if (type == Empty) node->makeEmpty();
   else {
@@ -3456,7 +3456,7 @@ void TreePiece::receiveRemoteMoments(const Tree::NodeKey key,
 
 GenericTreeNode *TreePiece::boundaryParentReady(GenericTreeNode *parent){
   // compute the multipole for the parent
-  MERGE_REMOTE_REQUESTS_VERBOSE("[%d] boundaryParentReady %llu\n",thisIndex,parent->getKey());
+  MERGE_REMOTE_REQUESTS_VERBOSE(("[%d] boundaryParentReady %llu\n",thisIndex,parent->getKey()));
   parent->particleCount = 0;
   parent->remoteIndex = thisIndex; // reset the reference index to ourself
   GenericTreeNode *child;
@@ -3528,7 +3528,7 @@ void TreePiece::deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsCl
   CkAssert(node->remoteIndex >= 0);
 
   for(int i = 0; i < clients.length(); i++){
-    MERGE_REMOTE_REQUESTS_VERBOSE("[%d] send %llu (%s) moments to %d\n", thisIndex, node->getKey(), typeString(node->getType()),clients[i].clientTreePiece->getIndex());
+    MERGE_REMOTE_REQUESTS_VERBOSE(("[%d] send %llu (%s) moments to %d\n", thisIndex, node->getKey(), typeString(node->getType()),clients[i].clientTreePiece->getIndex()));
     clients[i].clientTreePiece->receiveRemoteMoments(node->getKey(),node->getType(),
       node->firstParticle,node->particleCount,node->remoteIndex,node->moments,
         node->boundingBox,node->bndBoxBall,node->iParticleTypes,
@@ -3542,7 +3542,7 @@ void TreePiece::deliverMomentsToClients(const std::map<NodeKey,NonLocalMomentsCl
 void TreePiece::treeBuildComplete(){
 
 #ifdef MERGE_REMOTE_REQUESTS
-  MERGE_REMOTE_REQUESTS_VERBOSE("[%d] treeBuildComplete\n", thisIndex);
+  MERGE_REMOTE_REQUESTS_VERBOSE(("[%d] treeBuildComplete\n", thisIndex));
   // reset
   CkAssert(localTreeBuildComplete);
   localTreeBuildComplete = false;
@@ -5910,6 +5910,8 @@ void TreePiece::printTree(GenericTreeNode* node, ostream& os) {
   case Empty:
     os << "Empty "<<node->remoteIndex;
     break;
+  default:
+      break;
   }
 #ifndef HEXADECAPOLE
   if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal || node->getType() == NonLocalBucket)
@@ -5963,6 +5965,8 @@ void TreePiece::printTreeViz(GenericTreeNode* node, ostream& os) {
   case Empty:
     os << "Empty "<<node->remoteIndex;
     break;
+  default:
+      break;
   }
 
   os << "\"]\n";
@@ -6034,6 +6038,8 @@ void printGenericTree(GenericTreeNode* node, ostream& os) {
   case Empty:
     os << "Empty "<<node->remoteIndex;
     break;
+  default:
+      break;
   }
 #ifndef HEXADECAPOLE
   if (node->getType() == Bucket || node->getType() == Internal || node->getType() == Boundary || node->getType() == NonLocal || node->getType() == NonLocalBucket)
