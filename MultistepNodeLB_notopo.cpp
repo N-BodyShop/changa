@@ -442,7 +442,7 @@ void MultistepNodeLB_notopo::balanceTPs(BaseLB::LDStats* stats) {
     pop_heap(ovldpes.begin(), ovldpes.end(), PeLdGreater(counts));
     ovldpes.pop_back();
     if (ovlpe >= stats->nprocs()) {
-      CkPrintf("ovlpe %d stats count %d\n", ovlpe, stats->nprocs());
+      CkPrintf("ovlpe %d stats count %lu\n", ovlpe, stats->nprocs());
       CkAbort("ovle >= count\n");
     }
     for (int k = 0; k < objpemap[ovlpe].size() ; k++) {
