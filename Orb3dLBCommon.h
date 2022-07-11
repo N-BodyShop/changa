@@ -13,8 +13,8 @@
 #include "TaggedVector3D.h"
 #include "Vector3D.h"
 #include "CentralLB.h"
-#define  ORB3DLB_NOTOPO_DEBUG
-// #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
+#define  ORB3DLB_NOTOPO_DEBUG(X)
+// #define  ORB3DLB_NOTOPO_DEBUG(X) CkPrintf X
 
 /// @brief Hold information about Pe load and number of objects.
 class PeInfo {
@@ -104,12 +104,12 @@ class Orb3dCommon{
         vector<OrbObject> & tp, BaseLB::LDStats *stats,
         bool node_partition=false){
 
-      ORB3DLB_NOTOPO_DEBUG("partition events %d %d %d nprocs %d\n", 
+        ORB3DLB_NOTOPO_DEBUG(("partition events %d %d %d nprocs %d\n", 
           events[XDIM].size(),
           events[YDIM].size(),
           events[ZDIM].size(),
           nprocs
-          );
+                              ));
       int numEvents = events[XDIM].size();
       CkAssert(numEvents == events[YDIM].size());
       CkAssert(numEvents == events[ZDIM].size());
@@ -118,7 +118,7 @@ class Orb3dCommon{
 	return;
 
       if(nprocs == 1){
-        ORB3DLB_NOTOPO_DEBUG("base: assign %d tps to proc %d\n", numEvents, nextProc);
+        ORB3DLB_NOTOPO_DEBUG(("base: assign %d tps to proc %d\n", numEvents, nextProc));
         if (!stats->procs[nextProc].available) {
           nextProc++;
           return;
@@ -167,12 +167,12 @@ class Orb3dCommon{
         }
       }
 
-      ORB3DLB_NOTOPO_DEBUG("dimensions %f %f %f longest %d\n", 
+      ORB3DLB_NOTOPO_DEBUG(("dimensions %f %f %f longest %d\n", 
           box.greater_corner[XDIM]-box.lesser_corner[XDIM],
           box.greater_corner[YDIM]-box.lesser_corner[YDIM],
           box.greater_corner[ZDIM]-box.lesser_corner[ZDIM],
           longestDim
-          );
+                            ));
 
       int nlprocs = nprocs/2;
       int nrprocs = nprocs-nlprocs;
@@ -187,12 +187,12 @@ class Orb3dCommon{
       for(int np = nextProc + nlprocs; np < nextProc + nlprocs + nrprocs; np++)
         bgrprocs += stats->procs[np].bg_walltime;
 
-      ORB3DLB_NOTOPO_DEBUG("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio);
+      ORB3DLB_NOTOPO_DEBUG(("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio));
 
       int splitIndex = partitionRatioLoad(events[longestDim],ratio,bglprocs,
                                           bgrprocs);
       if(splitIndex == numEvents) {
-        ORB3DLB_NOTOPO_DEBUG("evenly split 0 load\n");
+        ORB3DLB_NOTOPO_DEBUG(("evenly split 0 load\n"));
         splitIndex = splitIndex/2;
       }
       int nleft = splitIndex;
@@ -551,8 +551,8 @@ class Orb3dCommon{
       //CkPrintf("************************************************************\n");
       //CkPrintf("partitionEvenLoad start %d end %d total %f\n", tpstart, tpend, totalLoad);
       float perfectLoad = ratio * totalLoad;
-      ORB3DLB_NOTOPO_DEBUG("partitionRatioLoad bgl %f bgr %f\n",
-                           bglp, bgrp);
+      ORB3DLB_NOTOPO_DEBUG(("partitionRatioLoad bgl %f bgr %f\n",
+                            bglp, bgrp));
       int splitIndex = 0;
       float prevLoad = 0.0;
       float leftLoadAtSplit = 0.0;
@@ -572,7 +572,7 @@ class Orb3dCommon{
         prevLoad = leftLoadAtSplit;
       }
 
-      ORB3DLB_NOTOPO_DEBUG("partitionEvenLoad mid %d lload %f rload %f ratio %f\n", splitIndex, leftLoadAtSplit, totalLoad - leftLoadAtSplit, leftLoadAtSplit / totalLoad);
+      ORB3DLB_NOTOPO_DEBUG(("partitionEvenLoad mid %d lload %f rload %f ratio %f\n", splitIndex, leftLoadAtSplit, totalLoad - leftLoadAtSplit, leftLoadAtSplit / totalLoad));
       return splitIndex;
     }
 

@@ -342,7 +342,7 @@ EntryTypeGravityNode::EntryTypeGravityNode() {
   // save the virtual function table.
   // Note that this is compiler dependent; also note that it is unused
   // at the moment -- see unpackSingle() below.
-  memcpy(&vptr, &node, sizeof(void*));
+  memcpy((void *)&vptr, (void *)&node, sizeof(void*));
 }
 
 void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, KeyType key) {
