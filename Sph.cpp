@@ -844,6 +844,13 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
     smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
+inline double U_FLOOR(const COOL *Cool) {
+    const double T_FLOOR = 2.0; // Temperature floor in Kelvin
+    const double MOL_WEIGHT = 2.0; // Assume molecular hydrogen for
+                                   // molecular weight
+    return KBOLTZ*T_FLOOR/(MOL_WEIGHT*MHYDR*(Cool->dErgPerGmUnit));
+    }
+
 /**
  * @brief Update the cooling rate (uDot)
  *
@@ -904,8 +911,8 @@ void TreePiece::updateuDot(int activeRung,
 		COOLPARTICLE cp = p->CoolParticle();
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
-        CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
-        CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        assert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        assert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #ifdef SUPERBUBBLE
 #ifdef COOLING_MOLECULARH
         double columnLHot = 0;
@@ -931,6 +938,9 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef COOLDEBUG
                 dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
+		if (isnan(fDensityHot)) 
+			printf("fDensityHot is NaN in updateuDot! iOrder: %d uHot: %g u: %g mass: %g hotmass: %g fdensity: %g fdensityHot: %g\n", p->iOrder, p->uHot(), p->u(), p->mass, p->massHot(), p->fDensity, fDensityHot);
+                assert(fDensityHot < 1e100);
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
                             ExternalHeating, fDensityHot,
                             p->fMetals(), r, dt, columnLHot);
@@ -938,6 +948,7 @@ void TreePiece::updateuDot(int activeRung,
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensityHot,
                         p->fMetals(), r, dt);
 #endif
+                assert(E > 0.0);
                 p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
                 if(bUpdateState) p->CoolParticleHot() = cp;
             }
@@ -951,15 +962,20 @@ void TreePiece::updateuDot(int activeRung,
                 p->cpHotInit() = 1;
                 CkAssert(ExternalHeating >= 0.0);
             }
+            /* The cold phase needs a minimum energy to prevent the
+             * inferred density to become very large */
+            if(p->u() < U_FLOOR(dm->Cool))
+                p->u() = U_FLOOR(dm->Cool);
             ExternalHeating = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
         }
         else { /* We have a single phase particle, treat it normally*/
             p->uHotDot() = 0;
             ExternalHeating =  p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
         }
+        assert(p->u() > 0.0);
         fDensity = p->fDensity*PoverRho/(gammam1*p->u());
         if (p->fDensityU() < p->fDensity) fDensity = p->fDensityU()*PoverRho/(gammam1*p->u());
-        CkAssert(fDensity > 0);
+        assert(fDensity > 0);
         cp = p->CoolParticle();
 #endif
 		E = p->u();
@@ -999,6 +1015,9 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef COOLDEBUG
 		dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
+		if (isnan(fDensity))
+                        printf("fDensity is NaN in updateuDot! iOrder: %d uHot: %g u: %g mass: %g hotmass: %g fdensity: %g\n", p->iOrder, p->uHot(), p->u(), p->mass, p->massHot(), p->fDensity);
+                assert(fDensity < 1e100);
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, fDensity,
 					p->fMetals(), r, dtUse, columnL);
@@ -1007,10 +1026,21 @@ void TreePiece::updateuDot(int activeRung,
 					ExternalHeating, fDensity,
 					p->fMetals(), r, dtUse);
 #endif /*COOLING_MOLECULARH*/
-		CkAssert(E > 0.0);
+		assert(E > 0.0);
 		if(dtUse > 0 || ExternalHeating*duDelta[p->rung] + p->u() < 0)
 		    // linear interpolation over interval
 		    p->uDot() = (E - p->u())/duDelta[p->rung];
+#ifdef SUPERBUBBLE
+                // For a two phase particle, we can't let the cold
+                // phase go to zero thermal energy since that will
+                // drive the density to infinity to maintain pressure
+                // equilibrium with the hot phase.
+                if(p->massHot() > 0) {          // We have a two-phase particle
+                    if(E < U_FLOOR(dm->Cool))
+                        // linear interpolation over interval
+                        p->uDot() = (E - p->u())/duDelta[p->rung];
+                }
+#endif
 		if (bUpdateState) p->CoolParticle() = cp;
 		}
 	    else { 
