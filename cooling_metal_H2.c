@@ -1859,7 +1859,11 @@ double clRateColl_e_H2( double T){
 double clRateColl_HI_H2(double T){
   double ratecoll_HI_H2;
   /*Donahue & Shull  ratecollH2 = 6.11e-14*exp(-4.48*CL_eV_per_K/T);*/
-  ratecoll_HI_H2 = 1.067e-10*pow(CL_eV_per_K*T,2.012)/(exp(4.463/T/CL_eV_per_K)*pow(1+0.2472*CL_eV_per_K*T,3.512));
+  /* N.B.: the division in Grassi et al 2014 is change to a multiply
+     with negative exponents; this is more efficient and avoids floating
+     point overflow */
+  ratecoll_HI_H2 = 1.067e-10*pow(CL_eV_per_K*T,2.012)
+      *(exp(-4.463/T/CL_eV_per_K)*pow(1+0.2472*CL_eV_per_K*T,-3.512));
   return ratecoll_HI_H2;
 }
 
