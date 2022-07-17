@@ -2632,9 +2632,11 @@ bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
   double fPrev_totalLW;
   Vector3D<double> fPrev_cLW;
 
-  // CkAssert(node != NULL);
   if (node == NULL) {
     return false;
+  }
+  if(node->getType() == Empty || node->getType() == CachedEmpty){
+    return false; /*Node is empty*/
   }
 
   if (level == 0) {
@@ -2664,9 +2666,11 @@ bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
   }
 
   /*Determine the moment of the gas.  This will be useful in approximating average LW in the cell*/
-  fmomgas = (node->moments.xxgas + node->moments.yygas + node->moments.zzgas)/node->moments.totalgas;  
-  if (fDistanceCell2 < fmomgas) {
-    fDistanceCell2 = fmomgas;
+  if(node->moments.totalgas > 0.0) {
+      fmomgas = (node->moments.xxgas + node->moments.yygas + node->moments.zzgas)/node->moments.totalgas;  
+      if (fDistanceCell2 < fmomgas) {
+        fDistanceCell2 = fmomgas;
+      }
   }
 
   /*Since we set the minimum distance to be the softening any way when calculating the radiation, fDistanceCell2 shouldn't be smaller.*/
@@ -2695,9 +2699,6 @@ bool LocalLymanWernerDistributor::work(GenericTreeNode *node, int level){
     fDistanceCell2 = fDistancePrevCell2;
   } 
 
-  if(node->getType() == Empty || node->getType() == CachedEmpty){
-    return DUMP; /*Node is empty*/
-  }
   if(!(node->iParticleTypes & TYPE_GAS)) {
     return false; /*no gas particles in the node*/
   }
