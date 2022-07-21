@@ -928,6 +928,10 @@ void TreePiece::updateuDot(int activeRung,
         if (p->massHot() > 0) { 
             ExternalHeating = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
             if (p->uHot() > 0) {
+                /* The hot phase needs a minimum energy to prevent the
+                 * inferred density to become very large */
+                if(p->uHot() < U_FLOOR(dm->Cool))
+                    p->uHot() = U_FLOOR(dm->Cool);
                 E = p->uHot();
                 fDensityHot = p->fDensity*(p->uHot()*frac+p->u()*(1-frac))/p->uHot();
                 cp = p->CoolParticleHot();
