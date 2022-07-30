@@ -115,6 +115,7 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
     p.fStarMFracIron() = 0.098*sp.metals;
     p.fMassForm() = sp.mass;
     p.fTimeForm() = sp.tform;
+    p.iGasOrder() = -1;
 #ifdef COOLING_MOLECULARH 
     p.dStarLymanWerner() = 0.0;
 #endif
@@ -725,6 +726,7 @@ static void load_NC_star(std::string filename, int64_t startParticle,
     for(int i = 0; i < myNumStar; ++i) {
         myParts[i].fDensity = 0.0;
         myParts[i].iType = TYPE_STAR;
+        myParts[i].iGasOrder() = -1;
         myParts[i].extraData = &myStarParts[i];
         }
     load_NC_base(filename, startParticle, myNumStar, myParts);
