@@ -911,8 +911,8 @@ void TreePiece::updateuDot(int activeRung,
 		COOLPARTICLE cp = p->CoolParticle();
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
-        assert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
-        assert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #ifdef SUPERBUBBLE
 #ifdef COOLING_MOLECULARH
         double columnLHot = 0;
@@ -942,9 +942,9 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef COOLDEBUG
                 dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
-		if (isnan(fDensityHot)) 
-			printf("fDensityHot is NaN in updateuDot! iOrder: %d uHot: %g u: %g mass: %g hotmass: %g fdensity: %g fdensityHot: %g\n", p->iOrder, p->uHot(), p->u(), p->mass, p->massHot(), p->fDensity, fDensityHot);
-                assert(fDensityHot < 1e100);
+                if (isnan(fDensityHot)) 
+                    CkPrintf("fDensityHot is NaN in updateuDot! iOrder: %d uHot: %g u: %g mass: %g hotmass: %g fdensity: %g fdensityHot: %g\n", p->iOrder, p->uHot(), p->u(), p->mass, p->massHot(), p->fDensity, fDensityHot);
+                CkAssert(fDensityHot < 1e100);
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
                             ExternalHeating, fDensityHot,
                             p->fMetals(), r, dt, columnLHot);
@@ -976,7 +976,7 @@ void TreePiece::updateuDot(int activeRung,
             p->uHotDot() = 0;
             ExternalHeating =  p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
         }
-        assert(p->u() > 0.0);
+        CkAssert(p->u() > 0.0);
         fDensity = p->fDensity*PoverRho/(gammam1*p->u());
         if (p->fDensityU() < p->fDensity) fDensity = p->fDensityU()*PoverRho/(gammam1*p->u());
         assert(fDensity > 0);
@@ -1019,9 +1019,9 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef COOLDEBUG
 		dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
-		if (isnan(fDensity))
-                        printf("fDensity is NaN in updateuDot! iOrder: %d uHot: %g u: %g mass: %g hotmass: %g fdensity: %g\n", p->iOrder, p->uHot(), p->u(), p->mass, p->massHot(), p->fDensity);
-                assert(fDensity < 1e100);
+                if (isnan(fDensity))
+                    CkPrintf("fDensity is NaN in updateuDot! iOrder: %d uHot: %g u: %g mass: %g hotmass: %g fdensity: %g\n", p->iOrder, p->uHot(), p->u(), p->mass, p->massHot(), p->fDensity);
+                CkAssert(fDensity < 1e100);
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, fDensity,
 					p->fMetals(), r, dtUse, columnL);
@@ -1030,7 +1030,7 @@ void TreePiece::updateuDot(int activeRung,
 					ExternalHeating, fDensity,
 					p->fMetals(), r, dtUse);
 #endif /*COOLING_MOLECULARH*/
-		assert(E > 0.0);
+		CkAssert(E > 0.0);
 		if(dtUse > 0 || ExternalHeating*duDelta[p->rung] + p->u() < 0)
 		    // linear interpolation over interval
 		    p->uDot() = (E - p->u())/duDelta[p->rung];
@@ -1052,7 +1052,7 @@ void TreePiece::updateuDot(int activeRung,
 		}
             CkAssert(isfinite(p->uDot()));
 	    }
-	}
+        }
 #endif
     // Use shadow array to avoid reduction conflict
     smoothProxy[thisIndex].ckLocal()->contribute(cb);
