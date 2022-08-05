@@ -1,3 +1,31 @@
+What's new in ChaNGa 3.5 (Since 3.4)
+
+===============================================================================
+
+General changes:
+
+- Move to Charm version 7.0.0
+
+Physics Changes:
+
+- Jeans pressure floor changed to match GASOLINE
+
+- Support GRACKLE API v3.
+
+- Add logarithmic halo external potential
+
+Parallel performance changes:
+
+- Volta GPU support.
+
+Code cleanup:
+
+- Eliminate compiler warnings
+
+- Bug fixes
+
+===============================================================================
+
 What's new in ChaNGa 3.4 (Since 3.3)
 
 ===============================================================================
