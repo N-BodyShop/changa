@@ -1546,7 +1546,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                * Make sure that the flow is in the right direction
                * If all the mass becomes hot, switch to being single-phase
                */
-              if(massFlux > 0) { 
+              if(bGasCooling && (massFlux > 0)) {
                   if(dMultiPhaseMaxTime > 0 && p->massHot() < (0.5*p->mass)) {
                       double massFluxMin = duDelta[p->rung]*p->mass/dMultiPhaseMaxTime;
                       massFlux = (massFlux > massFluxMin ? massFlux : massFluxMin);
@@ -1676,8 +1676,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 	      CkAssert(p->u() >= 0.0);
 	      CkAssert(p->uPred() >= 0.0);
 #ifndef COOLING_NONE
-              CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
-              CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+              if(bGasCooling) {
+                  CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+                  CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+              }
 #endif
 	      }
 	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
@@ -2074,7 +2076,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  // of timescale u/uDot.
                   else p->uHotPred() = uold*exp(p->uHotDot()*duDelta/uold);
 		  }
-              CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+              if(bGasCooling)
+                  CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #endif
 #else
 	      p->uPred() += p->PdV()*duDelta;
@@ -2087,7 +2090,8 @@ void TreePiece::drift(double dDelta,  // time step in x containing
                   p->uPred() = dMaxEnergy;
               CkAssert(p->uPred() >= 0.0);
 #ifndef COOLING_NONE
-              CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+              if(bGasCooling)
+                  CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #endif
 	      }
 #ifdef DIFFUSION
