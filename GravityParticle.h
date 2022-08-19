@@ -158,7 +158,7 @@ class extraSPHData
     inline double& BalsaraSwitch() {return _BalsaraSwitch;}
     inline double& fBallMax() {return _fBallMax;}
 #ifdef CULLENALPHA
-    inline const double CullenAlpha() const {return _CullenAlpha;}
+    inline double CullenAlpha() const {return _CullenAlpha;}
     inline double& CullenAlpha() {return _CullenAlpha;}
     inline double& TimeDivV() {return _TimeDivV;}
     inline double& dvds() {return _dvds;}
@@ -305,8 +305,8 @@ class extraStarData
     inline double& dMDot() {return _dMDot;}
     inline double& dDeltaM() {return _dDeltaM;}
 #ifdef COOLING_MOLECULARH
-    inline const double dStarLymanWerner() const {return _dStarLymanWerner;} 
-    inline double& dStarLymanWerner() {return _dStarLymanWerner;} 
+    inline double dStarLymanWerner() const {return _dStarLymanWerner;}
+    inline double& dStarLymanWerner() {return _dStarLymanWerner;}
 #endif /*COOLING_MOLECULARH*/
     void pup(PUP::er &p) {
 	p | _fMetals;
@@ -452,7 +452,7 @@ public:
 	inline double& BalsaraSwitch() { IMAGAS; return (((extraSPHData*)extraData)->BalsaraSwitch());}
 	inline double& fBallMax() { IMAGAS; return (((extraSPHData*)extraData)->fBallMax());}
 #ifdef CULLENALPHA
-        inline const double CullenAlpha() const {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
+        inline double CullenAlpha() const {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
         inline double& CullenAlpha() {IMAGAS; return (((extraSPHData*)extraData)->CullenAlpha());}
         inline double& TimeDivV() {IMAGAS; return (((extraSPHData*)extraData)->TimeDivV());}
         inline double& dvds() {IMAGAS; return (((extraSPHData*)extraData)->dvds());}
@@ -511,8 +511,8 @@ public:
 	inline double& dDeltaM() { IMASTAR; return (((extraStarData*)extraData)->dDeltaM());}
 	inline double& dMDot() { IMASTAR; return (((extraStarData*)extraData)->dMDot());}
 #ifdef COOLING_MOLECULARH
-	inline const double dStarLymanWerner() const { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());}	
-	inline double& dStarLymanWerner() { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());} 
+        inline double dStarLymanWerner() const { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());}
+        inline double& dStarLymanWerner() { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());}
 #endif /*COOLING_MOLECULARH*/
 
 // See above debugging macros

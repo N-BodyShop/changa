@@ -1636,7 +1636,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         CkError("WARNING: lonely SPH particle\n");
         return;
     }
-#ifndef RTFORCE
+#ifndef GDFORCE
     pParams.PoverRho2 = p->PoverRho2();
     pParams.PoverRho2f = pParams.PoverRho2;
 #endif
@@ -1646,7 +1646,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     params.aFac = a;        /* comoving acceleration factor */
     vFac = 1./(a*a); /* converts v to xdot */
 
-#ifdef RTFORCE
+#ifdef GDFORCE
     double divvi = 0;
     double divvj = 0;
     for (i=0;i<nSmooth;++i) {
@@ -1677,7 +1677,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         params.dx = nnList[i].dx;
         dv = p->vPred() - q->vPred();
         params.dvdotdr = vFac*dot(dv, params.dx) + fDist2*H;
-#ifdef RTFORCE
+#ifdef GDFORCE
         pParams.PoverRho2 = p->PoverRho2()*p->fDensity/q->fDensity;
         pParams.PoverRho2f = pParams.PoverRho2;
         qParams.PoverRho2 = q->PoverRho2()*q->fDensity/p->fDensity;

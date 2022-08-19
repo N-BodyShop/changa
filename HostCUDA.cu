@@ -168,7 +168,7 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 	transferKernel->addBuffer(varParts, sVarParts, (sVarParts > 0), false,
                                   false, LOCAL_PARTICLE_VARS);
 
-	transferKernel->setDeviceToHostCallback(wrCallback);
+	transferKernel->setDeviceToHostCallback(*(CkCallback *)wrCallback);
 #ifdef HAPI_TRACE
 	transferKernel->setTraceName("xferLocal");
 #endif
@@ -221,7 +221,7 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
             );
 #endif
 
-  transferKernel->setDeviceToHostCallback(wrCallback);
+  transferKernel->setDeviceToHostCallback(*(CkCallback *)wrCallback);
 #ifdef HAPI_TRACE
   transferKernel->setTraceName("xferRemote");
 #endif
@@ -586,7 +586,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
         printf("(%d) TRANSFER LOCAL CELL\n", CmiMyPe());
 #endif
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("gravityLocal");
 #endif
@@ -615,7 +615,7 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
         printf("(%d) TRANSFER REMOTE CELL\n", CmiMyPe());
 #endif
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("gravityRemote");
 #endif
@@ -652,7 +652,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
 
   ParameterStruct *ptr = (ParameterStruct *)gravityKernel->getUserData();
 
-  gravityKernel->setDeviceToHostCallback(data->cb);
+  gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
   gravityKernel->setTraceName("remoteResume");
 #endif
@@ -751,7 +751,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
         }
         gravityKernel->addBuffer(bufferHostBuffer, size, transfer, false, transfer);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityLocal");
 #endif
@@ -777,7 +777,7 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
 
 	TreePiecePartListDataTransferBasic(data, gravityKernel);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityLocal");
 #endif
@@ -806,7 +806,7 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 
 	TreePiecePartListDataTransferBasic(data, gravityKernel);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityRemote");
 #endif
@@ -847,7 +847,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
         gravityKernel->addBuffer(data->missedParts, data->sMissed, transfer,
                                  false, transfer);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityRemote");
 #endif
@@ -1025,7 +1025,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *c
 
   gravityKernel->addBuffer(NULL, 0, false, false, freeRemotePart, REMOTE_PARTICLE_CORES);
 
-  gravityKernel->setDeviceToHostCallback(cb);
+  gravityKernel->setDeviceToHostCallback(*(CkCallback *)cb);
 #ifdef HAPI_TRACE
   gravityKernel->setTraceName("transferBack");
 #endif
@@ -2403,7 +2403,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
    */
   assert(NUM_GRAVITY_BUFS + EWALD_TABLE < 256);
 
-  EwaldKernel->setDeviceToHostCallback(cb);
+  EwaldKernel->setDeviceToHostCallback(*(CkCallback *)cb);
   if(largephase){
     EwaldKernel->setRunKernel(run_EWALD_KERNEL_Large);
 #ifdef HAPI_TRACE

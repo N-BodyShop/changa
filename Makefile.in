@@ -122,7 +122,7 @@ charm_modules := $(strip CkCache CkIO CkMulticast RefineLB \
                    GreedyLB RotateLB liveViz CkLoop)
 
 # ------- Helper Variables ----------------------------------------------------
-defines := $(strip @HEXADECAPOLE@ @FLAG_RTFORCE@ @FLAG_ARCH@  \
+defines := $(strip @HEXADECAPOLE@ @FLAG_GDFORCE@ @FLAG_ARCH@  \
           @FLAG_CHANGESOFT@ @FLAG_BIGKEYS@ @FLAG_DTADJUST@    \
           @FLAG_SPH_KERNEL@ @FLAG_COOLING@ @FLAG_DIFFUSION@   \
           @FLAG_FEEDBACKDIFFLIMIT@ @FLAG_CULLENALPHA@         \

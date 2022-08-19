@@ -10,7 +10,15 @@ extern CProxy_TreePiece treeProxy;
 CkpvExtern(int, _lb_obj_index);
 using namespace std;
 
+#if CHARM_VERSION > 61002
+static void lbinit()
+{
+    LBRegisterBalancer<MultistepLB>("MultistepLB",
+      "Works best with multistepped runs; uses Orb3D for large steps, greedy otherwise");
+}
+#else
 CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses Orb3D for larger steps, greedy otherwise");
+#endif
 
 //**************************************
 // ORB3DLB functions

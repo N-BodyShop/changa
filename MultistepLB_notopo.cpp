@@ -12,7 +12,15 @@ CkpvExtern(int, _lb_obj_index);
 using namespace std;
 //#define ORB3DLB_NOTOPO_DEBUG CkPrintf
 
+#if CHARM_VERSION > 61002
+static void lbinit()
+{
+    LBRegisterBalancer<MultistepLB_notopo>("MultistepLB_notopo",
+      "Works best with multistepped runs; uses Orb3D_notopo");
+}
+#else
 CreateLBFunc_Def(MultistepLB_notopo, "Works best with multistepped runs; uses Orb3D_notopo");
+#endif
 
 void MultistepLB_notopo::init() {
   lbname = "MultistepLB_notopo";

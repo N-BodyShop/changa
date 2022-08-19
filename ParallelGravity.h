@@ -50,12 +50,12 @@ PUPbytes(COOLPARAM);
 
 #include <map>
 
-#define MERGE_REMOTE_REQUESTS_VERBOSE /*CkPrintf*/
+#define MERGE_REMOTE_REQUESTS_VERBOSE(X) /*CkPrintf x*/
 
 /// @brief CkAssert() replacement works even in production mode.
 inline void CkMustAssert(bool cond, const char *err)
 {
-    if (!cond) CkAbort(err);
+    if (!cond) CkAbort("%s", err);
 }
 
 using namespace std;

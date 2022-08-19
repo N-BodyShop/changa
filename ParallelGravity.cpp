@@ -1467,6 +1467,10 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Enabling SPH" << endl;
 	    param.bDoGas = 1;
 	    }
+        if(!param.bStarForm && !prmSpecified(prm, "bDoStellarLW")) {
+            // Stellar LW output is meaningless if we are not forming stars.
+            param.bDoStellarLW = 0;
+            }
 	if(param.bDoGas && !(param.bGasCooling || param.bGasAdiabatic
 			     || param.bGasIsothermal)) {
 	    ckerr << "Defaulting to Adiabatic Gas Model." << endl;
@@ -2551,7 +2555,9 @@ void Main::setupICs() {
       struct stat s;
       int err = stat(basefilename.c_str(), &s);
       if(err == -1) {
-          ckerr << "File error: " << basefilename.c_str() << endl;
+          char *achErr = strerror(errno);
+          ckerr << "File error: " << basefilename.c_str() << ": " << achErr
+                << endl;
           CkExit();
           return;
           }
@@ -2768,8 +2774,8 @@ void Main::setupICs() {
 #ifdef FEEDBACKDIFFLIMIT
   ofsLog << " FEEDBACKDIFFLIMIT";
 #endif
-#ifdef RTFORCE
-  ofsLog << " RTFORCE";
+#ifdef GDFORCE
+  ofsLog << " GDFORCE";
 #endif
 #ifdef CULLENALPHA
   ofsLog << " CULLENALPHA";
@@ -3248,7 +3254,7 @@ Main::doSimulation()
 
   /******** Shutdown process ********/
 
-  if(param.nSteps == 0) {
+  if(param.nSteps == 0 && param.bBenchmark == 0) {
       string achFile = string(param.achOutName) + ".000000";
       // assign each particle its domain for diagnostic.
       treeProxy.assignDomain(CkCallbackResumeThread());
@@ -3907,9 +3913,11 @@ void Main::writeOutput(int iStep)
 	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
 	    outputBinary(pIOrdOut, param.bParaWrite, CkCallbackResumeThread());
+        if(param.bDoGas 
 #ifndef SPLITGAS
-	    if(param.bStarForm) 
+	   && param.bStarForm
 #endif
+           )
         {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
@@ -4028,9 +4036,11 @@ void Main::writeOutput(int iStep)
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
 	    treeProxy[0].outputASCII(pIOrdOut, param.bParaWrite,
 					CkCallbackResumeThread());
+        if(param.bDoGas 
 #ifndef SPLITGAS
-	    if(param.bStarForm) 
+	   && param.bStarForm
 #endif
+           )
         {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
