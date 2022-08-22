@@ -304,13 +304,13 @@ $(structures_path)/libTipsy.a:
 	$(quiet) cd $(structures_path); $(MAKE) libTipsy.a
 
 $(voro_path)/src/libvoro++.a:
-	cd $(voro_path)/src; $(MAKE) -j4 CXX=$(charmc) CFLAGS="$(cxx_flags)"
+	cd $(voro_path)/src; $(MAKE) CXXFLAGS="$(cxx_flags)" CFLAGS="$(c_flags)"
 
 $(sroeos_path)/libnuc_eos.a:
-	cd $(sroeos_path); $(MAKE) -j4 CXX=$(charmc) CC=$(charmc) CFLAGS="$(cxx_flags)" HDF5INCS="-I$(HDF5ROOT)/include" HDF5LIBS="-L$(HDF5ROOT)/lib -lhdf5"
+	cd $(sroeos_path); $(MAKE) CXX=$(charmc) CC=$(charmc) CFLAGS="$(cxx_flags)" HDF5INCS="-I$(HDF5ROOT)/include" HDF5LIBS="-L$(HDF5ROOT)/lib -lhdf5"
 
 $(athena_path)/libathena.a:
-	cd $(athena_path); $(MAKE) -j4 MHD=@MHD_ENABLE@ CXX=$(charmc) CC=$(charmc) CFLAGS="$(cxx_flags)"
+	cd $(athena_path); $(MAKE) MHD=@MHD_ENABLE@ CFLAGS="$(c_flags)"
 
 mesa_flags := "-Wno-uninitialized -fno-range-check -fmax-errors=12  -fprotect-parens -fno-sign-zero -fbacktrace -ggdb -finit-real=snan  -fbounds-check -Wuninitialized -Warray-bounds  -ffixed-form -ffixed-line-length-132 -x f77-cpp-input"
 

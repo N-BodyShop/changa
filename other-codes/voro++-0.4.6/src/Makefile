@@ -29,10 +29,10 @@ libvoro++.a: $(objs)
 	ar rs libvoro++.a $^
 
 voro++: libvoro++.a cmd_line.cc
-	$(CXX) $(CFLAGS) -L. -o voro++ cmd_line.cc -lvoro++
+	$(CXX) $(CXXFLAGS) -L. -o voro++ cmd_line.cc -lvoro++
 
 %.o: %.cc
-	$(CXX) $(CFLAGS) -c $<
+	$(CXX) $(CXXFLAGS) -c $<
 
 help: Doxyfile $(SOURCE)
 	doxygen Doxyfile
