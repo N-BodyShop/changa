@@ -2685,6 +2685,13 @@ void Main::setupICs() {
           }
       } 
   
+  // do the source terms
+  ckout << "Calculating user gravity source term ...";
+  startTime = CkWallTimer();
+  dMProxy.initUserGravity( param, CkCallbackResumeThread());
+  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
+            << endl;
+
   param.externalGravity.CheckParams(prm, param);
 
   string achLogFileName = string(param.achOutName) + ".log";

@@ -4,7 +4,7 @@
 #include "UserPWGravity.h"
 #include "TurbulentDrivingSource.h"
 #include "physconst.h"
-//include "parameters.h"
+#include "ParallelGravity.h"
 #include <stdio.h>
 #include <math.h>
 
@@ -94,6 +94,16 @@ void UserRadGravity::getGravity( double t, double x, double y, double z, double&
 void UserZGravity::initializeParameters( Parameters param){
   gravLengthScale = param.dgravL;
   zGravity = param.dgrav;
+}
+
+void DataManager::initUserGravity( Parameters param, const CkCallback& cb) {
+  UserGravity::initUserGravityParameters( param);
+  UserGravity::initConstants( param.iUserGravityType, param.dSecUnit, (3.0857e21*param.dKpcUnit),
+      param.vPeriod.x, param.vPeriod.y, param.vPeriod.z);
+
+  UserGravity::initUserGravity();
+  contribute(cb);
+
 }
 
 void UserZGravity::getGravity( double t, double x, double y, double z, double& gx, double& gy, double& gz, double &dtg) {
