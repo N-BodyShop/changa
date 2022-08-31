@@ -11,7 +11,6 @@
 #include "Sph.h"
 #include "SphUtils.h"
 #include "physconst.h"
-#include "UserGravity.h"
 #include "formatted_string.h"
 
 #include <float.h>
@@ -131,13 +130,6 @@ void Main::initCooling()
             }
         }
 #endif
-  // do the source terms
-  ckout << "Calculating source term ...";
-  double startTime = CkWallTimer();
-  dMProxy.initUserGravity( param, CkCallbackResumeThread());
-  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-            << endl;
-  
     }
 
 /**
@@ -180,16 +172,6 @@ DataManager::dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb
 #endif
     contribute(cb);
     }
-
-void DataManager::initUserGravity( Parameters param, const CkCallback& cb) {
-  UserGravity::initUserGravityParameters( param);
-  UserGravity::initConstants( param.iUserGravityType, param.dSecUnit, (3.0857e21*param.dKpcUnit),
-      param.vPeriod.x, param.vPeriod.y, param.vPeriod.z);
-
-  UserGravity::initUserGravity();
-  contribute(cb);
-
-}
 
 ///
 /// @brief function from PKDGRAV to read an ASCII table
