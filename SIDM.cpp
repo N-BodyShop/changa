@@ -66,7 +66,7 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
         q = nnList[i].p;
         if (q->iOrder != p->iOrder)  //don't interact with self
         {
-        ran=rand()/((double)RAND_MAX); //random number on [0,1]
+        ran=tp->rndGen.dbl(); //random number on [0,1]
         dvx = (-p->velocity.x + q->velocity.x)/a - aDot*nnList[i].dx.x; //v or vpred? 
         dvy = (-p->velocity.y + q->velocity.y)/a - aDot*nnList[i].dx.y; 
         dvz = (-p->velocity.z + q->velocity.z)/a - aDot*nnList[i].dx.z; 
@@ -134,8 +134,8 @@ void SIDMSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth, pqSmoothNode *
             pcm0=sqrt(pxcm*pxcm+pycm*pycm+pzcm*pzcm);
             norm=666;
             while (norm>1.0){ //unit sphere point picking (Marsaglia 1972)
-                uvar=2.0*(rand()/(double)RAND_MAX)-1.0;  //#random number on [-1,1]
-                vvar=2.0*(rand()/(double)RAND_MAX)-1.0;
+                uvar=2.0*tp->rndGen.dbl()-1.0;  // random number on [-1,1]
+                vvar=2.0*tp->rndGen.dbl()-1.0;
                 norm=(uvar*uvar+vvar*vvar);
                 }
             ux=2.0*uvar*sqrt(1.0-uvar*uvar-vvar*vvar);

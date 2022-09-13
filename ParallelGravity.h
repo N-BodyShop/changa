@@ -25,6 +25,8 @@
 #include "dumpframe.h"
 #include <liveViz.h>
 
+#include "rand.h"
+
 #include "TaggedVector3D.h"
 
 #include "codes.h"
@@ -1048,6 +1050,8 @@ class TreePiece : public CBase_TreePiece {
 	/// Time read in from input file
 	double dStartTime;
 
+        Rand rndGen;            // Random number generator for star
+                                // formation and other uses.
 private:        
 	// liveViz 
 	liveVizRequestMsg * savedLiveVizMsg;

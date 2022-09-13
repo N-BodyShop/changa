@@ -382,7 +382,7 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
         GravityParticle *p = &myParticles[i];
         if(p->isStar()) {
             if(p->fTimeForm() >= 0.0) {
-                fb.DoFeedback(p, dTime, dDeltaYr, fbTotals);
+                fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, rndGen);
             }
             else {  // zero out feedback quantities for Sinks
                 p->fMSN() = 0.0;
@@ -416,9 +416,11 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 /// @param dTime Current time in years.
 /// @param dDeltaYr Timestep in years.
 /// @param fbTotals pointer to total effects for bookkeeping
+/// @param rndGen Random number generator reference
 
 void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
-                      FBEffects *fbTotals) const
+                      FBEffects *fbTotals,
+                      Rand& rndGen) const
 {
     double dTotMassLoss, dTotMetals, dTotMOxygen, dTotMIron, dDelta;
     dTotMassLoss = dTotMetals = dTotMOxygen = dTotMIron = 0.0;
@@ -444,7 +446,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	switch (j) {
 	case FB_SNII:
 	    if (bAGORAFeedback) break;
-	    sn.CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
+	    sn.CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects, rndGen);
 	    if (sn.dESN > 0)
 		p->fNSN() = fbEffects.dEnergy*MSOLG*fbEffects.dMassLoss/sn.dESN;
 	    break;
@@ -1101,8 +1103,8 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
         nFormed++;
         norm = 666; // \m/
         while (norm>1.0){ //unit sphere point picking (Marsaglia 1972)
-            uvar=2.0*(rand()/(double)RAND_MAX)-1.0;  //#random number on [-1,1]
-            vvar=2.0*(rand()/(double)RAND_MAX)-1.0;
+            uvar=2.0*rndGen.dbl()-1.0;  //#random number on [-1,1]
+            vvar=2.0*rndGen.dbl()-1.0;
             norm=(uvar*uvar+vvar*vvar);
         }
         norm = sqrt(1.0-norm); //only do one sqrt

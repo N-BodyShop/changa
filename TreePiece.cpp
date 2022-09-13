@@ -5737,6 +5737,8 @@ void TreePiece::pup(PUP::er& p) {
 
   p | nSetupWriteStage;
 
+  p | rndGen;
+
   // Periodic variables
   p | nReplicas;
   p | fPeriod;
