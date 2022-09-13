@@ -5,6 +5,7 @@
 #define STARFORM_HINCLUDED
 
 #include "parameters.h"
+#include "rand.h"
 
 /// Parameters and methods to implement star formation.
 class Stfm {
@@ -35,7 +36,6 @@ class Stfm {
     double dInitBHMass;		/* Initial mass of Black Holes */
  public:
     int iStarFormRung;		/* rung for star formation */
-    int iRandomSeed;		/* seed for probability */
     double dMinGasMass;		/* minimum mass gas before we delete
 				   the particle. */
     double dDeltaStarForm;	/* timestep in system units */
@@ -43,14 +43,13 @@ class Stfm {
     void CheckParams(PRM prm, struct parameters &param);
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-			      double dDelta, double dCosmoFac, double *T, double *H2Fraction);
+			      double dDelta, double dCosmoFac, double *T, double *H2Fraction, Rand& rndGen);
     inline void pup(PUP::er &p);
     };
 
 inline void Stfm::pup(PUP::er &p) {
     p|dDeltaStarForm;
     p|iStarFormRung;
-    p|iRandomSeed;
     p|dGmUnit;
     p|dGmPerCcUnit;
     p|dSecUnit;

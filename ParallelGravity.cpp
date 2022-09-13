@@ -631,7 +631,7 @@ Main::Main(CkArgMsg* m) {
 
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
-		    sizeof(int), "iRand", "<Feedback random Seed> = 1");
+		    sizeof(int), "iRand", "<Random Seed> = 1");
 	
 	param.sinks.AddParams(prm, param);
 
@@ -2266,8 +2266,10 @@ void Main::setupICs() {
       param.stfm->CheckParams(prm, param);
       if(param.sinks.bBHSink)
 	  param.sinks.dDeltaStarForm = param.stfm->dDeltaStarForm;
-      treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
       }
+  if(param.bStarForm || param.bFeedback || param.iSIDMSelect) {
+      treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
+  }
 
   if(param.bStarForm)
       initStarLog();
@@ -2630,8 +2632,8 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	    initCooling();
 	if(param.bStarForm)
 	    initStarLog();
-        if(param.bStarForm || param.bFeedback)
-            treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
+        if(param.bStarForm || param.bFeedback || param.iSIDMSelect)
+            treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
         DumpFrameInit(dTime0, 0.0, bIsRestarting);
         timings.resize(PHASE_FEEDBACK+1);
         nActiveGrav = nTotalParticles;

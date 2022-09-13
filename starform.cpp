@@ -77,9 +77,6 @@ void Stfm::AddParams(PRM prm)
     dInitBHMass = 0.0;
     prmAddParam(prm,"dInitBHMass",paramDouble, &dInitBHMass, sizeof(double),
 		"bhm0", "<initial BH mass> = 0.0");
-    iRandomSeed = 1;
-    prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
-		"iRand", "<Star formation random Seed> = 1");
     }
 
 /*
@@ -149,8 +146,8 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 
 void TreePiece::initRand(int iRand, const CkCallback &cb)  
 {
-   srand(iRand + thisIndex);  // make each piece unique
-   contribute(cb);
+    rndGen = Rand(iRand + thisIndex);  // make each piece unique
+    contribute(cb);
 }
 
 ///
@@ -222,8 +219,9 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 	GravityParticle *p = &myParticles[i];
 	if(p->isGas()) {
 	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
-						   dDelta, dCosmoFac, 
-						   &TempForm,&H2FractionForm);
+                                                   dDelta, dCosmoFac, 
+                                                   &TempForm,&H2FractionForm,
+                                                   rndGen);
 	    
 	    if(starp != NULL) {
 		nFormed++;
@@ -261,8 +259,11 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 
 */
 GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-				double dDelta,  // drift timestep
-				double dCosmoFac, double *T, double *H2FractionForm) 
+                                double dDelta,  // drift timestep
+                                double dCosmoFac, double *T,
+                                double *H2FractionForm,
+                                Rand& rndGen
+                                ) 
 {
     /*
      * Determine dynamical time.
@@ -325,7 +326,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     /* No negative or very tiny masses please! */
     if ( (dDeltaM > p->mass) ) dDeltaM = p->mass;
 
-    if(dMprob*p->mass < dDeltaM*(rand()/((double) RAND_MAX)))
+    if(dMprob*p->mass < dDeltaM*rndGen.dbl())
 	return NULL;
 
     /* 
@@ -351,7 +352,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     /* Seed BH Formation JMB 1/19/09*/
     int newbh = 0;  /* BH tracker */
     if (bBHForm == 1 && starp->fStarMetals() <= 1.0e-6
-	&& dBHFormProb > (rand()/((double) RAND_MAX ))) {
+        && dBHFormProb > rndGen.dbl()) {
 	starp->fTimeForm() = -1.0*starp->fTimeForm();
 	newbh = 1;
 	/* Decrement mass of particle.*/

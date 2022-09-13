@@ -2162,7 +2162,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         /* cf. Weaver etal'77 mdot = 4.13d-14 * (dx^2/4 !pi) (Thot^2.5-Tcold^2.5)/dx - 2 udot mHot/(k T/mu) 
            Kernel sets total probability to 1 */
         Prob = fFactor*(up52-pow(q->uPred(),2.5))*rs/q->mass;
-        if ( (rand()/((double) RAND_MAX)) < Prob) {
+        if ( tp->rndGen.dbl() < Prob) {
             mPromoted += q->mass; 
             }
         }
