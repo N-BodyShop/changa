@@ -724,10 +724,10 @@ static void load_NC_star(std::string filename, int64_t startParticle,
         CkPrintf("loading stars\n");
 
     for(int i = 0; i < myNumStar; ++i) {
-        myParts[i].fDensity = 0.0;
         myParts[i].iType = TYPE_STAR;
-        myParts[i].iGasOrder() = -1;
         myParts[i].extraData = &myStarParts[i];
+        myParts[i].fDensity = 0.0;
+        myParts[i].iGasOrder() = -1;
         }
     load_NC_base(filename, startParticle, myNumStar, myParts);
 
