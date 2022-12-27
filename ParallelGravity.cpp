@@ -2845,6 +2845,7 @@ Main::doSimulation()
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
+        CkWaitQD(); // Be sure system is quiescent before checkpoint
 	CkCallback cb(CkIndex_Main::restart(0), mainChare);
 	CkStartCheckpoint(achCheckFileName.c_str(), cb, true);
 	return;
