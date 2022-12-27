@@ -3069,7 +3069,8 @@ Main::doSimulation()
 	  }
   }
 
-  treeProxy[0].flushStarLog(CkCallbackResumeThread());
+  if(param.bBenchmark == 0)
+      treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	
 #if COSMO_STATS > 0
   ckerr << "Outputting statistics ...";
