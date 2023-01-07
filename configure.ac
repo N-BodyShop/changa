@@ -79,15 +79,16 @@ else
 fi
 if test "${MISSING_XDR}" = "yes" ; then
    echo "XDR missing, attempting to use xdr with package"
-   if test -d ../xdr ; then
-   	ln -s $PWD/../xdr ../rpc
+   if test -d $STRUCT_DIR/../xdr ; then
+   	ln -s $STRUCT_DIR/../xdr ./rpc
+	(cd $STRUCT_DIR/../xdr; make)
    else
 	echo "Try downloading the xdr package and place it in the parent directory."
 	echo "And do a make in ../xdr"
 	exit
    fi
-   CPPFLAGS="$CPPFLAGS -I.."
-   LDFLAGS="$LDFLAGS -L../xdr"
+   CPPFLAGS="$CPPFLAGS -I."
+   LDFLAGS="$LDFLAGS -L$STRUCT_DIR/../xdr"
 fi
 
 # Compiler-specific options
