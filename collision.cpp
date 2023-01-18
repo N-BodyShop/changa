@@ -87,6 +87,8 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
     if (param.iCollModel != 1)
         CkAbort("ChaNGa must be compiled without the CHANGESOFT flag to allow for particle radii to grow during mergers\n");
 #endif
+    if (param.iCollModel == 4 && ~param.externalForce.bCentralBody)
+        CkAbort("Cannot calculate tidal force without bCentralBody enabled\n");
     }
 
 /**
@@ -179,8 +181,9 @@ void TreePiece::getNearCollPartners(const CkCallback& cb) {
  * @param dTime The current time in the simulation (in simulation units)
  * @param dDelta The size of the next timestep (in simulation units)
  * @param activeRung The currently active rung
+ * @param dCentMass The central mass if using a heliocentric potential (in simulation units)
  */
-void Main::doCollisions(double dTime, double dDelta, int activeRung)
+void Main::doCollisions(double dTime, double dDelta, int activeRung, double dCentMass)
 {
     int bHasCollision;
     int nColl = 0;
@@ -234,10 +237,12 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
                     nColl++;
                     CkReductionMsg *msgChk1;
                     treeProxy.resolveCollision(param.collision, c[0], c[1], dDelta,
-                                           dTime, CkCallbackResumeThread((void*&)msgChk1));
+                                           dTime, dCentMass, CkCallbackResumeThread((void*&)msgChk1));
                     string achCollLogFileName = string(param.achOutName) + ".coll";
                     int *collType = (int *)msgChk1->getData();
-                    logCollision(dTime, c, *collType, achCollLogFileName.c_str());
+		    // Only log mergers, bounces cause way too much file IO
+		    if (*collType == 1)
+                        logCollision(dTime, c, *collType, achCollLogFileName.c_str());
                     delete msgChk1;
                     }
                 // Otherwise, force both particles onto the smaller rung
@@ -266,7 +271,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung)
 void
 Main::logCollision(double dTime, ColliderInfo *c, int collType, const char *achCollLogFileName)
 {
-    static int first = 1;
+    /*static int first = 1;
     FILE *fpLog = fopen(achCollLogFileName, "a");
     if(first && (!bIsRestarting || dTimeOld == 0.0)) {
         fprintf(fpLog, "time collType iorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y x2z v1x v1y v1z v2x v2y v2z w1x w1y w1z w2x w2y w2z\n");
@@ -281,7 +286,15 @@ Main::logCollision(double dTime, ColliderInfo *c, int collType, const char *achC
                    c[0].w[0], c[0].w[1], c[0].w[2],
                    c[1].w[0], c[1].w[1], c[1].w[2]);
                    
-    fclose(fpLog);
+    fclose(fpLog);*/
+    CkPrintf("collision: %g %d %d %d %.15g %.15g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
+               dTime, collType, c[0].iOrder, c[1].iOrder, c[0].mass, c[1].mass, c[0].radius, c[1].radius,
+              c[0].position[0], c[0].position[1], c[0].position[2],
+              c[1].position[0], c[1].position[1], c[1].position[2],
+              c[0].velocity[0], c[0].velocity[1], c[0].velocity[2],
+              c[1].velocity[0], c[1].velocity[1], c[1].velocity[2],
+              c[0].w[0], c[0].w[1], c[0].w[2],
+              c[1].w[0], c[1].w[1], c[1].w[2]);
     }
 
 /**
@@ -404,7 +417,7 @@ void TreePiece::resolveWallCollision(Collision coll, const ColliderInfo &c1,
  */
 void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
                                  const ColliderInfo &c2, double baseStep,
-                                 double timeNow, const CkCallback& cb) {
+                                 double timeNow, double dCentMass, const CkCallback& cb) {
     GravityParticle *p;
     int iCollResult = -1;
     double eps = 1e-15; // Due to roundoff error, mass comparisons are approximate
@@ -416,7 +429,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
     for (unsigned int i=1; i <= myNumParticles; i++) {
         p = &myParticles[i];
         if (p->iOrder == c1.iOrder) {
-            iCollResult = coll.doCollision(p, c2);
+            iCollResult = coll.doCollision(p, c2, dCentMass);
             if (iCollResult == MERGE) {
 		if ((c1.mass > (c2.mass + eps*c2.mass)) || ((fabs(c1.mass - c2.mass)/c1.mass < eps) && (c1.iOrder < c2.iOrder))) {
                     CkPrintf("Merge %d into %d\n", c2.iOrder, p->iOrder);
@@ -434,7 +447,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
     for (unsigned int i=1; i <= myNumParticles; i++) {
         p = &myParticles[i];
         if (p->iOrder == c2.iOrder) {
-            iCollResult = coll.doCollision(p, c1);
+            iCollResult = coll.doCollision(p, c1, dCentMass);
             if (iCollResult == MERGE) {
 		if ((c2.mass > (c1.mass + eps*c1.mass)) || ((fabs(c2.mass - c1.mass)/c1.mass < eps) && (c2.iOrder < c1.iOrder))) {
                     CkPrintf("Merge %d into %d\n", c1.iOrder, p->iOrder);
@@ -602,9 +615,10 @@ void Collision::doWallCollision(GravityParticle *p) {
     p->velocity -= vParallel*(1.-dEpsT);
     }
 
-int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
+int Collision::doCollision(GravityParticle *p, const ColliderInfo &c, double dCentMass)
 {
     int iCollType = -1;
+
     if (iCollModel == 0) {
         doMerger(p, c);
         iCollType = MERGE;
@@ -619,6 +633,13 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
     else if (iCollModel == 3) {
         doPartialAcc(p, c);
         iCollType = FRAG;
+        }
+    // Canup 95, surface escape velocity modified
+    // by tidal force
+    else if (iCollModel == 4) {
+        iCollType = doTidalAcc(p, c, dCentMass);
+        if (iCollType == MERGE) doMerger(p, c);
+        else doBounce(p, c);
         }
 
     return iCollType;
@@ -676,6 +697,44 @@ int Collision::doMergeOrBounce(GravityParticle *p, const ColliderInfo &c) {
 void Collision::doPartialAcc(GravityParticle *p, const ColliderInfo &c) {
     // Is it going to be a problem to do a bounce + mass transfer?
     // Yes, might as well just follow the full recipie from L+S
+    }
+
+int Collision::doTidalAcc(GravityParticle *p, const ColliderInfo &c, double dCentMass) {
+        // First, convert to Hill's coordinates
+        double m1 = p->mass;
+        double m2 = c.mass;
+        Vector3D<double> r = p->position - c.position;
+        Vector3D<double> rcom = (m1*p->position + m2*c.position)/(m1 + m2);
+        // Unclear how to define the reference semimajor axis
+        // Here im using the com position in the xy plane
+        Vector3D<double> vec;
+        vec.x = rcom.x;
+        vec.y = rcom.y;
+        vec.z = 0.0;
+        double a = vec.length();
+        Vector3D<double> rHat;
+        rHat.x = rcom.x;
+        rHat.y = rcom.y;
+        rHat.z = 0.0;
+        rHat = rHat.normalize();
+
+        double x = dot(rcom, rHat);
+        double z = r.z;
+        double omegaSq = a*a*a/dCentMass;
+        double rh = pow((m1 + m2)/(3*dCentMass), 0.3333333)*a;
+        double vprime = (p->velocity - c.velocity).length();
+
+        double Ej = (0.5*vprime*vprime) - (1.5*x*x*omegaSq) + (0.5*z*z*omegaSq)
+                     - ((m1 + m2)/r.length()) + (4.5*rh*rh*omegaSq);
+
+        // Merger criteria: Ej < 0 and mass center inside of rh
+        //CkPrintf("Tidal collision: %g, %g, %g\n", Ej, (p->soft*2 + c.radius), rh);
+        if (Ej < 0 && (p->soft*2 + c.radius) < rh) {
+            return MERGE;
+            }
+
+        return BOUNCE;
+         
     }
 
 /*int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)

@@ -451,7 +451,7 @@ mainmodule ParallelGravity {
     entry void getCollInfo(const CkCallback& cb);
     entry void getCollInfo(int iOrder, const CkCallback& cb);
     entry void resolveCollision(Collision coll, const ColliderInfo &c1, const ColliderInfo &c2,
-        double baseStep, double timeNow, const CkCallback& cb);
+        double baseStep, double timeNow, double dCentMass, const CkCallback& cb);
     entry void sameHigherRung(int iord1, int rung1, int iord2, int rung2, const CkCallback& cb);
     entry void resolveWallCollision(Collision coll, const ColliderInfo &c1, const CkCallback& cb);
     entry void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);

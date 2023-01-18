@@ -602,7 +602,7 @@ public:
 	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
         void doCollisions(double dTime, double dDelta);
 #ifdef COLLISION
-    void doCollisions(double dTime, double dDelta, int activeRung);
+    void doCollisions(double dTime, double dDelta, int activeRung, double dCentMass);
     void doNearCollisions(double dTime, double dDelta, int activeRung);
 #endif
 	void FormStars(double dTime, double dDelta);
@@ -1840,8 +1840,7 @@ public:
     void getCollInfo(const CkCallback& cb);
     void getCollInfo(int iOrder, const CkCallback& cb);
     void resolveCollision(Collision coll, const ColliderInfo &c1, const ColliderInfo &c2,
-                          double baseStep, double timeNow,
-                          const CkCallback& cb);
+                          double baseStep, double timeNow, double dCentMass, const CkCallback& cb);
     void sameHigherRung(int iord1, int rung1, int iord2, int rung2, const CkCallback& cb);
     void resolveWallCollision(Collision coll, const ColliderInfo &c1, const CkCallback& cb);
     void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
