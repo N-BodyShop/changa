@@ -57,6 +57,7 @@ public:
     int bCollStep;        /* timestepping set by near-collisions */
     int iCollStepRung;    /* Rung to place nearly-colliding particles on*/
     double dCollStepFac;  /* Inflation factor for particle radius when searching for near-collisions*/
+    int bLogOverlaps;     /* check for overlaps between particles */
     int bWall;            /* particles will bounce off a wall in the z plane */
     int iCollModel;       /* collision model to use, 0 = merge only, 1 = bounce only, 2 = merge/bounce, 3 = partial accretion */
     double dBallFac;      /* scale factor for collision search radius */
@@ -89,6 +90,7 @@ public:
 inline void Collision::pup(PUP::er &p) {
     p | nSmoothCollision;
     p | bCollStep;
+    p | bLogOverlaps;
     p | iCollStepRung;
     p | dCollStepFac;
     p | bWall;

@@ -1839,6 +1839,7 @@ public:
     void getNearCollPartners(const CkCallback& cb);
     void getCollInfo(const CkCallback& cb);
     void getCollInfo(int iOrder, const CkCallback& cb);
+    void logOverlaps(const CkCallback& cb);
     void resolveCollision(Collision coll, const ColliderInfo &c1, const ColliderInfo &c2,
                           double baseStep, double timeNow, double dCentMass, const CkCallback& cb);
     void sameHigherRung(int iord1, int rung1, int iord2, int rung2, const CkCallback& cb);

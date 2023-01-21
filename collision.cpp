@@ -74,6 +74,9 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "bSkipP0", paramBool, &bSkipP0,
         sizeof(int), "bSkipP0", "<Don't do collision check for first particle> = 0");
 
+    bLogOverlaps = 0;
+    prmAddParam(prm, "bLogOverlaps", paramBool, &bLogOverlaps,
+        sizeof(int), "bLogOverlaps", "<Output overlapping particles to a file during collision check> = 0");
 
     }
 
@@ -198,6 +201,13 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, double dCen
            param.collision.iCollModel, 0, param.collision);
         treeProxy.startReSmooth(&pCS, CkCallbackResumeThread());
 
+	// Go through every tree piece and print out iOrder and iOrderCol
+        // for every particle that has iOrderCol set
+	if (param.collision.bLogOverlaps) {
+            treeProxy.logOverlaps(CkCallbackResumeThread());
+	    break;
+	    }
+
         // Once 'dtCol' and 'iOrderCol' are set, we need to determine which
         // collision is going to happen the soonest
         CkReductionMsg *msgChk;
@@ -295,6 +305,17 @@ Main::logCollision(double dTime, ColliderInfo *c, int collType, const char *achC
               c[1].velocity[0], c[1].velocity[1], c[1].velocity[2],
               c[0].w[0], c[0].w[1], c[0].w[2],
               c[1].w[0], c[1].w[1], c[1].w[2]);
+    }
+
+void TreePiece::logOverlaps(const CkCallback& cb)
+{
+    FILE *fpLog = fopen("overlap.log", "a");
+    for (unsigned int i=1; i <= myNumParticles; i++) {
+        GravityParticle *p = &myParticles[i];
+        if (p->dtCol < 0) fprintf(fpLog, "%d %d\n", p->iOrder, p->iOrderCol);
+        }
+    fclose(fpLog);
+    contribute(cb);
     }
 
 /**
@@ -1364,6 +1385,11 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                    p->iOrderCol = q->iOrder;
                    }
                }
+       } else if (coll.bLogOverlaps) {
+            if (dx.length() < (p->soft*2 + q->soft*2)) {
+                q->dtCol = -1;
+                q->iOrderCol = p->iOrder;
+	        }
        } else {
            // Collider search
            rdotv = dot(dx, vRel);
