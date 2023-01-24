@@ -73,10 +73,12 @@ void Collision::AddParams(PRM prm)
     bSkipP0 = 0;
     prmAddParam(prm, "bSkipP0", paramBool, &bSkipP0,
         sizeof(int), "bSkipP0", "<Don't do collision check for first particle> = 0");
-
     bLogOverlaps = 0;
     prmAddParam(prm, "bLogOverlaps", paramBool, &bLogOverlaps,
         sizeof(int), "bLogOverlaps", "<Output overlapping particles to a file during collision check> = 0");
+    dAlphaColl = 1.0; 
+    prmAddParam(prm, "dAlphaColl", paramDouble, &dAlphaColl,
+        sizeof(double), "dAlphaColl","<Scale factor for Merger Criterion> = 1.0");  
 
     }
 
@@ -90,8 +92,10 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
     if (param.iCollModel != 1)
         CkAbort("ChaNGa must be compiled without the CHANGESOFT flag to allow for particle radii to grow during mergers\n");
 #endif
-    if (param.iCollModel == 4 && ~param.externalForce.bCentralBody)
+    if (param.iCollModel == 5 && ~param.externalForce.bCentralBody)
         CkAbort("Cannot calculate tidal force without bCentralBody enabled\n");
+   if (param.iCollModel > 5)
+       CkAbort("Invalid Collision Model number\n");
     }
 
 /**
@@ -243,7 +247,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, double dCen
                     CkAbort("Warning: Collider pair mismatch\n");
                     }
                 // Only resolve the collision if both particles are on the same rung
-                if (c[0].rung == c[1].rung) {
+                if (c[0].rung == c[1].rung){
                     nColl++;
                     CkReductionMsg *msgChk1;
                     treeProxy.resolveCollision(param.collision, c[0], c[1], dDelta,
@@ -729,12 +733,13 @@ int Collision::doTakashi(GravityParticle *p, const ColliderInfo &c) {
     double am = cross(vRel,pRel).length();
     double sintheta = am / (vRel.length() * pRel.length());
     double theta = 1 - sintheta;
+    double vEsc = sqrt(2.*Mtot/((p->soft*2 + c.radius)/dRadInf));
     double udc1 = -0.00863;
     double udc2 = -0.107;
     double udc3 = 1.73;
     double udc4 = 1.11;
     double udc5 = 1.94;
-    double vCr = ((udc1 * pow(T,2) * pow(theta,udc5)) + (udc2 * pow(T,2)) + (udc3 * pow(theta,udc5)) + udc4) * vRel.length();
+    double vCr = ((udc1 * pow(T,2) * pow(theta,udc5)) + (udc2 * pow(T,2)) + (udc3 * pow(theta,udc5)) + udc4) * (dAlphaColl *  vEsc);
     double wMax = sqrt(Mtot/(radNew*radNew*radNew));
 
 	
@@ -751,6 +756,7 @@ int Collision::doTakashi(GravityParticle *p, const ColliderInfo &c) {
     
     return iCollType;
     }
+
 
 void Collision::doPartialAcc(GravityParticle *p, const ColliderInfo &c) {
     // Is it going to be a problem to do a bounce + mass transfer?
