@@ -892,6 +892,10 @@ void TreePiece::updateuDot(int activeRung,
         else {
             PoverRhoGas = gammam1*p->uPred();
         }
+#ifdef SUPERBUBBLE
+        double frac = p->massHot()/p->mass;
+        PoverRhoGas = gammam1*(p->uHot()*frac+p->u()*(1-frac));
+#endif
         PoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
         PoverRho = PoverRhoGas;
         if(PoverRho < PoverRhoJeans) PoverRho = PoverRhoJeans;
@@ -906,8 +910,6 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef COOLING_MOLECULARH
         double columnLHot = 0;
 #endif
-        double frac = p->massHot()/p->mass;
-        PoverRho = gammam1*(p->uHot()*frac+p->u()*(1-frac));
         double fDensityHot;
         double uMean = frac*p->uHot()+(1-frac)*p->u();
         CkAssert(uMean > 0.0);
