@@ -2040,17 +2040,20 @@ void Main::advanceBigStep(int iStep) {
     if(verbosity > 1)
 	memoryStats();
 
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /***** Resorting of particles and Domain Decomposition *****/
     domainDecomp(activeRung);
 
     if(verbosity > 1)
 	memoryStats();
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /********* Load balancer ********/
     loadBalance(activeRung);
 
     if(verbosity > 1)
 	memoryStats();
 
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /******** Tree Build *******/
     buildTree(activeRung);
 
@@ -2063,6 +2066,7 @@ void Main::advanceBigStep(int iStep) {
 
     if(verbosity > 1)
 	memoryStats();
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     double gravStartTime;
     startGravity(cbGravity, activeRung, &gravStartTime);
     if(param.bDoExternalGravity)
@@ -2127,6 +2131,7 @@ void Main::advanceBigStep(int iStep) {
         }
 
     double startTime = CkWallTimer();
+    CkPrintf("Elapsed time: %g\n", startTime - dSimStartTime);
     treeProxy.finishNodeCache(CkCallbackResumeThread());
     double tCache = CkWallTimer() - startTime;
     timings[activeRung].tCache += tCache;
@@ -2789,6 +2794,7 @@ Main::doSimulation()
     
     if (verbosity) ckout << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
+    CkPrintf("Elapsed time: %g\n", startTime - dSimStartTime);
     starCenterOfMass();
     for(int iRung = 0; iRung < timings.size(); iRung++) {
         timings[iRung].clear();
