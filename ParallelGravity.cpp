@@ -2295,6 +2295,7 @@ void Main::setupICs() {
       if (param.iSIDMSelect==2){ //only for classical regime do this
           param.dSIDMVariable=param.dSIDMVariable/(pow(param.dMsolUnit*MSOLG*GCGS/(KPCCM*param.dKpcUnit),.5)/100000.0) ; //converts from km/s to sim units
           }
+      if(param.iStartStep) restartNSIDM();
       } 
   
   param.externalGravity.CheckParams(prm, param);
