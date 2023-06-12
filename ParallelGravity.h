@@ -605,6 +605,7 @@ public:
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
         void doSIDM(double dTime,double dDelta, int activeRung); /* SIDM */
+        void restartNSIDM();
 };
 
 /* IBM brain damage */
