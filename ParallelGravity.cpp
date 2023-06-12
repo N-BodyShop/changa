@@ -2294,9 +2294,11 @@ void Main::setupICs() {
       param.dSIDMSigma=param.dSIDMSigma*param.dMsolUnit*MSOLG/(param.dKpcUnit*KPCCM*param.dKpcUnit*KPCCM); //converts input cross section in cm^2 g^-1 to simulation units in len_unit^2 / mass_unit
       if (param.iSIDMSelect==2){ //only for classical regime do this
           param.dSIDMVariable=param.dSIDMVariable/(pow(param.dMsolUnit*MSOLG*GCGS/(KPCCM*param.dKpcUnit),.5)/100000.0) ; //converts from km/s to sim units
-          }
+      }
+      // iStartStep != 0 indicates we are restarting from an output:
+      // read in extra information.
       if(param.iStartStep) restartNSIDM();
-      } 
+  }
   
   param.externalGravity.CheckParams(prm, param);
 

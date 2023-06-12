@@ -39,7 +39,6 @@ Main::restartNSIDM()
             CkError("WARNING: no NSIDM file, or wrong format for restart\n");
     } else {
         // Assume TIPSY arrays
-        // read iOrder
         if(arrayFileExists(basefilename + ".nsidm", nTotalParticles)) {
             iNSIDMOutputParams pNSIDMOut(basefilename, 0, 0.0);
             treeProxy.readTipsyArray(pNSIDMOut, CkCallbackResumeThread());
