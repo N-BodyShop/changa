@@ -9,6 +9,47 @@
 #include "smooth.h"
 #include "SIDM.h"
 
+#include <sys/stat.h>
+bool arrayFileExists(const std::string filename, const int64_t count) ;
+/**
+ *  @brief Read in array files for SIDM interact count, if needed
+ */
+void
+Main::restartNSIDM()
+{
+#ifdef SIDMINTERACT
+    // The following is needed only if we are tracking the number of
+    // interactions
+    if(verbosity)
+        CkPrintf("Restarting NSIDM with array files.\n");
+
+    struct stat s;
+    int err = stat(basefilename.c_str(), &s);
+    if(err != -1 && S_ISDIR(s.st_mode)) {
+        // The file is a directory; assume NChilada
+        int64_t nDark = 0;
+        if(nTotalDark > 0)
+            nDark = ncGetCount(basefilename + "/dark/nsidm");
+        if(nDark == nTotalDark) {
+            iNSIDMOutputParams pNSIDMOut(basefilename, 6, 0.0);
+            treeProxy.readFloatBinary(pNSIDMOut, param.bParaRead,
+                                      CkCallbackResumeThread());
+        }
+        else
+            CkError("WARNING: no NSIDM file, or wrong format for restart\n");
+    } else {
+        // Assume TIPSY arrays
+        if(arrayFileExists(basefilename + ".nsidm", nTotalParticles)) {
+            iNSIDMOutputParams pNSIDMOut(basefilename, 0, 0.0);
+            treeProxy.readTipsyArray(pNSIDMOut, CkCallbackResumeThread());
+        }
+        else {
+            CkError("WARNING: no igasorder file for restart\n");
+        }
+    }
+#endif
+}
+
 ///
 /// @brief Main method to perform Self Interacting Dark Matter interactions
 /// @param dTime current simulation time
