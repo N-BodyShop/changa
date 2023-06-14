@@ -894,7 +894,7 @@ void TreePiece::updateuDot(int activeRung,
         }
 #ifdef SUPERBUBBLE
         double frac = p->massHot()/p->mass;
-        PoverRhoGas = gammam1*(p->uHot()*frac+p->u()*(1-frac));
+        PoverRhoGas = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
 #endif
         PoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
         PoverRho = PoverRhoGas;
