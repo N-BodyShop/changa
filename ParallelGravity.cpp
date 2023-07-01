@@ -2434,6 +2434,12 @@ void Main::setupICs() {
 #ifdef DAMPING
   ofsLog << " DAMPING";
 #endif
+#ifdef SLIDING_PATCH
+  ofsLog << " SLIDING_PATCH";
+#endif
+#ifdef NO_HILL
+  ofsLog << " NO_HILL";
+#endif
   ofsLog << endl;
   ofsLog << "# Key sizes: " << sizeof(KeyType) << " bytes particle "
          << sizeof(NodeKey) << " bytes node" << endl;
