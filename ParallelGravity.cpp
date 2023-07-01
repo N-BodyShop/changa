@@ -3687,7 +3687,7 @@ void Main::writeOutput(int iStep)
                                  // processors for continuing the simulation.
         // The following call is to get the particles in key order
         // before the sort.
-        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, param.externalGravity.dOrbFreq, dTime,
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, dTime,
             CkCallbackResumeThread());
         domainDecomp(0);
     }
