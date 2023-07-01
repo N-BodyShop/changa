@@ -61,6 +61,9 @@ class extraSPHData
     double _fTimeCoolIsOffUntil;/* time cooling is turned back on */
     Vector3D<double> _vPred;	/* Predicted velocities for velocity
 				   dependent forces */
+#ifdef SLIDING_PATCH
+    double _dPyPred;            ///< Predicted canonical momentum
+#endif
     double _uPred;		/* Predicted internal energy */
     double _divv;		/* Diverence of the velocity */
     Vector3D<double> _curlv;	/* Curl of the velocity */
@@ -122,6 +125,9 @@ class extraSPHData
     inline double& fESNrate() {return _fESNrate;}
     inline double& fTimeCoolIsOffUntil() {return _fTimeCoolIsOffUntil;}
     inline Vector3D<double>& vPred() {return _vPred;}
+#ifdef SLIDING_PATCH
+    inline double& dPyPred() {return _dPyPred;}
+#endif
     inline double& uPred() {return _uPred;}
     inline double& divv() {return _divv;}
     inline Vector3D<double>& curlv() {return _curlv;}
@@ -182,6 +188,9 @@ class extraSPHData
 	p | _fESNrate;
 	p | _fTimeCoolIsOffUntil;
 	p | _vPred;
+#ifdef SLIDING_PATCH
+	p | _dPyPred;
+#endif
 	p | _uPred;
 	p | _divv;
 	p | _curlv;
@@ -413,6 +422,9 @@ public:
 	inline double& fESNrate() {IMAGAS; return (((extraSPHData*)extraData)->fESNrate());}
 	inline double& fTimeCoolIsOffUntil() {IMAGAS; return (((extraSPHData*)extraData)->fTimeCoolIsOffUntil());}
 	inline Vector3D<double>& vPred() { IMAGAS; return (((extraSPHData*)extraData)->vPred());}
+#ifdef SLIDING_PATCH
+	inline double& dPyPred() { IMAGAS; return (((extraSPHData*)extraData)->dPyPred());}
+#endif
 	inline double& uPred() {IMAGAS;  return (((extraSPHData*)extraData)->uPred());}
 	inline double& divv() { IMAGAS; return (((extraSPHData*)extraData)->divv());}
 	inline Vector3D<double>& curlv() { IMAGAS; return (((extraSPHData*)extraData)->curlv());}
