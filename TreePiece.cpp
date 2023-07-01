@@ -1477,10 +1477,12 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 */
 inline void closePatch(int bClosing, double dDelta, GravityParticle *p, double dOrbFreq) {
 #ifdef SLIDING_PATCH
+#ifndef NO_HILL
     if (bClosing) {
         p->velocity.x += 2.0 * dDelta * dOrbFreq * p->dPy;
         p->velocity.y = p->dPy - 2 * dOrbFreq * p->position.x;
     }
+#endif
 #endif
 }
 /**
@@ -1493,6 +1495,7 @@ inline void closePatch(int bClosing, double dDelta, GravityParticle *p, double d
 */
 inline void openPatch(int bClosing, double dDelta, GravityParticle* p, double dOrbFreq) {
 #ifdef SLIDING_PATCH
+#ifndef NO_HILL
     if (!bClosing) {
         p->dPy = p->velocity.x + 2.0 * dOrbFreq * p->position.x;
 
@@ -1500,6 +1503,7 @@ inline void openPatch(int bClosing, double dDelta, GravityParticle* p, double dO
         p->velocity.x += 2.0 * dDelta * dOrbFreq * p->dPy;
         p->velocity.y = p->dPy - dOrbFreq * p->position.x - dOrbFreq * (p->position.x + 2.0 * dDelta * p->velocity.x);
     }
+#endif
 #endif
 }
 
@@ -1719,12 +1723,16 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                   CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
               }
 #endif
-	      }
-      closePatch(bClosing, dDelta[p->rung], p, dOrbFreq);
-      p->velocity += dDelta[p->rung]*p->treeAcceleration;
-      openPatch(bClosing, dDelta[p->rung], p, dOrbFreq);
-      glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
-      
+#ifdef SLIDING_PATCH
+#ifndef NO_HILL
+              p->dPyPred() = p->vPred().y + 2.0*dOrbFreq*p->position.x;
+#endif
+#endif
+          }
+          closePatch(bClosing, dDelta[p->rung], p, dOrbFreq);
+	  p->velocity += dDelta[p->rung]*p->treeAcceleration;
+          openPatch(bClosing, dDelta[p->rung], p, dOrbFreq);
+	  glassDamping(p->velocity, dDelta[p->rung], dGlassDamper);
 	  }
       }
   contribute(cb);
@@ -2066,7 +2074,9 @@ void TreePiece::drift(double dDelta,  // time step in x containing
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
 #ifdef SLIDING_PATCH
-      cosmoType fShear = 0.0;
+      cosmoType fShear = 0.0;   // Shear effect when crossing radial boundary
+      cosmoType fDx = 0.0;      // Acceleration adjustment when
+                                // crossing radial boundary
 #endif
       if (p->iOrder >= nGrowMass)
 	  p->position += dDelta*p->velocity;
@@ -2078,6 +2088,7 @@ void TreePiece::drift(double dDelta,  // time step in x containing
             if (j == 0) { /* radial wrap */
                 fShear = 1.5 * dOrbFreq * fPeriod[0];
                 p->position[1] += SHEAR(-1, dTime + dDelta, fPeriod, dOrbFreq);
+                fDx = -fPeriod.x;
             }
 #endif
           }
@@ -2086,8 +2097,9 @@ void TreePiece::drift(double dDelta,  // time step in x containing
             p->position[j] += fPeriod[j];
 #ifdef SLIDING_PATCH
             if (j == 0) { /* radial wrap */
-                fShear = -1.5 * dOrbFreq * fPeriod[0];
-                p->position[1] += SHEAR(1, dTime + dDelta, fPeriod, dOrbFreq);
+                fShear = -1.5 * dOrbFreq * fPeriod.x;
+                p->position.y += SHEAR(1, dTime + dDelta, fPeriod, dOrbFreq);
+                fDx = fPeriod.x;
             }
 #endif
           }
@@ -2106,7 +2118,14 @@ void TreePiece::drift(double dDelta,  // time step in x containing
       }
       boundingBox.grow(p->position);
       if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
+#if !defined(SLIDING_PATCH) || defined(NO_HILL)
 	  p->vPred() += dvDelta*p->treeAcceleration;
+#else
+          p->vPred().x += dvDelta*(2.0*dOrbFreq*p->dPy + p->treeAcceleration.x);
+          p->dPyPred() += dvDelta*p->treeAcceleration.y;
+          p->vPred().y = p->dPyPred() - 2.0*dOrbFreq*p->position.x;
+          p->vPred().z += dvDelta*p->treeAcceleration.z;
+#endif
 	  glassDamping(p->vPred(), dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
@@ -2160,9 +2179,14 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 #endif /* DIFFUSION */
 	  }
 #ifdef SLIDING_PATCH
-      p->velocity[1] += fShear;
-      p->dPy -= fShear / 3.0; /* Angular momentum is
-                   also changed. */
+      p->velocity.y += fShear;
+      p->dPy -= fShear / 3.0; /* Angular momentum is also changed. */
+      if(p->isGas()) {
+          p->vPred().y += fShear;
+#ifndef NO_HILL
+          p->dPyPred() -= fShear/3.0;
+          p->treeAcceleration.y -= dOrbFreq*dOrbFreq*fDx;
+#endif
 #endif
       }
   CkMustAssert(bInBox, "binbox2 failed\n");
