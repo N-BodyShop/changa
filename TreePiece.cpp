@@ -792,24 +792,6 @@ void TreePiece::shuffleAfterQD() {
 
   if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
     // Special case where no particle is assigned to this TreePiece
-    if (myNumParticles > 0){
-      delete[] myParticles;
-      myParticles = NULL;
-    }
-    myNumParticles = 0;
-    nStore = 0;
-    if (nStoreSPH > 0){
-      delete[] mySPHParticles;
-      mySPHParticles = NULL;
-    }
-    myNumSPH = 0;
-    nStoreSPH = 0;
-    if (nStoreStar > 0){
-      delete[] myStarParticles;
-      myStarParticles = NULL;
-    }
-    myNumStar = 0;
-    nStoreStar = 0;
     incomingParticlesSelf = false;
     incomingParticlesMsg.clear();
 
@@ -834,7 +816,6 @@ void TreePiece::shuffleAfterQD() {
   }
 
   //I've got all my particles
-  if (myNumParticles > 0) delete[] myParticles;
 
   nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
   myParticles = new GravityParticle[nStore];
@@ -883,13 +864,11 @@ void TreePiece::mergeAllParticlesAndSaveCentroid() {
     nStar += myShuffleMsg->nStar;
   }
 
-  if (nStoreSPH > 0) delete[] mySPHParticles;
   myNumSPH = nSPH;
   nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
   if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
   else mySPHParticles = NULL;
 
-  if (nStoreStar > 0) delete[] myStarParticles;
   myNumStar = nStar;
   allocateStars();
 
@@ -1183,6 +1162,22 @@ void TreePiece::sendParticlesDuringDD(bool withqd) {
     binBegin = binEnd;
   }
   incomingParticlesSelf = true;
+  delete[] myParticles;
+  myParticles = NULL;
+  myNumParticles = 0;
+  nStore = 0;
+  if (nStoreSPH > 0){
+      delete[] mySPHParticles;
+      mySPHParticles = NULL;
+  }
+  myNumSPH = 0;
+  nStoreSPH = 0;
+  if (nStoreStar > 0){
+      delete[] myStarParticles;
+      myStarParticles = NULL;
+  }
+  myNumStar = 0;
+  nStoreStar = 0;
 }
 
 /// Accept particles from other TreePieces once the sorting has finished
@@ -1200,24 +1195,6 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
   //assert(myPlace >= 0 && myPlace < dm->particleCounts.size());
   if (myPlace == -2 || dm->particleCounts[myPlace] == 0) {
     // Special case where no particle is assigned to this TreePiece
-    if (myNumParticles > 0){
-      delete[] myParticles;
-      myParticles = NULL;
-    }
-    myNumParticles = 0;
-    nStore = 0;
-    if (nStoreSPH > 0){
-      delete[] mySPHParticles;
-      mySPHParticles = NULL;
-    }
-    myNumSPH = 0;
-    nStoreSPH = 0;
-    if (nStoreStar > 0){
-      delete[] myStarParticles;
-      myStarParticles = NULL;
-    }
-    myNumStar = 0;
-    nStoreStar = 0;
     incomingParticlesSelf = false;
     incomingParticlesMsg.clear();
     if(verbosity>1) ckout << thisIndex <<" no particles assigned"<<endl;
@@ -1246,7 +1223,6 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
 
   if(dm->particleCounts[myPlace] == incomingParticlesArrived && incomingParticlesSelf) {
     //I've got all my particles
-    if (myNumParticles > 0) delete[] myParticles;
 
     nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
     myParticles = new GravityParticle[nStore];
@@ -1266,13 +1242,11 @@ void TreePiece::acceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
       nSPH += incomingParticlesMsg[iMsg]->nSPH;
       nStar += incomingParticlesMsg[iMsg]->nStar;
     }
-    if (nStoreSPH > 0) delete[] mySPHParticles;
     myNumSPH = nSPH;
     nStoreSPH = (int)(myNumSPH*(1.0 + dExtraStore));
     if(nStoreSPH > 0) mySPHParticles = new extraSPHData[nStoreSPH];
     else mySPHParticles = NULL;
 
-    if (nStoreStar > 0) delete[] myStarParticles;
     myNumStar = nStar;
     allocateStars();
 
