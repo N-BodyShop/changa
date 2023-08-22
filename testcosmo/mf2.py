@@ -43,4 +43,4 @@ if logn_pe<5:
 else:
     print("PROBLEM!  This mass function differs from predicted by more than 5%!")
 
-print("The largest error is %.2f%%." % (logn_pe))
+print("The largest error is %.2f%%.\n" % (logn_pe))
