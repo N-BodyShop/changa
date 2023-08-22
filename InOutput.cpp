@@ -342,7 +342,10 @@ void TreePiece::readTipsyArray(OutputParams& params, const CkCallback& cb)
     params.dm = dm; // pass cooling information
     FILE *infile = CmiFopen((params.fileName+"." + params.sTipsyExt).c_str(),
                             "r+");
-    CkAssert(infile != NULL);
+    if(infile == NULL)
+        CkError("Bad open of %s.%s: %s\n", params.fileName.c_str(),
+                params.sTipsyExt.c_str(), strerror(errno));
+    CkMustAssert(infile != NULL, "Cannot open tipsy array file\n");
     // Check if its a binary file
     unsigned int iDum;
     XDR xdrs;
