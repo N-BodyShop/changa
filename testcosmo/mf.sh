@@ -13,4 +13,4 @@ echo "Moving to SO"
 $SODIR/so -i cube300.000128.skid.gtp  -o cube300.000128.so -all -std -grp -gtp -stat cube300.000128.skid.stat -m 16 -O 0.3 -L  -p 1 -u 3.672e18 300 < cube300.000128
 echo "SO complete"
 echo "Moving to Mass Function comparison"
-python3 mf2.py cube300.000128.so.sovcirc
+python mf2.py cube300.000128.so.sovcirc
