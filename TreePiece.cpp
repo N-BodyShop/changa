@@ -2187,10 +2187,10 @@ void TreePiece::drift(double dDelta,  // time step in x containing
           p->dPyPred() -= fShear/3.0;
           p->treeAcceleration.y -= dOrbFreq*dOrbFreq*fDx;
 #endif
-#endif
       }
+#endif
+  }
   CkMustAssert(bInBox, "binbox2 failed\n");
-
   if(buildTree)
     contribute(sizeof(OrientedBox<float>), &boundingBox,
       	       growOrientedBox_float,
