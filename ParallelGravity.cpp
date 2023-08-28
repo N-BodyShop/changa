@@ -1313,7 +1313,7 @@ Main::Main(CkArgMsg* m) {
         }
 
         CkMustAssert(numTreePieces >= CkNumPes(),
-                     "We need at least on treepiece on each processor");
+                     "We need at least one treepiece on each processor");
 	CkArrayOptions opts(numTreePieces); 
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	if (domainDecomposition == Oct_dec) {
