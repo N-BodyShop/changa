@@ -1976,13 +1976,13 @@ void Main::outputBinary(OutputParams& params, // specifies
         opts.activePEs = 1;
         }
     
+    params.iTypeWriting = 0;
     if(params.iBinaryOut != 6) {
         Ck::IO::open(params.fileName+"."+params.sTipsyExt,
                      CkCallback(CkIndex_Main::cbOpen(0), thishandle),
                      opts);
         }
     else {
-        params.iTypeWriting = 0;
         std::string strFile = getNCNextOutput(params);
         if(strFile.empty()) { // No data to write
             cb.send();
