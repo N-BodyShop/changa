@@ -2772,7 +2772,6 @@ void TreePiece::startORBTreeBuild(CkReductionMsg* m){
   if (thisIndex == 0) root->firstParticle ++;
   if (thisIndex == (int)numTreePieces-1) root->lastParticle --;
   root->particleCount = myNumParticles;
-  nodeLookupTable[(Tree::NodeKey)1] = root;
 
   //root->key = firstPossibleKey;
   root->boundingBox = boundingBox;
@@ -2879,7 +2878,6 @@ void TreePiece::buildORBTree(GenericTreeNode * node, int level){
 #if INTERLIST_VER > 0
     child->startBucket=numBuckets;
 #endif
-    nodeLookupTable[child->getKey()] = child;
     if (child->getType() == NonLocal) {
       // find a remote index for the node
       int first, last;
@@ -3036,7 +3034,6 @@ void TreePiece::startOctTreeBuild(CkReductionMsg* m) {
   if (myPlace == 0) root->firstParticle ++;
   if (myPlace == dm->responsibleIndex.size()-1) root->lastParticle --;
   root->particleCount = myNumParticles;
-  nodeLookupTable[(Tree::NodeKey)1] = root;
 
   root->boundingBox = boundingBox;
   numBuckets = 0;
@@ -5793,17 +5790,6 @@ void TreePiece::pup(PUP::er& p) {
       ckout << " size: " << ((PUP::sizer*)&p)->size();
       ckout << endl;
       }
-  }
-}
-
-void TreePiece::reconstructNodeLookup(GenericTreeNode *node) {
-  nodeLookupTable[node->getKey()] = node;
-  node->particlePointer = &myParticles[node->firstParticle];
-  if (node->getType() == Bucket) bucketList.push_back(node);
-  GenericTreeNode *child;
-  for (unsigned int i=0; i<node->numChildren(); ++i) {
-    child = node->getChildren(i);
-    if (child != NULL) reconstructNodeLookup(child);
   }
 }
 

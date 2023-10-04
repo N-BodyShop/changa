@@ -2359,14 +2359,6 @@ void printUndlist(DoubleWalkState *state, int level, TreePiece *tp){
 
 #endif // INTERLIST_VER > 0
 
-void RemoteTreeBuilder::registerNode(GenericTreeNode *node){
-  tp->nodeLookupTable[node->getKey()] = node;
-}
-
-void LocalTreeBuilder::registerNode(GenericTreeNode *node){
-  tp->nodeLookupTable[node->getKey()] = node;
-}
-
 bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
   CkAssert(node != NULL);
   CkAssert(node->isValid() && !node->isCached());
@@ -2397,7 +2389,6 @@ bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
           streamingProxy[node->remoteIndex].requestRemoteMoments(node->getKey(), tp->thisIndex, &opts);
         }
       }
-      registerNode(node);
       return false;
     }
 
@@ -2413,7 +2404,6 @@ bool RemoteTreeBuilder::work(GenericTreeNode *node, int level){
       // from the particle positions.
       node->boundingBox.reset();
 
-      registerNode(node);
       return true;
 
     default:
@@ -2486,7 +2476,6 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
       tp->bucketList.push_back(node);
       tp->numBuckets++;
 
-      registerNode(node);
       // deliver moments, since doneChildren() will
       // never be called with a bucket
       tp->deliverMomentsToClients(node);
@@ -2495,7 +2484,6 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
   else if(node->getType() == Empty){
     node->remoteIndex = tp->thisIndex;
 
-    registerNode(node);
     // deliver MomentsToClients, since remote pieces don't know its
     // an empty node.
     tp->deliverMomentsToClients(node);
@@ -2510,7 +2498,6 @@ bool LocalTreeBuilder::work(GenericTreeNode *node, int level){
     node->boundingBox.reset();
     node->remoteIndex = tp->thisIndex;
 
-    registerNode(node);
     // don't deliver MomentsToClients, since we
     // haven't yet computed the moments for this 
     // node: this will happen only after the moments

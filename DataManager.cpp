@@ -201,10 +201,6 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
     }
     nodeTable.clear();
 
-#ifdef CUDA
-    cumNumReplicatedNodes = 0;
-#endif
-
     CkVec<Tree::GenericTreeNode*> gtn;
     for(int i = 0; i < registeredTreePieces.length(); i++){
       gtn.push_back(registeredTreePieces[i].root);
@@ -317,9 +313,6 @@ const char *typeString(NodeType type);
  * to the copies in each treepiece of an identical node.
  */
 Tree::GenericTreeNode *DataManager::buildProcessorTree(int n, Tree::GenericTreeNode **gtn) {
-#ifdef CUDA
-  cumNumReplicatedNodes += (n-1);
-#endif
   int nUnresolved;
   int pickedIndex;
   GenericTreeNode *pickedNode = pickNodeFromMergeList(n,gtn,nUnresolved,pickedIndex);
@@ -786,22 +779,18 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkQ<GenericTreeNode *> queue;
 
   int numTreePieces = registeredTreePieces.length();
-  int numNodes = 0;
   int numParticles = 0;
   int numCachedNodes = 0;
   int numCachedParticles = 0;
 
   for(int i = 0; i < numTreePieces; i++){
     TreePiece *tp = registeredTreePieces[i].treePiece;
-    numNodes += tp->getNumNodes();
     numParticles += tp->getDMNumParticles();
   }
-  numNodes -= cumNumReplicatedNodes;
 
   CkVec<CudaMultipoleMoments> localMoments;
   CkVec<CompactPartData> localParticles;
 
-  localMoments.reserve(numNodes);
   localParticles.resize(numParticles);
 
   localMoments.length() = 0;

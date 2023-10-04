@@ -295,10 +295,6 @@ class RemoteTreeBuilder : public TreeNodeWorker {
 
   bool work(GenericTreeNode *node, int level);
   void doneChildren(GenericTreeNode *node, int level);
-
-  private:
-  void registerNode(GenericTreeNode *node);
-
 };
 
 /// @brief Class to build the local part of the tree.  Builds Internal nodes.
@@ -312,9 +308,6 @@ class LocalTreeBuilder : public TreeNodeWorker {
 
   bool work(GenericTreeNode *node, int level);
   void doneChildren(GenericTreeNode *node, int level);
-
-  private:
-  void registerNode(GenericTreeNode *node);
 };
 
 /** @brief TreeNodeWorker implementation that just prints out the

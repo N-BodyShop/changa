@@ -1037,11 +1037,16 @@ class TreePiece : public CBase_TreePiece {
 #if INTERLIST_VER > 0
         GenericTreeNode *getStartAncestor(int current, int previous, GenericTreeNode *dflt);
 #endif
-	/// \brief convert a key to a node using the nodeLookupTable
+	/// \brief convert a key to a node using the tree
+        /// \param k NodeKey constructed from the path to the Node
+        /// \returns pointer to the Node, if found.  Otherwise NULL.
 	inline GenericTreeNode *keyToNode(const Tree::NodeKey k){
-          NodeLookupType::iterator iter = nodeLookupTable.find(k);
-          if (iter != nodeLookupTable.end()) return iter->second;
-          else return NULL;
+            GenericTreeNode *thisNode = root;
+            while(thisNode != NULL && thisNode->getKey() != k) {
+                int iChild = thisNode->whichChild(k);
+                thisNode = thisNode->getChildren(iChild);
+            }
+            return thisNode;
         }
 
         GenericTreeNode *getBucket(int i){
@@ -1227,9 +1232,6 @@ private:
 	int64_t nStartWrite;	// Particle number at which this piece starts
 				// to write file.
 
-	/// Map between Keys and TreeNodes, used to get a node from a key
-	NodeLookupType nodeLookupTable;
-
 	/// Number of nodes still missing before starting the real computation
 	//u_int64_t prefetchWaiting;
 	/// Array of keys that will be the root of the prefetching chunks
@@ -1353,28 +1355,18 @@ private:
   void quiescence();
   /*END DEBUGGING */
 
-  NodeLookupType &getNodeLookupTable() {
-	  return nodeLookupTable;
-  }
-
-  int getNumNodes() {
-	  return nodeLookupTable.size();
-  }
-
   /// delete treenodes if allocated
   void deleteTree() {
     if(pTreeNodes != NULL) {
         delete pTreeNodes;
         pTreeNodes = NULL;
         root = NULL;
-        nodeLookupTable.clear();
         }
     else {
         if (root != NULL) {
             root->fullyDelete();
             delete root;
             root = NULL;
-            nodeLookupTable.clear();
             }
         }
     }
@@ -1412,7 +1404,6 @@ private:
 	 * to trigger nextBucket() which will loop over all the buckets.
 	 */
 	void doAllBuckets();
-	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
 public:
