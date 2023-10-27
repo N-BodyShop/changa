@@ -67,7 +67,7 @@ void PETreeMerger::mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkVec<TreePiece
         */
     }
     
-    MERGE_REMOTE_REQUESTS_VERBOSE("[%d] clients (%llu,%s,%d): %s\n", CkMyPe(), pickedNode->getKey(), typeString(pickedNode->getType()), pickedTreePiece->getIndex(), oss.str().c_str());
+    MERGE_REMOTE_REQUESTS_VERBOSE(("[%d] clients (%llu,%s,%d): %s\n", CkMyPe(), pickedNode->getKey(), typeString(pickedNode->getType()), pickedTreePiece->getIndex(), oss.str().c_str()));
   }
 
 

@@ -205,8 +205,7 @@ void Sinks::CheckParams(PRM prm, struct parameters &param)
 	    for ( testDelta = param.dDelta; testDelta > dDeltaSink ;
 		  testDelta *= 0.5 ) {
 		iSinkRung++;
-		if (iSinkRung >= param.iMaxRung)
-		    CkAbort("Sink timestep too small");
+        CkMustAssert(iSinkRung < param.iMaxRung, "Sink timestep too small");
 		}
 	    }		  
 	else {
@@ -1017,7 +1016,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	double ih2,r2,rs,fDensity;
 	double v[3],cs,fW,dv2,dv;
 	double mdot, mdotEdd, mdotCurr, dmq, dtEff;
-	int i, naccreted, ieat, ivmin;
+	int i, naccreted, ieat;
 	double mdotsum, weat;
 	double weight,wrs;
 	double aFac, dCosmoDenFac,dCosmoVel2Fac,aDot;
@@ -1052,7 +1051,6 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
 	    if (dvcosmo < dvmin) {
 	      dvmin=dvcosmo;
-	      ivmin = i;
 	    }
 	  }
 	}
@@ -1147,7 +1145,7 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		/* don't accrete gas that doesn't have the BH
 		 * in its smoothing length  JMB 10/22/08 */
 		/* make this an optional parameter JMB 9/21/12 */
-		/* if (nnList[i].p->rung < s.iSinkCurrentRung) continue; /* JMB 7/9/09 */
+		// if (nnList[i].p->rung < s.iSinkCurrentRung) continue; /* JMB 7/9/09 */
 
 		if(s.bBHMindv == 1) weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+(dvmin*dvmin),-1.5)/dCosmoDenFac;
 		else {
@@ -1296,18 +1294,16 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	double ih2,r2,rs;
 	double mdot, mdotCurr, dmAvg, dm, dmq, dE, ifMass, dtEff;
-	double fNorm,fNorm_new,f2h2;
-	int i, counter,naccreted,ieat;
+	double fNorm,fNorm_new;
+	int i, counter,naccreted;
 	double weat;
 	double weight,fbweight; /* weight is for accretion, fbweight is for FB  */
-	double aFac, dCosmoDenFac,dCosmoVel2Fac,aDot;
+	double aFac, dCosmoDenFac,aDot;
 	double dvmin, dvx,dvy,dvz,dvcosmo;
-	int ivmin;
 
         weat = -1e37;
 	aFac = a;
 	dCosmoDenFac = aFac*aFac*aFac;
-        dCosmoVel2Fac = aFac*aFac;
 	aDot = aFac*H;
 
 	mdot = p->dMDot();	
@@ -1422,7 +1418,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
 	      if (dvcosmo < dvmin) {
 		dvmin=dvcosmo;
-		ivmin = i;
 	      }
 	    }
 	  }
@@ -1461,7 +1456,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      if (weight > weat) {
 		r2min = r2; /* note r2min is not really the min r2 anymore */
 		weat = weight;
-		ieat = i;
 		q = nnList[i].p;
 	      } 
 	    }
@@ -1559,7 +1553,6 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 
 	  /* Recalculate Normalization */
 	  ih2 = invH2(p);
-	  f2h2 = p->fBall*p->fBall;
 	  fNorm_new = 0.0;
 	  fNorm = 0.5*M_1_PI*sqrt(ih2)*ih2;
 
@@ -1741,11 +1734,11 @@ void BHSinkMergeSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		 immediately is not helpful. JMB 8/5/09  */
 	      mfactor = pow(mratio,2)/pow((1+mratio),5);
 	      vm = A * (1.0-mratio) * mfactor * (1.0 + B*mratio/pow((1.0+mratio),2));
-	      cosine = (rand()/((double) RAND_MAX )) * 2.*M_PI; /* angle */
-	      spin1 = (rand()/((double) RAND_MAX )); /* spins of BHs 1 and 2 */
-	      spin2 = (rand()/((double) RAND_MAX ));
-	      angle1 = (rand()/((double) RAND_MAX )) * 2.*M_PI;  /* orientations of BH spins */
-	      angle2 = (rand()/((double) RAND_MAX )) * 2.*M_PI;
+              cosine = tp->rndGen.dbl()*2.*M_PI; /* angle */
+              spin1 = tp->rndGen.dbl(); /* spins of BHs 1 and 2 */
+              spin2 = tp->rndGen.dbl();
+              angle1 = tp->rndGen.dbl()*2.*M_PI;  /* orientations of BH spins */
+              angle2 = tp->rndGen.dbl()*2.*M_PI;
 	      xi = 1.5358897; /* 88.0 * 2. * 3.14159 / 360.0  */
 	      /* in Campanelli et al xi = 88 degrees */
 
@@ -1760,10 +1753,10 @@ void BHSinkMergeSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	      /* random direction */
 
 	      for(;;){
-		xrand = (rand()/((double) RAND_MAX )) * 2.0 - 1.0;
-		yrand = (rand()/((double) RAND_MAX )) * 2.0 - 1.0;
-		zrand = (rand()/((double) RAND_MAX )) * 2.0 - 1.0;
-		if(sqrt(xrand*xrand+yrand*yrand+zrand*zrand) < 1.0) break;
+                  xrand = tp->rndGen.dbl()*2.0 - 1.0;
+                  yrand = tp->rndGen.dbl()*2.0 - 1.0;
+                  zrand = tp->rndGen.dbl()*2.0 - 1.0;
+                  if(sqrt(xrand*xrand+yrand*yrand+zrand*zrand) < 1.0) break;
 	      }
 	      vkx = vkick * xrand / sqrt(xrand*xrand+yrand*yrand+zrand*zrand);
 	      vky = vkick * yrand / sqrt(xrand*xrand+yrand*yrand+zrand*zrand);

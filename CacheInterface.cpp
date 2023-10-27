@@ -205,8 +205,7 @@ void TreePiece::processReqSmoothParticles() {
                   sSmooth->params->iType))
                 nBucket++;
             }
-        if(nBucket == 0)
-            CkAbort("Why did we ask for this bucket with no particles?");
+        CkMustAssert(nBucket != 0, "Why did we ask for this bucket with no particles?");
   
         // N.B.: CacheSmoothParticle already has room for one particle.
         int total = sizeof(CacheSmoothParticle)
@@ -275,8 +274,7 @@ void TreePiece::fillRequestSmoothParticles(CkCacheRequestMsg<KeyType> *msg) {
                   sSmooth->params->iType))
           nBucket++;
   }
-  if(nBucket == 0)
-      CkAbort("Why did we ask for this bucket with no particles?");
+  CkMustAssert(nBucket != 0, "Why did we ask for this bucket with no particles?");
   
   // N.B.: CacheSmoothParticle already has room for one particle.
   int total = sizeof(CacheSmoothParticle)
@@ -321,10 +319,14 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg<KeyType> *msg) {
   for(int i = data->begin; j < data->nActual && i <= data->end; i++) {
       while(data->partExt[j].iBucketOff > i - data->begin)
           i++;
-      CkAssert(TYPETest(&myParticles[i], sc->params->iType));
+      // Only do the type check if we are smoothing over a "base"
+      // type.  Other types (e.g. DELETED) can change over the smaooth
+      // operation.
+      if(sc->params->iType & (TYPE_DARK|TYPE_GAS|TYPE_STAR))
+          CkAssert(TYPETest(&myParticles[i], sc->params->iType));
       sc->params->combSmoothCache(&myParticles[i], &data->partExt[j]);
       j++;
-      }
+  }
   
   nCacheAccesses--;
   delete msg;
@@ -340,7 +342,7 @@ EntryTypeGravityNode::EntryTypeGravityNode() {
   // save the virtual function table.
   // Note that this is compiler dependent; also note that it is unused
   // at the moment -- see unpackSingle() below.
-  memcpy(&vptr, &node, sizeof(void*));
+  memcpy((void *)&vptr, (void *)&node, sizeof(void*));
 }
 
 void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, KeyType key) {
@@ -470,8 +472,6 @@ void TreePiece::fillRequestNode(CkCacheRequestMsg<KeyType> *msg) {
     delete msg;
   }
   else {	// Handle NULL nodes
-    if (!sendFillReqNodeWhenNull(msg)) {
-      CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
-    }
+      CkMustAssert(sendFillReqNodeWhenNull(msg), "Ok, before it handled this, but why do we have a null pointer in the tree?!?");
   }
 }

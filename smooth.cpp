@@ -493,8 +493,7 @@ void KNearestSmoothCompute::initSmoothPrioQueue(int iBucket, State *state)
 		  iCount++;
 	      }
 	  }
-  if(bEnough && ((lastQueue - firstQueue) <= nSmooth))
-	CkAbort("Missing particles");
+  CkMustAssert(!(bEnough && ((lastQueue - firstQueue) <= nSmooth)), "Missing particles");
 	  
   CkAssert(firstQueue > 0);
   CkAssert(lastQueue <= tp->myNumParticles+1);

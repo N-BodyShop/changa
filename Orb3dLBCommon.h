@@ -13,8 +13,8 @@
 #include "TaggedVector3D.h"
 #include "Vector3D.h"
 #include "CentralLB.h"
-#define  ORB3DLB_NOTOPO_DEBUG
-// #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
+#define  ORB3DLB_NOTOPO_DEBUG(X)
+// #define  ORB3DLB_NOTOPO_DEBUG(X) CkPrintf X
 
 /// @brief Hold information about Pe load and number of objects.
 class PeInfo {
@@ -38,8 +38,8 @@ class ProcLdGreater {
 class Orb3dCommon{
   // pointer to stats->to_proc
   protected:		
-    CkVec<int> *mapping;
-    CkVec<int> *from;
+    decltype(BaseLB::LDStats::to_proc) *mapping;
+    decltype(BaseLB::LDStats::from_proc) *from;
 
     CkVec<float> procload;
 
@@ -104,12 +104,12 @@ class Orb3dCommon{
         vector<OrbObject> & tp, BaseLB::LDStats *stats,
         bool node_partition=false){
 
-      ORB3DLB_NOTOPO_DEBUG("partition events %d %d %d nprocs %d\n", 
+        ORB3DLB_NOTOPO_DEBUG(("partition events %d %d %d nprocs %d\n", 
           events[XDIM].size(),
           events[YDIM].size(),
           events[ZDIM].size(),
           nprocs
-          );
+                              ));
       int numEvents = events[XDIM].size();
       CkAssert(numEvents == events[YDIM].size());
       CkAssert(numEvents == events[ZDIM].size());
@@ -118,7 +118,7 @@ class Orb3dCommon{
 	return;
 
       if(nprocs == 1){
-        ORB3DLB_NOTOPO_DEBUG("base: assign %d tps to proc %d\n", numEvents, nextProc);
+        ORB3DLB_NOTOPO_DEBUG(("base: assign %d tps to proc %d\n", numEvents, nextProc));
         if (!stats->procs[nextProc].available) {
           nextProc++;
           return;
@@ -167,12 +167,12 @@ class Orb3dCommon{
         }
       }
 
-      ORB3DLB_NOTOPO_DEBUG("dimensions %f %f %f longest %d\n", 
+      ORB3DLB_NOTOPO_DEBUG(("dimensions %f %f %f longest %d\n", 
           box.greater_corner[XDIM]-box.lesser_corner[XDIM],
           box.greater_corner[YDIM]-box.lesser_corner[YDIM],
           box.greater_corner[ZDIM]-box.lesser_corner[ZDIM],
           longestDim
-          );
+                            ));
 
       int nlprocs = nprocs/2;
       int nrprocs = nprocs-nlprocs;
@@ -187,12 +187,12 @@ class Orb3dCommon{
       for(int np = nextProc + nlprocs; np < nextProc + nlprocs + nrprocs; np++)
         bgrprocs += stats->procs[np].bg_walltime;
 
-      ORB3DLB_NOTOPO_DEBUG("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio);
+      ORB3DLB_NOTOPO_DEBUG(("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio));
 
       int splitIndex = partitionRatioLoad(events[longestDim],ratio,bglprocs,
                                           bgrprocs);
       if(splitIndex == numEvents) {
-        ORB3DLB_NOTOPO_DEBUG("evenly split 0 load\n");
+        ORB3DLB_NOTOPO_DEBUG(("evenly split 0 load\n"));
         splitIndex = splitIndex/2;
       }
       int nleft = splitIndex;
@@ -317,7 +317,7 @@ class Orb3dCommon{
       if (node_partition) {
         maxPieceProc = dMaxBalance * nmig / CkNumNodes();
       } else {
-        maxPieceProc = dMaxBalance*nmig/stats->count;
+        maxPieceProc = dMaxBalance*nmig/stats->nprocs();
       }
 
       if(maxPieceProc < 1.0)
@@ -345,8 +345,8 @@ class Orb3dCommon{
 
       nextProc = 0;
 
-      procload.resize(stats->count);
-      for(int i = 0; i < stats->count; i++){
+      procload.resize(stats->nprocs());
+      for(int i = 0; i < stats->nprocs(); i++){
         procload[i] = stats->procs[i].bg_walltime;
       }
 
@@ -354,8 +354,8 @@ class Orb3dCommon{
 
     void refine(BaseLB::LDStats *stats, int numobjs){
 #ifdef DO_REFINE
-      int *from_procs = Refiner::AllocProcs(stats->count, stats);
-      int *to_procs = Refiner::AllocProcs(stats->count, stats);
+      int *from_procs = Refiner::AllocProcs(stats->nprocs(), stats);
+      int *to_procs = Refiner::AllocProcs(stats->nprocs(), stats);
 #endif
 
       int migr = 0;
@@ -372,7 +372,7 @@ class Orb3dCommon{
 #ifdef DO_REFINE
       CkPrintf("[orb3dlb_notopo] refine\n");
       Refiner refiner(1.050);
-      refiner.Refine(stats->count,stats,from_procs,to_procs);
+      refiner.Refine(stats->nprocs(),stats,from_procs,to_procs);
 
       for(int i = 0; i < numobjs; i++){
         if(to_procs[i] != from_procs[i]) numRefineMigrated++;
@@ -380,9 +380,9 @@ class Orb3dCommon{
       }
 #endif
 
-      double *predLoad = new double[stats->count];
-      double *predCount = new double[stats->count];
-      for(int i = 0; i < stats->count; i++){
+      double *predLoad = new double[stats->nprocs()];
+      double *predCount = new double[stats->nprocs()];
+      for(int i = 0; i < stats->nprocs(); i++){
         predLoad[i] = 0.0;
         predCount[i] = 0.0;
       }
@@ -420,7 +420,7 @@ class Orb3dCommon{
 
       CkPrintf("***************************\n");
       //  CkPrintf("Before LB step %d\n", step());
-      for(int i = 0; i < stats->count; i++){
+      for(int i = 0; i < stats->nprocs(); i++){
         double wallTime = stats->procs[i].total_walltime;
         double idleTime = stats->procs[i].idletime;
         double bgTime = stats->procs[i].bg_walltime;
@@ -459,21 +459,21 @@ class Orb3dCommon{
 
       }
 
-      avgWall /= stats->count;
-      avgIdle /= stats->count;
-      avgBg /= stats->count;
-      avgPred /= stats->count;
-      avgPiece /= stats->count;
+      avgWall /= stats->nprocs();
+      avgIdle /= stats->nprocs();
+      avgBg /= stats->nprocs();
+      avgPred /= stats->nprocs();
+      avgPiece /= stats->nprocs();
 
 #ifdef PRINT_LOAD_PERCENTILES
       double accumVar = 0;
       vector<double> objectWallTimes;
-      for(int i = 0; i < stats->count; i++){
+      for(int i = 0; i < stats->nprocs(); i++){
         double wallTime = stats->procs[i].total_walltime;
         objectWallTimes.push_back(wallTime);
         accumVar += (wallTime - avgWall) * (wallTime - avgWall);
       }
-      double stdDev = sqrt(accumVar / stats->count);
+      double stdDev = sqrt(accumVar / stats->nprocs());
       CkPrintf("Average load: %.3f\n", avgWall);
       CkPrintf("Standard deviation: %.3f\n", stdDev);
 
@@ -496,7 +496,7 @@ class Orb3dCommon{
       float minload, maxload, avgload;
       minload = maxload = procload[0];
       avgload = 0.0;
-      for(int i = 0; i < stats->count; i++){
+      for(int i = 0; i < stats->nprocs(); i++){
         CkPrintf("pe %d load %f box %f %f %f %f %f %f\n", i, procload[i], 
             procbox[i].lesser_corner.x,
             procbox[i].lesser_corner.y,
@@ -510,7 +510,7 @@ class Orb3dCommon{
         if(maxload < procload[i]) maxload = procload[i];
       }
 
-      avgload /= stats->count;
+      avgload /= stats->nprocs();
 
       CkPrintf("Orb3dLB_notopo stats: min %f max %f avg %f max/avg %f\n", minload, maxload, avgload, maxload/avgload);
 #endif
@@ -551,8 +551,8 @@ class Orb3dCommon{
       //CkPrintf("************************************************************\n");
       //CkPrintf("partitionEvenLoad start %d end %d total %f\n", tpstart, tpend, totalLoad);
       float perfectLoad = ratio * totalLoad;
-      ORB3DLB_NOTOPO_DEBUG("partitionRatioLoad bgl %f bgr %f\n",
-                           bglp, bgrp);
+      ORB3DLB_NOTOPO_DEBUG(("partitionRatioLoad bgl %f bgr %f\n",
+                            bglp, bgrp));
       int splitIndex = 0;
       float prevLoad = 0.0;
       float leftLoadAtSplit = 0.0;
@@ -572,7 +572,7 @@ class Orb3dCommon{
         prevLoad = leftLoadAtSplit;
       }
 
-      ORB3DLB_NOTOPO_DEBUG("partitionEvenLoad mid %d lload %f rload %f ratio %f\n", splitIndex, leftLoadAtSplit, totalLoad - leftLoadAtSplit, leftLoadAtSplit / totalLoad);
+      ORB3DLB_NOTOPO_DEBUG(("partitionEvenLoad mid %d lload %f rload %f ratio %f\n", splitIndex, leftLoadAtSplit, totalLoad - leftLoadAtSplit, leftLoadAtSplit / totalLoad));
       return splitIndex;
     }
 

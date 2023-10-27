@@ -13,10 +13,18 @@
 
 #define  DEBUGF(x)      // CmiPrintf x;
 
+#if CHARM_VERSION > 61002
+static void lbinit()
+{
+    LBRegisterBalancer<HierarchOrbLB>("HierarchOrbLB",
+      "Hybrid load balancer");
+}
+#else
 CreateLBFunc_Def(HierarchOrbLB, "Hybrid load balancer")
+extern BaseLB* AllocateOrb3dLB_notopo();
+#endif
 
 CkpvExtern(int, _lb_obj_index);
-extern BaseLB* AllocateOrb3dLB_notopo();
 
 void HierarchOrbLB::init() {
   lbname = (char *)"HierarchOrbLB";
@@ -30,7 +38,11 @@ HierarchOrbLB::HierarchOrbLB(const CkLBOptions &opt): CBase_HierarchOrbLB(opt) {
   // decide which load balancer to call
   // IMPORTANT: currently, the greedy LB must allow objects that
   // are not from existing processors.
+#if CHARM_VERSION > 61002
+  orblb = (CentralLB *)new Orb3dLB_notopo(static_cast<CkMigrateMessage *>(nullptr));
+#else
   orblb = (CentralLB *)AllocateOrb3dLB_notopo();
+#endif
 
   initTree();
 #endif
@@ -38,29 +50,6 @@ HierarchOrbLB::HierarchOrbLB(const CkLBOptions &opt): CBase_HierarchOrbLB(opt) {
 
 HierarchOrbLB::~HierarchOrbLB() {
   delete orblb;
-}
-
-void HierarchOrbLB::GetObjsToMigrate(int toPe, double load, LDStats *stats,
-    int atlevel, CkVec<LDCommData>& comms, CkVec<LDObjData>& objs) {
-  for (int obj=stats->n_objs-1; obj>=0; obj--) {
-    LDObjData &objData = stats->objData[obj];
-    if (!objData.migratable) continue;
-
-    TaggedVector3D* udata = (TaggedVector3D *)objData.getUserData(CkpvAccess(_lb_obj_index));
-
-    if (udata->myNumParticles <= 0) continue;
-    if (objData.wallTime <= load) {
-      if (_lb_args.debug()>2)
-        CkPrintf("[%d] send obj: %d to PE %d (load: %f).\n", CkMyPe(), obj, toPe, objData.wallTime);
-      objs.push_back(objData);
-      // send comm data
-      collectCommData(obj, comms, atlevel);
-      load -= objData.wallTime;
-      CreateMigrationOutObjs(atlevel, stats, obj);
-      stats->removeObject(obj);
-      if (load <= 0.0) break;
-    }
-  }
 }
 
 // only called on leaves
@@ -81,10 +70,10 @@ void HierarchOrbLB::refine(LDStats* stats)
 {
   int obj;
   int n_pes = stats->nprocs();
-
+  const auto n_objs = stats->objData.size();
   // get original object mapping
   int* from_procs = Refiner::AllocProcs(n_pes, stats);
-  for(obj=0;obj<stats->n_objs;obj++)  {
+  for(obj=0;obj<n_objs;obj++)  {
     int pe = stats->from_proc[obj];
     from_procs[obj] = pe;
   }
@@ -97,7 +86,7 @@ void HierarchOrbLB::refine(LDStats* stats)
   refiner.Refine(n_pes, stats, from_procs, to_procs);
 
   // Save output
-  for(obj=0;obj<stats->n_objs;obj++) {
+  for(obj=0;obj<n_objs;obj++) {
       int pe = stats->from_proc[obj];
       if (to_procs[obj] != pe) {
         if (_lb_args.debug()>=2)  {

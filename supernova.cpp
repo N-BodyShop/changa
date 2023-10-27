@@ -64,9 +64,10 @@ void SN::CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta, FBEffe
 }
 
 void SN::CalcSNIIFeedback(SFEvent *sfEvent,
-			    double dTime, /* current time in years */
-			    double dDelta, /* length of timestep (years) */
-			    FBEffects *fbEffects) const
+                          double dTime, /* current time in years */
+                          double dDelta, /* length of timestep (years) */
+                          FBEffects *fbEffects,
+                          Rand& rndGen) const
 {
     double dMSNTypeII, dNSNTypeII, dMeanMStar;
     /* stellar lifetimes corresponding to beginning and end of 
@@ -145,7 +146,7 @@ void SN::CalcSNIIFeedback(SFEvent *sfEvent,
 	    /* Make sure only a iNSNIIQuantum number of
 	     * SNII go off at a time */
 	    double dProb = mod(dNSNTypeII, iNSNIIQuantum)/iNSNIIQuantum;
-	    double dRandomNum = (rand()/((double) RAND_MAX));
+	    double dRandomNum = rndGen.dbl();
 	    /*	  printf("Random Number = %g\n",dRandomNum);*/
 	    if(dRandomNum < dProb) /* SN occurred */ {
 		/* Adds missing part to make up quantum */

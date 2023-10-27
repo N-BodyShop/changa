@@ -10,7 +10,50 @@ extern CProxy_TreePiece treeProxy;
 CkpvExtern(int, _lb_obj_index);
 using namespace std;
 
+#if CHARM_VERSION > 61002
+static void lbinit()
+{
+    LBRegisterBalancer<MultistepLB>("MultistepLB",
+      "Works best with multistepped runs; uses Orb3D for large steps, greedy otherwise");
+}
+#else
 CreateLBFunc_Def(MultistepLB, "Works best with multistepped runs; uses Orb3D for larger steps, greedy otherwise");
+#endif
+
+//**************************************
+// ORB3DLB functions
+//**************************************
+static int comparx(const void *a, const void *b){
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.x < tb->centroid.x ? -1 : ta->centroid.x > tb->centroid.x ? 1 : 0;
+}
+static int compary(const void *a, const void *b){
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.y < tb->centroid.y ? -1 : ta->centroid.y > tb->centroid.y ? 1 : 0;
+}
+static int comparz(const void *a, const void *b){
+  const TPObject *ta = reinterpret_cast<const TPObject*>(a);
+  const TPObject *tb = reinterpret_cast<const TPObject*>(b);
+  return ta->centroid.z < tb->centroid.z ? -1 : ta->centroid.z > tb->centroid.z ? 1 : 0;
+}
+
+static int pcx(const void *a, const void *b){
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->x < tb->x ? -1 : ta->x > tb->x ? 1 : 0;
+}
+static int pcy(const void *a, const void *b){
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->y < tb->y ? -1 : ta->y > tb->y ? 1 : 0;
+}
+static int pcz(const void *a, const void *b){
+  const Node *ta = reinterpret_cast<const Node*>(a);
+  const Node *tb = reinterpret_cast<const Node*>(b);
+  return ta->z < tb->z ? -1 : ta->z > tb->z ? 1 : 0;
+}
 
 void MultistepLB::init() {
   lbname = "MultistepLB";
@@ -69,7 +112,7 @@ void MultistepLB::makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveO
   int objsPerProc = 8;
   int expandFactor = 4;
   int procsNeeded;
-  procsNeeded = expandFactor*numActiveObjs/objsPerProc > stats->count ? stats->count : expandFactor*numActiveObjs/objsPerProc;
+  procsNeeded = expandFactor*numActiveObjs/objsPerProc > stats->nprocs() ? stats->nprocs() : expandFactor*numActiveObjs/objsPerProc;
 
   /* currently, only the first procsNeeded procs are used - could do something more sophisticated here in the future - FIXME */
 #ifdef MCLBMSV
@@ -85,6 +128,7 @@ void MultistepLB::work(BaseLB::LDStats* stats)
 #if CMK_LBDB_ON
   // find active objects - mark the inactive ones as non-migratable
   int count;
+  const auto numObjs = stats->objData.size();
 
   int numActiveObjects = 0;
   int numInactiveObjects = 0;
@@ -93,11 +137,11 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   int64_t numActiveParticles = 0;
   int64_t totalNumParticles = 0;
 
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < numObjs; i++){
     stats->to_proc[i] = stats->from_proc[i];
   }
 
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < numObjs; i++){
     if (!stats->objData[i].migratable) continue;
 
     LDObjData &odata = stats->objData[i];
@@ -128,7 +172,7 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   CkPrintf("**********************************************\n");
   CkPrintf("Object load predictions phase %d\n", phase);
   CkPrintf("**********************************************\n");
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < numObjs; i++){
       int tp = tpCentroids[i].tp;
       int lb = tpCentroids[i].tag;
     CkPrintf("tp %d load %f\n",tp,stats->objData[lb].wallTime);
@@ -144,7 +188,7 @@ void MultistepLB::work(BaseLB::LDStats* stats)
   CkPrintf("making active processor list\n");
 #endif
   makeActiveProcessorList(stats, numActiveObjects);
-  count = stats->count;
+  count = stats->nprocs();
 
   // let the strategy take over on this modified instrumented data and processor information
   if((float)numActiveParticles/totalNumParticles > LARGE_PHASE_THRESHOLD){
@@ -167,13 +211,13 @@ void MultistepLB::work(BaseLB::LDStats* stats)
 //
 void MultistepLB::greedy(BaseLB::LDStats *stats, int count){
 
-  int numobjs = stats->n_objs;
+  const int numobjs = stats->objData.size();
   int nmig = stats->n_migrateobjs;
   CkPrintf("[GREEDY] objects total %d active %d\n", numobjs,nmig);
 
   TPObject *tp_array = new TPObject[nmig];
   int j = 0;
-  for(int i = 0; i < stats->n_objs; i++){
+  for(int i = 0; i < numobjs; i++){
     if(!stats->objData[i].migratable) continue;
     tp_array[j].migratable = stats->objData[i].migratable;
 
@@ -231,7 +275,7 @@ void MultistepLB::greedy(BaseLB::LDStats *stats, int count){
   CkPrintf("**********************************\n");
   CkPrintf("GREEDY MEASURED CPU LOAD\n");
   CkPrintf("**********************************\n");
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     CkPrintf("[pestats] %d %g %g\n",
                                i,
                                stats->procs[i].total_walltime,
@@ -244,7 +288,7 @@ void MultistepLB::greedy(BaseLB::LDStats *stats, int count){
 }
 
 void MultistepLB::work2(BaseLB::LDStats *stats, int count){
-  int numobjs = stats->n_objs;
+  const int numobjs = stats->objData.size();
   int nmig = stats->n_migrateobjs;
 
   if (_lb_args.debug()>=2) {
@@ -298,7 +342,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   }
   Node *nodes = new Node[numnodes];
 
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     int t;
     int x,y,z;
     int node;
@@ -317,8 +361,8 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   }
   map(tp_array,nmig,numnodes,nodes,nx,ny,nz,dim);
 
-  float *objload = new float[stats->count];
-  for(int i = 0; i < stats->count; i++){
+  float *objload = new float[stats->nprocs()];
+  for(int i = 0; i < stats->nprocs(); i++){
     objload[i] = 0.0;
   }
   for(j = 0; j < nmig; j++){
@@ -333,7 +377,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   CkPrintf("******************************\n");
   CkPrintf("CPU LOAD PREDICTIONS phase %d\n", phase);
   CkPrintf("******************************\n");
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     CkPrintf("[pestats] %d %g \n",
                                i,
                                objload[i]);
@@ -344,7 +388,7 @@ void MultistepLB::work2(BaseLB::LDStats *stats, int count){
   CkPrintf("******************************\n");
   CkPrintf("MEASURED CPU LOAD\n");
   CkPrintf("******************************\n");
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     CkPrintf("[pestats] %d %g %g\n",
                                i,
                                stats->procs[i].total_walltime,

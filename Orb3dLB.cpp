@@ -10,7 +10,15 @@ CkpvExtern(int, _lb_obj_index);
 
 using namespace std;
 
+#if CHARM_VERSION > 61002
+static void lbinit()
+{
+    LBRegisterBalancer<Orb3dLB>("Orb3dLB",
+      "3d ORB mapping of tree piece space onto 3d processor mesh");
+}
+#else
 CreateLBFunc_Def(Orb3dLB, "3d ORB mapping of tree piece space onto 3d processor mesh");
+#endif
 
 static int comparx(const void *a, const void *b){
   const TPObject *ta = (const TPObject*)(a);
@@ -105,7 +113,7 @@ bool Orb3dLB::QueryBalanceNow(int step){
 
 void Orb3dLB::work(BaseLB::LDStats* stats)
 {
-  int numobjs = stats->n_objs;
+  const int numobjs = stats->objData.size();
 
   CkPrintf("[orb3dlb] %d objects allocating %lu bytes for tp\n", numobjs, numobjs*sizeof(TPObject));
   tps.resize(numobjs);
@@ -164,7 +172,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   CkPrintf("[orb3dlb] %d numnodes allocating %lu bytes for nodes\n", numnodes, numnodes*sizeof(Node));
   nodes.resize(numnodes);
 
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     int t;
     int x,y,z;
     int node;
@@ -201,8 +209,8 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
 
   /*
   int migr = 0;
-  float *objload = new float[stats->count];
-  for(int i = 0; i < stats->count; i++){
+  float *objload = new float[stats->nprocs()];
+  for(int i = 0; i < stats->nprocs(); i++){
     objload[i] = 0.0;
   }
   for(int i = 0; i < numobjs; i++){
@@ -214,7 +222,7 @@ void Orb3dLB::work(BaseLB::LDStats* stats)
   CkPrintf("Before LB step %d\n", step());
   CkPrintf("***************************\n");
   CkPrintf("i pe wall cpu idle bg_wall bg_cpu objload\n");
-  for(int i = 0; i < stats->count; i++){
+  for(int i = 0; i < stats->nprocs(); i++){
     CkPrintf("[pestats] %d %d %f %f %f %f\n",
                                i,
                                stats->procs[i].pe,
