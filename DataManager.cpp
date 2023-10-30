@@ -795,8 +795,6 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   }
   numNodes -= cumNumReplicatedNodes;
 
-  CkVec<CudaMultipoleMoments> localMoments;
-
   localMoments.reserve(numNodes);
 
   localMoments.length() = 0;
@@ -863,17 +861,20 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   allocatePinnedHostMemory((void **)&bufLocalParts, sLocalParts);
 
   numParticles = 0;
+  treePiecesBufferFilled = 0;
   for(int i = 0; i < numTreePieces; i++){
-      treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer(bufLocalParts, localMoments.getVec(), numParticles);
-      numParticles += tp->getDMNumParticles();
+      treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer((intptr_t)bufLocalParts, (intptr_t)localMoments.getVec(),
+      		      numParticles, localMoments.length());
+      numParticles += registeredTreePieces[i].treePiece->getDMNumParticles();
       }
 }
 
 ///
 /// @brief After all pieces have filled the buffer, initiate the transfer.
 ///
-void DataManager::transferLocalToGPU()
+void DataManager::transferLocalToGPU(int numParticles)
 {
+    CkPrintf("Entered transfer local to gpu, %d %d\n", treePiecesBufferFilled, registeredTreePieces.length());
     CmiLock(__nodelock);
     treePiecesBufferFilled++;
     if(treePiecesBufferFilled == registeredTreePieces.length()){
@@ -885,17 +886,29 @@ void DataManager::transferLocalToGPU()
         return;
     }
 
+
   localTransferCallback
       = new CkCallback(CkIndex_DataManager::startLocalWalk(), CkMyNode(), dMProxy);
 
   // XXX copies can be saved here.
   size_t sLocalMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
+  size_t sLocalVars = numParticles*sizeof(VariablePartData);
+  size_t sLocalParts = numParticles*sizeof(CompactPartData);
+  CkPrintf("%d %d\n", localMoments.length(), numParticles);
   allocatePinnedHostMemory((void **)&bufLocalMoments, sLocalMoments);
   memcpy(bufLocalMoments, localMoments.getVec(), sLocalMoments);
 
-  size_t sLocalVars = localParticles.length()*sizeof(VariablePartData);
   allocatePinnedHostMemory((void **)&bufLocalVars, sLocalVars);
   // Transfer moments and particle cores to gpu
+  VariablePartData *zeroArray =  (VariablePartData *) bufLocalVars;
+  // XXX This could be done on the GPU.
+  for(int i = 0; i < numParticles; i++){
+      zeroArray[i].a.x = 0.0;
+      zeroArray[i].a.y = 0.0;
+      zeroArray[i].a.z = 0.0;
+      zeroArray[i].potential = 0.0;
+      zeroArray[i].dtGrav = 0.0;
+  }  
 #ifdef HAPI_INSTRUMENT_WRS
   DataManagerTransferLocalTree(bufLocalMoments, sLocalMoments, bufLocalParts,
                                sLocalParts, bufLocalVars, sLocalVars, 0,

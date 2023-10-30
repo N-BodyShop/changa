@@ -113,9 +113,9 @@ void run_DM_TRANSFER_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,void*
   printf("cores: 0x%x\n", devBuffers[LOCAL_PARTICLE_CORES]);
   printf("vars: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
 #endif
-  ZeroVars<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>(
+  /*ZeroVars<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>(
       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-      wr->buffers[LOCAL_PARTICLE_VARS_IDX].size/sizeof(VariablePartData));
+      wr->buffers[LOCAL_PARTICLE_VARS_IDX].size/sizeof(VariablePartData));*/
   cudaChk(cudaPeekAtLastError());
 }
 
@@ -2668,7 +2668,8 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
 
 __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     int id;
-    id = First + blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    //id = First + blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
 
     particleVars[id].a.x = 0.0;

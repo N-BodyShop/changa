@@ -3805,10 +3805,10 @@ void TreePiece::finishBucket(int iBucket) {
 #ifdef CUDA
 /// @brief Fill GPU buffer with particle data
 void TreePiece::fillGPUBuffer(intptr_t pLocalParts, intptr_t pLocalMoments,
-                              int nParts)
+                              int nParts, int nMoments)
 {
     CompactPartData *aLocalParts = (CompactPartData *)pLocalParts;
-    CudaMultipoleMoments aLocalMoments = (CudaMultipoleMoments *) pLocalMoments;
+    CudaMultipoleMoments *aLocalMoments = (CudaMultipoleMoments *)pLocalMoments;
     int partIndex = nParts;
     getDMParticles(aLocalParts, partIndex);
 #ifdef GPU_LOCAL_TREE_WALK
@@ -3840,7 +3840,7 @@ void TreePiece::fillGPUBuffer(intptr_t pLocalParts, intptr_t pLocalMoments,
       }
     }
 #endif
-    dm->transferLocalToGPU();
+    dm->transferLocalToGPU(nParts);
 }
 
 /// @brief update particle accelerations with GPU results
