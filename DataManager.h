@@ -130,8 +130,9 @@ protected:
         /// host buffer to transfer remote particles to GPU
         CompactPartData *bufRemoteParts;
 
-	CkVec<CudaMultipoleMoments> localMoments;
         /// host buffer to transfer local moments to GPU
+        CkVec<CudaMultipoleMoments> localMoments;
+	CkVec<CompactPartData> localParticles;
         CudaMultipoleMoments *bufLocalMoments;
         /// host buffer to transfer local particles to GPU
         CompactPartData *bufLocalParts;
@@ -186,7 +187,7 @@ public:
         // actual serialization methods
         PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
-	void transferLocalToGPU(int nParts);
+	void transferLocalToGPU(int nParts, GenericTreeNode *node);
         void freeLocalTreeMemory();
         void freeRemoteChunkMemory(int chunk);
         void transferParticleVarsBack();

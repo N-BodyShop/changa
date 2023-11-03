@@ -808,6 +808,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkPrintf("[%d] DM local tree\n", CkMyPe());
   CkPrintf("*************\n");
 #endif
+  double  starttime = CmiWallTimer();
   // Walk local tree
   queue.enq(node);
   while(!queue.isEmpty()){
@@ -842,13 +843,13 @@ void DataManager::serializeLocal(GenericTreeNode *node){
     }
   }// end while queue not empty
 
+  traceUserBracketEvent(SER_LOCAL_WALK, starttime, CmiWallTimer());
+
   // used later, when copying particle vars back to the host
   savedNumTotalParticles = numParticles;
+  localParticles.resize(numParticles);
   savedNumTotalNodes = localMoments.length();
 
-#ifdef GPU_LOCAL_TREE_WALK
-  transformLocalTreeRecursive(node, localMoments);
-#endif //GPU_LOCAL_TREE_WALK
 
 #ifdef CUDA_DM_PRINT_TREES
   CkPrintf("*************\n");
@@ -858,23 +859,24 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkPrintf("(%d): DM->GPU local tree\n", CkMyPe());
 #endif
   size_t sLocalParts = numParticles*sizeof(CompactPartData);
+  size_t sLocalMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
   allocatePinnedHostMemory((void **)&bufLocalParts, sLocalParts);
+  allocatePinnedHostMemory((void **)&bufLocalMoments, sLocalMoments);
 
-  numParticles = 0;
+  int pTPindex = 0;
   treePiecesBufferFilled = 0;
   for(int i = 0; i < numTreePieces; i++){
-      treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer((intptr_t)bufLocalParts, (intptr_t)localMoments.getVec(),
-      		      numParticles, localMoments.length());
-      numParticles += registeredTreePieces[i].treePiece->getDMNumParticles();
+      treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer((intptr_t) bufLocalParts, (intptr_t) bufLocalMoments,
+      		      (intptr_t) localMoments.getVec(), pTPindex, numParticles, (intptr_t) node);
+      pTPindex += registeredTreePieces[i].treePiece->getDMNumParticles();
       }
 }
 
 ///
 /// @brief After all pieces have filled the buffer, initiate the transfer.
 ///
-void DataManager::transferLocalToGPU(int numParticles)
+void DataManager::transferLocalToGPU(int numParticles, GenericTreeNode *node)
 {
-    CkPrintf("Entered transfer local to gpu, %d %d\n", treePiecesBufferFilled, registeredTreePieces.length());
     CmiLock(__nodelock);
     treePiecesBufferFilled++;
     if(treePiecesBufferFilled == registeredTreePieces.length()){
@@ -886,17 +888,26 @@ void DataManager::transferLocalToGPU(int numParticles)
         return;
     }
 
+  double starttime = CmiWallTimer();
+#ifdef GPU_LOCAL_TREE_WALK
+  transformLocalTreeRecursive(node, localMoments);
+#endif //GPU_LOCAL_TREE_WALK
+  traceUserBracketEvent(SER_LOCAL_TRANS, starttime, CmiWallTimer());
 
   localTransferCallback
       = new CkCallback(CkIndex_DataManager::startLocalWalk(), CkMyNode(), dMProxy);
 
   // XXX copies can be saved here.
-  size_t sLocalMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
+  starttime = CmiWallTimer();
   size_t sLocalVars = numParticles*sizeof(VariablePartData);
   size_t sLocalParts = numParticles*sizeof(CompactPartData);
-  CkPrintf("%d %d\n", localMoments.length(), numParticles);
-  allocatePinnedHostMemory((void **)&bufLocalMoments, sLocalMoments);
+  //memcpy(bufLocalParts, localParticles.getVec(), sLocalParts);
+
+  //TODO move this to treePiece::fillGPUBuffer somehow
+  size_t sLocalMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
   memcpy(bufLocalMoments, localMoments.getVec(), sLocalMoments);
+  traceUserBracketEvent(SER_LOCAL_MEMCPY, starttime, CmiWallTimer());
+  starttime = CmiWallTimer();
 
   allocatePinnedHostMemory((void **)&bufLocalVars, sLocalVars);
   // Transfer moments and particle cores to gpu
@@ -909,6 +920,8 @@ void DataManager::transferLocalToGPU(int numParticles)
       zeroArray[i].potential = 0.0;
       zeroArray[i].dtGrav = 0.0;
   }  
+  traceUserBracketEvent(SER_LOCAL_ZERO, starttime, CmiWallTimer());
+
 #ifdef HAPI_INSTRUMENT_WRS
   DataManagerTransferLocalTree(bufLocalMoments, sLocalMoments, bufLocalParts,
                                sLocalParts, bufLocalVars, sLocalVars, 0,

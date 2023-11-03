@@ -524,8 +524,9 @@ mainmodule ParallelGravity {
     // jetley
     entry void continueStartRemoteChunk(int chunk);
 #ifdef CUDA
-    entry void fillGPUBuffer(intptr_t pLocalParts, intptr_t pLocalMoments,
-                             int nParts, int numMoments);
+    entry void fillGPUBuffer(intptr_t bufLocalParts,
+	                     intptr_t bufLocalMoments,
+                             intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
     entry void updateParticles(intptr_t data, int partIndex);
 #endif
     entry void continueWrapUp();

@@ -35,6 +35,11 @@ typedef cosmoType hosttype;
 #define CUDA_REMOTE_PART_KERNEL 9914
 #define CUDA_REMOTE_RESUME_PART_KERNEL 9915
 
+#define SER_LOCAL_WALK 9922
+#define SER_LOCAL_MEMCPY 9923
+#define SER_LOCAL_ZERO 9924
+#define SER_LOCAL_TRANS 9925
+
 #endif
 
 // TODO: Fix small phase code

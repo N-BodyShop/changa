@@ -3804,12 +3804,12 @@ void TreePiece::finishBucket(int iBucket) {
 
 #ifdef CUDA
 /// @brief Fill GPU buffer with particle data
-void TreePiece::fillGPUBuffer(intptr_t pLocalParts, intptr_t pLocalMoments,
-                              int nParts, int nMoments)
+void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
+		              intptr_t bufLocalMoments,
+                              intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node)
 {
-    CompactPartData *aLocalParts = (CompactPartData *)pLocalParts;
+    CompactPartData *aLocalParts = (CompactPartData *)bufLocalParts;
     CudaMultipoleMoments *aLocalMoments = (CudaMultipoleMoments *)pLocalMoments;
-    int partIndex = nParts;
     getDMParticles(aLocalParts, partIndex);
 #ifdef GPU_LOCAL_TREE_WALK
     // set the bucketStart and bucketSize for each bucket Node
@@ -3839,8 +3839,9 @@ void TreePiece::fillGPUBuffer(intptr_t pLocalParts, intptr_t pLocalMoments,
         aLocalParts[k].nodeId = id;
       }
     }
+    // Copy moments to bufLocalMoments. Need to get a list of IDs
 #endif
-    dm->transferLocalToGPU(nParts);
+    dm->transferLocalToGPU(nParts, (GenericTreeNode *)node);
 }
 
 /// @brief update particle accelerations with GPU results

@@ -236,6 +236,10 @@ Main::Main(CkArgMsg* m) {
 #ifdef HAPI_TRACE
         traceRegisterUserEvent("Tree Serialization", CUDA_SER_TREE);
         traceRegisterUserEvent("List Serialization", CUDA_SER_LIST);
+	traceRegisterUserEvent("Ser Local Walk", SER_LOCAL_WALK);
+	traceRegisterUserEvent("Ser Local Memcpy", SER_LOCAL_MEMCPY);
+	traceRegisterUserEvent("Ser Local Zero", SER_LOCAL_ZERO);
+	traceRegisterUserEvent("Ser Local Trans", SER_LOCAL_TRANS);
 
         traceRegisterUserEvent("Local Node", CUDA_LOCAL_NODE_KERNEL);
         traceRegisterUserEvent("Remote Node", CUDA_REMOTE_NODE_KERNEL);
