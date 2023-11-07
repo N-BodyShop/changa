@@ -113,9 +113,9 @@ void run_DM_TRANSFER_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,void*
   printf("cores: 0x%x\n", devBuffers[LOCAL_PARTICLE_CORES]);
   printf("vars: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
 #endif
-  /*ZeroVars<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>(
+  ZeroVars<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>(
       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-      wr->buffers[LOCAL_PARTICLE_VARS_IDX].size/sizeof(VariablePartData));*/
+      wr->buffers[LOCAL_PARTICLE_VARS_IDX].size/sizeof(VariablePartData));
   cudaChk(cudaPeekAtLastError());
 }
 
@@ -151,12 +151,12 @@ void run_DM_TRANSFER_FREE_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,
 #ifdef HAPI_INSTRUMENT_WRS
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
-                                  void *varParts, size_t sVarParts,
+                                  void *varParts, size_t sVarParts, int numParticles,
                                   int mype, char phase, void *wrCallback) {
 #else
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
-                                  void *varParts, size_t sVarParts,
+                                  void *varParts, size_t sVarParts, int numParticles,
                                   int mype, void *wrCallback) {
 #endif
 
@@ -171,6 +171,9 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 
 	transferKernel->addBuffer(varParts, sVarParts, (sVarParts > 0), false,
                                   false, LOCAL_PARTICLE_VARS);
+
+       // +1 to avoid dimGrid = 0 when we run test with extremely small input.
+       transferKernel->setExecParams(numParticles / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK));
 
 	transferKernel->setDeviceToHostCallback(*(CkCallback *)wrCallback);
 #ifdef HAPI_TRACE

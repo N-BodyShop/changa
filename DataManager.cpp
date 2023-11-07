@@ -911,24 +911,14 @@ void DataManager::transferLocalToGPU(int numParticles, GenericTreeNode *node)
 
   allocatePinnedHostMemory((void **)&bufLocalVars, sLocalVars);
   // Transfer moments and particle cores to gpu
-  VariablePartData *zeroArray =  (VariablePartData *) bufLocalVars;
-  // XXX This could be done on the GPU.
-  for(int i = 0; i < numParticles; i++){
-      zeroArray[i].a.x = 0.0;
-      zeroArray[i].a.y = 0.0;
-      zeroArray[i].a.z = 0.0;
-      zeroArray[i].potential = 0.0;
-      zeroArray[i].dtGrav = 0.0;
-  }  
-  traceUserBracketEvent(SER_LOCAL_ZERO, starttime, CmiWallTimer());
 
 #ifdef HAPI_INSTRUMENT_WRS
   DataManagerTransferLocalTree(bufLocalMoments, sLocalMoments, bufLocalParts,
-                               sLocalParts, bufLocalVars, sLocalVars, 0,
+                               sLocalParts, bufLocalVars, sLocalVars, 0, numParticles,
                                activeRung, localTransferCallback);
 #else
   DataManagerTransferLocalTree(bufLocalMoments, sLocalMoments, bufLocalParts,
-                               sLocalParts, bufLocalVars, sLocalVars,
+                               sLocalParts, bufLocalVars, sLocalVars, numParticles,
                                CkMyPe(), localTransferCallback);
 #endif
 }
