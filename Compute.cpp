@@ -1411,7 +1411,11 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
  * request. This request will eventually call our GPU local tree walk kernel.
  */
 void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
-  int activeRung, int startBucket, int endBucket) {
+  int activeRung, int startBucket, int endBucket,
+  CudaMultipoleMoments* d_localMoments,
+  CompactPartData* d_localParts,
+  VariablePartData* d_localVars,
+  size_t sMoments, size_t sCompactParts, size_t sVarParts) {
   int numFilledBuckets = 0;
   for (int i = startBucket; i < endBucket; ++i) {
     if (tp->bucketList[i]->rungs >= activeRung) {
@@ -1469,6 +1473,13 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   }
 
   CudaRequest *request = new CudaRequest;
+
+  request->d_localMoments = d_localMoments;
+  request->d_localParts = d_localParts;
+  request->d_localVars = d_localVars;
+  request->sMoments = sMoments;
+  request->sCompactParts = sCompactParts;
+  request->sVarParts = sVarParts;
 
   request->numBucketsPlusOne = numFilledBuckets+1;
   request->affectedBuckets = affectedBuckets;

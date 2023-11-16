@@ -236,6 +236,10 @@ Main::Main(CkArgMsg* m) {
 #ifdef HAPI_TRACE
         traceRegisterUserEvent("Tree Serialization", CUDA_SER_TREE);
         traceRegisterUserEvent("List Serialization", CUDA_SER_LIST);
+	traceRegisterUserEvent("Ser Local Walk", SER_LOCAL_WALK);
+	traceRegisterUserEvent("Ser Local Gather", SER_LOCAL_GATHER);
+	traceRegisterUserEvent("Ser Local Trans", SER_LOCAL_TRANSFORM);
+	traceRegisterUserEvent("Ser Local Memcpy", SER_LOCAL_MEMCPY);
 
         traceRegisterUserEvent("Local Node", CUDA_LOCAL_NODE_KERNEL);
         traceRegisterUserEvent("Remote Node", CUDA_REMOTE_NODE_KERNEL);
@@ -243,6 +247,9 @@ Main::Main(CkArgMsg* m) {
         traceRegisterUserEvent("Local Particle", CUDA_LOCAL_PART_KERNEL);
         traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
         traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
+
+	traceRegisterUserEvent("Xfer Local Enqueue", CUDA_XFER_LOCAL_ENQUEUE);
+	traceRegisterUserEvent("Xfer Local Callback", CUDA_XFER_LOCAL_CB);
 #endif
 
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");

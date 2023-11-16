@@ -136,6 +136,14 @@ protected:
         /// host buffer to transfer initial accelerations to GPU
         VariablePartData *bufLocalVars;
 
+	// Pointers to particle and tree data on GPU
+	CudaMultipoleMoments *d_localMoments;
+	CompactPartData *d_localParts;
+	VariablePartData *d_localVars;
+	size_t sMoments;
+	size_t sCompactParts;
+	size_t sVarParts;
+
 #ifdef HAPI_INSTRUMENT_WRS
         int activeRung;
         int treePiecesDoneInitInstrumentation;

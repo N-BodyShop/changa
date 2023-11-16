@@ -508,10 +508,14 @@ void DataManager::serializeLocalTree(){
 void DataManager::startLocalWalk() {
     gputransfer = true;
     delete localTransferCallback;
+
     for(int i = 0; i < registeredTreePieces.length(); i++){
       if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
       int in = registeredTreePieces[i].treePiece->getIndex();
-      treePieces[in].commenceCalculateGravityLocal();
+      treePieces[in].commenceCalculateGravityLocal((intptr_t)d_localMoments, 
+		                                   (intptr_t)d_localParts, 
+						   (intptr_t)d_localVars,
+		                                   sMoments, sCompactParts, sVarParts);
       if(registeredTreePieces[0].treePiece->bEwald) {
           dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
           // Make priority lower than gravity or smooth.
@@ -815,6 +819,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   CkPrintf("[%d] DM local tree\n", CkMyPe());
   CkPrintf("*************\n");
 #endif
+  double  starttime = CmiWallTimer();
   // Walk local tree
   queue.enq(node);
   while(!queue.isEmpty()){
@@ -848,6 +853,8 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       }
     }
   }// end while queue not empty
+
+  // here
 
   // used later, when copying particle vars back to the host
   savedNumTotalParticles = numParticles;
@@ -891,8 +898,10 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       }
     }
   }
+  // here
   transformLocalTreeRecursive(node, localMoments);
 #endif //GPU_LOCAL_TREE_WALK
+  starttime = CmiWallTimer();
 
 #ifdef CUDA_DM_PRINT_TREES
   CkPrintf("*************\n");
@@ -906,16 +915,16 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       = new CkCallback(CkIndex_DataManager::startLocalWalk(), CkMyNode(), dMProxy);
 
   // XXX copies can be saved here.
-  size_t sLocalMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
-  allocatePinnedHostMemory((void **)&bufLocalMoments, sLocalMoments);
-  memcpy(bufLocalMoments, localMoments.getVec(), sLocalMoments);
+  sMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
+  allocatePinnedHostMemory((void **)&bufLocalMoments, sMoments);
+  memcpy(bufLocalMoments, localMoments.getVec(), sMoments);
 
-  size_t sLocalParts = localParticles.length()*sizeof(CompactPartData);
-  allocatePinnedHostMemory((void **)&bufLocalParts, sLocalParts);
-  memcpy(bufLocalParts, localParticles.getVec(), sLocalParts);
+  sCompactParts = localParticles.length()*sizeof(CompactPartData);
+  allocatePinnedHostMemory((void **)&bufLocalParts, sCompactParts);
+  memcpy(bufLocalParts, localParticles.getVec(), sCompactParts);
 
-  size_t sLocalVars = localParticles.length()*sizeof(VariablePartData);
-  allocatePinnedHostMemory((void **)&bufLocalVars, sLocalVars);
+  sVarParts = localParticles.length()*sizeof(VariablePartData);
+  allocatePinnedHostMemory((void **)&bufLocalVars, sVarParts);
   VariablePartData *zeroArray =  (VariablePartData *) bufLocalVars;
 // XXX This could be done on the GPU.
   for(int i = 0; i < numParticles; i++){
@@ -927,12 +936,14 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       }
   // Transfer moments and particle cores to gpu
 #ifdef HAPI_INSTRUMENT_WRS
-  DataManagerTransferLocalTree(bufLocalMoments, sLocalMoments, bufLocalParts,
-                               sLocalParts, bufLocalVars, sLocalVars, 0,
+  DataManagerTransferLocalTree(bufLocalMoments, sMoments, bufLocalParts,
+                               sCompactParts, bufLocalVars, sVarParts, 
+			       d_localMoments, d_localParts, d_localVars, 0,
                                activeRung, localTransferCallback);
 #else
-  DataManagerTransferLocalTree(bufLocalMoments, sLocalMoments, bufLocalParts,
-                               sLocalParts, bufLocalVars, sLocalVars,
+  DataManagerTransferLocalTree(bufLocalMoments, sMoments, bufLocalParts,
+                               sCompactParts, bufLocalVars, sVarParts,
+			       d_localMoments, d_localParts, d_localVars,
                                CkMyPe(), localTransferCallback);
 #endif
 }// end serializeLocal

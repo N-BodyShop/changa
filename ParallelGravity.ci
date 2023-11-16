@@ -475,6 +475,10 @@ mainmodule ParallelGravity {
       unsigned int iParticleTypes, int64_t nSPH);
 
     entry void commenceCalculateGravityLocal();
+    entry void commenceCalculateGravityLocal(intptr_t d_localMoments, 
+                                             intptr_t d_localParts, 
+                                             intptr_t d_localVars,
+                                             size_t sMoments, size_t sCompactParts, size_t sVarParts);
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
 
     entry [notrace] void calculateReSmoothLocal();

@@ -1412,6 +1412,10 @@ private:
 	 * to trigger nextBucket() which will loop over all the buckets.
 	 */
 	void doAllBuckets();
+	void doAllBuckets(CudaMultipoleMoments* d_localMoments,
+                          CompactPartData* d_localParts,
+                          VariablePartData* d_localVars,
+                          size_t sMoments, size_t sCompactParts, size_t sVarParts);
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
@@ -1858,9 +1862,17 @@ public:
 	/// this TreePiece. The opening angle theta has already been passed
 	/// through startGravity().  This function just calls doAllBuckets().
 	void calculateGravityLocal();
+	void calculateGravityLocal(CudaMultipoleMoments* d_localMoments, 
+                                   CompactPartData* d_localParts, 
+                                   VariablePartData* d_localVars,
+                                   size_t sMoments, size_t sCompactParts, size_t sVarParts);
 	/// Do some minor preparation for the local walkk then
 	/// calculateGravityLocal().
 	void commenceCalculateGravityLocal();
+	void commenceCalculateGravityLocal(intptr_t d_localMoments, 
+                                           intptr_t d_localParts, 
+                                           intptr_t d_localVars,
+                                           size_t sMoments, size_t sCompactParts, size_t sVarParts);
 
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted

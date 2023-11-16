@@ -105,6 +105,13 @@ enum kernels {
 /** @brief Data and parameters for requesting gravity calculations on
  * the GPU. */
 typedef struct _CudaRequest{
+	void *d_localMoments;
+	void *d_localParts;
+	void *d_localVars;
+	size_t sMoments;
+	size_t sCompactParts;
+	size_t sVarParts;
+
         /// can either be a ILCell* or an ILPart*
 	void *list;
 	int *bucketMarkers;     /**< index in the cell or particle
@@ -191,6 +198,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *c
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *varParts, size_t sVarParts,
+				  void *d_localMoments, void *d_compactParts, void *d_varParts,
                                   int mype, void *wrCallback);
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,

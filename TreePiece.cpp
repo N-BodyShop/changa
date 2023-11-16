@@ -3856,11 +3856,31 @@ void TreePiece::doAllBuckets(){
   report();
 #endif
 
-#ifdef GPU_LOCAL_TREE_WALK 
+  // Schedule a walk on the CPU
+
+  dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
+  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+
+  thisProxy[thisIndex].nextBucket(msg);
+
+#ifdef HAPI_INSTRUMENT_WRS
+  ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
+  ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
+#endif
+}
+
+// GPU only
+void TreePiece::doAllBuckets(CudaMultipoleMoments* d_localMoments,
+                             CompactPartData* d_localParts,        
+                             VariablePartData* d_localVars,
+                             size_t sMoments, size_t sCompactParts, size_t sVarParts){
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
-  listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+  listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets, 
+		                             d_localMoments, d_localParts, d_localVars,
+                                             sMoments, sCompactParts, sVarParts);
 
   // Set up the book keeping flags
   bool useckloop = false;
@@ -3876,20 +3896,6 @@ void TreePiece::doAllBuckets(){
   listcompute->resetCudaNodeState(state);
   listcompute->resetCudaPartState(state);
 
-#else
-  // Schedule a walk on the CPU
-
-  dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
-  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-
-  thisProxy[thisIndex].nextBucket(msg);
-#endif //GPU_LOCAL_TREE_WALK
-
-#ifdef HAPI_INSTRUMENT_WRS
-  ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
-  ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
-#endif
 }
 
 void TreePiece::nextBucket(dummyMsg *msg){
@@ -4088,6 +4094,14 @@ void TreePiece::doParallelNextBucketWork(int idx, LoopParData* lpdata) {
 #else
   CkAbort("Ckloop not implemented for non-interaction list gravity");
 #endif
+}
+
+void TreePiece::calculateGravityLocal(CudaMultipoleMoments* d_localMoments, 
+                                      CompactPartData* d_localParts, 
+                                      VariablePartData* d_localVars,
+                                      size_t sMoments, size_t sCompactParts, size_t sVarParts) {
+  doAllBuckets(d_localMoments, d_localParts, d_localVars,
+               sMoments, sCompactParts, sVarParts);
 }
 
 /// This function could be replaced by the doAllBuckets() call.
@@ -5270,6 +5284,16 @@ void TreePiece::initiatePrefetch(int chunk){
     }
   }
 
+}
+
+void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments, 
+		                              intptr_t d_localParts, 
+					      intptr_t d_localVars,
+                                              size_t sMoments, size_t sCompactParts, size_t sVarParts) {
+    calculateGravityLocal((CudaMultipoleMoments *)d_localMoments,
+		          (CompactPartData *)d_localParts,
+			  (VariablePartData *)d_localVars,
+                          sMoments, sCompactParts, sVarParts);
 }
 
 void TreePiece::commenceCalculateGravityLocal(){
