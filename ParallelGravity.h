@@ -1415,7 +1415,8 @@ private:
 	void doAllBuckets(CudaMultipoleMoments* d_localMoments,
                           CompactPartData* d_localParts,
                           VariablePartData* d_localVars,
-                          size_t sMoments, size_t sCompactParts, size_t sVarParts);
+                          size_t sMoments, size_t sCompactParts, size_t sVarParts,
+			  cudaStream_t *stream);
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
@@ -1865,14 +1866,16 @@ public:
 	void calculateGravityLocal(CudaMultipoleMoments* d_localMoments, 
                                    CompactPartData* d_localParts, 
                                    VariablePartData* d_localVars,
-                                   size_t sMoments, size_t sCompactParts, size_t sVarParts);
+                                   size_t sMoments, size_t sCompactParts, size_t sVarParts,
+				   cudaStream_t *stream);
 	/// Do some minor preparation for the local walkk then
 	/// calculateGravityLocal().
 	void commenceCalculateGravityLocal();
 	void commenceCalculateGravityLocal(intptr_t d_localMoments, 
                                            intptr_t d_localParts, 
                                            intptr_t d_localVars,
-                                           size_t sMoments, size_t sCompactParts, size_t sVarParts);
+                                           size_t sMoments, size_t sCompactParts, size_t sVarParts,
+					   intptr_t stream);
 
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted

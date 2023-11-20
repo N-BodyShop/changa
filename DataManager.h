@@ -143,6 +143,7 @@ protected:
 	size_t sMoments;
 	size_t sCompactParts;
 	size_t sVarParts;
+	cudaStream_t stream;
 
 #ifdef HAPI_INSTRUMENT_WRS
         int activeRung;

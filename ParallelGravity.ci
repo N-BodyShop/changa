@@ -478,7 +478,8 @@ mainmodule ParallelGravity {
     entry void commenceCalculateGravityLocal(intptr_t d_localMoments, 
                                              intptr_t d_localParts, 
                                              intptr_t d_localVars,
-                                             size_t sMoments, size_t sCompactParts, size_t sVarParts);
+                                             size_t sMoments, size_t sCompactParts, size_t sVarParts,
+                                             intptr_t stream);
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
 
     entry [notrace] void calculateReSmoothLocal();

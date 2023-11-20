@@ -515,7 +515,8 @@ void DataManager::startLocalWalk() {
       treePieces[in].commenceCalculateGravityLocal((intptr_t)d_localMoments, 
 		                                   (intptr_t)d_localParts, 
 						   (intptr_t)d_localVars,
-		                                   sMoments, sCompactParts, sVarParts);
+		                                   sMoments, sCompactParts, sVarParts,
+						   (intptr_t)stream);
       if(registeredTreePieces[0].treePiece->bEwald) {
           dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
           // Make priority lower than gravity or smooth.
@@ -524,6 +525,13 @@ void DataManager::startLocalWalk() {
           treePieces[in].calculateEwald(msg);
       }
     }
+
+    // Free GPU memory
+    // Is this the right place to do this?
+    //freeDeviceMemory(d_localMoments);
+    //freeDeviceMemory(d_localParts);
+    //freeDeviceMemory(d_localVars);
+
     freePinnedHostMemory(bufLocalMoments);
     freePinnedHostMemory(bufLocalParts);
     freePinnedHostMemory(bufLocalVars);
@@ -944,6 +952,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   DataManagerTransferLocalTree(bufLocalMoments, sMoments, bufLocalParts,
                                sCompactParts, bufLocalVars, sVarParts,
 			       d_localMoments, d_localParts, d_localVars,
+			       &stream,
                                CkMyPe(), localTransferCallback);
 #endif
 }// end serializeLocal
@@ -1110,13 +1119,17 @@ void DataManager::transferParticleVarsBack(){
                              savedNumTotalParticles > 0, lastChunkMoments > 0,
                              lastChunkParticles > 0, 0, activeRung);
 #else
-    TransferParticleVarsBack(buf,
+    TransferParticleVarsBack(buf, 
                              savedNumTotalParticles*sizeof(VariablePartData),
+			     &stream,
                              data->cb, savedNumTotalNodes > 0,
                              savedNumTotalParticles > 0, lastChunkMoments > 0,
                              lastChunkParticles > 0);
 #endif
     gputransfer = false;
+
+
+    // Cleanup device memory here
   }
   CmiUnlock(__nodelock);
 }

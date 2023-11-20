@@ -111,6 +111,7 @@ typedef struct _CudaRequest{
 	size_t sMoments;
 	size_t sCompactParts;
 	size_t sVarParts;
+	void *stream;
 
         /// can either be a ILCell* or an ILPart*
 	void *list;
@@ -181,12 +182,13 @@ typedef struct _ParameterStruct{
 
 void allocatePinnedHostMemory(void **, size_t);
 void freePinnedHostMemory(void *);
+void freeDeviceMemory(void *);
 
 #ifdef HAPI_INSTRUMENT_WRS
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                         void *compactParts, size_t sCompactParts,
                         void *varParts, size_t sVarParts,
-                        int mype, char phase, void *wrCallback);
+                        int mype, char phase, void *callback);
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments, 
                                     void *compactParts, size_t sCompactParts,
                                     void *varParts, size_t sVarParts,
@@ -199,7 +201,8 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *varParts, size_t sVarParts,
 				  void *d_localMoments, void *d_compactParts, void *d_varParts,
-                                  int mype, void *wrCallback);
+				  void *stream,
+                                  int mype, void *callback);
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *wrCallback);
@@ -216,7 +219,7 @@ void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart)
  *  @param freeRemotePart Boolean: free device buffer with remote
  *  particle data.
  */
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *stream, void *cb,
     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart);
 #endif
 

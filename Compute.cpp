@@ -1415,7 +1415,8 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   CudaMultipoleMoments* d_localMoments,
   CompactPartData* d_localParts,
   VariablePartData* d_localVars,
-  size_t sMoments, size_t sCompactParts, size_t sVarParts) {
+  size_t sMoments, size_t sCompactParts, size_t sVarParts,
+  cudaStream_t *stream) {
   int numFilledBuckets = 0;
   for (int i = startBucket; i < endBucket; ++i) {
     if (tp->bucketList[i]->rungs >= activeRung) {
@@ -1480,6 +1481,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   request->sMoments = sMoments;
   request->sCompactParts = sCompactParts;
   request->sVarParts = sVarParts;
+  request->stream = stream;
 
   request->numBucketsPlusOne = numFilledBuckets+1;
   request->affectedBuckets = affectedBuckets;

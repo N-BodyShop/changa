@@ -103,6 +103,10 @@ void freePinnedHostMemory(void *ptr){
 #endif
 }
 
+void freeDeviceMemory(void *ptr){
+  hapiCheck(cudaFree(ptr));
+}
+
 
 /******************* Transfers ******************/
 
@@ -148,22 +152,21 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *varParts, size_t sVarParts,
 				  void *d_localMoments, void *d_compactParts, void *d_varParts,
-                                  int mype, void *wrCallback) {
+				  void *stream,
+                                  int mype, void *callback) {
 
-        cudaStream_t stream;
-
-	hapiCheck(cudaStreamCreate(&stream));
+	cudaStream_t *strPtr = (cudaStream_t *)stream;
+	hapiCheck(cudaStreamCreate(strPtr));
 
 	hapiCheck(cudaMalloc(&d_localMoments, sMoments));
         hapiCheck(cudaMalloc(&d_compactParts, sCompactParts));
         hapiCheck(cudaMalloc(&d_varParts, sVarParts));
 
-	cudaMemcpyAsync((void *)d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, stream);
-	cudaMemcpyAsync((void *)d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, stream);
-	cudaMemcpyAsync((void *)d_varParts, varParts, sVarParts, cudaMemcpyHostToDevice, stream);
+	cudaMemcpyAsync((void *)d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, *strPtr);
+	cudaMemcpyAsync((void *)d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, *strPtr);
+	cudaMemcpyAsync((void *)d_varParts, varParts, sVarParts, cudaMemcpyHostToDevice, *strPtr);
 
-	hapiCheck(cudaStreamDestroy(stream));
-	hapiAddCallback(stream, wrCallback);
+	hapiAddCallback(*strPtr, callback);
 
 }
 
@@ -537,14 +540,9 @@ void run_TP_PART_GRAVITY_REMOTE_RESUME(hapiWorkRequest *wr, cudaStream_t kernel_
 }
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data){
-	cudaStream_t stream;
-
-	hapiCheck(cudaStreamCreate(&stream));
-
-	// How do I get a pointer to the particle data that was transferred?
-	// Do I need to rewrite the data transfer stuff too, and handle the pointer explicitly?
+	cudaStream_t *strPtr = (cudaStream_t *)data->stream;
 	gpuLocalTreeWalk<<<(data->lastParticle - data->firstParticle + 1)
-                                    / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
+                                    / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, *strPtr>>> (
 	  (CudaMultipoleMoments *)data->d_localMoments,
 	  (CompactPartData *)data->d_localParts,
 	  (VariablePartData *)data->d_localVars,
@@ -559,13 +557,17 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
           data->fperiodZ
         );
 
-	hapiAddCallback(stream, data->cb);
+	// cudaCallbackForAllBuckets
+	// doesnt seem to be triggering?
+	// Also attempts to free list, bucket starts..etc
+	hapiAddCallback(*strPtr, data->cb);
+	cudaStreamSynchronize(*strPtr);
 
-	hapiCheck(cudaFree(data->d_localMoments));
-        hapiCheck(cudaFree(data->d_localParts));
-        hapiCheck(cudaFree(data->d_localVars));
-
-	hapiCheck(cudaStreamDestroy(stream));
+	// This should be done after transferParticleVarsBack is triggered
+	// Should probably also be done in that function
+	//hapiCheck(cudaFree(data->d_localMoments));
+        //hapiCheck(cudaFree(data->d_localParts));
+        //hapiCheck(cudaFree(data->d_localVars));
 }
 
 void TreePieceCellListDataTransferRemote(CudaRequest *data){
@@ -968,9 +970,10 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *c
      bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart,
      int index, char phase){
 #else
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *stream, void *cb,
      bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
 #endif
+  cudaStream_t *strPtr = (cudaStream_t *)stream;
   hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
 
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
@@ -1008,6 +1011,8 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *c
   gravityKernel->comp_phase = phase;
 #endif
   hapiEnqueue(gravityKernel);
+
+  hapiCheck(cudaStreamDestroy(*strPtr));
 }
 
 /*
