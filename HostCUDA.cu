@@ -970,49 +970,18 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *c
      bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart,
      int index, char phase){
 #else
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *stream, void *cb,
+void TransferParticleVarsBack(VariablePartData *hostBuffer, 
+		size_t size, void *d_varParts,
+     void *stream, void *cb,
      bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
 #endif
+  
   cudaStream_t *strPtr = (cudaStream_t *)stream;
-  hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
+  cudaMemcpyAsync(d_varParts, (void *)hostBuffer, size, cudaMemcpyDeviceToHost, *strPtr);
+  hapiAddCallback(*strPtr, cb);
+  
+  // Device memory and stream gets cleaned up in DataManager::transferParticleVarsBack
 
-#ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
-  printf("Enqueue kernel to transfer particles back from: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
-#endif
-
-  /* The buffers are: 1) forces on local particles, 2) Local multipole moments
-   * 3) Local particle data, 4) Remote multipole moments and 5) remote
-   * particle data.  Buffers 2-5 are here to get their device buffer
-   * deallocated.
-   */
-
-  /* schedule buffers for transfer to the GPU */
-  gravityKernel->addBuffer(hostBuffer, size, false, (size > 0), (size > 0), LOCAL_PARTICLE_VARS);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freemom, LOCAL_MOMENTS);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freepart, LOCAL_PARTICLE_CORES);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freeRemoteMom, REMOTE_MOMENTS);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freeRemotePart, REMOTE_PARTICLE_CORES);
-
-  gravityKernel->setDeviceToHostCallback(*(CkCallback *)cb);
-#ifdef HAPI_TRACE
-  gravityKernel->setTraceName("transferBack");
-#endif
-  gravityKernel->setRunKernel(run_DM_TRANSFER_BACK);
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("(%d) DM TRANSFER BACK\n", CmiMyPe());
-#endif
-#ifdef HAPI_INSTRUMENT_WRS
-  gravityKernel->chare_index = index;
-  gravityKernel->comp_type = DM_TRANSFER_BACK;
-  gravityKernel->comp_phase = phase;
-#endif
-  hapiEnqueue(gravityKernel);
-
-  hapiCheck(cudaStreamDestroy(*strPtr));
 }
 
 /*

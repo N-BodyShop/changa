@@ -219,7 +219,7 @@ void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart)
  *  @param freeRemotePart Boolean: free device buffer with remote
  *  particle data.
  */
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *stream, void *cb,
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, void *stream, void *cb,
     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart);
 #endif
 

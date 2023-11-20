@@ -1121,11 +1121,17 @@ void DataManager::transferParticleVarsBack(){
 #else
     TransferParticleVarsBack(buf, 
                              savedNumTotalParticles*sizeof(VariablePartData),
+			     d_localVars,
 			     &stream,
                              data->cb, savedNumTotalNodes > 0,
                              savedNumTotalParticles > 0, lastChunkMoments > 0,
                              lastChunkParticles > 0);
 #endif
+    hapiCheck(cudaFree(d_localMoments));
+    hapiCheck(cudaFree(d_localParts));
+    hapiCheck(cudaFree(d_localVars));
+    hapiCheck(cudaStreamDestroy(stream));
+
     gputransfer = false;
 
 
