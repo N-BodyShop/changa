@@ -522,15 +522,15 @@ void DataManager::startLocalWalk() {
           // Make priority lower than gravity or smooth.
           *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
           CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-          treePieces[in].calculateEwald(msg);
+	  // TODO: Incorporate pointers into msg
+          treePieces[in].calculateEwald(msg, (intptr_t)d_localParts,
+			                     (intptr_t)d_localVars,
+					     (intptr_t)d_EwaldMarkers,
+					     (intptr_t)d_cachedData,
+					     (intptr_t)d_ewt,
+					     (intptr_t)stream);
       }
     }
-
-    // Free GPU memory
-    // Is this the right place to do this?
-    //freeDeviceMemory(d_localMoments);
-    //freeDeviceMemory(d_localParts);
-    //freeDeviceMemory(d_localVars);
 
     freePinnedHostMemory(bufLocalMoments);
     freePinnedHostMemory(bufLocalParts);
@@ -1130,6 +1130,10 @@ void DataManager::transferParticleVarsBack(){
     hapiCheck(cudaFree(d_localMoments));
     hapiCheck(cudaFree(d_localParts));
     hapiCheck(cudaFree(d_localVars));
+    hapiCheck(cudaFree(d_localMoments));
+    hapiCheck(cudaFree(d_EwaldMarkers));
+    hapiCheck(cudaFree(d_cachedData));
+    hapiCheck(cudaFree(d_ewt));
     hapiCheck(cudaStreamDestroy(stream));
 
     gputransfer = false;

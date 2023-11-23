@@ -143,6 +143,11 @@ protected:
 	size_t sMoments;
 	size_t sCompactParts;
 	size_t sVarParts;
+
+	int *d_EwaldMarkers;
+	EwaldReadOnlyData *d_cachedData;
+	EwtData *d_ewt;
+
 	cudaStream_t stream;
 
 #ifdef HAPI_INSTRUMENT_WRS

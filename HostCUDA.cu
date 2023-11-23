@@ -557,17 +557,8 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
           data->fperiodZ
         );
 
-	// cudaCallbackForAllBuckets
-	// doesnt seem to be triggering?
-	// Also attempts to free list, bucket starts..etc
 	hapiAddCallback(*strPtr, data->cb);
 	cudaStreamSynchronize(*strPtr);
-
-	// This should be done after transferParticleVarsBack is triggered
-	// Should probably also be done in that function
-	//hapiCheck(cudaFree(data->d_localMoments));
-        //hapiCheck(cudaFree(data->d_localParts));
-        //hapiCheck(cudaFree(data->d_localVars));
 }
 
 void TreePieceCellListDataTransferRemote(CudaRequest *data){
@@ -2305,68 +2296,42 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
 #ifdef HAPI_INSTRUMENT_WRS
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase)
 #else
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
+void EwaldHost(void *d_localParts, void *d_localVars, 
+	       void *d_EwaldMarkers, void *d_cachedData, void *d_ewt, void *stream, 
+		EwaldData *h_idata, void *cb, int myIndex, int largephase)
 #endif
 {
+  cudaStream_t *strPtr = (cudaStream_t *)stream;
 
   int n = h_idata->cachedData->n;
   int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
   int nEwhLoop = h_idata->cachedData->nEwhLoop;
   assert(nEwhLoop <= NEWH);
-
-  hapiWorkRequest* EwaldKernel = hapiCreateWorkRequest();
-
-  EwaldKernel->setExecParams(numBlocks, BLOCK_SIZE);
-
-  //Range of particles on GPU
-  EwaldKernel->copyUserData(h_idata->EwaldRange, sizeof(h_idata->EwaldRange));
-
-  /* schedule buffers for transfer to the GPU */
-  bool transferToDevice, freeBuffer;
-  size_t size;
-  if(largephase) transferToDevice = true;
-  else transferToDevice = false;
-  if(largephase) freeBuffer = true;
-  else freeBuffer = false;
-  if(largephase) size = n * sizeof(int);
-  else size = 0;
-  EwaldKernel->addBuffer(h_idata->EwaldMarkers, size, transferToDevice,
-                             false, freeBuffer);
-
-  EwaldKernel->addBuffer(h_idata->cachedData, sizeof(EwaldReadOnlyData),
-                                false, false, false,
-                                NUM_GRAVITY_BUFS + EWALD_READ_ONLY_DATA);
-
-  EwaldKernel->addBuffer(h_idata->ewt, nEwhLoop * sizeof(EwtData), false, false,
-                         false, NUM_GRAVITY_BUFS + EWALD_TABLE);
-
-  /* See NUM_BUFFERS define in
-   * charm/src/arch/cuda/hybridAPI/cuda-hybrid-api.cu
-   * BufferIDs larger than this are assigned by the runtime.
-   */
   assert(NUM_GRAVITY_BUFS + EWALD_TABLE < 256);
 
-  EwaldKernel->setDeviceToHostCallback(*(CkCallback *)cb);
-  if(largephase){
-    EwaldKernel->setRunKernel(run_EWALD_KERNEL_Large);
-#ifdef HAPI_TRACE
-    EwaldKernel->setTraceName("EwaldLarge");
-#endif
-  }else{
-    EwaldKernel->setRunKernel(run_EWALD_KERNEL_Small);
-#ifdef HAPI_TRACE
-    EwaldKernel->setTraceName("EwaldSmall");
-#endif
-  }
-#ifdef HAPI_INSTRUMENT_WRS
-  EwaldKernel->chare_index = myIndex;
-  EwaldKernel->comp_type = EWALD_KERNEL;
-  EwaldKernel->comp_phase = phase;
-#endif
-  hapiEnqueue(EwaldKernel);
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("[%d] in EwaldHost, enqueued EwaldKernel\n", myIndex);
-#endif
+  int *ewaldptr = (int *)d_EwaldMarkers;
+
+  size_t size;
+  if(largephase) size = n * sizeof(int);
+  else size = 0;
+
+  cudaMemcpyAsync(d_EwaldMarkers, h_idata->EwaldMarkers, size, cudaMemcpyHostToDevice, *strPtr);
+  cudaMemcpyAsync(d_cachedData, h_idata->cachedData, sizeof(EwaldReadOnlyData), cudaMemcpyHostToDevice, *strPtr);
+  cudaMemcpyAsync(d_ewt, h_idata->ewt, sizeof(EwtData), cudaMemcpyHostToDevice, *strPtr);
+
+  if (largephase)
+      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, *strPtr>>>((CompactPartData *)d_localParts, 
+		                                         (VariablePartData *)d_localVars,
+							 (int *)d_EwaldMarkers, 1,
+							 ewaldptr[0], ewaldptr[1]);
+  else
+      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, *strPtr>>>((CompactPartData *)d_localParts, 
+                                                         (VariablePartData *)d_localVars,
+							 NULL, 0,
+							 ewaldptr[0], ewaldptr[1]);
+
+  hapiAddCallback(*strPtr, cb);
+  cudaStreamSynchronize(*strPtr);
 }
 
 __global__ void EwaldKernel(CompactPartData *particleCores, 

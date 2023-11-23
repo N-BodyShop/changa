@@ -4111,13 +4111,20 @@ void TreePiece::calculateGravityLocal() {
   doAllBuckets();
 }
 
+#ifdef SPCUDA
+void TreePiece::calculateEwald(intptr_t d_localParts,
+                               intptr_t d_localVars, intptr_t d_EwaldMarkers, intptr_t d_cachedData,
+                               intptr_t d_ewt, intptr_t stream) {
+#else
+					  
 void TreePiece::calculateEwald(dummyMsg *msg) {
+#endif
 #ifdef SPCUDA
   if(dm->gputransfer && bEwaldInited){
-    thisProxy[thisIndex].EwaldGPU();
+    thisProxy[thisIndex].EwaldGPU(d_localParts, d_localVars, d_EwaldMarkers, d_cachedData, 
+		                 d_ewt, stream);
     bEwaldInited = false;
   }
-  delete msg;
 #else
 
   bool useckloop = false;
@@ -4145,7 +4152,12 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
   }
 
   if (ewaldCurrentBucket<numBuckets) {
+#ifdef GPU_LOCAL_TREE_WALK
+      thisProxy[thisIndex].calculateEwald(msg, dd_localParts, d_localVars, d_EwaldMarkers, 
+		                         d_cachedData, d_ewt, markers, stream);
+#else
       thisProxy[thisIndex].calculateEwald(msg);
+#endif
   } else {
     delete msg;
   }

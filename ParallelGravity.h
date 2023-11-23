@@ -1340,7 +1340,8 @@ private:
   EwaldData *h_idata;
   CkCallback *cbEwaldGPU;
 #endif
-  void EwaldGPU(); 
+  void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars, intptr_t d_EwaldMarkers,
+		intptr_t d_cachedData, intptr_t d_ewt, intptr_t stream); 
   void EwaldGPUComplete();
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
@@ -1589,7 +1590,15 @@ public:
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
+#ifdef SPCUDA
+	void calculateEwald(intptr_t d_localParts,
+                            intptr_t d_localVars, intptr_t d_EwaldMarkers,
+			    intptr_t d_cachedData,
+                            intptr_t d_ewt,
+                            intptr_t stream);
+#else
 	void calculateEwald(dummyMsg *m);
+#endif
   void calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num);
   void callBucketEwald(int id);
   void doParallelNextBucketWork(int id, LoopParData* lpdata);

@@ -274,9 +274,18 @@ mainmodule ParallelGravity {
                            int bComove, double dRhoFac);
     entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
+#ifdef SPCUDA
+    entry void calculateEwald(intptr_t d_localParts,
+                               intptr_t d_localVars,  
+                               intptr_t d_EwaldMarkers, intptr_t d_cachedData,
+                               intptr_t d_ewt,
+                               intptr_t stream);
+#else
     entry void calculateEwald(dummyMsg *m);
+#endif
     entry [notrace] void EwaldGPUComplete(); 
-    entry [notrace] void EwaldGPU(); 
+    entry [notrace] void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars, intptr_t d_EwaldMarkers,
+                intptr_t d_cachedData, intptr_t d_ewt, intptr_t stream);
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
     entry void loadNChilada(const std::string& filename, const double dTuFac,
