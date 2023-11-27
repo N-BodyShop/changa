@@ -533,8 +533,8 @@ void TreePiece::EwaldGPU(intptr_t d_localParts, intptr_t d_localVars,
       myLocalIndex++);
   CkAssert(myLocalIndex < dm->registeredTreePieces.length());
 
-  EwaldHost((void *)d_localParts, (void *)d_localVars,
-	    (void *)d_EwaldMarkers, (void *)d_cachedData, (void *)d_ewt, (void *)stream,
+  EwaldHost((void **)d_localParts, (void **)d_localVars,
+	    (void **)d_EwaldMarkers, (void **)d_cachedData, (void **)d_ewt, (void *)stream,
 	    h_idata, (void *) cbEwaldGPU, myLocalIndex, largephase);
 #endif
 

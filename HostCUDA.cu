@@ -151,20 +151,20 @@ void run_DM_TRANSFER_FREE_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *varParts, size_t sVarParts,
-				  void *d_localMoments, void *d_compactParts, void *d_varParts,
+				  void **d_localMoments, void **d_compactParts, void **d_varParts,
 				  void *stream,
                                   int mype, void *callback) {
 
 	cudaStream_t *strPtr = (cudaStream_t *)stream;
 	hapiCheck(cudaStreamCreate(strPtr));
 
-	hapiCheck(cudaMalloc(&d_localMoments, sMoments));
-        hapiCheck(cudaMalloc(&d_compactParts, sCompactParts));
-        hapiCheck(cudaMalloc(&d_varParts, sVarParts));
+	hapiCheck(cudaMalloc(d_localMoments, sMoments));
+        hapiCheck(cudaMalloc(d_compactParts, sCompactParts));
+        hapiCheck(cudaMalloc(d_varParts, sVarParts));
 
-	cudaMemcpyAsync((void *)d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, *strPtr);
-	cudaMemcpyAsync((void *)d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, *strPtr);
-	cudaMemcpyAsync((void *)d_varParts, varParts, sVarParts, cudaMemcpyHostToDevice, *strPtr);
+	cudaMemcpyAsync(*d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, *strPtr);
+	cudaMemcpyAsync(*d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, *strPtr);
+	cudaMemcpyAsync(*d_varParts, varParts, sVarParts, cudaMemcpyHostToDevice, *strPtr);
 
 	hapiAddCallback(*strPtr, callback);
 
@@ -2296,8 +2296,8 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
 #ifdef HAPI_INSTRUMENT_WRS
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase)
 #else
-void EwaldHost(void *d_localParts, void *d_localVars, 
-	       void *d_EwaldMarkers, void *d_cachedData, void *d_ewt, void *stream, 
+void EwaldHost(void **d_localParts, void **d_localVars, 
+	       void **d_EwaldMarkers, void **d_cachedData, void **d_ewt, void *stream, 
 		EwaldData *h_idata, void *cb, int myIndex, int largephase)
 #endif
 {
@@ -2315,9 +2315,9 @@ void EwaldHost(void *d_localParts, void *d_localVars,
   if(largephase) size = n * sizeof(int);
   else size = 0;
 
-  cudaMemcpyAsync(d_EwaldMarkers, h_idata->EwaldMarkers, size, cudaMemcpyHostToDevice, *strPtr);
-  cudaMemcpyAsync(d_cachedData, h_idata->cachedData, sizeof(EwaldReadOnlyData), cudaMemcpyHostToDevice, *strPtr);
-  cudaMemcpyAsync(d_ewt, h_idata->ewt, sizeof(EwtData), cudaMemcpyHostToDevice, *strPtr);
+  cudaMemcpyAsync(*d_EwaldMarkers, h_idata->EwaldMarkers, size, cudaMemcpyHostToDevice, *strPtr);
+  cudaMemcpyAsync(*d_cachedData, h_idata->cachedData, sizeof(EwaldReadOnlyData), cudaMemcpyHostToDevice, *strPtr);
+  cudaMemcpyAsync(*d_ewt, h_idata->ewt, sizeof(EwtData), cudaMemcpyHostToDevice, *strPtr);
 
   if (largephase)
       EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, *strPtr>>>((CompactPartData *)d_localParts, 

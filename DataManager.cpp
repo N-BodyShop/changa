@@ -519,11 +519,11 @@ void DataManager::startLocalWalk() {
 						   (intptr_t)stream);
       if(registeredTreePieces[0].treePiece->bEwald) {
 	  EwaldGPUmsg *msg = new EwaldGPUmsg;
-	  msg->d_localParts = (intptr_t)d_localParts;
-	  msg->d_localVars = (intptr_t)d_localVars;
-	  msg->d_EwaldMarkers = (intptr_t)d_EwaldMarkers;
-          msg->d_cachedData = (intptr_t)d_cachedData;
-          msg->d_ewt = (intptr_t)d_ewt;
+	  msg->d_localParts = (intptr_t)&d_localParts;
+	  msg->d_localVars = (intptr_t)&d_localVars;
+	  msg->d_EwaldMarkers = (intptr_t)&d_EwaldMarkers;
+          msg->d_cachedData = (intptr_t)&d_cachedData;
+          msg->d_ewt = (intptr_t)&d_ewt;
 	  msg->stream = (intptr_t)stream;
           // Make priority lower than gravity or smooth.
           *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
@@ -951,7 +951,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 #else
   DataManagerTransferLocalTree(bufLocalMoments, sMoments, bufLocalParts,
                                sCompactParts, bufLocalVars, sVarParts,
-			       d_localMoments, d_localParts, d_localVars,
+			       &d_localMoments, &d_localParts, &d_localVars,
 			       &stream,
                                CkMyPe(), localTransferCallback);
 #endif
@@ -1130,7 +1130,6 @@ void DataManager::transferParticleVarsBack(){
     hapiCheck(cudaFree(d_localMoments));
     hapiCheck(cudaFree(d_localParts));
     hapiCheck(cudaFree(d_localVars));
-    hapiCheck(cudaFree(d_localMoments));
     hapiCheck(cudaFree(d_EwaldMarkers));
     hapiCheck(cudaFree(d_cachedData));
     hapiCheck(cudaFree(d_ewt));

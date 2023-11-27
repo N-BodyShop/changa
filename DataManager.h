@@ -137,16 +137,16 @@ protected:
         VariablePartData *bufLocalVars;
 
 	// Pointers to particle and tree data on GPU
-	CudaMultipoleMoments *d_localMoments;
-	CompactPartData *d_localParts;
-	VariablePartData *d_localVars;
+	void *d_localMoments;
+	void *d_localParts;
+	void *d_localVars;
 	size_t sMoments;
 	size_t sCompactParts;
 	size_t sVarParts;
 
-	int *d_EwaldMarkers;
-	EwaldReadOnlyData *d_cachedData;
-	EwtData *d_ewt;
+	void *d_EwaldMarkers;
+	void *d_cachedData;
+	void *d_ewt;
 
 	cudaStream_t stream;
 

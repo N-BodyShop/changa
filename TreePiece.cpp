@@ -5242,11 +5242,11 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
 #if defined CUDA
   EwaldGPUmsg *msg = new EwaldGPUmsg;
-  msg->d_localParts = (intptr_t)dm->d_localParts;
-  msg->d_localVars = (intptr_t)dm->d_localVars;
-  msg->d_EwaldMarkers = (intptr_t)dm->d_EwaldMarkers;
-  msg->d_cachedData = (intptr_t)dm->d_cachedData;
-  msg->d_ewt = (intptr_t)dm->d_ewt;
+  msg->d_localParts = (intptr_t)&dm->d_localParts;
+  msg->d_localVars = (intptr_t)&dm->d_localVars;
+  msg->d_EwaldMarkers = (intptr_t)&dm->d_EwaldMarkers;
+  msg->d_cachedData = (intptr_t)&dm->d_cachedData;
+  msg->d_ewt = (intptr_t)&dm->d_ewt;
   msg->stream = (intptr_t)dm->stream;
   if (bEwald) thisProxy[thisIndex].EwaldInit(msg);
   // ask datamanager to serialize local trees
