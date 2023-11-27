@@ -282,8 +282,11 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 
 // Set up table for Ewald h (Fourier space) loop
 
-void TreePiece::EwaldInit()
-{
+#ifdef CUDA
+void TreePiece::EwaldInit(EwaldGPUmsg *msg){
+#else
+void TreePiece::EwaldInit(){
+#endif
 	int i,hReps,hx,hy,hz,h2;
 	double alpha,k4,L;
 	double gam[6],mfacc,mfacs;
@@ -375,7 +378,9 @@ void TreePiece::EwaldInit()
 	nEwhLoop = i;
         bEwaldInited = true;
 
+#ifndef CUDA
 	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+#endif
         // Make priority lower than gravity or smooth.
 	*((int *)CkPriorityPtr(msg)) = 3*numTreePieces * numChunks + thisIndex + 1;
 	CkSetQueueing(msg,CK_QUEUEING_IFIFO);

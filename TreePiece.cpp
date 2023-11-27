@@ -4112,17 +4112,15 @@ void TreePiece::calculateGravityLocal() {
 }
 
 #ifdef SPCUDA
-void TreePiece::calculateEwald(intptr_t d_localParts,
-                               intptr_t d_localVars, intptr_t d_EwaldMarkers, intptr_t d_cachedData,
-                               intptr_t d_ewt, intptr_t stream) {
+void TreePiece::calculateEwald(EwaldGPUmsg *msg) {
 #else
 					  
 void TreePiece::calculateEwald(dummyMsg *msg) {
 #endif
 #ifdef SPCUDA
   if(dm->gputransfer && bEwaldInited){
-    thisProxy[thisIndex].EwaldGPU(d_localParts, d_localVars, d_EwaldMarkers, d_cachedData, 
-		                 d_ewt, stream);
+    thisProxy[thisIndex].EwaldGPU(msg->d_localParts, msg->d_localVars, msg->d_EwaldMarkers,
+		                  msg->d_cachedData, msg->d_ewt, msg->stream);
     bEwaldInited = false;
   }
 #else
@@ -5242,14 +5240,22 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
 #endif
 
-  if (bEwald) thisProxy[thisIndex].EwaldInit();
 #if defined CUDA
+  EwaldGPUmsg *msg = new EwaldGPUmsg;
+  msg->d_localParts = (intptr_t)dm->d_localParts;
+  msg->d_localVars = (intptr_t)dm->d_localVars;
+  msg->d_EwaldMarkers = (intptr_t)dm->d_EwaldMarkers;
+  msg->d_cachedData = (intptr_t)dm->d_cachedData;
+  msg->d_ewt = (intptr_t)dm->d_ewt;
+  msg->stream = (intptr_t)dm->stream;
+  if (bEwald) thisProxy[thisIndex].EwaldInit(msg);
   // ask datamanager to serialize local trees
   // prefetch can occur concurrently with this, 
   // though calculateGravityLocal can only come
   // afterwards.
   dm->serializeLocalTree();
 #else
+  if (bEwald) thisProxy[thisIndex].EwaldInit();
   thisProxy[thisIndex].commenceCalculateGravityLocal();
 #endif
 

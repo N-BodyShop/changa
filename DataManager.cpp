@@ -518,17 +518,17 @@ void DataManager::startLocalWalk() {
 		                                   sMoments, sCompactParts, sVarParts,
 						   (intptr_t)stream);
       if(registeredTreePieces[0].treePiece->bEwald) {
-          dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+	  EwaldGPUmsg *msg = new EwaldGPUmsg;
+	  msg->d_localParts = (intptr_t)d_localParts;
+	  msg->d_localVars = (intptr_t)d_localVars;
+	  msg->d_EwaldMarkers = (intptr_t)d_EwaldMarkers;
+          msg->d_cachedData = (intptr_t)d_cachedData;
+          msg->d_ewt = (intptr_t)d_ewt;
+	  msg->stream = (intptr_t)stream;
           // Make priority lower than gravity or smooth.
           *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
           CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-	  // TODO: Incorporate pointers into msg
-          treePieces[in].calculateEwald(msg, (intptr_t)d_localParts,
-			                     (intptr_t)d_localVars,
-					     (intptr_t)d_EwaldMarkers,
-					     (intptr_t)d_cachedData,
-					     (intptr_t)d_ewt,
-					     (intptr_t)stream);
+          treePieces[in].calculateEwald(msg);
       }
     }
 

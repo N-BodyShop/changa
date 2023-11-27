@@ -325,6 +325,15 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
   int whichTreePiece;
 };
 #endif
+
+struct EwaldGPUmsg: public CkMcastBaseMsg, public CMessage_EwaldGPUmsg {
+    intptr_t d_localParts;
+    intptr_t d_localVars;
+    intptr_t d_EwaldMarkers;
+    intptr_t d_cachedData;
+    intptr_t d_ewt;
+    intptr_t stream;
+};
     
 /// Class to count added and deleted particles
 class CountSetPart 
@@ -1589,14 +1598,11 @@ public:
 			 double fEwCut, double fEwhCut, int bPeriod,
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
-	void EwaldInit();
 #ifdef SPCUDA
-	void calculateEwald(intptr_t d_localParts,
-                            intptr_t d_localVars, intptr_t d_EwaldMarkers,
-			    intptr_t d_cachedData,
-                            intptr_t d_ewt,
-                            intptr_t stream);
+	void EwaldInit(EwaldGPUmsg *m);
+	void calculateEwald(EwaldGPUmsg *m);
 #else
+	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
 #endif
   void calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num);
