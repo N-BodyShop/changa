@@ -105,13 +105,13 @@ enum kernels {
 /** @brief Data and parameters for requesting gravity calculations on
  * the GPU. */
 typedef struct _CudaRequest{
-	void *d_localMoments;
-	void *d_localParts;
-	void *d_localVars;
+	CudaMultipoleMoments *d_localMoments;
+	CompactPartData *d_localParts;
+	VariablePartData *d_localVars;
 	size_t sMoments;
 	size_t sCompactParts;
 	size_t sVarParts;
-	void *stream;
+	cudaStream_t *stream;
 
         /// can either be a ILCell* or an ILPart*
 	void *list;
@@ -201,7 +201,7 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *varParts, size_t sVarParts,
 				  void **d_localMoments, void **d_compactParts, void **d_varParts,
-				  void *stream,
+				  cudaStream_t stream,
                                   int mype, void *callback);
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
@@ -219,7 +219,7 @@ void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart)
  *  @param freeRemotePart Boolean: free device buffer with remote
  *  particle data.
  */
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, void *stream, void *cb,
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb,
     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart);
 #endif
 

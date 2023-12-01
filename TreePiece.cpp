@@ -3793,7 +3793,7 @@ void TreePiece::finishBucket(int iBucket) {
       // not be reset, so that the data manager gets 
       // confused.
       dm->transferParticleVarsBack();
-      //dm->freeLocalTreeMemory();
+      dm->freeLocalTreeMemory();
 #else
       // move on to markwalkdone in non-cuda version
       continueWrapUp();
@@ -3809,6 +3809,7 @@ void TreePiece::updateParticles(intptr_t data, int partIndex) {
 
     for(int j = 1; j <= myNumParticles; j++){
         if(isActive(j)){
+	    if (myParticles[j].iOrder == 100) CkPrintf("acc.x = %g\n", deviceParticles[partIndex].a.x);
 #ifndef CUDA_NO_ACC_UPDATES
             myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x;
             myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y;
@@ -3875,7 +3876,7 @@ void TreePiece::doAllBuckets(CudaMultipoleMoments* d_localMoments,
                              CompactPartData* d_localParts,        
                              VariablePartData* d_localVars,
                              size_t sMoments, size_t sCompactParts, size_t sVarParts,
-			     cudaStream_t *stream){
+			     cudaStream_t stream){
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
@@ -4101,7 +4102,7 @@ void TreePiece::calculateGravityLocal(CudaMultipoleMoments* d_localMoments,
                                       CompactPartData* d_localParts, 
                                       VariablePartData* d_localVars,
                                       size_t sMoments, size_t sCompactParts, size_t sVarParts,
-				      cudaStream_t *stream) {
+				      cudaStream_t stream) {
   doAllBuckets(d_localMoments, d_localParts, d_localVars,
                sMoments, sCompactParts, sVarParts, stream);
 }
@@ -4151,7 +4152,7 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
 
   if (ewaldCurrentBucket<numBuckets) {
 #ifdef GPU_LOCAL_TREE_WALK
-      thisProxy[thisIndex].calculateEwald(msg, dd_localParts, d_localVars, d_EwaldMarkers, 
+      thisProxy[thisIndex].calculateEwald(msg, d_localParts, d_localVars, d_EwaldMarkers, 
 		                         d_cachedData, d_ewt, markers, stream);
 #else
       thisProxy[thisIndex].calculateEwald(msg);
@@ -4680,7 +4681,7 @@ void TreePiece::executeCkLoopParallelization(LoopParData *lpdata,
 
 #ifdef CUDA
 void TreePiece::callFreeRemoteChunkMemory(int chunk){
-  dm->freeRemoteChunkMemory(chunk);
+  //dm->freeRemoteChunkMemory(chunk);
 }
 #endif
 
@@ -5315,7 +5316,7 @@ void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments,
 		          (CompactPartData *)d_localParts,
 			  (VariablePartData *)d_localVars,
                           sMoments, sCompactParts, sVarParts,
-			  (cudaStream_t *)stream);
+			  ((cudaStream_t)stream));
 }
 
 void TreePiece::commenceCalculateGravityLocal(){

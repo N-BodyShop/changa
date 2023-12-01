@@ -53,7 +53,8 @@ void DataManager::init() {
 #endif
 
   gpuFree = true;
-  hapiCreateStreams();
+  hapiCheck(cudaStreamCreate(&stream));
+  //hapiCreateStreams();
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
@@ -618,6 +619,7 @@ void DataManager::donePrefetch(int chunk){
                                      bufRemoteParts, sRemParts,
                                      remoteChunkTransferCallback);
 #endif
+      resumeRemoteChunk();
 
     }
     else{
@@ -952,7 +954,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   DataManagerTransferLocalTree(bufLocalMoments, sMoments, bufLocalParts,
                                sCompactParts, bufLocalVars, sVarParts,
 			       &d_localMoments, &d_localParts, &d_localVars,
-			       &stream,
+			       stream,
                                CkMyPe(), localTransferCallback);
 #endif
 }// end serializeLocal
@@ -1025,7 +1027,8 @@ void DataManager::freeRemoteChunkMemory(int chunk){
 #ifdef HAPI_INSTRUMENT_WRS
     FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0, 0, activeRung);
 #else
-    FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0);
+    //FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0);
+    // callback?
 #endif
   }
   CmiUnlock(__nodelock);
@@ -1090,6 +1093,7 @@ void DataManager::transferParticleVarsBack(){
   UpdateParticlesStruct *data;
   CmiLock(__nodelock);
   treePiecesWantParticlesBack++;
+  CkPrintf("%d %d\n", treePiecesWantParticlesBack, registeredTreePieces.length());
   if(treePiecesWantParticlesBack == registeredTreePieces.length()){
     treePiecesWantParticlesBack = 0; 
     VariablePartData *buf;
@@ -1122,7 +1126,7 @@ void DataManager::transferParticleVarsBack(){
     TransferParticleVarsBack(buf, 
                              savedNumTotalParticles*sizeof(VariablePartData),
 			     d_localVars,
-			     &stream,
+			     stream,
                              data->cb, savedNumTotalNodes > 0,
                              savedNumTotalParticles > 0, lastChunkMoments > 0,
                              lastChunkParticles > 0);
@@ -1130,10 +1134,9 @@ void DataManager::transferParticleVarsBack(){
     hapiCheck(cudaFree(d_localMoments));
     hapiCheck(cudaFree(d_localParts));
     hapiCheck(cudaFree(d_localVars));
-    hapiCheck(cudaFree(d_EwaldMarkers));
-    hapiCheck(cudaFree(d_cachedData));
-    hapiCheck(cudaFree(d_ewt));
-    hapiCheck(cudaStreamDestroy(stream));
+    //hapiCheck(cudaFree(d_EwaldMarkers));
+    //hapiCheck(cudaFree(d_cachedData));
+    //hapiCheck(cudaFree(d_ewt));
 
     gputransfer = false;
 

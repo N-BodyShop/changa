@@ -326,7 +326,7 @@ void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int ch
         // it could transpire that we don't miss on these particles during RNR, but they aren't present on the gpu
         // and so we'd have to have a separate array of missed particles for the RNR (in much the same way that the RR has
         // separate arrays for missed nodes and particles) 
-  finishNodeProcessEvent(tp, state);
+  //finishNodeProcessEvent(tp, state);
 //#endif
 }
 
@@ -1416,7 +1416,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   CompactPartData* d_localParts,
   VariablePartData* d_localVars,
   size_t sMoments, size_t sCompactParts, size_t sVarParts,
-  cudaStream_t *stream) {
+  cudaStream_t stream) {
   int numFilledBuckets = 0;
   for (int i = startBucket; i < endBucket; ++i) {
     if (tp->bucketList[i]->rungs >= activeRung) {
@@ -1481,7 +1481,7 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   request->sMoments = sMoments;
   request->sCompactParts = sCompactParts;
   request->sVarParts = sVarParts;
-  request->stream = stream;
+  request->stream = &stream;
 
   request->numBucketsPlusOne = numFilledBuckets+1;
   request->affectedBuckets = affectedBuckets;
@@ -2117,7 +2117,8 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
 #ifdef HAPI_TRACE
     tp->remoteNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
-    TreePieceCellListDataTransferRemote(data);
+    //TreePieceCellListDataTransferRemote(data);
+    // callback?
 #ifdef HAPI_INSTRUMENT_WRS
     tp->remoteNodeListConstructionTime += time;
     tp->nRemoteNodeReqs++;
@@ -2133,7 +2134,8 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
 #ifdef HAPI_TRACE
     tp->remoteResumeNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
-    TreePieceCellListDataTransferRemoteResume(data);
+    //TreePieceCellListDataTransferRemoteResume(data);
+    // callback?
 #ifdef HAPI_INSTRUMENT_WRS
     tp->remoteResumeNodeListConstructionTime += time;
     tp->nRemoteResumeNodeReqs++;
@@ -2222,11 +2224,13 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 #endif
     if(tp->largePhase()){
       TreePiecePartListDataTransferLocal(data);
+      // callback? should be okay if bEwald=0
     }
     else{
       CompactPartData *parts = state->particles->getVec();
       int leng = state->particles->length();
       TreePiecePartListDataTransferLocalSmallPhase(data, parts, leng);
+      // callback? should be okay if bEwald=0
       tp->clearMarkedBuckets(state->markedBuckets);
     }
 #ifdef HAPI_INSTRUMENT_WRS
@@ -2238,7 +2242,8 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 #ifdef HAPI_TRACE
     tp->remotePartInteractions += state->particleLists.totalNumInteractions;
 #endif
-    TreePiecePartListDataTransferRemote(data);
+    //TreePiecePartListDataTransferRemote(data);
+    // callback?
 #ifdef HAPI_INSTRUMENT_WRS
     tp->remotePartListConstructionTime += time;
     tp->nRemotePartReqs++;
@@ -2254,7 +2259,8 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 #ifdef HAPI_TRACE
     tp->remoteResumePartInteractions += state->particleLists.totalNumInteractions;
 #endif
-    TreePiecePartListDataTransferRemoteResume(data);
+    //TreePiecePartListDataTransferRemoteResume(data);
+    // callback?
 #ifdef HAPI_INSTRUMENT_WRS
     tp->remoteResumePartListConstructionTime += time;
     tp->nRemoteResumePartReqs++;

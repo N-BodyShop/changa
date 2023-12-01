@@ -207,7 +207,12 @@ public:
 #ifdef HAPI_INSTRUMENT_WRS
         int initInstrumentation();
 #endif
-        DataManager(){} 
+        DataManager(){
+#ifdef CUDA
+            cudaStreamDestroy(stream);
+#endif
+	} 
+
 #endif
         void clearInstrument(CkCallback const& cb);
 

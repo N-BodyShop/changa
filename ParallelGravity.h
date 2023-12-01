@@ -1426,7 +1426,7 @@ private:
                           CompactPartData* d_localParts,
                           VariablePartData* d_localVars,
                           size_t sMoments, size_t sCompactParts, size_t sVarParts,
-			  cudaStream_t *stream);
+			  cudaStream_t stream);
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
@@ -1882,7 +1882,7 @@ public:
                                    CompactPartData* d_localParts, 
                                    VariablePartData* d_localVars,
                                    size_t sMoments, size_t sCompactParts, size_t sVarParts,
-				   cudaStream_t *stream);
+				   cudaStream_t stream);
 	/// Do some minor preparation for the local walkk then
 	/// calculateGravityLocal().
 	void commenceCalculateGravityLocal();

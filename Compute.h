@@ -187,7 +187,7 @@ class ListCompute : public Compute{
                   CompactPartData* d_localParts,
                   VariablePartData* d_localVars,
                   size_t sMoments, size_t sCompactParts, size_t sVarParts,
-		  cudaStream_t *stream);
+		  cudaStream_t stream);
 #endif //GPU_LOCAL_TREE_WALK
   void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
   void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
