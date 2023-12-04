@@ -953,7 +953,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 #else
   DataManagerTransferLocalTree(bufLocalMoments, sMoments, bufLocalParts,
                                sCompactParts, bufLocalVars, sVarParts,
-			       &d_localMoments, &d_localParts, &d_localVars,
+			       (void **)&d_localMoments, (void **)&d_localParts, (void **)&d_localVars,
 			       stream,
                                CkMyPe(), localTransferCallback);
 #endif

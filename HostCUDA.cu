@@ -539,6 +539,7 @@ void run_TP_PART_GRAVITY_REMOTE_RESUME(hapiWorkRequest *wr, cudaStream_t kernel_
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data){
 	cudaStream_t stream = *(data->stream);
+
 	gpuLocalTreeWalk<<<(data->lastParticle - data->firstParticle + 1)
                                     / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
 	  data->d_localMoments,
@@ -554,6 +555,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
           data->fperiodY,
           data->fperiodZ
         );
+	cudaStreamSynchronize(stream);
 
 	hapiAddCallback(stream, data->cb);
 }
@@ -968,7 +970,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer,
 #endif
   
   // Why are accelerations still zero here?
-  cudaMemcpyAsync(d_varParts, hostBuffer, size, cudaMemcpyDeviceToHost, stream);
+  cudaMemcpyAsync(hostBuffer, d_varParts, size, cudaMemcpyDeviceToHost, stream);
   hapiAddCallback(stream, cb);
   
   // Device memory and stream gets cleaned up in DataManager::transferParticleVarsBack
@@ -1122,6 +1124,7 @@ __global__ void gpuLocalTreeWalk(
 
   for(int pidx = blockIdx.x*blockDim.x + threadIdx.x + firstParticle;
       pidx <= lastParticle; pidx += gridDim.x*blockDim.x) {
+    
     // initialize the variables belonging to current thread
     int nodePointer = particleCores[pidx].nodeId;
     ldgParticle(myParticle, &particleCores[pidx]);
@@ -1281,9 +1284,6 @@ __global__ void gpuLocalTreeWalk(
     particleVars[pidx].a.x += acc.x;
     particleVars[pidx].a.y += acc.y;
     particleVars[pidx].a.z += acc.z;
-    // New accelerations are being calculated correctly
-    // particleVars is being updated
-    //printf("hello %g %g\n", acc.x, particleVars[pidx].a.x);
     particleVars[pidx].potential += pot;
     particleVars[pidx].dtGrav = fmax(idt2,  particleVars[pidx].dtGrav);
   }

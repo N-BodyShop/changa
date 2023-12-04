@@ -137,9 +137,9 @@ protected:
         VariablePartData *bufLocalVars;
 
 	// Pointers to particle and tree data on GPU
-	void *d_localMoments;
-	void *d_localParts;
-	void *d_localVars;
+	CudaMultipoleMoments *d_localMoments;
+	CompactPartData *d_localParts;
+	VariablePartData *d_localVars;
 	size_t sMoments;
 	size_t sCompactParts;
 	size_t sVarParts;

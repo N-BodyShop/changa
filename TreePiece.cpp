@@ -3809,7 +3809,6 @@ void TreePiece::updateParticles(intptr_t data, int partIndex) {
 
     for(int j = 1; j <= myNumParticles; j++){
         if(isActive(j)){
-	    if (myParticles[j].iOrder == 100) CkPrintf("acc.x = %g\n", deviceParticles[partIndex].a.x);
 #ifndef CUDA_NO_ACC_UPDATES
             myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x;
             myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y;
