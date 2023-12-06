@@ -538,7 +538,8 @@ void run_TP_PART_GRAVITY_REMOTE_RESUME(hapiWorkRequest *wr, cudaStream_t kernel_
 }
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data){
-	cudaStream_t stream = *(data->stream);
+	cudaStream_t stream = *(cudaStream_t *)data->stream;
+	hapiCheck(cudaStreamCreate(&stream));
 
 	gpuLocalTreeWalk<<<(data->lastParticle - data->firstParticle + 1)
                                     / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
@@ -2299,12 +2300,11 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
 #ifdef HAPI_INSTRUMENT_WRS
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase)
 #else
-void EwaldHost(void **d_localParts, void **d_localVars, 
-	       void **d_EwaldMarkers, void **d_cachedData, void **d_ewt, void *stream, 
-		EwaldData *h_idata, void *cb, int myIndex, int largephase)
+void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
+               int *d_EwaldMarkers, EwaldReadOnlyData *d_cachedData, EwtData *d_ewt,
+               EwaldData *h_idata, cudaStream_t stream, void *cb, int myIndex, int largephase)
 #endif
 {
-  cudaStream_t *strPtr = (cudaStream_t *)stream;
 
   int n = h_idata->cachedData->n;
   int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
@@ -2318,23 +2318,24 @@ void EwaldHost(void **d_localParts, void **d_localVars,
   if(largephase) size = n * sizeof(int);
   else size = 0;
 
-  cudaMemcpyAsync(*d_EwaldMarkers, h_idata->EwaldMarkers, size, cudaMemcpyHostToDevice, *strPtr);
-  cudaMemcpyAsync(*d_cachedData, h_idata->cachedData, sizeof(EwaldReadOnlyData), cudaMemcpyHostToDevice, *strPtr);
-  cudaMemcpyAsync(*d_ewt, h_idata->ewt, sizeof(EwtData), cudaMemcpyHostToDevice, *strPtr);
+  cudaMemcpyAsync(d_EwaldMarkers, h_idata->EwaldMarkers, size, cudaMemcpyHostToDevice, stream);
+  cudaMemcpyAsync(d_cachedData, h_idata->cachedData, sizeof(EwaldReadOnlyData), cudaMemcpyHostToDevice, stream);
+  cudaMemcpyAsync(d_ewt, h_idata->ewt, sizeof(EwtData), cudaMemcpyHostToDevice, stream);
+  cudaStreamSynchronize(stream);
 
   if (largephase)
-      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, *strPtr>>>((CompactPartData *)d_localParts, 
+      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>((CompactPartData *)d_localParts, 
 		                                         (VariablePartData *)d_localVars,
 							 (int *)d_EwaldMarkers, 1,
 							 ewaldptr[0], ewaldptr[1]);
   else
-      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, *strPtr>>>((CompactPartData *)d_localParts, 
+      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>((CompactPartData *)d_localParts, 
                                                          (VariablePartData *)d_localVars,
 							 NULL, 0,
 							 ewaldptr[0], ewaldptr[1]);
 
-  hapiAddCallback(*strPtr, cb);
-  cudaStreamSynchronize(*strPtr);
+  cudaStreamSynchronize(stream);
+  hapiAddCallback(stream, cb);
 }
 
 __global__ void EwaldKernel(CompactPartData *particleCores, 

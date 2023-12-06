@@ -75,9 +75,9 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase);
 #ifdef HAPI_INSTRUMENT_WRS
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase); 
 #else 
-void EwaldHost(void **d_localParts, void **d_localVars,
-   	       void **d_EwaldMarkers, void **d_cachedData, void **d_ewt, void *stream,
-               EwaldData *h_idata, void *cb, int myIndex, int largephase);
+void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
+   	       int *d_EwaldMarkers, EwaldReadOnlyData *d_cachedData, EwtData *d_ewt,
+               EwaldData *h_idata, cudaStream_t stream, void *cb, int myIndex, int largephase);
 #endif
 
 __global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);

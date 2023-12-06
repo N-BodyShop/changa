@@ -38,6 +38,7 @@
 
 #ifdef CUDA
 #include "cuda_typedef.h"
+#include "hapi.h"
 #endif
 
 #include "keytype.h"
@@ -332,7 +333,6 @@ struct EwaldGPUmsg: public CkMcastBaseMsg, public CMessage_EwaldGPUmsg {
     intptr_t d_EwaldMarkers;
     intptr_t d_cachedData;
     intptr_t d_ewt;
-    intptr_t stream;
 };
     
 /// Class to count added and deleted particles
@@ -895,6 +895,7 @@ class TreePiece : public CBase_TreePiece {
         int LastGPUParticleIndex;
         int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
+	cudaStream_t stream;
 
         int getNumBuckets(){
         	return numBuckets;
@@ -1350,7 +1351,7 @@ private:
   CkCallback *cbEwaldGPU;
 #endif
   void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars, intptr_t d_EwaldMarkers,
-		intptr_t d_cachedData, intptr_t d_ewt, intptr_t stream); 
+		intptr_t d_cachedData, intptr_t d_ewt); 
   void EwaldGPUComplete();
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
@@ -1425,8 +1426,7 @@ private:
 	void doAllBuckets(CudaMultipoleMoments* d_localMoments,
                           CompactPartData* d_localParts,
                           VariablePartData* d_localVars,
-                          size_t sMoments, size_t sCompactParts, size_t sVarParts,
-			  cudaStream_t stream);
+                          size_t sMoments, size_t sCompactParts, size_t sVarParts);
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
@@ -1473,6 +1473,7 @@ public:
 #endif
 #ifdef CUDA
           numActiveBuckets = -1;
+	  hapiCheck(cudaStreamCreate(&stream));
 #ifdef HAPI_TRACE
           localNodeInteractions = 0;
           localPartInteractions = 0;
@@ -1581,6 +1582,10 @@ public:
 	  delete[] particleInterRemote;
 	  delete[] bucketReqs;
           delete[] ewt;
+
+#ifdef CUDA
+          cudaStreamDestroy(stream);
+#endif
 
 	  deleteTree();
 
@@ -1881,16 +1886,14 @@ public:
 	void calculateGravityLocal(CudaMultipoleMoments* d_localMoments, 
                                    CompactPartData* d_localParts, 
                                    VariablePartData* d_localVars,
-                                   size_t sMoments, size_t sCompactParts, size_t sVarParts,
-				   cudaStream_t stream);
+                                   size_t sMoments, size_t sCompactParts, size_t sVarParts);
 	/// Do some minor preparation for the local walkk then
 	/// calculateGravityLocal().
 	void commenceCalculateGravityLocal();
 	void commenceCalculateGravityLocal(intptr_t d_localMoments, 
                                            intptr_t d_localParts, 
                                            intptr_t d_localVars,
-                                           size_t sMoments, size_t sCompactParts, size_t sVarParts,
-					   intptr_t stream);
+                                           size_t sMoments, size_t sCompactParts, size_t sVarParts);
 
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted

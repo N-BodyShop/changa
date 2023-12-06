@@ -53,7 +53,9 @@ void DataManager::init() {
 #endif
 
   gpuFree = true;
+
   hapiCheck(cudaStreamCreate(&stream));
+  
   //hapiCreateStreams();
 #endif
   Cool = CoolInit();
@@ -516,16 +518,14 @@ void DataManager::startLocalWalk() {
       treePieces[in].commenceCalculateGravityLocal((intptr_t)d_localMoments, 
 		                                   (intptr_t)d_localParts, 
 						   (intptr_t)d_localVars,
-		                                   sMoments, sCompactParts, sVarParts,
-						   (intptr_t)stream);
+		                                   sMoments, sCompactParts, sVarParts);
       if(registeredTreePieces[0].treePiece->bEwald) {
 	  EwaldGPUmsg *msg = new EwaldGPUmsg;
-	  msg->d_localParts = (intptr_t)&d_localParts;
-	  msg->d_localVars = (intptr_t)&d_localVars;
-	  msg->d_EwaldMarkers = (intptr_t)&d_EwaldMarkers;
-          msg->d_cachedData = (intptr_t)&d_cachedData;
-          msg->d_ewt = (intptr_t)&d_ewt;
-	  msg->stream = (intptr_t)stream;
+	  msg->d_localParts = (intptr_t)d_localParts;
+	  msg->d_localVars = (intptr_t)d_localVars;
+	  msg->d_EwaldMarkers = (intptr_t)d_EwaldMarkers;
+          msg->d_cachedData = (intptr_t)d_cachedData;
+          msg->d_ewt = (intptr_t)d_ewt;
           // Make priority lower than gravity or smooth.
           *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
           CkSetQueueing(msg,CK_QUEUEING_IFIFO);
@@ -1093,7 +1093,6 @@ void DataManager::transferParticleVarsBack(){
   UpdateParticlesStruct *data;
   CmiLock(__nodelock);
   treePiecesWantParticlesBack++;
-  CkPrintf("%d %d\n", treePiecesWantParticlesBack, registeredTreePieces.length());
   if(treePiecesWantParticlesBack == registeredTreePieces.length()){
     treePiecesWantParticlesBack = 0; 
     VariablePartData *buf;
