@@ -282,11 +282,8 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 
 // Set up table for Ewald h (Fourier space) loop
 
-#ifdef CUDA
-void TreePiece::EwaldInit(EwaldGPUmsg *msg){
-#else
-void TreePiece::EwaldInit(){
-#endif
+void TreePiece::EwaldInit()
+{
 	int i,hReps,hx,hy,hz,h2;
 	double alpha,k4,L;
 	double gam[6],mfacc,mfacs;
@@ -380,6 +377,9 @@ void TreePiece::EwaldInit(){
 
 #ifndef CUDA
 	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+#else
+	EwaldGPUmsg *msg = new EwaldGPUmsg;
+	msg->fromInit = true;
 #endif
         // Make priority lower than gravity or smooth.
 	*((int *)CkPriorityPtr(msg)) = 3*numTreePieces * numChunks + thisIndex + 1;
@@ -388,12 +388,11 @@ void TreePiece::EwaldInit(){
 }
 
 
-void TreePiece::EwaldGPU(intptr_t d_localParts, intptr_t d_localVars,                 
-                         intptr_t d_EwaldMarkers, intptr_t d_cachedData, intptr_t d_ewt){
+void TreePiece::EwaldGPU(intptr_t d_localParts, intptr_t d_localVars){
   /* when not using CUDA, definition is required because
      EwaldGPU is an entry method
   */
-  
+
 #ifdef SPCUDA
   if(NumberOfGPUParticles == 0 || myNumActiveParticles == 0){
         for (int i=0; i<numBuckets; i++){
@@ -533,8 +532,7 @@ void TreePiece::EwaldGPU(intptr_t d_localParts, intptr_t d_localVars,
   CkAssert(myLocalIndex < dm->registeredTreePieces.length());
 
   EwaldHost((CompactPartData *)d_localParts, (VariablePartData *)d_localVars,
-	    (int *)d_EwaldMarkers, (EwaldReadOnlyData *)d_cachedData, (EwtData *)d_ewt,
-	    h_idata, this->stream, (void *) cbEwaldGPU, myLocalIndex, largephase);
+	    h_idata, (void *) cbEwaldGPU, myLocalIndex, largephase);
 #endif
 
 #endif

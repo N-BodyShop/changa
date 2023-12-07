@@ -76,8 +76,7 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase);
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase); 
 #else 
 void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
-   	       int *d_EwaldMarkers, EwaldReadOnlyData *d_cachedData, EwtData *d_ewt,
-               EwaldData *h_idata, cudaStream_t stream, void *cb, int myIndex, int largephase);
+               EwaldData *h_idata, void *cb, int myIndex, int largephase);
 #endif
 
 __global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);

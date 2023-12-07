@@ -1480,7 +1480,6 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
   request->sMoments = sMoments;
   request->sCompactParts = sCompactParts;
   request->sVarParts = sVarParts;
-  request->stream = &tp->stream;
 
   request->numBucketsPlusOne = numFilledBuckets+1;
   request->affectedBuckets = affectedBuckets;

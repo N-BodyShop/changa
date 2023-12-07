@@ -523,9 +523,7 @@ void DataManager::startLocalWalk() {
 	  EwaldGPUmsg *msg = new EwaldGPUmsg;
 	  msg->d_localParts = (intptr_t)d_localParts;
 	  msg->d_localVars = (intptr_t)d_localVars;
-	  msg->d_EwaldMarkers = (intptr_t)d_EwaldMarkers;
-          msg->d_cachedData = (intptr_t)d_cachedData;
-          msg->d_ewt = (intptr_t)d_ewt;
+	  msg->fromInit = false;
           // Make priority lower than gravity or smooth.
           *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
           CkSetQueueing(msg,CK_QUEUEING_IFIFO);
@@ -1130,12 +1128,10 @@ void DataManager::transferParticleVarsBack(){
                              savedNumTotalParticles > 0, lastChunkMoments > 0,
                              lastChunkParticles > 0);
 #endif
+    // Not getting here before d_localVars pointer is lost
     hapiCheck(cudaFree(d_localMoments));
     hapiCheck(cudaFree(d_localParts));
     hapiCheck(cudaFree(d_localVars));
-    //hapiCheck(cudaFree(d_EwaldMarkers));
-    //hapiCheck(cudaFree(d_cachedData));
-    //hapiCheck(cudaFree(d_ewt));
 
     gputransfer = false;
 

@@ -86,9 +86,7 @@ mainmodule ParallelGravity {
   message EwaldGPUmsg{
     intptr_t d_localParts;
     intptr_t d_localVars;
-    intptr_t d_EwaldMarkers;
-    intptr_t d_cachedData;
-    intptr_t d_ewt;
+    bool fromInit;
   };
 
   message ORBSplittersMsg{
@@ -281,16 +279,14 @@ mainmodule ParallelGravity {
                            double fEwCut, double fEwhCut, int bPeriod,
                            int bComove, double dRhoFac);
     entry [notrace] void initCoolingData(const CkCallback& cb);
+    entry [notrace] void EwaldInit();
 #ifdef SPCUDA
-    entry [notrace] void EwaldInit(EwaldGPUmsg *msg);
     entry void calculateEwald(EwaldGPUmsg *m);
 #else
-    entry [notrace] void EwaldInit();
     entry void calculateEwald(dummyMsg *m);
 #endif
     entry [notrace] void EwaldGPUComplete(); 
-    entry [notrace] void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars, intptr_t d_EwaldMarkers,
-                intptr_t d_cachedData, intptr_t d_ewt);
+    entry [notrace] void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars);
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
     entry void loadNChilada(const std::string& filename, const double dTuFac,

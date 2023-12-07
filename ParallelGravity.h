@@ -330,9 +330,7 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 struct EwaldGPUmsg: public CkMcastBaseMsg, public CMessage_EwaldGPUmsg {
     intptr_t d_localParts;
     intptr_t d_localVars;
-    intptr_t d_EwaldMarkers;
-    intptr_t d_cachedData;
-    intptr_t d_ewt;
+    bool fromInit;
 };
     
 /// Class to count added and deleted particles
@@ -895,7 +893,6 @@ class TreePiece : public CBase_TreePiece {
         int LastGPUParticleIndex;
         int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
-	cudaStream_t stream;
 
         int getNumBuckets(){
         	return numBuckets;
@@ -1350,8 +1347,7 @@ private:
   EwaldData *h_idata;
   CkCallback *cbEwaldGPU;
 #endif
-  void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars, intptr_t d_EwaldMarkers,
-		intptr_t d_cachedData, intptr_t d_ewt); 
+  void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars);
   void EwaldGPUComplete();
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
@@ -1473,7 +1469,6 @@ public:
 #endif
 #ifdef CUDA
           numActiveBuckets = -1;
-	  hapiCheck(cudaStreamCreate(&stream));
 #ifdef HAPI_TRACE
           localNodeInteractions = 0;
           localPartInteractions = 0;
@@ -1583,10 +1578,6 @@ public:
 	  delete[] bucketReqs;
           delete[] ewt;
 
-#ifdef CUDA
-          cudaStreamDestroy(stream);
-#endif
-
 	  deleteTree();
 
 	  if(boxes!= NULL ) delete[] boxes;
@@ -1603,11 +1594,10 @@ public:
 			 double fEwCut, double fEwhCut, int bPeriod,
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
+	void EwaldInit();
 #ifdef SPCUDA
-	void EwaldInit(EwaldGPUmsg *m);
 	void calculateEwald(EwaldGPUmsg *m);
 #else
-	void EwaldInit();
 	void calculateEwald(dummyMsg *m);
 #endif
   void calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num);
