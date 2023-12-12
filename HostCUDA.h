@@ -112,6 +112,8 @@ typedef struct _CudaRequest{
 	size_t sCompactParts;
 	size_t sVarParts;
 
+	cudaStream_t stream;
+
         /// can either be a ILCell* or an ILPart*
 	void *list;
 	int *bucketMarkers;     /**< index in the cell or particle

@@ -113,6 +113,10 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 /// @brief Number of pieces into which to divide the tree.
 unsigned int numTreePieces;
+#ifdef CUDA
+    /// @brief Number of CUDA streams to use
+    unsigned int numStreams;
+#endif
 /// @brief Number of particles per TreePiece.  Used to determine the
 /// number of TreePieces.
 unsigned int particlesPerChare;
@@ -742,6 +746,11 @@ Main::Main(CkArgMsg* m) {
 	numTreePieces = 8 * CkNumPes();
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
 		    sizeof(int),"p", "Number of TreePieces (default: 8*procs)");
+#ifdef CUDA
+	numStreams = 100;
+        prmAddParam(prm, "nStreams", paramInt, &numStreams,
+                    sizeof(int),"s", "Number of CUDA streams (default: 100)");
+#endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
             sizeof(int),"ppc", "Average number of particles per TreePiece");
@@ -2169,6 +2178,9 @@ void Main::advanceBigStep(int iStep) {
 void Main::setupICs() {
   double startTime;
 
+#ifdef CUDA
+        dMProxy.createStreams(numStreams, CkCallbackResumeThread());
+#endif
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,

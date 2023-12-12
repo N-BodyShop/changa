@@ -330,6 +330,8 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 struct EwaldGPUmsg: public CkMcastBaseMsg, public CMessage_EwaldGPUmsg {
     intptr_t d_localParts;
     intptr_t d_localVars;
+    intptr_t streams;
+    int numStreams;
     bool fromInit;
 };
     
@@ -1347,7 +1349,7 @@ private:
   EwaldData *h_idata;
   CkCallback *cbEwaldGPU;
 #endif
-  void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars);
+  void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars, intptr_t streams, int numStreams);
   void EwaldGPUComplete();
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
@@ -1421,7 +1423,7 @@ private:
 	void doAllBuckets();
 	void doAllBuckets(CudaMultipoleMoments* d_localMoments,
                           CompactPartData* d_localParts,
-                          VariablePartData* d_localVars,
+                          VariablePartData* d_localVars, cudaStream_t *streams, int numStreams,
                           size_t sMoments, size_t sCompactParts, size_t sVarParts);
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
@@ -1875,7 +1877,7 @@ public:
 	void calculateGravityLocal();
 	void calculateGravityLocal(CudaMultipoleMoments* d_localMoments, 
                                    CompactPartData* d_localParts, 
-                                   VariablePartData* d_localVars,
+                                   VariablePartData* d_localVars, cudaStream_t *streams, int numStreams,
                                    size_t sMoments, size_t sCompactParts, size_t sVarParts);
 	/// Do some minor preparation for the local walkk then
 	/// calculateGravityLocal().
@@ -1883,6 +1885,7 @@ public:
 	void commenceCalculateGravityLocal(intptr_t d_localMoments, 
                                            intptr_t d_localParts, 
                                            intptr_t d_localVars,
+					   intptr_t streams, int numStreams,
                                            size_t sMoments, size_t sCompactParts, size_t sVarParts);
 
 	/// Entry point for the remote computation: for each bucket compute the

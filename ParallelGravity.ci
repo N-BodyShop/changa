@@ -86,6 +86,8 @@ mainmodule ParallelGravity {
   message EwaldGPUmsg{
     intptr_t d_localParts;
     intptr_t d_localVars;
+    intptr_t streams;
+    int numStreams;
     bool fromInit;
   };
 
@@ -248,6 +250,7 @@ mainmodule ParallelGravity {
     entry void clearInstrument(const CkCallback &cb);
     entry void startLocalWalk();
     entry void resumeRemoteChunk();
+    entry void createStreams(int _numStreams, const CkCallback& cb);
 #endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
@@ -286,7 +289,7 @@ mainmodule ParallelGravity {
     entry void calculateEwald(dummyMsg *m);
 #endif
     entry [notrace] void EwaldGPUComplete(); 
-    entry [notrace] void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars);
+    entry void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars, intptr_t streams, int numStreams);
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
     entry void loadNChilada(const std::string& filename, const double dTuFac,
@@ -488,6 +491,7 @@ mainmodule ParallelGravity {
     entry void commenceCalculateGravityLocal(intptr_t d_localMoments, 
                                              intptr_t d_localParts, 
                                              intptr_t d_localVars,
+                                             intptr_t streams, int numStreams,
                                              size_t sMoments, size_t sCompactParts, size_t sVarParts);
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
 

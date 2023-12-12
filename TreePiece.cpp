@@ -3873,13 +3873,14 @@ void TreePiece::doAllBuckets(){
 // GPU only
 void TreePiece::doAllBuckets(CudaMultipoleMoments* d_localMoments,
                              CompactPartData* d_localParts,        
-                             VariablePartData* d_localVars,
+                             VariablePartData* d_localVars, cudaStream_t *streams, int numStreams,
                              size_t sMoments, size_t sCompactParts, size_t sVarParts){
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
+  unsigned int sid = thisIndex % numStreams;
   listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets, 
-		                             d_localMoments, d_localParts, d_localVars,
+		                             d_localMoments, d_localParts, d_localVars, streams[sid],
                                              sMoments, sCompactParts, sVarParts);
 
   // Set up the book keeping flags
@@ -4098,9 +4099,9 @@ void TreePiece::doParallelNextBucketWork(int idx, LoopParData* lpdata) {
 
 void TreePiece::calculateGravityLocal(CudaMultipoleMoments* d_localMoments, 
                                       CompactPartData* d_localParts, 
-                                      VariablePartData* d_localVars,
+                                      VariablePartData* d_localVars, cudaStream_t *streams, int numStreams,
                                       size_t sMoments, size_t sCompactParts, size_t sVarParts) {
-  doAllBuckets(d_localMoments, d_localParts, d_localVars,
+  doAllBuckets(d_localMoments, d_localParts, d_localVars, streams, numStreams,
                sMoments, sCompactParts, sVarParts);
 }
 
@@ -4112,7 +4113,8 @@ void TreePiece::calculateGravityLocal() {
 #ifdef SPCUDA
 void TreePiece::calculateEwald(EwaldGPUmsg *msg) {
   if(!msg->fromInit && dm->gputransfer && bEwaldInited){
-    thisProxy[thisIndex].EwaldGPU(msg->d_localParts, msg->d_localVars);
+    // This is hidden from the projections timeline	  
+    thisProxy[thisIndex].EwaldGPU(msg->d_localParts, msg->d_localVars, msg->streams, msg->numStreams);
     bEwaldInited = false;
   }
   delete msg;
@@ -5291,10 +5293,12 @@ void TreePiece::initiatePrefetch(int chunk){
 void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments, 
 		                              intptr_t d_localParts, 
 					      intptr_t d_localVars,
+					      intptr_t streams, int numStreams,
                                               size_t sMoments, size_t sCompactParts, size_t sVarParts) {
     calculateGravityLocal((CudaMultipoleMoments *)d_localMoments,
 		          (CompactPartData *)d_localParts,
 			  (VariablePartData *)d_localVars,
+			  (cudaStream_t *)streams, numStreams,
                           sMoments, sCompactParts, sVarParts);
 }
 

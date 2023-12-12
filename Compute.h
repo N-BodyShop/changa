@@ -185,7 +185,7 @@ class ListCompute : public Compute{
   void sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp, int activeRung, int startBucket, int endBucket,
 		  CudaMultipoleMoments* d_localMoments,
                   CompactPartData* d_localParts,
-                  VariablePartData* d_localVars,
+                  VariablePartData* d_localVars, cudaStream_t stream,
                   size_t sMoments, size_t sCompactParts, size_t sVarParts);
 #endif //GPU_LOCAL_TREE_WALK
   void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);

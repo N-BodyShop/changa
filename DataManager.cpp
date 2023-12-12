@@ -54,14 +54,22 @@ void DataManager::init() {
 
   gpuFree = true;
 
-  hapiCheck(cudaStreamCreate(&stream));
-  
-  //hapiCreateStreams();
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
   lockStarLog = CmiCreateLock();
 }
+
+#ifdef CUDA
+void DataManager::createStreams(int _numStreams, const CkCallback& cb) {
+  numStreams = _numStreams;
+  streams = new cudaStream_t[numStreams];
+  for (int i = 0; i < numStreams; i++) {
+      hapiCheck(cudaStreamCreate(&streams[i]));
+  }
+  contribute(cb);
+}
+#endif
 
 /**
  * Fill in responsibleIndex after ORB decomposition
@@ -518,11 +526,14 @@ void DataManager::startLocalWalk() {
       treePieces[in].commenceCalculateGravityLocal((intptr_t)d_localMoments, 
 		                                   (intptr_t)d_localParts, 
 						   (intptr_t)d_localVars,
+						   (intptr_t)streams, numStreams,
 		                                   sMoments, sCompactParts, sVarParts);
       if(registeredTreePieces[0].treePiece->bEwald) {
 	  EwaldGPUmsg *msg = new EwaldGPUmsg;
 	  msg->d_localParts = (intptr_t)d_localParts;
 	  msg->d_localVars = (intptr_t)d_localVars;
+	  msg->streams = (intptr_t)streams;
+	  msg->numStreams = numStreams;
 	  msg->fromInit = false;
           // Make priority lower than gravity or smooth.
           *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
@@ -952,7 +963,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   DataManagerTransferLocalTree(bufLocalMoments, sMoments, bufLocalParts,
                                sCompactParts, bufLocalVars, sVarParts,
 			       (void **)&d_localMoments, (void **)&d_localParts, (void **)&d_localVars,
-			       stream,
+			       streams[0],
                                CkMyPe(), localTransferCallback);
 #endif
 }// end serializeLocal
@@ -1123,7 +1134,7 @@ void DataManager::transferParticleVarsBack(){
     TransferParticleVarsBack(buf, 
                              savedNumTotalParticles*sizeof(VariablePartData),
 			     d_localVars,
-			     stream,
+			     streams[0],
                              data->cb, savedNumTotalNodes > 0,
                              savedNumTotalParticles > 0, lastChunkMoments > 0,
                              lastChunkParticles > 0);

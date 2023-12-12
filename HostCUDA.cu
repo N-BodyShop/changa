@@ -538,8 +538,7 @@ void run_TP_PART_GRAVITY_REMOTE_RESUME(hapiWorkRequest *wr, cudaStream_t kernel_
 }
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data){
-	cudaStream_t stream;
-	hapiCheck(cudaStreamCreate(&stream));
+	cudaStream_t stream = data->stream;
 
 	gpuLocalTreeWalk<<<(data->lastParticle - data->firstParticle + 1)
                                     / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
@@ -559,7 +558,6 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 	cudaStreamSynchronize(stream);
 
 	hapiAddCallback(stream, data->cb);
-	cudaStreamDestroy(stream);
 }
 
 void TreePieceCellListDataTransferRemote(CudaRequest *data){
@@ -2302,12 +2300,9 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
 void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase)
 #else
 void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
-               EwaldData *h_idata, void *cb, int myIndex, int largephase)
+               EwaldData *h_idata, cudaStream_t stream, void *cb, int myIndex, int largephase)
 #endif
 {
-  cudaStream_t stream;
-  hapiCheck(cudaStreamCreate(&stream));
-
   int n = h_idata->cachedData->n;
   int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
   int nEwhLoop = h_idata->cachedData->nEwhLoop;
@@ -2327,7 +2322,6 @@ void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
   cudaMemcpyToSymbolAsync(cachedData, h_idata->cachedData, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice, stream);
   cudaMemcpyToSymbolAsync(ewt, h_idata->ewt, nEwhLoop * sizeof(EwtData), 0, cudaMemcpyHostToDevice, stream);
 
-  // TODO: why are the particle variables undefined here?
   if (largephase)
       EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>(d_localParts, 
 		                                         d_localVars,
@@ -2341,7 +2335,6 @@ void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
   cudaStreamSynchronize(stream);
   hapiAddCallback(stream, cb);
   hapiCheck(cudaFree(d_EwaldMarkers));
-  cudaStreamDestroy(stream);
 }
 
 __global__ void EwaldKernel(CompactPartData *particleCores, 

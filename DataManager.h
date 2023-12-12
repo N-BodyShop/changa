@@ -17,7 +17,6 @@
 #include "ckBIconfig.h"
 #endif
 
-
 /// @brief Information about TreePieces on an SMP node.
 struct TreePieceDescriptor{
 	TreePiece *treePiece;
@@ -148,7 +147,8 @@ protected:
 	void *d_cachedData;
 	void *d_ewt;
 
-	cudaStream_t stream;
+	int numStreams;
+	cudaStream_t *streams;
 
 #ifdef HAPI_INSTRUMENT_WRS
         int activeRung;
@@ -188,6 +188,7 @@ public:
         void startLocalWalk();
         void resumeRemoteChunk();
 #ifdef CUDA
+	void createStreams(int _numStreams, const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
 
@@ -207,11 +208,7 @@ public:
 #ifdef HAPI_INSTRUMENT_WRS
         int initInstrumentation();
 #endif
-        DataManager(){
-#ifdef CUDA
-            cudaStreamDestroy(stream);
-#endif
-	} 
+        DataManager(){}
 
 #endif
         void clearInstrument(CkCallback const& cb);
@@ -230,6 +227,12 @@ public:
 	    CoolFinalize(Cool);
 	    delete starLog;
 	    CmiDestroyLock(lockStarLog);
+#ifdef CUDA
+            for (int i = 0; i < numStreams; i++) {
+                cudaStreamDestroy(streams[i]);
+	    }
+	    delete[] streams;
+#endif
 	    }
 
 	/// Called by ORB Sorter, save the list of which TreePiece is
