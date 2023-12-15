@@ -815,8 +815,6 @@ void TreePiece::shuffleAfterQD() {
     return;
   }
 
-  //I've got all my particles
-
   nStore = (int)((dm->particleCounts[myPlace] + 2)*(1.0 + dExtraStore));
   myParticles = new GravityParticle[nStore];
   myNumParticles = dm->particleCounts[myPlace];
@@ -1162,6 +1160,7 @@ void TreePiece::sendParticlesDuringDD(bool withqd) {
     binBegin = binEnd;
   }
   incomingParticlesSelf = true;
+  // All particles are now sent; their memory may be released
   delete[] myParticles;
   myParticles = NULL;
   myNumParticles = 0;
