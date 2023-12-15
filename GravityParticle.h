@@ -59,7 +59,7 @@ class extraSPHData
     double _fMFracIron;		/* Iron mass fraction  */
     double _fESNrate;		/* SN energy rate  */
     double _fTimeCoolIsOffUntil;/* time cooling is turned back on */
-    Vector3D<double> _vPred;	/* Predicted velocities for velocity
+    Vector3D<cosmoType> _vPred;	/* Predicted velocities for velocity
 				   dependent forces */
     double _uPred;		/* Predicted internal energy */
     double _divv;		/* Diverence of the velocity */
@@ -123,7 +123,7 @@ class extraSPHData
     inline double& fMFracIron() {return _fMFracIron;}
     inline double& fESNrate() {return _fESNrate;}
     inline double& fTimeCoolIsOffUntil() {return _fTimeCoolIsOffUntil;}
-    inline Vector3D<double>& vPred() {return _vPred;}
+    inline Vector3D<cosmoType>& vPred() {return _vPred;}
     inline double& uPred() {return _uPred;}
     inline double& divv() {return _divv;}
     inline Vector3D<double>& curlv() {return _curlv;}
@@ -315,17 +315,15 @@ class ExternalSmoothParticle;
 
 class GravityParticle : public ExternalGravityParticle {
 public:
-	SFC::Key key;
-	Vector3D<double> velocity;
+        Vector3D<cosmoType> velocity;
 	Vector3D<cosmoType> treeAcceleration;
 	cosmoType potential;
         cosmoType dtGrav;       ///< timestep from gravity; N.B., this
                                 ///  is actually stored as (1/time^2)
                                 ///  since the gravity calculation
                                 ///  naturally gives us (G M/R^3).
-        double fBall;           ///< Neighbor search radius for smoothing
-	double fDensity;
-        int64_t iOrder;	///< Input order of particles; unique particle ID
+        cosmoType fBall;           ///< Neighbor search radius for smoothing
+        cosmoType fDensity;
         int rung;  ///< the current rung (greater means faster)
         unsigned int iType;	///< Bitmask to hold particle type information
 #ifdef SIDMINTERACT
@@ -335,8 +333,12 @@ public:
 	cosmoType fSoft0;
 #endif
 #ifdef NEED_DT
-	double dt;
+        cosmoType dt;
 #endif
+        cosmoType interMass;
+
+        SFC::Key key;
+        int64_t iOrder;	///< Input order of particles; unique particle ID
 	void *extraData;	/* SPH or Star particle data */
 
 #if COSMO_STATS > 1
@@ -346,8 +348,6 @@ public:
 	double extpartmass;
 #endif
 
-        cosmoType interMass;
-	
         GravityParticle(SFC::Key k) : ExternalGravityParticle() {
             key = k;
             }
@@ -412,7 +412,7 @@ public:
 	inline double& fMFracIron() {IMAGAS; return (((extraSPHData*)extraData)->fMFracIron());}
 	inline double& fESNrate() {IMAGAS; return (((extraSPHData*)extraData)->fESNrate());}
 	inline double& fTimeCoolIsOffUntil() {IMAGAS; return (((extraSPHData*)extraData)->fTimeCoolIsOffUntil());}
-	inline Vector3D<double>& vPred() { IMAGAS; return (((extraSPHData*)extraData)->vPred());}
+	inline Vector3D<cosmoType>& vPred() { IMAGAS; return (((extraSPHData*)extraData)->vPred());}
 	inline double& uPred() {IMAGAS;  return (((extraSPHData*)extraData)->uPred());}
 	inline double& divv() { IMAGAS; return (((extraSPHData*)extraData)->divv());}
 	inline Vector3D<double>& curlv() { IMAGAS; return (((extraSPHData*)extraData)->curlv());}
@@ -580,7 +580,7 @@ class ExternalSmoothParticle {
   double dt;
   double dtNew;
 #endif
-  Vector3D<double> vPred;
+  Vector3D<cosmoType> vPred;
   Vector3D<cosmoType> treeAcceleration;
   double mumax;
   double PdV;
