@@ -1695,9 +1695,9 @@ void Main::buildTree(int iPhase)
     CkPrintf("Building trees ... ");
     double startTime = CkWallTimer();
 #ifdef PUSH_GRAVITY
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
+    treeProxy.buildTree(bucketSize, dTime, CkCallbackResumeThread(),!bDoPush);
 #else
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    treeProxy.buildTree(bucketSize, dTime, CkCallbackResumeThread());
 #endif
     double tTB =  CkWallTimer()-startTime;
     timings[iPhase].tTBuild += tTB;
@@ -2165,7 +2165,8 @@ void Main::setupICs() {
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,
-                        0.5*param.csm->dHubble0*param.csm->dHubble0*param.csm->dOmega0, param.externalGravity.dOrbFreq);
+                        0.5*param.csm->dHubble0*param.csm->dHubble0*param.csm->dOmega0,
+                        param.externalGravity.dOrbFreq);
 
   /******** Particles Loading ********/
   CkPrintf("Loading particles ...");
@@ -2855,7 +2856,7 @@ Main::doSimulation()
 	    }
 	// The following drift is called because it deletes the tree
 	// so it won't be saved on disk.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy, dTime,
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy, dTime,
                         CkCallbackResumeThread());
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
@@ -3045,7 +3046,7 @@ Main::doSimulation()
       if(param.bDoGas && param.bDoDensity) {
 	  // The following call is to get the particles in key order
 	  // before the sort.
-	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0,
+          treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0,
                           CkCallbackResumeThread());
           domainDecomp(0);
           buildTree(0);
@@ -3683,12 +3684,12 @@ void Main::writeOutput(int iStep)
 		      << endl;
         }
     }
-    if (param.nSteps != 0) {     // Get particles back to home
-                                 // processors for continuing the simulation.
+    if(param.nSteps != 0) {     // Get particles back to home
+                                // processors for continuing the simulation.
         // The following call is to get the particles in key order
         // before the sort.
         treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, dTime,
-            CkCallbackResumeThread());
+                        CkCallbackResumeThread());
         domainDecomp(0);
     }
     if(param.iBinaryOut == 6)

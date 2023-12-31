@@ -93,8 +93,8 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 			    double dEwhCutPar, // Cutoff on Fourier summation
 			    int bPeriodPar,    // Periodic boundaries
 			    int bComovePar,    // Comoving coordinates
-			    double dRhoFacPar,  // Background density
-                double dOrbFreqPar    // Orbital frequency
+			    double dRhoFacPar, // Background density
+                            double dOrbFreqPar // Orbital frequency
 			    )
 {
     nReplicas = nRepsPar;
@@ -1475,7 +1475,8 @@ void TreePiece::calcEnergy(const CkCallback& cb) {
 * @param p particle to update
 * @param dOrbFreq orbital frequency of rotating patch
 */
-inline void closePatch(int bClosing, double dDelta, GravityParticle *p, double dOrbFreq) {
+inline void closePatch(int bClosing, double dDelta, GravityParticle *p,
+                       double dOrbFreq) {
 #ifdef SLIDING_PATCH
 #ifndef NO_HILL
     if (bClosing) {
@@ -1493,7 +1494,8 @@ inline void closePatch(int bClosing, double dDelta, GravityParticle *p, double d
 * @param p particle to update
 * @param dOrbFreq orbital frequency of rotating patch
 */
-inline void openPatch(int bClosing, double dDelta, GravityParticle* p, double dOrbFreq) {
+inline void openPatch(int bClosing, double dDelta, GravityParticle* p,
+                      double dOrbFreq) {
 #ifdef SLIDING_PATCH
 #ifndef NO_HILL
     if (!bClosing) {
@@ -1501,7 +1503,8 @@ inline void openPatch(int bClosing, double dDelta, GravityParticle* p, double dO
 
         // Cross hamiltonian
         p->velocity.x += 2.0 * dDelta * dOrbFreq * p->dPy;
-        p->velocity.y = p->dPy - dOrbFreq * p->position.x - dOrbFreq * (p->position.x + 2.0 * dDelta * p->velocity.x);
+        p->velocity.y = p->dPy - dOrbFreq * p->position.x
+            - dOrbFreq * (p->position.x + 2.0 * dDelta * p->velocity.x);
     }
 #endif
 #endif
@@ -1664,7 +1667,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  p->fMFracIronPred() = p->fMFracIron();
 #endif
 		  }
-          else {	// predicted quantities are at the beginning
+              else {	// predicted quantities are at the beginning
 			// of step
 		  p->vPred() = p->velocity;
 		  if(!bGasIsothermal) {
@@ -2043,7 +2046,7 @@ void TreePiece::assignDomain(const CkCallback &cb)
         myParticles[i].interMass = thisIndex;
 	}
     contribute(cb);
-}
+    }
 
 void TreePiece::drift(double dDelta,  // time step in x containing
 				      // cosmo scaling
@@ -2056,10 +2059,9 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 				      // in place
 		      bool buildTree, // is a treebuild happening before the
 				      // next drift?
-              double dMaxEnergy, // Maximum internal energy of gas.
-              double dTime,
+                      double dMaxEnergy, // Maximum internal energy of gas.
+                      double dTime,      // Absolute simulation time
 		      const CkCallback& cb) {
-  totalTime = dTime;
   callback = cb;		// called by assignKeys()
   deleteTree();
 
@@ -2086,13 +2088,12 @@ void TreePiece::drift(double dDelta,  // time step in x containing
             p->position[j] -= fPeriod[j];
 #ifdef SLIDING_PATCH
             if (j == 0) { /* radial wrap */
-                fShear = 1.5 * dOrbFreq * fPeriod[0];
-                p->position[1] += SHEAR(-1, dTime + dDelta, fPeriod, dOrbFreq);
+                fShear = 1.5 * dOrbFreq * fPeriod.x;
+                p->position.y += SHEAR(-1, dTime + dDelta, fPeriod, dOrbFreq);
                 fDx = -fPeriod.x;
             }
 #endif
           }
-
           if(p->position[j] < -0.5*fPeriod[j]){
             p->position[j] += fPeriod[j];
 #ifdef SLIDING_PATCH
@@ -2667,12 +2668,12 @@ void TreePiece::DumpFrame(InDumpFrame in, const CkCallback& cb, int liveVizDump)
  */
 
 #ifdef PUSH_GRAVITY
-void TreePiece::buildTree(int bucketSize, const CkCallback& cb, bool _merge) 
+void TreePiece::buildTree(int bucketSize, double dTime, const CkCallback& cb, bool _merge) 
 #else
-void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
+void TreePiece::buildTree(int bucketSize, double dTime, const CkCallback& cb)
 #endif
 {
-
+    dTimeTree = dTime;
 #if COSMO_DEBUG > 1
   auto file_name = make_formatted_string("tree.%d.%d.after",thisIndex,iterationNo);
   char const* fout = file_name.c_str();

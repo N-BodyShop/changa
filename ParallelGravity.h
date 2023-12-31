@@ -1203,7 +1203,7 @@ private:
 	/// Background density of the Universe
 	double dRhoFac;
 	Vector3D<cosmoType> fPeriod;
-	double dOrbFreq; ///< Orbital frequency of patch
+        double dOrbFreq; ///< Orbital frequency of patch
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
@@ -1331,10 +1331,9 @@ private:
   // called when a chunk has been used completely (chunkRemaining[chunk] == 0)
   void finishedChunk(int chunk);
 
-  ///Array of comparison function pointers
+  /// Array of comparison function pointers for ORB tree build
   bool (*compFuncPtr[3])(GravityParticle,GravityParticle);
-  double tmpTime;
-  double totalTime;
+  double dTimeTree;             ///< Simulation time tree is built
  public:
 
 #ifdef SPCUDA
@@ -1469,8 +1468,7 @@ public:
 #endif
 #endif
 
-	  tmpTime=0.0;
-	  totalTime=0.0;
+	  dTimeTree = 0.0;
 	  // temporarely set to -1, it will updated after the tree is built
 	  numChunks=-1;
 	  prefetchRoots = NULL;
@@ -1707,7 +1705,7 @@ public:
         double dMultiPhaseMaxTime, double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
   void drift(double dDelta, int bNeedVPred, int bGasIsothermal, double dvDelta,
              double duDelta, int nGrowMass, bool buildTree, double dMaxEnergy,
-	         double dTime, const CkCallback& cb);
+             double dTime, const CkCallback& cb);
   void initAccel(int iKickRung, const CkCallback& cb);
 #ifdef COOLING_MOLECULARH
   void distribLymanWerner(const CkCallback& cb);
@@ -1826,10 +1824,13 @@ public:
 	void setProjections(int bOn);
 
 	/// \brief Charm entry point to build the tree (called by Main).
+        /// \param bucketSize Maximum particles per bucket
+        /// \param dTime Simulation time tree is built
+        /// \param cb Callback after tree is built
 #ifdef PUSH_GRAVITY
-	void buildTree(int bucketSize, const CkCallback& cb, bool merge);
+        void buildTree(int bucketSize, double dTime, const CkCallback& cb, bool merge);
 #else
-	void buildTree(int bucketSize, const CkCallback& cb);
+        void buildTree(int bucketSize, double dTime, const CkCallback& cb);
 #endif
 
 	/// \brief Real tree build, independent of other TreePieces.
@@ -2006,27 +2007,32 @@ public:
         // jetley
         // need this in TreeWalk
         GenericTreeNode *getRoot() {return root;}
-        // need this in Compute
-	inline double SHEAR(int ix,                      ///< Interior or exterior?
-			double t,                    ///< Current simulation time
-			Vector3D<cosmoType> fPeriod, ///< vector for dxPeriod and dyPeriod
-			double dOrbFreq)             ///< Orbital frequency
-		{
+        /// @brief adjust y (azimuthal) position if we are crossing an
+        /// x (radial) boundary
+        /// @return change in y position
+        inline double SHEAR(int ix,                  ///< Interior or exterior?
+                            double t,                ///< Current simulation time
+                            Vector3D<cosmoType> fPeriod, ///< patch size
+                            double dOrbFreq)         ///< Orbital frequency
+        {
 #ifdef SLIDING_PATCH
-			return (ix < 0) ? fmod(0.5 * fPeriod[1] - 1.5 * ix * dOrbFreq * fPeriod[0] * t, fPeriod[1]) - 0.5 * fPeriod[1] :
-				(ix > 0) ? 0.5 * fPeriod[1] - fmod(0.5 * fPeriod[1] + 1.5 * ix * dOrbFreq * fPeriod[0] * t, fPeriod[1]) : 0.0;
+            return
+                (ix < 0) ? fmod(0.5 * fPeriod.y - 1.5 * ix * dOrbFreq * fPeriod.x * t, fPeriod.y) - 0.5 * fPeriod.y :
+                (ix > 0) ? 0.5 * fPeriod.y - fmod(0.5 * fPeriod.y + 1.5 * ix * dOrbFreq * fPeriod.x * t, fPeriod.y) : 0.0;
 #else
-			return 0;
+            return 0.0;
 #endif
-		}
-	
+        }
+
 	inline Vector3D<cosmoType> decodeOffset(int reqID) {
 	    int offsetcode = reqID >> 22;
 	    int x = (offsetcode & 0x7) - 3;
 	    int y = ((offsetcode >> 3) & 0x7) - 3;
 	    int z = ((offsetcode >> 6) & 0x7) - 3;
 
-	    Vector3D<cosmoType> offset(x*fPeriod.x, y*fPeriod.y + SHEAR(x, totalTime, fPeriod.y, dOrbFreq), z*fPeriod.z);
+            Vector3D<cosmoType> offset(x*fPeriod.x,
+                                       y*fPeriod.y + SHEAR(x, dTimeTree, fPeriod.y, dOrbFreq),
+                                       z*fPeriod.z);
 	    return offset;
 	    }
 

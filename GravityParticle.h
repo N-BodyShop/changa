@@ -60,7 +60,7 @@ class extraSPHData
     double _fESNrate;		/* SN energy rate  */
     double _fTimeCoolIsOffUntil;/* time cooling is turned back on */
     Vector3D<double> _vPred;	/* Predicted velocities for velocity
-                                 dependent forces */
+                                   dependent forces */
 #ifdef SLIDING_PATCH
     double _dPyPred;            ///< Predicted canonical momentum
 #endif
@@ -193,7 +193,7 @@ class extraSPHData
 	p | _fTimeCoolIsOffUntil;
 	p | _vPred;
 #ifdef SLIDING_PATCH
-	p | _dPyPred;
+        p | _dPyPred;
 #endif
 	p | _uPred;
 	p | _divv;
@@ -327,7 +327,7 @@ public:
 	SFC::Key key;
 	Vector3D<double> velocity;
 #ifdef SLIDING_PATCH
-    double dPy; ///< Canonical momentum used to update y-velocity
+        double dPy;         ///< Canonical momentum used to update y-velocity
 #endif
     // inline Vector3D<double>& vPred() { return _vPred; }
 	Vector3D<cosmoType> treeAcceleration;
@@ -430,7 +430,7 @@ public:
 	inline double& fTimeCoolIsOffUntil() {IMAGAS; return (((extraSPHData*)extraData)->fTimeCoolIsOffUntil());}
 	inline Vector3D<double>& vPred() { IMAGAS; return (((extraSPHData*)extraData)->vPred());}
 #ifdef SLIDING_PATCH
-	inline double& dPyPred() { IMAGAS; return (((extraSPHData*)extraData)->dPyPred());}
+        inline double& dPyPred() { IMAGAS; return (((extraSPHData*)extraData)->dPyPred());}
 #endif
 	inline double& uPred() {IMAGAS;  return (((extraSPHData*)extraData)->uPred());}
 	inline double& divv() { IMAGAS; return (((extraSPHData*)extraData)->divv());}
