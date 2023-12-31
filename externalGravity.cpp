@@ -53,8 +53,12 @@ void ExternalGravity::AddParams(PRM prm)
 void ExternalGravity::CheckParams(PRM prm, struct parameters &param)
 {
     // Enable external gravity if any of the flags are set
-    if (bBodyForce || bPatch || bCentralBody)
+    if (bBodyForce || bPatch || bCentralBody) {
         param.bDoExternalGravity = 1;
+        if (bPatch) {
+            param.externalGravity.dOrbFreq = sqrt(param.externalGravity.dCentMass / pow(param.externalGravity.dOrbDist, 3));
+        }
+    }
     }
 
 /*
@@ -126,14 +130,19 @@ Vector3D<double> ExternalGravity::applyPotential(GravityParticle *p) const
     }
 
     if (bPatch) {
+#ifndef NO_HILL
         double r2 = dOrbDist*dOrbDist + p->position.z*p->position.z;
         double idt2 = dCentMass*pow(r2, -1.5);
 
-        p->treeAcceleration.z -= dCentMass*p->position.z
-                                 *pow(r2, -1.5);
+        p->treeAcceleration.x -= dOrbFreq*dOrbFreq*p->position.x;
+        // TODO: for self gravity there is a vertical frequency
+        // enhancement here.
+        p->treeAcceleration.z -= dOrbFreq*dOrbFreq*p->position.z;
+
         p->potential += dCentMass/sqrt(r2);
         if(idt2 > p->dtGrav)
             p->dtGrav = idt2;
+#endif
         }
 
     if(bCentralBody) {
