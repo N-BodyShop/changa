@@ -83,6 +83,11 @@ mainmodule ParallelGravity {
   message dummyMsg;
   message ComputeChunkMsg;
 
+  message EwaldMsg{
+    bool fromInit;
+  };
+
+
   message ORBSplittersMsg{
     double pos[];
     char dim[];
@@ -274,7 +279,7 @@ mainmodule ParallelGravity {
                            int bComove, double dRhoFac);
     entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
-    entry void calculateEwald(dummyMsg *m);
+    entry void calculateEwald(EwaldMsg *m);
     entry [notrace] void EwaldGPUComplete(); 
     entry [notrace] void EwaldGPU(); 
     entry void velScale(double dScale, const CkCallback& cb);

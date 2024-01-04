@@ -373,9 +373,9 @@ void TreePiece::EwaldInit()
 			}
 		}
 	nEwhLoop = i;
-        bEwaldInited = true;
 
-	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+	EwaldMsg *msg = new EwaldMsg;
+        msg->fromInit = true;
         // Make priority lower than gravity or smooth.
 	*((int *)CkPriorityPtr(msg)) = 3*numTreePieces * numChunks + thisIndex + 1;
 	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
