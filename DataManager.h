@@ -79,10 +79,6 @@ protected:
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
 #ifdef CUDA
-	//CkVec<int> registeredTreePieceIndices;
-        /// @brief counter for the number of tree nodes that are
-        /// replicated by TreePieces that share the same address space.
-        int cumNumReplicatedNodes;
         int treePiecesDone;
         int savedChunk;
         int treePiecesDonePrefetch;
