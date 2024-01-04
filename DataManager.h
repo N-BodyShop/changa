@@ -112,8 +112,6 @@ protected:
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
 
-        // This var will indicate if particle data has been loaded to the GPU
-        bool gputransfer;
         /// Callback pointer to pass to HAPI.
         CkCallback *localTransferCallback;
 
