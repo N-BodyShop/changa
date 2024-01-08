@@ -511,7 +511,7 @@ void DataManager::startLocalWalk() {
       int in = registeredTreePieces[i].treePiece->getIndex();
       treePieces[in].commenceCalculateGravityLocal();
       if(registeredTreePieces[0].treePiece->bEwald) {
-          EwaldMsg *msg = new EwaldMsg;
+          EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
           msg->fromInit = false;
           // Make priority lower than gravity or smooth.
           *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
