@@ -84,10 +84,6 @@ mainmodule ParallelGravity {
   message ComputeChunkMsg;
 
   message EwaldGPUmsg{
-    intptr_t d_localParts;
-    intptr_t d_localVars;
-    intptr_t streams;
-    int numStreams;
     bool fromInit;
   };
 
@@ -289,7 +285,7 @@ mainmodule ParallelGravity {
     entry void calculateEwald(dummyMsg *m);
 #endif
     entry [notrace] void EwaldGPUComplete(); 
-    entry void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars, intptr_t streams, int numStreams);
+    entry void EwaldGPU();
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
     entry void loadNChilada(const std::string& filename, const double dTuFac,

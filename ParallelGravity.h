@@ -328,10 +328,6 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 #endif
 
 struct EwaldGPUmsg: public CkMcastBaseMsg, public CMessage_EwaldGPUmsg {
-    intptr_t d_localParts;
-    intptr_t d_localVars;
-    intptr_t streams;
-    int numStreams;
     bool fromInit;
 };
     
@@ -896,6 +892,15 @@ class TreePiece : public CBase_TreePiece {
         int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
 
+	// For accessing GPU memory
+	CudaMultipoleMoments *d_localMoments;
+        CompactPartData *d_localParts;
+        VariablePartData *d_localVars;
+        size_t sMoments;
+        size_t sCompactParts;
+        size_t sVarParts;
+	cudaStream_t stream;
+
         int getNumBuckets(){
         	return numBuckets;
         }
@@ -1349,7 +1354,7 @@ private:
   EwaldData *h_idata;
   CkCallback *cbEwaldGPU;
 #endif
-  void EwaldGPU(intptr_t d_localParts, intptr_t d_localVars, intptr_t streams, int numStreams);
+  void EwaldGPU();
   void EwaldGPUComplete();
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
@@ -1421,10 +1426,6 @@ private:
 	 * to trigger nextBucket() which will loop over all the buckets.
 	 */
 	void doAllBuckets();
-	void doAllBuckets(CudaMultipoleMoments* d_localMoments,
-                          CompactPartData* d_localParts,
-                          VariablePartData* d_localVars, cudaStream_t *streams, int numStreams,
-                          size_t sMoments, size_t sCompactParts, size_t sVarParts);
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 

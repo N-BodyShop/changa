@@ -3856,33 +3856,12 @@ void TreePiece::doAllBuckets(){
   report();
 #endif
 
-  // Schedule a walk on the CPU
-
-  dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
-  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-
-  thisProxy[thisIndex].nextBucket(msg);
-
-#ifdef HAPI_INSTRUMENT_WRS
-  ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
-  ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
-#endif
-}
-
-// GPU only
-void TreePiece::doAllBuckets(CudaMultipoleMoments* d_localMoments,
-                             CompactPartData* d_localParts,        
-                             VariablePartData* d_localVars, cudaStream_t *streams, int numStreams,
-                             size_t sMoments, size_t sCompactParts, size_t sVarParts){
+#ifdef GPU_LOCAL_TREE_WALK
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
-  unsigned int sid = thisIndex % numStreams;
-  listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets, 
-		                             d_localMoments, d_localParts, d_localVars, streams[sid],
-                                             sMoments, sCompactParts, sVarParts);
-
+  listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+  //
   // Set up the book keeping flags
   bool useckloop = false;
   for (int i = 0; i < numBuckets; i ++) {
@@ -3897,6 +3876,20 @@ void TreePiece::doAllBuckets(CudaMultipoleMoments* d_localMoments,
   listcompute->resetCudaNodeState(state);
   listcompute->resetCudaPartState(state);
 
+#else
+  // Schedule a walk on the CPU
+
+  dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
+  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+
+  thisProxy[thisIndex].nextBucket(msg);
+#endif // GPU_LOCAL_TREE_WALK
+
+#ifdef HAPI_INSTRUMENT_WRS
+  ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
+  ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
+#endif
 }
 
 void TreePiece::nextBucket(dummyMsg *msg){
@@ -4101,8 +4094,7 @@ void TreePiece::calculateGravityLocal(CudaMultipoleMoments* d_localMoments,
                                       CompactPartData* d_localParts, 
                                       VariablePartData* d_localVars, cudaStream_t *streams, int numStreams,
                                       size_t sMoments, size_t sCompactParts, size_t sVarParts) {
-  doAllBuckets(d_localMoments, d_localParts, d_localVars, streams, numStreams,
-               sMoments, sCompactParts, sVarParts);
+  doAllBuckets();
 }
 
 /// This function could be replaced by the doAllBuckets() call.
@@ -4112,10 +4104,8 @@ void TreePiece::calculateGravityLocal() {
 
 #ifdef SPCUDA
 void TreePiece::calculateEwald(EwaldGPUmsg *msg) {
-  if(!msg->fromInit && dm->gputransfer && bEwaldInited){
-    // This is hidden from the projections timeline	  
-    thisProxy[thisIndex].EwaldGPU(msg->d_localParts, msg->d_localVars, msg->streams, msg->numStreams);
-    bEwaldInited = false;
+  if(!msg->fromInit ){
+    thisProxy[thisIndex].EwaldGPU();
   }
   delete msg;
 #else
@@ -4475,7 +4465,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         lc->resetCudaNodeState(ds);
       }
       if(ds->particleLists.totalNumInteractions > 0){
-        lc->sendPartInteractionsToGpu(ds, this);
+        //lc->sendPartInteractionsToGpu(ds, this);
         lc->resetCudaPartState(ds);
       }
     }
@@ -4511,7 +4501,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
           lc->resetCudaNodeState(ds);
         }
         if(ds->particleLists.totalNumInteractions > 0){
-          lc->sendPartInteractionsToGpu(ds, this);
+          //lc->sendPartInteractionsToGpu(ds, this);
           lc->resetCudaPartState(ds);
         }
       }
@@ -5295,11 +5285,15 @@ void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments,
 					      intptr_t d_localVars,
 					      intptr_t streams, int numStreams,
                                               size_t sMoments, size_t sCompactParts, size_t sVarParts) {
-    calculateGravityLocal((CudaMultipoleMoments *)d_localMoments,
-		          (CompactPartData *)d_localParts,
-			  (VariablePartData *)d_localVars,
-			  (cudaStream_t *)streams, numStreams,
-                          sMoments, sCompactParts, sVarParts);
+    this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
+    this->d_localParts = (CompactPartData *)d_localParts;
+    this->d_localVars = (VariablePartData *)d_localVars;
+    this->stream = ((cudaStream_t *)streams)[thisIndex % numStreams];
+    this->sMoments = sMoments;
+    this->sCompactParts = sCompactParts;
+    this->sVarParts = sVarParts;
+
+    calculateGravityLocal();
 }
 
 void TreePiece::commenceCalculateGravityLocal(){

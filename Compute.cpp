@@ -379,7 +379,7 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
       resetCudaNodeState(ds);
     }
     if(ds->particleLists.totalNumInteractions > 0){
-      sendPartInteractionsToGpu(ds, owner);
+      //sendPartInteractionsToGpu(ds, owner);
       resetCudaPartState(ds);
     }
 
@@ -936,7 +936,7 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
       resetCudaNodeState(state);
     }
     if(state->particleLists.totalNumInteractions > 0){
-      sendPartInteractionsToGpu(state, tp);
+      //sendPartInteractionsToGpu(state, tp);
       resetCudaPartState(state);
     }
 #endif
@@ -1411,11 +1411,7 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
  * request. This request will eventually call our GPU local tree walk kernel.
  */
 void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
-  int activeRung, int startBucket, int endBucket,
-  CudaMultipoleMoments* d_localMoments,
-  CompactPartData* d_localParts,
-  VariablePartData* d_localVars, cudaStream_t stream,
-  size_t sMoments, size_t sCompactParts, size_t sVarParts) {
+  int activeRung, int startBucket, int endBucket) {
   int numFilledBuckets = 0;
   for (int i = startBucket; i < endBucket; ++i) {
     if (tp->bucketList[i]->rungs >= activeRung) {
@@ -1474,13 +1470,13 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
 
   CudaRequest *request = new CudaRequest;
 
-  request->d_localMoments = d_localMoments;
-  request->d_localParts = d_localParts;
-  request->d_localVars = d_localVars;
-  request->sMoments = sMoments;
-  request->sCompactParts = sCompactParts;
-  request->sVarParts = sVarParts;
-  request->stream = stream;
+  request->d_localMoments = tp->d_localMoments;
+  request->d_localParts = tp->d_localParts;
+  request->d_localVars = tp->d_localVars;
+  request->sMoments = tp->sMoments;
+  request->sCompactParts = tp->sCompactParts;
+  request->sVarParts = tp->sVarParts;
+  request->stream = tp->stream;
 
   request->numBucketsPlusOne = numFilledBuckets+1;
   request->affectedBuckets = affectedBuckets;
@@ -1784,7 +1780,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           rrState->particleLists.push_back(b, tilp, rrState, tp);
           if(rrState->partOffloadReady()){
             // enough nodes to offload
-            sendPartInteractionsToGpu(rrState, tp);
+            //sendPartInteractionsToGpu(rrState, tp);
             resetCudaPartState(rrState);
           }
 
@@ -1831,7 +1827,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
                 state->particleLists.push_back(b, tilp, state, tp);
                 if(state->partOffloadReady()){
                   // enough nodes to offload
-                  sendPartInteractionsToGpu(state, tp);
+                  //sendPartInteractionsToGpu(state, tp);
                   resetCudaPartState(state);
                 }
               }
@@ -1879,7 +1875,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
               state->particleLists.push_back(b, tilp, state, tp);
               if(state->partOffloadReady()){
                 // enough nodes to offload
-                sendPartInteractionsToGpu(state, tp);
+                //sendPartInteractionsToGpu(state, tp);
                 resetCudaPartState(state);
               }
             }
@@ -2167,6 +2163,10 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
   data->remote = (getOptType() == Remote);
   data->missedNodes = NULL;
   data->missedParts = NULL;
+
+  data->d_localParts = tp->d_localParts;
+  data->d_localVars = tp->d_localVars;
+  data->stream = tp->stream;
 
 #ifdef HAPI_INSTRUMENT_WRS
   data->tpIndex = tp->getInstrumentId();

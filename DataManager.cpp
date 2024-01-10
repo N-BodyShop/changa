@@ -530,10 +530,6 @@ void DataManager::startLocalWalk() {
 		                                   sMoments, sCompactParts, sVarParts);
       if(registeredTreePieces[0].treePiece->bEwald) {
 	  EwaldGPUmsg *msg = new EwaldGPUmsg;
-	  msg->d_localParts = (intptr_t)d_localParts;
-	  msg->d_localVars = (intptr_t)d_localVars;
-	  msg->streams = (intptr_t)streams;
-	  msg->numStreams = numStreams;
 	  msg->fromInit = false;
           // Make priority lower than gravity or smooth.
           *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;

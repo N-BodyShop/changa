@@ -749,7 +749,7 @@ Main::Main(CkArgMsg* m) {
 #ifdef CUDA
 	numStreams = 100;
         prmAddParam(prm, "nStreams", paramInt, &numStreams,
-                    sizeof(int),"s", "Number of CUDA streams (default: 100)");
+                    sizeof(int),"str", "Number of CUDA streams (default: 100)");
 #endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,

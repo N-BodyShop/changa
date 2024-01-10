@@ -388,7 +388,7 @@ void TreePiece::EwaldInit()
 }
 
 
-void TreePiece::EwaldGPU(intptr_t d_localParts, intptr_t d_localVars, intptr_t streams, int numStreams){
+void TreePiece::EwaldGPU(){
   /* when not using CUDA, definition is required because
      EwaldGPU is an entry method
   */
@@ -531,9 +531,8 @@ void TreePiece::EwaldGPU(intptr_t d_localParts, intptr_t d_localVars, intptr_t s
       myLocalIndex++);
   CkAssert(myLocalIndex < dm->registeredTreePieces.length());
 
-  unsigned int sid = thisIndex % numStreams;
-  EwaldHost((CompactPartData *)d_localParts, (VariablePartData *)d_localVars,
-	    h_idata, ((cudaStream_t *)streams)[sid], (void *) cbEwaldGPU, myLocalIndex, largephase);
+  EwaldHost(this->d_localParts, this->d_localVars,
+	    h_idata, this->stream, (void *) cbEwaldGPU, myLocalIndex, largephase);
 #endif
 
 #endif

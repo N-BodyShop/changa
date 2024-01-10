@@ -597,56 +597,6 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
   hapiEnqueue(gravityKernel);*/
 }
 
-void TreePieceCellListDataTransferBasic(CudaRequest *data, hapiWorkRequest *gravityKernel){
-	int numBucketsPlusOne = data->numBucketsPlusOne;
-        int numBuckets = numBucketsPlusOne-1;
-        size_t size = (data->numInteractions) * sizeof(ILCell);
-        bool transfer = size > 0;
-
-	gravityKernel->addBuffer(data->list, size, transfer, false, transfer);
-
-        size = (numBucketsPlusOne) * sizeof(int);
-	gravityKernel->addBuffer(data->bucketMarkers, (transfer ? size : 0),
-	                             transfer, false, transfer);
-
-	size = (numBuckets) * sizeof(int);
-	gravityKernel->addBuffer(data->bucketStarts, size, transfer, false, transfer);
-
-	gravityKernel->addBuffer(data->bucketSizes, size, transfer, false, transfer);
-
-        ParameterStruct *ptr = (ParameterStruct *)malloc(sizeof(ParameterStruct));
-        ptr->numInteractions = data->numInteractions;
-        ptr->numBucketsPlusOne = numBucketsPlusOne;
-        ptr->fperiod = data->fperiod;
-
-#ifdef GPU_LOCAL_TREE_WALK
-        ptr->firstParticle  = data->firstParticle;
-        ptr->lastParticle   = data->lastParticle;
-        ptr->rootIdx        = data->rootIdx;
-        ptr->theta          = data->theta;
-        ptr->thetaMono      = data->thetaMono;
-        ptr->nReplicas      = data->nReplicas;
-        ptr->fperiod        = data->fperiod;
-        ptr->fperiodY       = data->fperiodY;
-        ptr->fperiodZ       = data->fperiodZ;
-#endif //GPU_LOCAL_TREE_WALK
-        gravityKernel->setUserData(ptr, true);
-
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER BASIC cells %zu (%d) bucket_markers %zu (%d) bucket_starts %zu (%d) bucket_sizes %zu (%d)\n",
-            CmiMyPe(),
-            gravityKernel->buffers[ILCELL_IDX].size,
-            gravityKernel->buffers[ILCELL_IDX].transfer_to_device,
-            gravityKernel->buffers[NODE_BUCKET_MARKERS_IDX].size,
-            gravityKernel->buffers[NODE_BUCKET_MARKERS_IDX].transfer_to_device,
-            gravityKernel->buffers[NODE_BUCKET_START_MARKERS_IDX].size,
-            gravityKernel->buffers[NODE_BUCKET_START_MARKERS_IDX].transfer_to_device,
-            gravityKernel->buffers[NODE_BUCKET_SIZES_IDX].size,
-            gravityKernel->buffers[NODE_BUCKET_SIZES_IDX].transfer_to_device
-            );
-#endif
-}
-
 void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *particles, int len){
 	int numBlocks = data->numBucketsPlusOne-1;
 
@@ -696,33 +646,48 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 	hapiEnqueue(gravityKernel);*/
 }
 
+//TODO: Working on this
+// d_local fields need to be set still
 void TreePiecePartListDataTransferLocal(CudaRequest *data){
-	int numBlocks = data->numBucketsPlusOne-1;
+    cudaStream_t stream = data->stream;
 
-	/*hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-
-#ifdef CUDA_2D_TB_KERNEL
-	gravityKernel->setExecParams(numBlocks, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART));
-#else
-	gravityKernel->setExecParams(numBlocks, THREADS_PER_BLOCK);
+#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
+    printf("TreePiecePartListDataTransferLocal buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: (0x%x)\n",
+      data->d_localParts,
+      data->d_localVars,
+      data->list
+      );
 #endif
 
-	TreePiecePartListDataTransferBasic(data, gravityKernel);
-
-	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
-#ifdef HAPI_TRACE
-	gravityKernel->setTraceName("partGravityLocal");
+#ifndef CUDA_NO_KERNELS
+    #ifdef CUDA_2D_TB_KERNEL
+    particleGravityComputation<<<(data->lastParticle - data->firstParticle + 1)
+                                    / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
+       data->d_localParts,
+       data->d_localVars,
+       data->d_localParts,
+       (ILCell *)data->list,
+       data->bucketMarkers,
+       data->bucketStarts,
+       data->bucketSizes,
+       data->fperiod
+      );
+    #else
+    particleGravityComputation<<<(data->lastParticle - data->firstParticle + 1)
+                                    / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
+       data->d_localParts,
+       data->d_localVars,
+       data->d_localParts,
+       (ILPart *)data->list,
+       data->bucketMarkers,
+       data->bucketStarts,
+       data->bucketSizes,
+       data->fperiod
+      );
+    #endif
 #endif
-	gravityKernel->setRunKernel(run_TP_PART_GRAVITY_LOCAL);
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER LOCAL LARGEPHASE PART\n", CmiMyPe());
-#endif
-#ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chare_index = data->tpIndex;
-        gravityKernel->comp_type = TP_PART_GRAVITY_LOCAL;
-        gravityKernel->comp_phase = data->phase;
-#endif
-	hapiEnqueue(gravityKernel);*/
+    cudaStreamSynchronize(stream);
+    hapiAddCallback(stream, data->cb);
 }
 
 void TreePiecePartListDataTransferRemote(CudaRequest *data){
