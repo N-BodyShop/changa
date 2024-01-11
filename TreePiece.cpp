@@ -3793,7 +3793,7 @@ void TreePiece::finishBucket(int iBucket) {
       // not be reset, so that the data manager gets 
       // confused.
       dm->transferParticleVarsBack();
-      dm->freeLocalTreeMemory();
+      //dm->freeLocalTreeMemory();
 #else
       // move on to markwalkdone in non-cuda version
       continueWrapUp();
@@ -4088,13 +4088,6 @@ void TreePiece::doParallelNextBucketWork(int idx, LoopParData* lpdata) {
 #else
   CkAbort("Ckloop not implemented for non-interaction list gravity");
 #endif
-}
-
-void TreePiece::calculateGravityLocal(CudaMultipoleMoments* d_localMoments, 
-                                      CompactPartData* d_localParts, 
-                                      VariablePartData* d_localVars, cudaStream_t *streams, int numStreams,
-                                      size_t sMoments, size_t sCompactParts, size_t sVarParts) {
-  doAllBuckets();
 }
 
 /// This function could be replaced by the doAllBuckets() call.
@@ -4465,7 +4458,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         lc->resetCudaNodeState(ds);
       }
       if(ds->particleLists.totalNumInteractions > 0){
-        //lc->sendPartInteractionsToGpu(ds, this);
+        lc->sendPartInteractionsToGpu(ds, this);
         lc->resetCudaPartState(ds);
       }
     }
@@ -4501,7 +4494,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
           lc->resetCudaNodeState(ds);
         }
         if(ds->particleLists.totalNumInteractions > 0){
-          //lc->sendPartInteractionsToGpu(ds, this);
+          lc->sendPartInteractionsToGpu(ds, this);
           lc->resetCudaPartState(ds);
         }
       }
@@ -4662,7 +4655,7 @@ void TreePiece::executeCkLoopParallelization(LoopParData *lpdata,
 
 #ifdef CUDA
 void TreePiece::callFreeRemoteChunkMemory(int chunk){
-  //dm->freeRemoteChunkMemory(chunk);
+  dm->freeRemoteChunkMemory(chunk);
 }
 #endif
 
@@ -5280,6 +5273,7 @@ void TreePiece::initiatePrefetch(int chunk){
 
 }
 
+#ifdef CUDA
 void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments, 
 		                              intptr_t d_localParts, 
 					      intptr_t d_localVars,
@@ -5295,6 +5289,7 @@ void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments,
 
     calculateGravityLocal();
 }
+#else
 
 void TreePiece::commenceCalculateGravityLocal(){
 #if INTERLIST_VER > 0 
@@ -5304,6 +5299,7 @@ void TreePiece::commenceCalculateGravityLocal(){
 #endif
   calculateGravityLocal();
 }
+#endif
 
 void TreePiece::startRemoteChunk() {
 #if CHANGA_REFACTOR_DEBUG > 0
@@ -5325,7 +5321,13 @@ void TreePiece::startRemoteChunk() {
 /// @brief Main work of StartRemoteChunk()
 /// Schedule a TreePiece::calculateGravityRemote() then start
 /// prefetching for the next chunk.
+#ifdef CUDA
+void TreePiece::continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts){
+  this->d_remoteMoments = (CudaMultipoleMoments *)d_remoteMoments;
+  this->d_remoteParts = (CompactPartData *)d_remoteParts;
+#else
 void TreePiece::continueStartRemoteChunk(int chunk){
+#endif
   // FIXME - can value of chunk be different from current Prefetch?
   ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(sPrefetchState->currentBucket);
   *(int*)CkPriorityPtr(msg) = numTreePieces * numChunks + thisIndex + 1;

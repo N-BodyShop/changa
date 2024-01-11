@@ -894,7 +894,11 @@ class TreePiece : public CBase_TreePiece {
 
 	// For accessing GPU memory
 	CudaMultipoleMoments *d_localMoments;
+        CudaMultipoleMoments *d_remoteMoments;
+        CudaMultipoleMoments *d_missedNodes;
         CompactPartData *d_localParts;
+        CompactPartData *d_missedParts;
+	CompactPartData *d_remoteParts;
         VariablePartData *d_localVars;
         size_t sMoments;
         size_t sCompactParts;
@@ -1028,9 +1032,11 @@ class TreePiece : public CBase_TreePiece {
 
 #endif
 
-        void continueStartRemoteChunk(int chunk);
 #ifdef CUDA
+	void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
         void updateParticles(intptr_t data, int partIndex);
+#else
+        void continueStartRemoteChunk(int chunk);
 #endif
         void continueWrapUp();
 
@@ -1875,20 +1881,18 @@ public:
 	/// force that its particles see due to the other particles hosted in
 	/// this TreePiece. The opening angle theta has already been passed
 	/// through startGravity().  This function just calls doAllBuckets().
-	void calculateGravityLocal();
+#ifdef CUDA
 	void calculateGravityLocal(CudaMultipoleMoments* d_localMoments, 
                                    CompactPartData* d_localParts, 
                                    VariablePartData* d_localVars, cudaStream_t *streams, int numStreams,
                                    size_t sMoments, size_t sCompactParts, size_t sVarParts);
+#else
+	void calculateGravityLocal();
+#endif
 	/// Do some minor preparation for the local walkk then
 	/// calculateGravityLocal().
 	void commenceCalculateGravityLocal();
-	void commenceCalculateGravityLocal(intptr_t d_localMoments, 
-                                           intptr_t d_localParts, 
-                                           intptr_t d_localVars,
-					   intptr_t streams, int numStreams,
-                                           size_t sMoments, size_t sCompactParts, size_t sVarParts);
-
+	
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted
 	/// by this TreePiece, and belonging to a subset of the global tree

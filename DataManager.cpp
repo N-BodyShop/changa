@@ -568,7 +568,7 @@ void DataManager::resumeRemoteChunk() {
 #if COSMO_PRINT_BK > 1
       CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
 #endif
-      treePieces[in].continueStartRemoteChunk(chunk);
+      treePieces[in].continueStartRemoteChunk(chunk, (intptr_t)d_remoteMoments, (intptr_t)d_remoteParts);
     }
 }
 
@@ -622,9 +622,10 @@ void DataManager::donePrefetch(int chunk){
 #else
       DataManagerTransferRemoteChunk(bufRemoteMoments, sRemMoments,
                                      bufRemoteParts, sRemParts,
+                                     (void **)&d_remoteMoments,  (void **)&d_remoteParts,
+				     streams[0],
                                      remoteChunkTransferCallback);
 #endif
-      resumeRemoteChunk();
 
     }
     else{
@@ -1032,8 +1033,7 @@ void DataManager::freeRemoteChunkMemory(int chunk){
 #ifdef HAPI_INSTRUMENT_WRS
     FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0, 0, activeRung);
 #else
-    //FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0);
-    // callback?
+    FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0);
 #endif
   }
   CmiUnlock(__nodelock);
@@ -1084,6 +1084,8 @@ void DataManager::initiateNextChunkTransfer(){
 #else
       DataManagerTransferRemoteChunk(bufRemoteMoments, sRemMoments,
                                      bufRemoteParts, sRemParts,
+        			     (void **)&d_remoteMoments,  (void **)&d_remoteParts,
+				     streams[0],
                                      remoteChunkTransferCallback);
 #endif
   }
@@ -1135,10 +1137,14 @@ void DataManager::transferParticleVarsBack(){
                              savedNumTotalParticles > 0, lastChunkMoments > 0,
                              lastChunkParticles > 0);
 #endif
-    // Not getting here before d_localVars pointer is lost
+    
     hapiCheck(cudaFree(d_localMoments));
     hapiCheck(cudaFree(d_localParts));
     hapiCheck(cudaFree(d_localVars));
+
+    hapiCheck(cudaFree(d_remoteMoments));
+    hapiCheck(cudaFree(d_remoteParts)); // *
+    // *'s look like they were never allocated
 
     gputransfer = false;
 

@@ -326,7 +326,7 @@ void PrefetchCompute::recvdParticles(ExternalGravityParticle *egp,int num,int ch
         // it could transpire that we don't miss on these particles during RNR, but they aren't present on the gpu
         // and so we'd have to have a separate array of missed particles for the RNR (in much the same way that the RR has
         // separate arrays for missed nodes and particles) 
-  //finishNodeProcessEvent(tp, state);
+  finishNodeProcessEvent(tp, state);
 //#endif
 }
 
@@ -379,7 +379,7 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
       resetCudaNodeState(ds);
     }
     if(ds->particleLists.totalNumInteractions > 0){
-      //sendPartInteractionsToGpu(ds, owner);
+      sendPartInteractionsToGpu(ds, owner);
       resetCudaPartState(ds);
     }
 
@@ -936,7 +936,7 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
       resetCudaNodeState(state);
     }
     if(state->particleLists.totalNumInteractions > 0){
-      //sendPartInteractionsToGpu(state, tp);
+      sendPartInteractionsToGpu(state, tp);
       resetCudaPartState(state);
     }
 #endif
@@ -1401,6 +1401,11 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
   freePinnedHostMemory(data->bucketStarts);
   freePinnedHostMemory(data->bucketSizes);
 
+  hapiCheck(cudaFree(data->d_list));
+  hapiCheck(cudaFree(data->d_bucketMarkers));
+  hapiCheck(cudaFree(data->d_bucketStarts));
+  hapiCheck(cudaFree(data->d_bucketSizes));
+
   delete ((CkCallback *)data->cb);
   delete data;
 }
@@ -1780,7 +1785,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
           rrState->particleLists.push_back(b, tilp, rrState, tp);
           if(rrState->partOffloadReady()){
             // enough nodes to offload
-            //sendPartInteractionsToGpu(rrState, tp);
+            sendPartInteractionsToGpu(rrState, tp);
             resetCudaPartState(rrState);
           }
 
@@ -1827,7 +1832,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
                 state->particleLists.push_back(b, tilp, state, tp);
                 if(state->partOffloadReady()){
                   // enough nodes to offload
-                  //sendPartInteractionsToGpu(state, tp);
+                  sendPartInteractionsToGpu(state, tp);
                   resetCudaPartState(state);
                 }
               }
@@ -1875,7 +1880,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
               state->particleLists.push_back(b, tilp, state, tp);
               if(state->partOffloadReady()){
                 // enough nodes to offload
-                //sendPartInteractionsToGpu(state, tp);
+                sendPartInteractionsToGpu(state, tp);
                 resetCudaPartState(state);
               }
             }
@@ -1997,6 +2002,7 @@ void cudaCallback(void *param, void *msg){
 #endif
   for(int i = 0; i < numBucketsDone; i++){
     bucket = affectedBuckets[i];
+    CkPrintf("***decrement bucket***\n");
     state->counterArrays[0][bucket]--;
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", tp->getIndex(), bucket, tp->getSRemoteGravityState()->counterArrays[0][bucket], tp->getSLocalGravityState()->counterArrays[0][bucket]);
@@ -2018,10 +2024,14 @@ void cudaCallback(void *param, void *msg){
   freePinnedHostMemory(data->bucketMarkers);
   freePinnedHostMemory(data->bucketStarts);
   freePinnedHostMemory(data->bucketSizes);
-  if(data->missedNodes)
+  if(data->missedNodes) {
       freePinnedHostMemory(data->missedNodes);
-  if(data->missedParts)
+      hapiCheck(cudaFree(data->d_missedNodes));
+  }
+  if(data->missedParts) {
       freePinnedHostMemory(data->missedParts);
+      hapiCheck(cudaFree(data->d_missedParts));
+  }
   
   delete ((CkCallback *)data->cb);
   delete data; 
@@ -2048,6 +2058,12 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
   data->remote = (getOptType() == Remote);
   data->missedNodes = NULL;
   data->missedParts = NULL;
+  
+  data->d_localMoments = tp->d_localMoments;
+  data->d_localParts = tp->d_localParts;
+  data->d_localVars = tp->d_localVars;
+  data->d_remoteMoments = tp->d_remoteMoments;
+  data->stream = tp->stream;
 
 #ifdef HAPI_INSTRUMENT_WRS
   data->tpIndex = tp->getInstrumentId();
@@ -2112,8 +2128,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
 #ifdef HAPI_TRACE
     tp->remoteNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
-    //TreePieceCellListDataTransferRemote(data);
-    // callback?
+    TreePieceCellListDataTransferRemote(data);
 #ifdef HAPI_INSTRUMENT_WRS
     tp->remoteNodeListConstructionTime += time;
     tp->nRemoteNodeReqs++;
@@ -2129,8 +2144,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
 #ifdef HAPI_TRACE
     tp->remoteResumeNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
-    //TreePieceCellListDataTransferRemoteResume(data);
-    // callback?
+    TreePieceCellListDataTransferRemoteResume(data);
 #ifdef HAPI_INSTRUMENT_WRS
     tp->remoteResumeNodeListConstructionTime += time;
     tp->nRemoteResumeNodeReqs++;
@@ -2241,8 +2255,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 #ifdef HAPI_TRACE
     tp->remotePartInteractions += state->particleLists.totalNumInteractions;
 #endif
-    //TreePiecePartListDataTransferRemote(data);
-    // callback?
+    TreePiecePartListDataTransferRemote(data);
 #ifdef HAPI_INSTRUMENT_WRS
     tp->remotePartListConstructionTime += time;
     tp->nRemotePartReqs++;
@@ -2258,8 +2271,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 #ifdef HAPI_TRACE
     tp->remoteResumePartInteractions += state->particleLists.totalNumInteractions;
 #endif
-    //TreePiecePartListDataTransferRemoteResume(data);
-    // callback?
+    TreePiecePartListDataTransferRemoteResume(data);
 #ifdef HAPI_INSTRUMENT_WRS
     tp->remoteResumePartListConstructionTime += time;
     tp->nRemoteResumePartReqs++;

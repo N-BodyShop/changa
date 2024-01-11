@@ -137,11 +137,13 @@ protected:
 
 	// Pointers to particle and tree data on GPU
 	CudaMultipoleMoments *d_localMoments;
-	CompactPartData *d_localParts;
-	VariablePartData *d_localVars;
-	size_t sMoments;
-	size_t sCompactParts;
-	size_t sVarParts;
+        CudaMultipoleMoments *d_remoteMoments;
+        CompactPartData *d_localParts;
+	CompactPartData *d_remoteParts;
+        VariablePartData *d_localVars;
+        size_t sMoments;
+        size_t sCompactParts;
+        size_t sVarParts;
 
 	void *d_EwaldMarkers;
 	void *d_cachedData;

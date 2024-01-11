@@ -483,12 +483,15 @@ mainmodule ParallelGravity {
       OrientedBox<double>& box, OrientedBox<double>& boxBall,
       unsigned int iParticleTypes, int64_t nSPH);
 
-    entry void commenceCalculateGravityLocal();
+#ifdef CUDA
     entry void commenceCalculateGravityLocal(intptr_t d_localMoments, 
                                              intptr_t d_localParts, 
                                              intptr_t d_localVars,
                                              intptr_t streams, int numStreams,
                                              size_t sMoments, size_t sCompactParts, size_t sVarParts);
+#else
+    entry void commenceCalculateGravityLocal();
+#endif
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
 
     entry [notrace] void calculateReSmoothLocal();
@@ -536,9 +539,11 @@ mainmodule ParallelGravity {
     entry void collectStatistics(const CkCallback &cb);
 
     // jetley
-    entry void continueStartRemoteChunk(int chunk);
 #ifdef CUDA
+    entry void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
     entry void updateParticles(intptr_t data, int partIndex);
+#else
+    entry void continueStartRemoteChunk(int chunk);
 #endif
     entry void continueWrapUp();
 

@@ -105,12 +105,22 @@ enum kernels {
 /** @brief Data and parameters for requesting gravity calculations on
  * the GPU. */
 typedef struct _CudaRequest{
+	/// for accessing device memory
 	CudaMultipoleMoments *d_localMoments;
+	CudaMultipoleMoments *d_remoteMoments;
+	CudaMultipoleMoments *d_missedNodes;
 	CompactPartData *d_localParts;
+	CompactPartData *d_missedParts;
+	CompactPartData *d_remoteParts;
 	VariablePartData *d_localVars;
 	size_t sMoments;
 	size_t sCompactParts;
 	size_t sVarParts;
+
+	void *d_list;
+	int *d_bucketMarkers;
+	int *d_bucketStarts;
+	int *d_bucketSizes;
 
 	cudaStream_t stream;
 
@@ -193,7 +203,7 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments, 
                                     void *compactParts, size_t sCompactParts,
                                     void *varParts, size_t sVarParts,
-                                    mype, char phase, void *wrCallback);
+                                    int mype, char phase, void *callback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int pe, char phase);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart, int pe, char phase);
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb, bool, bool, bool, bool, int pe, char phase);
@@ -206,7 +216,9 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   int mype, void *callback);
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
-                                  void *wrCallback);
+				  void **d_remoteMoments, void **d_remoteParts,
+				  cudaStream_t stream,
+                                  void *callback);
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
 void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
 /** @brief Transfer forces from the GPU back to the host.
