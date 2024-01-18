@@ -342,7 +342,10 @@ void TreePiece::readTipsyArray(OutputParams& params, const CkCallback& cb)
     params.dm = dm; // pass cooling information
     FILE *infile = CmiFopen((params.fileName+"." + params.sTipsyExt).c_str(),
                             "r+");
-    CkAssert(infile != NULL);
+    if(infile == NULL)
+        CkError("Bad open of %s.%s: %s\n", params.fileName.c_str(),
+                params.sTipsyExt.c_str(), strerror(errno));
+    CkMustAssert(infile != NULL, "Cannot open tipsy array file\n");
     // Check if its a binary file
     unsigned int iDum;
     XDR xdrs;
@@ -1976,13 +1979,13 @@ void Main::outputBinary(OutputParams& params, // specifies
         opts.activePEs = 1;
         }
     
+    params.iTypeWriting = 0;
     if(params.iBinaryOut != 6) {
         Ck::IO::open(params.fileName+"."+params.sTipsyExt,
                      CkCallback(CkIndex_Main::cbOpen(0), thishandle),
                      opts);
         }
     else {
-        params.iTypeWriting = 0;
         std::string strFile = getNCNextOutput(params);
         if(strFile.empty()) { // No data to write
             cb.send();
