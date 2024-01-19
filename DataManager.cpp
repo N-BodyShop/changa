@@ -47,7 +47,6 @@ void DataManager::init() {
   treePiecesDoneRemoteChunkComputation = 0;
   treePiecesWantParticlesBack = 0;
   treePiecesParticlesUpdated = 0;
-  gputransfer = false;
 #ifdef HAPI_INSTRUMENT_WRS
   treePiecesDoneInitInstrumentation = 0;
 #endif
@@ -506,14 +505,14 @@ void DataManager::serializeLocalTree(){
 /// Indicate the transfer is done, and start the local gravity walks
 /// on the treepieces on this node.
 void DataManager::startLocalWalk() {
-    gputransfer = true;
     delete localTransferCallback;
     for(int i = 0; i < registeredTreePieces.length(); i++){
       if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
       int in = registeredTreePieces[i].treePiece->getIndex();
       treePieces[in].commenceCalculateGravityLocal();
       if(registeredTreePieces[0].treePiece->bEwald) {
-          dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+          EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
+          msg->fromInit = false;
           // Make priority lower than gravity or smooth.
           *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
           CkSetQueueing(msg,CK_QUEUEING_IFIFO);
@@ -1105,7 +1104,6 @@ void DataManager::transferParticleVarsBack(){
                              savedNumTotalParticles > 0, lastChunkMoments > 0,
                              lastChunkParticles > 0);
 #endif
-    gputransfer = false;
   }
   CmiUnlock(__nodelock);
 }
