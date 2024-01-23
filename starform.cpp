@@ -510,7 +510,7 @@ void StarLog::logMetaData(std::ofstream &osfLog)
     osfLog << "# rhoForm f" << sizeof(double) << endl;
     osfLog << "# TForm f" << sizeof(double) << endl;
 #ifdef COOLING_MOLECULARH 
-    osfLog <<" #  H2FracForm f" << sizeof(double) << endl;
+    osfLog << "# H2FracForm f" << sizeof(double) << endl;
 #endif
     osfLog << "# end starlog data\n";
 }
