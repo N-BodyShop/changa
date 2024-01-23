@@ -4,8 +4,7 @@ extern module CentralLB;
 initnode void lbinit(void);
 
 group [migratable] MultistepLB_notopo : CentralLB {
-  entry void MultistepLB_notopo(const CkLBOptions &);  
-  entry void receiveCentroids(CkReductionMsg *msg);
+  entry void MultistepLB_notopo(const CkLBOptions &);
 };
 
 };

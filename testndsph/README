@@ -1,0 +1,60 @@
+This folder contains a few tests for NDSPH. 
+
+To configure for a given number of dimensions, do:
+    ./configure --enable-ndsph=2
+    make clean
+    make
+In the ChaNGa directory
+
+You can cleanup generated files by running:
+    ./cleanup
+
+************************************
+Density test
+************************************
+This is a basic test to verify that the various ND-kernels are giving the
+correct density estimates.  The snapshots here are an N-Dimensional cube
+(line, plane, or cube) in a periodic box length 1 with a density of 1.  The
+test runs the ICs for 0-steps and verifies that the calculated density is
+correct.
+
+Run the test by typing cd'ing into this directory and calling:
+
+    ./densitytest ndim
+    
+Where ndim is the number of dimensions (1, 2, or 3)
+
+Files for these tests are in the directories density_*d/.  You can vary runtime
+parameters by editing the .param files in the folders.
+
+************************************
+Acceleration test
+************************************
+This is a basic test to verify the kernel gradients are giving the correct 
+density gradient estimates.  The ICs are the gridded, N-dimensional cubes
+of the density test with a gaussian density perturbation applied by changing
+the particle mass.  The test runs the ICs for zero time-steps and verifies that
+the calculated particle accelerations are correct.  
+
+This test generates a profile plot of acceleration vs. position.  NOTE: the
+"predicted" and the "actual" accleration profiles may differ, especially in 
+the 3D test where the effective resolution is lower.  As long as the overall
+shape is close, the test is a success.  Differences of more than about 10% 
+indicate an issue.
+
+Run the test by typing cd'ing into this directory and calling:
+
+    ./acctest ndim
+    
+Where ndim is the number of dimensions (1, 2, or 3)
+
+************************************
+files
+************************************
+    analyzeDensity.py
+        Analyze results of the density tests
+    cleanup
+        Script to delete test results
+    densitytest
+        Perform the density test
+

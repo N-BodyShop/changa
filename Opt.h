@@ -1,6 +1,10 @@
 #ifndef __OPT_H__
 #define __OPT_H__
 
+/// @file Opt.h
+///
+/// Declare Opt classes for walk actions
+///
 #include "codes.h"
 
 /// Base class for optimizing walk actions.
@@ -22,6 +26,7 @@ class Opt{
   OptType getSelfType() {return type;}
 };
 
+/// Class for optimizing remote gravity walk actions.
 class RemoteOpt : public Opt{
   public:
   RemoteOpt() : Opt(Remote){
@@ -77,6 +82,7 @@ class RemoteOpt : public Opt{
 
 };
 
+/// Class for optimizing local gravity walk actions.
 class LocalOpt : public Opt{
   public:
   LocalOpt() : Opt(Local){
@@ -120,6 +126,8 @@ class LocalOpt : public Opt{
   }
   
 };
+
+/// Class for optimizing experimental "push" gravity walk actions.
 
 class PushGravityOpt : public Opt{
   public:

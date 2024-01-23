@@ -13,7 +13,12 @@
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
 
+#if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
+#include "ckBIconfig.h"
+#endif
 
+
+/// @brief Information about TreePieces on an SMP node.
 struct TreePieceDescriptor{
 	TreePiece *treePiece;
         Tree::GenericTreeNode *root;
@@ -26,6 +31,7 @@ struct TreePieceDescriptor{
 };
 
 #ifdef CUDA
+
 struct UpdateParticlesStruct{
   CkCallback *cb;
   DataManager *dm;
@@ -39,10 +45,8 @@ struct PendingBuffers {
   CkVec<CudaMultipoleMoments> *moments;
   CkVec<CompactPartData> *particles;
   int chunk;
-  //CudaMultipoleMoments *moments;
-  //int nMoments;
-  //CompactPartData *particles;
-  //int nParticles;
+    /// Pointer to callback so it can be freed.
+    CkCallback *cb;
 };
 
 #endif
@@ -71,16 +75,13 @@ protected:
 	/// An array with how many particles are held by each TreePiece when sorted.
 	std::vector<int> particleCounts;
 
-	/// An array with a list of the first and last particle of each TreePiece
-	SFC::Key * splitters;
-	/// The size of the array splitters
-	int numSplitters;
-
 	/// A list of roots of the TreePieces in this node
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
 #ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
+        /// @brief counter for the number of tree nodes that are
+        /// replicated by TreePieces that share the same address space.
         int cumNumReplicatedNodes;
         int treePiecesDone;
         int savedChunk;
@@ -90,6 +91,9 @@ protected:
         // at a given time
         int treePiecesDoneRemoteChunkComputation;
         int treePiecesWantParticlesBack;
+        /// Reference count for Pieces that have finished updating
+        /// their acclerations.
+        int treePiecesParticlesUpdated;
         int savedNumTotalParticles;
         int savedNumTotalNodes;
         // keeps track of buckets of particles that were
@@ -105,19 +109,32 @@ protected:
         // local particles that have been copied to the gpu
         //std::map<NodeKey, int> localPartsOnGpu;
 
-        //std::map<Tree::NodeKey, GenericTreeNode *> missedNodesOnGpu;
-        //std::map<Tree::NodeKey, ExternalGravityParticle *> missedPartsOnGpu;
-
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
+
+        /// Callback pointer to pass to HAPI.
+        CkCallback *localTransferCallback;
+
+        PendingBuffers *currentChunkBuffers;
         // queue that stores all pending chunk transfers
         CkQ<PendingBuffers *> pendingChunkTransferQ;
 
         // last remote chunk's size in moments and particles
         int lastChunkMoments;
         int lastChunkParticles;
+        /// host buffer to transfer remote moments to GPU
+        CudaMultipoleMoments *bufRemoteMoments;
+        /// host buffer to transfer remote particles to GPU
+        CompactPartData *bufRemoteParts;
 
-#ifdef CUDA_INSTRUMENT_WRS
+        /// host buffer to transfer local moments to GPU
+        CudaMultipoleMoments *bufLocalMoments;
+        /// host buffer to transfer local particles to GPU
+        CompactPartData *bufLocalParts;
+        /// host buffer to transfer initial accelerations to GPU
+        VariablePartData *bufLocalVars;
+
+#ifdef HAPI_INSTRUMENT_WRS
         int activeRung;
         int treePiecesDoneInitInstrumentation;
 #endif
@@ -141,16 +158,27 @@ public:
 	 ** Cooling 
 	 */
 	COOL *Cool;
+	/// @brief log of star formation events.
+	///
+	/// Star formation events are stored on the data manager since there
+	/// is no need to migrate them with the TreePiece.
+	StarLog *starLog;
+	/// @brief Lock for accessing starlog from TreePieces
+	CmiNodeLock lockStarLog;
 
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
+        void startLocalWalk();
+        void resumeRemoteChunk();
 #ifdef CUDA
-        //void serializeNodes(GenericTreeNode *start, CudaMultipoleMoments *&postPrefetchMoments, CompactPartData *&postPrefetchParticles);
-		//void serializeNodes(GenericTreeNode *start);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
 
+#ifdef GPU_LOCAL_TREE_WALK
+        void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
+#endif //GPU_LOCAL_TREE_WALK
+        
         // actual serialization methods
         PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
@@ -158,13 +186,14 @@ public:
         void freeRemoteChunkMemory(int chunk);
         void transferParticleVarsBack();
         void updateParticles(UpdateParticlesStruct *data);
+        void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
-#ifdef CUDA_INSTRUMENT_WRS
+#ifdef HAPI_INSTRUMENT_WRS
         int initInstrumentation();
 #endif
         DataManager(){} 
 #endif
-        void clearInstrument(CkCallback &cb);
+        void clearInstrument(CkCallback const& cb);
 
 private:
         void init();
@@ -178,11 +207,10 @@ public:
     	    nodeTable.clear();
 
 	    CoolFinalize(Cool);
+	    delete starLog;
+	    CmiDestroyLock(lockStarLog);
 	    }
 
-	/// \brief Collect the boundaries of all TreePieces, and
-	/// trigger the real treebuild
-	void collectSplitters(CkReductionMsg* m);
 	/// Called by ORB Sorter, save the list of which TreePiece is
 	/// responsible for which interval.
 	void acceptResponsibleIndex(const int* responsible, const int n,
@@ -195,7 +223,7 @@ public:
 	/// @param responsible vector of which piece is responsible
 	/// for which interval
 	/// @param bins number of particles in each interval.
-	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, unsigned int* bins, const int n, const CkCallback& cb);
+	void acceptFinalKeys(const SFC::Key* keys, const int* responsible, uint64_t* bins, const int n, const CkCallback& cb);
 	void pup(PUP::er& p);
 
 #ifdef CUDA
@@ -220,6 +248,7 @@ public:
 /// The roots are stored in registeredChares to be used by TreePiece
 /// combineLocalTrees.
     void notifyPresence(Tree::GenericTreeNode *root, TreePiece *treePiece);
+    void clearRegisteredPieces(const CkCallback& cb);
     void combineLocalTrees(CkReductionMsg *msg);
     void getChunks(int &num, Tree::NodeKey *&roots);
     inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
@@ -231,10 +260,12 @@ public:
     void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);
+    void initStarLog(std::string _fileName, const CkCallback &cb);
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time
 			const CkCallback& cb);
+    void SetStarCM(double dCenterOfMass[4], const CkCallback& cb);
     void memoryStats(const CkCallback& cb);
     void resetReadOnly(Parameters param, const CkCallback &cb);
 
@@ -242,10 +273,46 @@ public:
   static Tree::GenericTreeNode *pickNodeFromMergeList(int n, GenericTreeNode **gtn, int &nUnresolved, int &pickedIndex);
 };
 
+inline static void setBIconfig()
+{
+#if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
+    if (CkMyRank()==0) {
+#define GNI_BI_DEFAULT    64
+      uint16_t cur_bi = ck_get_GNI_BIConfig();
+      if (cur_bi > GNI_BI_DEFAULT) {
+        ck_set_GNI_BIConfig(GNI_BI_DEFAULT);
+      }
+    }
+    if (CkMyPe() == 0)
+      CkPrintf("Balanced injection is set to %d.\n", ck_get_GNI_BIConfig());
+#endif
+}
+
+/** @brief Control recording of Charm++ projections logs
+ *
+ *  The constructors for this class are also used to set default
+ *  node-wide communication parameters.
+ */
 class ProjectionsControl : public CBase_ProjectionsControl { 
   public: 
-  ProjectionsControl() {} 
-  ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {} 
+  ProjectionsControl() {
+    setBIconfig();
+    LBTurnCommOff();
+#ifndef LB_MANAGER_VERSION
+    // Older Charm++ requires this to avoid excessive delays between successive LBs even
+    // when using AtSync mode
+    LBSetPeriod(0.0);
+#endif
+  } 
+  ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {
+    setBIconfig();
+    LBTurnCommOff();
+#ifndef LB_MANAGER_VERSION
+    // Older Charm++ requires this to avoid excessive delays between successive LBs even
+    // when using AtSync mode
+    LBSetPeriod(0.0);
+#endif
+  } 
  
   void on(CkCallback cb) { 
     if(CkMyPe() == 0){ 
@@ -264,8 +331,8 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   } 
 
   void pup(PUP::er &p){
+    CBase_ProjectionsControl::pup(p);
   }
 }; 
-
 
 #endif //DATAMANAGER_H

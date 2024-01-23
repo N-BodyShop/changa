@@ -12,40 +12,30 @@
 #include "TaggedVector3D.h"
 #include <queue>
 
-void CreateOrb3dLB();
-BaseLB * AllocateOrb3dLB();
-
-class Orb3dLB : public CentralLB {
+class Orb3dLB : public CBase_Orb3dLB {
   friend class MultistepLB;
 private:
-  CmiBool firstRound; 
-  CmiBool centroidsAllocated;
+  bool firstRound;
+  bool centroidsAllocated;
   ComparatorFn compares[NDIMS];
   ComparatorFn pc[NDIMS];
   // pointer to stats->to_proc
-  CkVec<int> *mapping;
+  decltype(LDStats::to_proc) *mapping;
 
   int procsPerNode;
-
-  // things are stored in here before work
-  // is ever called.
-  TaggedVector3D *tpCentroids;
-  CkReductionMsg *tpmsg;
-  int nrecvd;
-  bool haveTPCentroids;
 
   CkVec<TPObject> tps;
   CkVec<Node> nodes;
 
-  CmiBool QueryBalanceNow(int step);
+  void init();
+  bool QueryBalanceNow(int step);
 
   void printData(BaseLB::LDStats &stats, int phase, int *revObjMap);
 
 public:
   Orb3dLB(const CkLBOptions &);
-  Orb3dLB(CkMigrateMessage *m):CentralLB(m) { lbname = "Orb3dLB"; }
+  Orb3dLB(CkMigrateMessage *m) : CBase_Orb3dLB(m) {init();}
   void work(BaseLB::LDStats* stats);
-  void receiveCentroids(CkReductionMsg *msg);
   void directMap(int tpstart, int tpend, int nodestart, int nodeend);
   void map(int tpstart, int tpend, int nodestart, int nodeend, int xs, int ys, int zs, int dim);
   int nextDim(int dim, int xs, int ys, int zs);

@@ -4,6 +4,10 @@
 #include "cosmo.h"
 #include "cooling.h"
 #include "starform.h"
+#include "feedback.h"
+#include "sinks.h"
+
+#include "externalGravity.h"
 
 /** @brief Hold parameters of the run.
  */
@@ -29,6 +33,7 @@ typedef struct parameters {
     int iMaxRung;
     int bCannonical;
     int bKDK;
+    int bDtAdjust;
     int bPeriodic;
     int nReplicas;
     double fPeriod;
@@ -47,6 +52,7 @@ typedef struct parameters {
 #endif
     CSM csm;			/* cosmo parameters */
     double dRedTo;
+    double dGlassDamper;
     /*
      * GrowMass parameters
      */
@@ -67,19 +73,25 @@ typedef struct parameters {
     int bGasCooling;
     int nSmooth;
     COOLPARAM CoolParam;
+    double dMaxEnergy;
     double dhMinOverSoft;
+    double dResolveJeans;
     double dMsolUnit;
     double dKpcUnit;
     double ddHonHLimit;
     double dGasConst;
     double dConstAlpha;
     double dConstBeta;
+    double dConstAlphaMax;
     double dConstGamma;
     double dMeanMolWeight;
     double dErgPerGmUnit;
     double dGmPerCcUnit;
     double dSecUnit;
     double dComovingGmPerCcUnit;
+    double dThermalDiffusionCoeff;
+    double dMetalDiffusionCoeff;
+    int bConstantDiffusion;
     int bSphStep;
     int bFastGas;
     double dFracFastGas;
@@ -87,11 +99,38 @@ typedef struct parameters {
     int iViscosityLimiter;
     int bViscosityLimitdt;
     double dEtaCourant;
+    double dEtaDiffusion;
     double dEtauDot;
     int bStarForm;
     Stfm *stfm;
-    int iRandomSeed;
+    int bFeedback;
+    Fdbk *feedback;
+    double dThermalCondCoeff;
+    double dThermalCondSatCoeff;
+    double dThermalCond2Coeff;
+    double dThermalCond2SatCoeff;
+    double dThermalCondCoeffCode;
+    double dThermalCond2CoeffCode;
+    double dEvapMinTemp;
+    double dEvapCoeff;
+    double dEvapCoeffCode;
+    int bDoExternalGravity;
+    ExternalGravity externalGravity;
+    int iRandomSeed;            /* Seed for random numbers */
+    
+    Sinks sinks;
+
+    //SIDM
+    int iSIDMSelect;
+    double dSIDMSigma;
+    double dSIDMVariable;
+    
+    //
+    // Output parameters
+    //
     int bStandard;
+    int bDoublePos;
+    int bDoubleVel;
     int bOverwrite;
     int bParaRead;
     int bParaWrite;
@@ -100,18 +139,26 @@ typedef struct parameters {
     char achOutName[256];
     int bStaticTest;
     int bBenchmark;
+    int iBinaryOut;
     int iOutInterval;
     int iCheckInterval;
     int iLogInterval;
-    int iBinaryOutput;
+    int iOrbitOutInterval;
     int bDoIOrderOutput;
+    int bDoSoftOutput;
+    int bDohOutput;
+    int bDoCSound;
+    int bDoStellarLW;
     int cacheLineDepth;
     double dExtraStore;
     double dMaxBalance;
+    double dFracLoadBalance;
     double dDumpFrameStep;
     double dDumpFrameTime;
     int iDirector;
     int bLiveViz;
+    int bUseCkLoopPar;
+    int iVerbosity;
     } Parameters;
 
 inline void operator|(PUP::er &p, Parameters &param) {
@@ -132,6 +179,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iMaxRung;
     p|param.bCannonical;
     p|param.bKDK;
+    p|param.bDtAdjust;
     p|param.bPeriodic;
     p|param.nReplicas;
     p|param.fPeriod;
@@ -151,6 +199,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     if(p.isUnpacking())
  	csmInitialize(&param.csm);
     p|*param.csm;
+    p|param.dGlassDamper;
     p|param.dRedTo;
     p|param.bDynGrowMass;
     p|param.nGrowMass;
@@ -169,29 +218,55 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dFracFastGas;
     p|param.bViscosityLimiter;
     p|param.iViscosityLimiter;
+    p|param.dMaxEnergy;
     p|param.dhMinOverSoft;
+    p|param.dResolveJeans;
     p|param.dMsolUnit;
     p|param.dKpcUnit;
     p|param.ddHonHLimit;
     p|param.dGasConst;
     p|param.dConstAlpha;
     p|param.dConstBeta;
+    p|param.dConstAlphaMax;
     p|param.dConstGamma;
     p|param.dMeanMolWeight;
     p|param.dErgPerGmUnit;
     p|param.dGmPerCcUnit;
     p|param.dSecUnit;
     p|param.dComovingGmPerCcUnit;
+    p|param.dThermalDiffusionCoeff;
+    p|param.dMetalDiffusionCoeff;
+    p|param.bConstantDiffusion;
     p|param.bSphStep;
     p|param.bViscosityLimitdt;
     p|param.dEtaCourant;
+    p|param.dEtaDiffusion;
     p|param.dEtauDot;
     p|param.bStarForm;
     if(p.isUnpacking())
  	param.stfm = new Stfm();
     p|*param.stfm;
+    p|param.bFeedback;
+    p|param.feedback;
+    p|param.dThermalCondCoeff;
+    p|param.dThermalCondSatCoeff;
+    p|param.dThermalCond2Coeff;
+    p|param.dThermalCond2SatCoeff;
+    p|param.dThermalCondCoeffCode;
+    p|param.dThermalCond2CoeffCode;
+    p|param.dEvapMinTemp;
+    p|param.dEvapCoeff;
+    p|param.dEvapCoeffCode;
+    p|param.bDoExternalGravity;
+    p|param.externalGravity;
     p|param.iRandomSeed;
+    p|param.sinks;
+    p|param.dSIDMSigma;
+    p|param.iSIDMSelect;
+    p|param.dSIDMVariable;
     p|param.bStandard;
+    p|param.bDoublePos;
+    p|param.bDoubleVel;
     p|param.bOverwrite;
     p|param.bParaRead;
     p|param.bParaWrite;
@@ -200,18 +275,26 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p(param.achOutName, 256);
     p|param.bStaticTest;
     p|param.bBenchmark;
+    p|param.iBinaryOut;
     p|param.iOutInterval;
     p|param.iCheckInterval;
     p|param.iLogInterval;
-    p|param.iBinaryOutput;
+    p|param.iOrbitOutInterval;
     p|param.bDoIOrderOutput;
+    p|param.bDoSoftOutput;
+    p|param.bDohOutput;
+    p|param.bDoCSound;
+    p|param.bDoStellarLW;
     p|param.cacheLineDepth;
     p|param.dExtraStore;
     p|param.dMaxBalance;
+    p|param.dFracLoadBalance;
     p|param.dDumpFrameStep;
     p|param.dDumpFrameTime;
     p|param.iDirector;
     p|param.bLiveViz;
+    p|param.bUseCkLoopPar;
+    p|param.iVerbosity;
     }
 
 #endif

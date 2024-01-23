@@ -6,6 +6,7 @@ extern "C" {
 #endif
 /* Cosmo routines originally written for PKDGRAV by Thomas Quinn */
 
+/** @brief Cosmological parameters */
 typedef struct csmContext {
     int bComove;	   
     double dHubble0;
@@ -31,6 +32,8 @@ double csmGrowthFacDot(CSM csm, double dExp);
 double csmExp2Om(CSM csm, double dExp);
 #if defined(__cplusplus)
 }
+
+#include "pup_stl.h"
 
 inline void operator|(PUP::er &p, struct csmContext &csm) {
     p|csm.bComove;	   

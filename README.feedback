@@ -1,0 +1,38 @@
+The star formation/supernova feedback implemenation was translated
+from Gasoline by Greg Stinson.  Note the following differences from
+the Gasoline implementation that has been in common use from 2006
+through 2010.  N.B. In all of the following, the definition of
+"metals", "Oxygen" and "Iron" are not clear, and this may be the
+origin of some of the noted differences.  E.g., does "Oxygen" refer to
+the mass of O16 in particular or the mass of all the alpha elements.
+
+* Upon reading a tipsy file which only has "metals",  the division of metals
+  between "Oxygen", and "Iron" is 95% and 5% respectively, whereas in Gasoline
+  this division was 75% and 25%.  The 75%/25% in gasoline was a rather random
+  guess.  95%/5% is also incorrect.  The real answer lies somewhere inbetween.
+  It seems sensible to put the oxygen/iron abundances to the solar value.
+  If you follow this stuff, that ratio has changed dramatically over the last
+  10 years from 0.84/0.12 from Anders + Grevesse (1989) to 0.58/0.13 in 
+  Asplund et al. (2005?).  See the review by Asplund et al. (2009).  The
+  trouble is that our SNII yields are based on the former,
+  though it might be nice to use the latter.  So, Oxygen should be somewhere
+  between 81% and 87%.
+
+* SNIa eject all their mass in "metals", whereas Gasoline only ejects .76
+  solar masses in "metals" per supernova.  SNIa models are of exploding
+  Oxygen white dwarfs, so all the material in such an explosion is composed
+  of "metals" (Oxygen or heavier elements).  In Gasoline, Fe + O =0.63+0.13
+  solar masses = 0.76.  Nomoto et al (1999) Table 1 states that Fe is
+  actually 0.74 once you count up all of its isotopes.  Still, the rest of
+  the ejecta are metals, lots of Si and Ni, so this will contribute to metal
+  cooling.
+  
+* The minimum mass of binary that can go supernova is .8 solar masses, whereas
+  in Gasoline this is 3 solar masses.  The lowered limit allows SNIa's to
+  continue happening for a very long time after star formation.
+
+* In Gasoline, mass lost in SNIa is discounted against mass lost in winds.
+  With the lower limit to SNIa binary masses noted above, which is below the
+  lower mass limit for winds, there can be SNIa going off and no winds.
+  Discounting SNIa mass loss against the wind mass loss would result in
+  negative mass loss in winds, so it is not done.

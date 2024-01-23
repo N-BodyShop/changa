@@ -30,12 +30,13 @@ struct OctDecompNode {
   OctDecompNode *children;
   int nchildren;
 
-  int nparticles;
+  int64_t nparticles;
 
   void makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active);
-  int buildCounts();
+  int64_t buildCounts();
   void deleteBeneath();
-  void combine(int thresh, vector<NodeKey> &finalKeys, vector<unsigned int> &counts);
+  void combine(int thresh, vector<NodeKey> &finalKeys, vector<uint64_t> &counts);
+  void getLeafNodes(CkVec<OctDecompNode*> *activeNodes);
 };
 
 /**
@@ -60,15 +61,13 @@ struct OctDecompNode {
  to DataManager::acceptFinalKeys(), which coordinates the
  shuffling of the particles to the correct owners.
  */
-class Sorter : public Chare {
+class Sorter : public CBase_Sorter {
 
         double decompTime;
 	/// The total number of keys we're sorting.
-	int numKeys;
+	int64_t numKeys;
 	/// The number of chares to sort into.
 	int numChares;
-	// The number of chares currently with assigned data.
-	//int numUsedChares;
 	/// The indexes of the chares that are responsible for each segment of data.
 	std::vector<int> chareIDs;
 	/// A list of chare elements to which nothing is assigned
@@ -87,17 +86,21 @@ class Sorter : public Chare {
 
 	std::vector<NodeKey> nodeKeys;
 	/// The histogram of counts for the last round of splitter keys.
-	std::vector<unsigned int> binCounts;
+	std::vector<uint64_t> binCounts;
 	std::vector<unsigned int> binCountsGas;
 	std::vector<unsigned int> binCountsStar;
 	/// The number of bins in the histogram.
 	int numCounts;
 	/// The keys I've decided on that divide the objects evenly (within the tolerance).
 	std::vector<SFC::Key> keyBoundaries;
+        std::vector<uint64_t> accumulatedBinCounts;
 	/// The keys I'm sending out to be evaluated.
 	std::vector<SFC::Key> splitters;
+
+        CkBitVector binsToSplit;
 	/// The list of object number splits not yet met.
-	std::list<int> goals;
+	int64_t *goals;
+        int numGoalsPending;
 	
 	/// The DataManager I broadcast candidate keys to.
 	CProxy_DataManager dm;
@@ -138,10 +141,8 @@ class Sorter : public Chare {
         /// The list of nodes opened by the last invocation of weightBalance
         CkVec<NodeKey> nodesOpened;
 
-  Compare comp;
-
 	void adjustSplitters();
-	bool refineOctSplitting(int n, int *count);
+	bool refineOctSplitting(int n, int64_t *count);
 	
 public:
 	
@@ -158,7 +159,7 @@ public:
           chareIDs[0] = 0;
           partial_sum(chareIDs.begin(), chareIDs.end(), chareIDs.begin());
 	};
-	Sorter(CkMigrateMessage* m) {
+	Sorter(CkMigrateMessage* m) : CBase_Sorter(m) {
           root = NULL;
           decompRoots = NULL;
           numDecompRoots = 0;
@@ -183,6 +184,7 @@ public:
 	void convertNodesToSplitters();
 	SFC::Key * convertNodesToSplittersRefine(int num, NodeKey* keys);
 	//void convertNodesToSplittersNoZeros(int num, NodeKey* nodeKeys, CkVec<int> &zero);
+        /// @brief Collect the counts of particles in each domain
 	void collectEvaluations(CkReductionMsg* m);
 	void collectEvaluationsSFC(CkReductionMsg* m);
 	void collectEvaluationsOct(CkReductionMsg* m);

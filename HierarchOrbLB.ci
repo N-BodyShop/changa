@@ -1,0 +1,11 @@
+module HierarchOrbLB {
+
+extern module HybridBaseLB;
+
+initnode void lbinit(void);
+
+group [migratable] HierarchOrbLB: HybridBaseLB {
+  entry void HierarchOrbLB(const CkLBOptions &);
+};
+
+};

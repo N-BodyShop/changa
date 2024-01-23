@@ -1,0 +1,77 @@
+#pragma once
+
+#ifndef __NVCC__
+#	error "This header must be compiled with nvcc only"
+#endif
+
+#include <cuda_runtime.h>
+#include <type_traits>
+
+/*! \file
+ *
+ * \brief Wrapper for `__shfl_X` CUDA intrinsics
+ *
+ * Provide wrapper implementations of the deprecated/removed `__shfl_X` family
+ * of warp-level functions that work with any version of CUDA.
+ *
+ * From the CUDA 10 documention:
+ *
+ * Deprecation Notice:
+ * 		__shfl, __shfl_up, __shfl_down, and __shfl_xor have been deprecated
+ * 		in CUDA 9.0 for all devices.
+ *
+ * Removal Notice:
+ * 		When targeting devices with compute capability 7.x or higher, __shfl,
+ * 		__shfl_up, __shfl_down, and __shfl_xor are no longer available and
+ * 		their sync variants should be used instead.
+ *
+ * \warning
+ * 	For Pascal and earlier architectures, all threads in mask must execute the
+ * 	same warp intrinsic instruction in convergence, and the union of all
+ * 	values in mask must be equal to the warp's active mask.
+ *
+ */
+
+template <typename T>
+__device__ T shfl(T var, int srcLane, int width, unsigned mask = 0xFFFFFFFF) {
+	static_assert(std::is_arithmetic<T>::value, "shfl only works with numeric types");
+#if CUDART_VERSION >= 9000 || __CUDA_ARCH__ >= 700
+	return __shfl_sync(mask, var, srcLane, width);
+#else
+	(void)mask; // silence compiler warning
+	return __shfl(var, srcLane, width);
+#endif
+}
+
+template <typename T>
+__device__ T shfl_down(T var, unsigned int delta, int width, unsigned mask = 0xFFFFFFFF) {
+	static_assert(std::is_arithmetic<T>::value, "shfl_down only works with numeric types");
+#if CUDART_VERSION >= 9000 || __CUDA_ARCH__ >= 700
+	return __shfl_down_sync(mask, var, delta, width);
+#else
+	(void)mask; // silence compiler warning
+	return __shfl_down(var, delta, width);
+#endif
+}
+
+template <typename T>
+__device__ T shfl_up(T var, unsigned int delta, int width, unsigned mask = 0xFFFFFFFF) {
+	static_assert(std::is_arithmetic<T>::value, "shfl_up only works with numeric types");
+#if CUDART_VERSION >= 9000 || __CUDA_ARCH__ >= 700
+	return __shfl_up_sync(mask, var, delta, width);
+#else
+	(void)mask; // silence compiler warning
+	return __shfl_up(var, delta, width);
+#endif
+}
+
+template <typename T>
+__device__ T shfl_xor(T var, int laneMask, int width, unsigned mask = 0xFFFFFFFF) {
+	static_assert(std::is_arithmetic<T>::value, "shfl_xor only works with numeric types");
+#if CUDART_VERSION >= 9000 || __CUDA_ARCH__ >= 700
+	return __shfl_xor_sync(mask, var, laneMask, width);
+#else
+	(void)mask; // silence compiler warning
+	return __shfl_xor(var, laneMask, width);
+#endif
+}

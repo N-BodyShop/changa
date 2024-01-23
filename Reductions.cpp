@@ -11,6 +11,7 @@ CkReduction::reducerType growOrientedBox_float;
 CkReduction::reducerType growOrientedBox_double;
 
 CkReduction::reducerType minmax_int;
+CkReduction::reducerType minmax_long;
 CkReduction::reducerType minmax_float;
 CkReduction::reducerType minmax_double;
 
@@ -57,11 +58,12 @@ CkReductionMsg* minmax(int nMsg, CkReductionMsg** msgs) {
 /// (iMaxRung) and the number of particles in that rung (nMaxRung).
 ///
 CkReductionMsg* max_count_reduce(int nMsg, CkReductionMsg** msgs) {
-    int* pmaxcount = static_cast<int *>(msgs[0]->getData());
+    int64_t* pmaxcount = static_cast<int64_t *>(msgs[0]->getData());
     int iMaxRung = pmaxcount[0];  // maxmimum rung
-    int nMaxRung = pmaxcount[1];  // count in maximum rung
+    int64_t nMaxRung = pmaxcount[1];  // count in maximum rung
+    int iMaxRungGas = pmaxcount[2];  // maximum rung for gas
     for(int i = 1; i < nMsg; i++) {
-	pmaxcount = static_cast<int *>(msgs[i]->getData());
+	pmaxcount = static_cast<int64_t *>(msgs[i]->getData());
 	if(pmaxcount[0] > iMaxRung) {
 	    iMaxRung = pmaxcount[0];
 	    nMaxRung = pmaxcount[1];
@@ -69,11 +71,15 @@ CkReductionMsg* max_count_reduce(int nMsg, CkReductionMsg** msgs) {
 	else if(pmaxcount[0] == iMaxRung) {
 	    nMaxRung += pmaxcount[1];
 	    }
+	if(pmaxcount[2] > iMaxRungGas) {
+	    iMaxRungGas = pmaxcount[2];
+            }
 	}
-    int newcount[2];
+    int64_t newcount[3];
     newcount[0] = iMaxRung;
     newcount[1] = nMaxRung;
-    return CkReductionMsg::buildNew(2 * sizeof(int), newcount);
+    newcount[2] = iMaxRungGas;
+    return CkReductionMsg::buildNew(3 * sizeof(int64_t), newcount);
 }
 
 /// Return a single object, given many copies of it
@@ -82,9 +88,9 @@ CkReductionMsg* same(int nMsg, CkReductionMsg** msgs) {
 	return CkReductionMsg::buildNew(sizeof(T), static_cast<T *>(msgs[0]->getData()));
 }
 
-// Merge images for DumpFrame
-// Messages consist of a struct inDumpFrame header followed by the
-// image data.
+/// Merge images for DumpFrame
+/// Messages consist of a struct inDumpFrame header followed by the
+/// image data.
 CkReductionMsg* dfImageReducer(int nMsg, CkReductionMsg** msgs) {
     struct inDumpFrame *in = (struct inDumpFrame *)msgs[0]->getData();
     int nImage1 = in->nxPix*in->nyPix*sizeof(DFIMAGE);
@@ -104,11 +110,13 @@ CkReductionMsg* dfImageReducer(int nMsg, CkReductionMsg** msgs) {
     return CkReductionMsg::buildNew(msgs[0]->getSize(), msgs[0]->getData());
 }
 
+/// Create custom reducers in the charm runtime.
 void registerReductions() {
 	growOrientedBox_float = CkReduction::addReducer(boxGrowth<float>);
 	growOrientedBox_double = CkReduction::addReducer(boxGrowth<double>);
 	
 	minmax_int = CkReduction::addReducer(minmax<int>);
+	minmax_long = CkReduction::addReducer(minmax<int64_t>);
 	minmax_float = CkReduction::addReducer(minmax<float>);
 	minmax_double = CkReduction::addReducer(minmax<double>);
 	max_count = CkReduction::addReducer(max_count_reduce);

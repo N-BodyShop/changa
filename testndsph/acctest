@@ -1,0 +1,28 @@
+#!/bin/bash
+ndim="$1"
+# Choose simulation directory/param file
+if [ "$ndim" == 1 ] ; then
+    simdir="acceleration_1d"
+    fprefix="cube_1d_nx1000"
+    sigma="0.05"
+elif [ "$ndim" == 2 ] ; then
+    simdir="acceleration_2d"
+    fprefix="cube_2d_nx200"
+    sigma="0.07"
+elif [ "$ndim" == 3 ] ; then
+    simdir="acceleration_3d"
+    fprefix="cube_3d_nx40"
+    sigma="0.1"
+else
+    echo "Please specify 1, 2, or 3" 1>&2
+    echo "Usage:  acctest ndim" 1>&2
+    exit 1
+fi
+# Use ChaNGa to calculate density
+cd $simdir
+../../ChaNGa -n 0 $fprefix".param"
+# Analyze results
+echo "--------------------------------------------"
+printf "\nAcceleration test results ($simdir/)\n\n"
+../analyzeAcc.py $fprefix $sigma
+cp acceleration_test_results.png ../"results_"$simdir".png"

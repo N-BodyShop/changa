@@ -13,34 +13,103 @@
 #include "TaggedVector3D.h"
 #include "Vector3D.h"
 #include "CentralLB.h"
-#define  ORB3DLB_NOTOPO_DEBUG 
-// #define  ORB3DLB_NOTOPO_DEBUG CkPrintf
+#define  ORB3DLB_NOTOPO_DEBUG(X)
+// #define  ORB3DLB_NOTOPO_DEBUG(X) CkPrintf X
+
+/// @brief Hold information about Pe load and number of objects.
+class PeInfo {
+  public:
+  int idx;
+  double load;
+  double items;
+  PeInfo(int id, double ld, int it) : idx(id), load(ld), items(it) {}
+};
+
+/// @brief Utility class for sorting processor loads.
+class ProcLdGreater {
+  public:
+  bool operator()(PeInfo& p1, PeInfo& p2) {
+    // This can be done based on load or number of tps assigned to a PE
+    return (p1.load > p2.load);
+  }
+};
+
+/// @brief Common methods among Orb3d class load balancers.
 class Orb3dCommon{
   // pointer to stats->to_proc
   protected:		
-    CkVec<int> *mapping;
-    CkVec<int> *from;
+    decltype(BaseLB::LDStats::to_proc) *mapping;
+    decltype(BaseLB::LDStats::from_proc) *from;
 
     CkVec<float> procload;
-    CkVec<OrientedBox<float> > procbox;
 
-    int nrecvd;
-    bool haveTPCentroids;
     /// Take into account memory constraints by limiting the number of pieces
     /// per processor.
     double maxPieceProc;
 
+    /// index of first processor of the group we are considering
     int nextProc;
 
+    // Greedy strategy to assign TreePieces to PEs on a node.
+    void orbPePartition(vector<Event> *events, vector<OrbObject> &tp, int node,
+        BaseLB::LDStats *stats) {
 
-    void orbPartition(vector<Event> *events, OrientedBox<float> &box, int nprocs, vector<OrbObject> & tp, BaseLB::LDStats *stats){
+      std::vector<PeInfo> peinfo;
+      float totalLoad = 0.0;
+      int firstProc = CkNodeFirst(node);
+      int lastProc = firstProc + CkNodeSize(node) - 1;
+      for (int i = firstProc; i <= lastProc; i++) {
+        peinfo.push_back(PeInfo(i, 0.0, 0));
+      }
+      // Make a heap of processors belonging to this node
+      std::make_heap(peinfo.begin(), peinfo.end(), ProcLdGreater());
 
-      ORB3DLB_NOTOPO_DEBUG("partition events %d %d %d nprocs %d\n", 
+      int nextProc;
+      for(int i = 0; i < events[XDIM].size(); i++){
+        Event &ev = events[XDIM][i];
+        OrbObject &orb = tp[ev.owner];
+
+        // Pop the least loaded PE from the heap and assign TreePiece to it
+        PeInfo p = peinfo.front();
+        pop_heap(peinfo.begin(), peinfo.end(), ProcLdGreater());
+        peinfo.pop_back();
+
+        nextProc = p.idx;
+
+        if(orb.numParticles > 0){
+          (*mapping)[orb.lbindex] = nextProc;
+          procload[nextProc] += ev.load;
+          p.load += ev.load;
+          p.items += 1;
+          totalLoad += ev.load;
+        } else{
+          int fromPE = (*from)[orb.lbindex];
+          procload[fromPE] += ev.load;
+        }
+
+        peinfo.push_back(p);
+        push_heap(peinfo.begin(), peinfo.end(), ProcLdGreater());
+      }
+    }
+
+/// @brief Recursively partition treepieces among processors by
+/// bisecting the load in orthogonal directions.
+/// @param events Array of three (1 per dimension) Event vectors.
+/// These are separate in each dimension for easy sorting.
+/// @param box Spatial bounding box
+/// @param nprocs Number of processors over which to partition the
+/// Events. N.B. if node_partition is true, then this is the number of nodes.
+/// @param tp Vector of TreePiece data.
+    void orbPartition(vector<Event> *events, OrientedBox<float> &box, int nprocs,
+        vector<OrbObject> & tp, BaseLB::LDStats *stats,
+        bool node_partition=false){
+
+        ORB3DLB_NOTOPO_DEBUG(("partition events %d %d %d nprocs %d\n", 
           events[XDIM].size(),
           events[YDIM].size(),
           events[ZDIM].size(),
           nprocs
-          );
+                              ));
       int numEvents = events[XDIM].size();
       CkAssert(numEvents == events[YDIM].size());
       CkAssert(numEvents == events[ZDIM].size());
@@ -49,24 +118,38 @@ class Orb3dCommon{
 	return;
 
       if(nprocs == 1){
-        ORB3DLB_NOTOPO_DEBUG("base: assign %d tps to proc %d\n", numEvents, nextProc);
-        // direct assignment of tree pieces to processors
-        //if(numEvents > 0) CkAssert(nprocs != 0);
-        float totalLoad = 0.0;
-        for(int i = 0; i < events[XDIM].size(); i++){
-          Event &ev = events[XDIM][i];
-          OrbObject &orb = tp[ev.owner];
-          if(orb.numParticles > 0){
-            (*mapping)[orb.lbindex] = nextProc;
-            totalLoad += ev.load;
-            procbox[nextProc].grow(orb.centroid);
-          }
-          else{
-            int fromPE = (*from)[orb.lbindex];
-            procload[fromPE] += ev.load;
-          }
+        ORB3DLB_NOTOPO_DEBUG(("base: assign %d tps to proc %d\n", numEvents, nextProc));
+        if (!stats->procs[nextProc].available) {
+          nextProc++;
+          return;
         }
-        procload[nextProc] += totalLoad;
+
+        // If we are doing orb partition at the node level, then call
+        // orbPePartition to assign the treepieces to the PEs belonging to the node.
+        if (node_partition) {
+          orbPePartition(events, tp, nextProc, stats);
+        } else {
+          // direct assignment of tree pieces to processors
+          //if(numEvents > 0) CkAssert(nprocs != 0);
+          float totalLoad = 0.0;
+          for(int i = 0; i < events[XDIM].size(); i++){
+            Event &ev = events[XDIM][i];
+            OrbObject &orb = tp[ev.owner];
+            if(orb.numParticles > 0){
+              (*mapping)[orb.lbindex] = nextProc;
+              totalLoad += ev.load;
+            }
+            else{
+              int fromPE = (*from)[orb.lbindex];
+              if (fromPE < 0 || fromPE >= procload.size()) {
+                CkPrintf("[%d] trying to access fromPe %d nprocs %lu\n", CkMyPe(), fromPE, procload.size());
+                CkAbort("Trying to access a PE which is outside the range\n");
+              }
+              procload[fromPE] += ev.load;
+            }
+          }
+          procload[nextProc] += totalLoad;
+        }
 
         if(numEvents > 0) nextProc++;
         return;
@@ -84,23 +167,32 @@ class Orb3dCommon{
         }
       }
 
-      ORB3DLB_NOTOPO_DEBUG("dimensions %f %f %f longest %d\n", 
+      ORB3DLB_NOTOPO_DEBUG(("dimensions %f %f %f longest %d\n", 
           box.greater_corner[XDIM]-box.lesser_corner[XDIM],
           box.greater_corner[YDIM]-box.lesser_corner[YDIM],
           box.greater_corner[ZDIM]-box.lesser_corner[ZDIM],
           longestDim
-          );
+                            ));
 
       int nlprocs = nprocs/2;
       int nrprocs = nprocs-nlprocs;
 
-      float ratio = (1.0*nlprocs)/(1.0*nrprocs);
+      float ratio = (1.0*nlprocs)/(1.0*(nlprocs+nrprocs));
 
-      ORB3DLB_NOTOPO_DEBUG("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio);
+      // sum background load on each side of the processor split
+      float bglprocs = 0.0;
+      for(int np = nextProc; np < nextProc + nlprocs; np++)
+        bglprocs += stats->procs[np].bg_walltime;
+      float bgrprocs = 0.0;
+      for(int np = nextProc + nlprocs; np < nextProc + nlprocs + nrprocs; np++)
+        bgrprocs += stats->procs[np].bg_walltime;
 
-      int splitIndex = partitionRatioLoad(events[longestDim],ratio);
+      ORB3DLB_NOTOPO_DEBUG(("nlprocs %d nrprocs %d ratio %f\n", nlprocs, nrprocs, ratio));
+
+      int splitIndex = partitionRatioLoad(events[longestDim],ratio,bglprocs,
+                                          bgrprocs);
       if(splitIndex == numEvents) {
-        ORB3DLB_NOTOPO_DEBUG("evenly split 0 load\n");
+        ORB3DLB_NOTOPO_DEBUG(("evenly split 0 load\n"));
         splitIndex = splitIndex/2;
       }
       int nleft = splitIndex;
@@ -203,16 +295,31 @@ class Orb3dCommon{
         //events[i].free();
         vector<Event>().swap(events[i]);
       }
-      orbPartition(leftEvents,leftBox,nlprocs,tp, stats);
-      orbPartition(rightEvents,rightBox,nrprocs,tp, stats);
+      orbPartition(leftEvents,leftBox,nlprocs,tp, stats, node_partition);
+      orbPartition(rightEvents,rightBox,nrprocs,tp, stats, node_partition);
     }
 
-    void orbPrepare(vector<Event> *tpEvents, OrientedBox<float> &box, int numobjs, BaseLB::LDStats * stats){
+/// @brief Prepare structures for the ORB partition.
+/// @param tpEvents Array of 3 (1 per dimension) Event vectors.
+/// @param box Reference to bounding box (set here).
+/// @param numobjs Number of tree pieces to partition.
+/// @param stats Data from the load balancing framework.
+/// @param node_partition Are we partitioning on nodes.
+    void orbPrepare(vector<Event> *tpEvents, OrientedBox<float> &box, int
+    numobjs, BaseLB::LDStats * stats, bool node_partition=false){
 
       int nmig = stats->n_migrateobjs;
       if(dMaxBalance < 1.0)
         dMaxBalance = 1.0;
-      maxPieceProc = dMaxBalance*nmig/stats->count;
+
+      // If using node based orb partition, then the maxPieceProc is total
+      // migratable objs / total number of node.
+      if (node_partition) {
+        maxPieceProc = dMaxBalance * nmig / CkNumNodes();
+      } else {
+        maxPieceProc = dMaxBalance*nmig/stats->nprocs();
+      }
+
       if(maxPieceProc < 1.0)
         maxPieceProc = 1.01;
 
@@ -222,11 +329,9 @@ class Orb3dCommon{
 
       mapping = &stats->to_proc;
       from = &stats->from_proc;
-      int dim = 0;
 
       CkPrintf("[Orb3dLB_notopo] sorting\n");
       for(int i = 0; i < NDIMS; i++){
-        //tpEvents[i].quickSort();
         sort(tpEvents[i].begin(),tpEvents[i].end());
       }
 
@@ -240,18 +345,17 @@ class Orb3dCommon{
 
       nextProc = 0;
 
-      procload.resize(stats->count);
-      procbox.resize(stats->count);
-      for(int i = 0; i < stats->count; i++){
-        procload[i] = 0.0;
+      procload.resize(stats->nprocs());
+      for(int i = 0; i < stats->nprocs(); i++){
+        procload[i] = stats->procs[i].bg_walltime;
       }
 
     }
 
     void refine(BaseLB::LDStats *stats, int numobjs){
 #ifdef DO_REFINE
-      int *from_procs = Refiner::AllocProcs(stats->count, stats);
-      int *to_procs = Refiner::AllocProcs(stats->count, stats);
+      int *from_procs = Refiner::AllocProcs(stats->nprocs(), stats);
+      int *to_procs = Refiner::AllocProcs(stats->nprocs(), stats);
 #endif
 
       int migr = 0;
@@ -268,7 +372,7 @@ class Orb3dCommon{
 #ifdef DO_REFINE
       CkPrintf("[orb3dlb_notopo] refine\n");
       Refiner refiner(1.050);
-      refiner.Refine(stats->count,stats,from_procs,to_procs);
+      refiner.Refine(stats->nprocs(),stats,from_procs,to_procs);
 
       for(int i = 0; i < numobjs; i++){
         if(to_procs[i] != from_procs[i]) numRefineMigrated++;
@@ -276,18 +380,22 @@ class Orb3dCommon{
       }
 #endif
 
-      double *predLoad = new double[stats->count];
-      double *predCount = new double[stats->count];
-      for(int i = 0; i < stats->count; i++){
+      double *predLoad = new double[stats->nprocs()];
+      double *predCount = new double[stats->nprocs()];
+      for(int i = 0; i < stats->nprocs(); i++){
         predLoad[i] = 0.0;
         predCount[i] = 0.0;
       }
 
+      double maxObjLoad = 0.0;
+      
       for(int i = 0; i < numobjs; i++){
         double ld = stats->objData[i].wallTime;
         int proc = stats->to_proc[i];
         predLoad[proc] += ld; 
         predCount[proc] += 1.0; 
+        if(ld > maxObjLoad)
+            maxObjLoad = ld;
       }
 
       double minWall = 0.0;
@@ -312,7 +420,7 @@ class Orb3dCommon{
 
       CkPrintf("***************************\n");
       //  CkPrintf("Before LB step %d\n", step());
-      for(int i = 0; i < stats->count; i++){
+      for(int i = 0; i < stats->nprocs(); i++){
         double wallTime = stats->procs[i].total_walltime;
         double idleTime = stats->procs[i].idletime;
         double bgTime = stats->procs[i].bg_walltime;
@@ -351,12 +459,35 @@ class Orb3dCommon{
 
       }
 
-      avgWall /= stats->count;
-      avgIdle /= stats->count;
-      avgBg /= stats->count;
-      avgPred /= stats->count;
-      avgPiece /= stats->count;
+      avgWall /= stats->nprocs();
+      avgIdle /= stats->nprocs();
+      avgBg /= stats->nprocs();
+      avgPred /= stats->nprocs();
+      avgPiece /= stats->nprocs();
 
+#ifdef PRINT_LOAD_PERCENTILES
+      double accumVar = 0;
+      vector<double> objectWallTimes;
+      for(int i = 0; i < stats->nprocs(); i++){
+        double wallTime = stats->procs[i].total_walltime;
+        objectWallTimes.push_back(wallTime);
+        accumVar += (wallTime - avgWall) * (wallTime - avgWall);
+      }
+      double stdDev = sqrt(accumVar / stats->nprocs());
+      CkPrintf("Average load: %.3f\n", avgWall);
+      CkPrintf("Standard deviation: %.3f\n", stdDev);
+
+      std::sort(objectWallTimes.begin(), objectWallTimes.end());
+      CkPrintf("Object load percentiles: \n");
+      double increment = (double) objectWallTimes.size() / 10;
+      int j = 0;
+      double index = 0;
+      for (int j = 0; j < 100; j += 10) {
+        index += increment;
+        CkPrintf("%d: %.3f\n", j, objectWallTimes[(int) index]);
+      }
+      CkPrintf("100: %.3f\n", objectWallTimes.back());
+#endif
 
       delete[] predLoad;
       delete[] predCount;
@@ -365,7 +496,7 @@ class Orb3dCommon{
       float minload, maxload, avgload;
       minload = maxload = procload[0];
       avgload = 0.0;
-      for(int i = 0; i < stats->count; i++){
+      for(int i = 0; i < stats->nprocs(); i++){
         CkPrintf("pe %d load %f box %f %f %f %f %f %f\n", i, procload[i], 
             procbox[i].lesser_corner.x,
             procbox[i].lesser_corner.y,
@@ -379,12 +510,13 @@ class Orb3dCommon{
         if(maxload < procload[i]) maxload = procload[i];
       }
 
-      avgload /= stats->count;
+      avgload /= stats->nprocs();
 
       CkPrintf("Orb3dLB_notopo stats: min %f max %f avg %f max/avg %f\n", minload, maxload, avgload, maxload/avgload);
 #endif
 
 
+      CkPrintf("Orb3dLB_notopo stats: maxObjLoad %f\n", maxObjLoad);
       CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
       CkPrintf("Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", minIdle, maxIdle, avgIdle, minIdle/avgIdle);
       CkPrintf("Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f\n", minPred, maxPred, avgPred, maxPred/avgPred);
@@ -401,46 +533,47 @@ class Orb3dCommon{
 
     }
 
-#define LOAD_EQUAL_TOLERANCE 1.02
-    int partitionRatioLoad(vector<Event> &events, float ratio){
-      float totalLoad = 0.0;
+/// @brief Given a vector of Events, find a split that partitions them
+/// into two partitions with a given ratio of loads.
+/// @param events Vector of Events to split
+/// @param ratio Target ratio of loads in left partition to total load.
+/// @param bglp Background load on the left processors.
+/// @param bgrp Background load on the right processors.
+/// @return Starting index of right partition.
+///
+    int partitionRatioLoad(vector<Event> &events, float ratio, float bglp, float bgrp){
+
+      float approxBgPerEvent = (bglp + bgrp) / events.size();
+      float totalLoad = bglp + bgrp;
       for(int i = 0; i < events.size(); i++){
         totalLoad += events[i].load;
       }
       //CkPrintf("************************************************************\n");
       //CkPrintf("partitionEvenLoad start %d end %d total %f\n", tpstart, tpend, totalLoad);
-      float lload = 0.0;
-      float rload = totalLoad;
-      float prevDiff = lload-ratio*rload;
-      if(prevDiff < 0.0){
-        prevDiff = -prevDiff;
-      }
+      float perfectLoad = ratio * totalLoad;
+      ORB3DLB_NOTOPO_DEBUG(("partitionRatioLoad bgl %f bgr %f\n",
+                            bglp, bgrp));
+      int splitIndex = 0;
+      float prevLoad = 0.0;
+      float leftLoadAtSplit = 0.0;
+      for(splitIndex = 0; splitIndex < events.size(); splitIndex++){
 
-      int consider;
-      for(consider = 0; consider < events.size();){
-        float newll = lload + events[consider].load;
-        float newrl = rload - events[consider].load;
+        leftLoadAtSplit += events[splitIndex].load + approxBgPerEvent;
 
-        float newdiff = newll-ratio*newrl;
-        if(newdiff < 0.0){
-          newdiff = -newdiff;
-        }
-
-        ORB3DLB_NOTOPO_DEBUG("consider load %f newdiff %f prevdiff %f\n", events[consider].load, newdiff, prevDiff);
-
-        if(newdiff > prevDiff){
+        if (leftLoadAtSplit > perfectLoad) {
+          if ( fabs(leftLoadAtSplit - perfectLoad) < fabs(prevLoad - perfectLoad) ) {
+            splitIndex++;
+          }
+          else {
+            leftLoadAtSplit = prevLoad;
+          }
           break;
         }
-        else{
-          consider++;
-          lload = newll;
-          rload = newrl;
-          prevDiff = newdiff;
-        }
+        prevLoad = leftLoadAtSplit;
       }
 
-      ORB3DLB_NOTOPO_DEBUG("partitionEvenLoad mid %d lload %f rload %f ratio %f\n", consider, lload, rload, lload/rload);
-      return consider;
+      ORB3DLB_NOTOPO_DEBUG(("partitionEvenLoad mid %d lload %f rload %f ratio %f\n", splitIndex, leftLoadAtSplit, totalLoad - leftLoadAtSplit, leftLoadAtSplit / totalLoad));
+      return splitIndex;
     }
 
 }; //end class

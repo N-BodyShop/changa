@@ -42,7 +42,7 @@ typedef struct prmContext {
 	void (*fcnTrailer)(void);
 	} * PRM;
 
-#define PRM_LINE_SIZE	128
+#define PRM_LINE_SIZE	256
 
 void prmInitialize(PRM *,void (*)(void),void (*)(void));
 void prmFinish(PRM);

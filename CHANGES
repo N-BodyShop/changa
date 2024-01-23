@@ -1,3 +1,216 @@
+What's new in ChaNGa 3.5 (Since 3.4)
+
+===============================================================================
+
+General changes:
+
+- Move to Charm version 7.0.0
+
+Physics Changes:
+
+- Jeans pressure floor changed to match GASOLINE
+
+- Support GRACKLE API v3.
+
+- Add logarithmic halo external potential
+
+Parallel performance changes:
+
+- Volta GPU support.
+
+Code cleanup:
+
+- Eliminate compiler warnings
+
+- Bug fixes
+
+===============================================================================
+
+What's new in ChaNGa 3.4 (Since 3.3)
+
+===============================================================================
+
+General changes:
+
+- Move to Charm version 6.9.0
+  This move requires the use of a C++11 compliant compiler.  For GCC this is
+  version 4.8.1 or later.
+
+- C++ file rename to ".cpp".
+
+- Improved configure/make system.
+
+Physics Changes:
+
+- Molecular Hydrogen physics for star formation and feedback
+
+- Metal cooling
+
+- Protoplanetary disk cooling
+
+- Superbubble feedback
+
+- Early UV feedback
+
+- Supermassive Black Hole formation and feedback
+
+- Self-Interacting Dark Matter
+
+- Gas splitting
+
+Parallel performance changes:
+
+- Local tree walk can be performed on the GPU.
+
+- Better memory use in GPU code.
+
+- More even distribution of work across processors when multistepping
+
+Code cleanup:
+
+- Refactored Main timestepping routine.
+
+- Bug fixes.
+
+===============================================================================
+
+What's new in ChaNGa 3.3 (Since 3.2)
+
+===============================================================================
+
+General changes:
+
+- Move to Charm version 6.8.0
+
+Physics Changes: (Many from Wadsley, Keller and Quinn, 2017)
+
+- Adaptive artificial visoscity
+
+- Smagorinsky diffusion
+
+- Thermal diffusion
+
+- Saitoh timestepping
+
+- New SPH Kernels: Wendland, M6
+
+- Geometric density averaged SPH forces.
+
+- External gravitational potentials: constant g, patch of a disk, central body
+
+- AGORA (2016) feedback model
+
+- Damping force for glass creation
+
+Parallel performance changes:
+
+- Working GPU implementation
+
+- Single precision floating point gravity
+
+- SPH neighbor search improvements
+
+===============================================================================
+
+What's new in ChaNGa 3.2 (Since 3.1)
+
+===============================================================================
+
+General changes:
+
+- Move to Charm version 6.7.1
+
+- Restart from "tipsy binary" files.
+
+- More flexible "dumpframe" movie making.
+
+- Complete handling of > 2 billion particles, including 64 bit iOrders in
+  the starlog file.
+
+Physics Changes:
+
+- Grackle cooling module.
+
+- Jeans length pressure floor.
+
+- Improved "beta cooling" for disks.
+
+Parallel performance changes:
+
+- More efficient smoothing cache.
+
+- Better scaling for tree build.
+
+- Better bookkeeping for multistep load balancing.
+
+===============================================================================
+
+What's new in ChaNGa 3.1 (Since 3.0)
+
+===============================================================================
+
+General changes:
+
+- Support for greater than 2 billion particles.
+
+- Support for NChilada file format. 
+
+Hardware support changes:
+
+- Remove support for CELL processor (Playstation).
+
+- AVX instruction support.
+
+Parallel performance changes:
+
+- SMP load balancing using the Charm++ Ck_Loop Library
+
+- More efficient parallel I/O using the Charm++ CkIO library.
+
+- Faster domain decomposition.
+
+- New load balancers
+  - Better multistep load bookkeeping
+  - HierarchicalLB for large core counts
+  - MultistepNodeLB_notopo for node-based load balancing. 
+
+===============================================================================
+
+What's new in ChaNGa 3.0 (Since 2.0)
+
+===============================================================================
+
+Physics Changes:
+
+- Gas Cooling: primordial hydrogen and helium, planetary disk cooling with
+  cooling time proportional to orbital time.
+
+- More efficient thermal energy equation solver.
+
+- Star formation and feedback
+
+- Timestepping fixes
+
+-------------------------------------------------------------------------------
+
+Hardware support changes:
+
+- SMP aware: cores on an SMP node share tree data
+
+- Use of 128 key type for deeper trees: enable with -DBIGKEYS
+
+-------------------------------------------------------------------------------
+
+Parallel Infrastructure Changes:
+
+- Improved parallel treebuild
+
+- Improved neighbor search algorithms
+
+- Improved spatially aware load balancers
+
+===============================================================================
+
 What's new in ChaNGa 2.0 (Since 1.0)
 
 ===============================================================================

@@ -20,14 +20,14 @@ class PETreeMerger : public CBase_PETreeMerger {
   public:
   PETreeMerger() {}
   PETreeMerger(CkMigrateMessage *m) : CBase_PETreeMerger(m) {}
-  void pup(PUP::er &p) {}
+  void pup(PUP::er &p) { CBase_PETreeMerger::pup(p); }
 
   void mergeNonLocalRequests(GenericTreeNode *root, TreePiece *treePiece);
   void freeTree();
 
   private:
 
-  GenericTreeNode *mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkVec<TreePiece*> &treePieceList);
+  void mergeWalk(CkVec<GenericTreeNode*> &mergeList, CkVec<TreePiece*> &treePieceList);
   void requestNonLocalMoments(GenericTreeNode *pickedNode, TreePiece *pickedTreePiece);
 
 };

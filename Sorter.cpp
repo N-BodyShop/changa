@@ -6,6 +6,7 @@
 #include <algorithm>
 
 #include "Sorter.h"
+#include "formatted_string.h"
 
 using std::vector;
 using std::list;
@@ -151,9 +152,9 @@ void Sorter::finishPhase(CkReductionMsg *m){
   if(numChares == orbData.size()){ //Move data around
     for(i=0;i<numChares;i++){
 	if(verbosity > 2) {
-	    CkPrintf("%d has %d particles\n",i,binCounts[i]);
-	    CkPrintf("%d has %d gas particles\n",i,binCountsGas[i]);
-	    CkPrintf("%d has %d star particles\n",i,binCountsStar[i]);
+	    CkPrintf("%d has %lu particles\n",i,binCounts[i]);
+	    CkPrintf("%d has %u gas particles\n",i,binCountsGas[i]);
+	    CkPrintf("%d has %u star particles\n",i,binCountsStar[i]);
 	    }
 	treeProxy[i].initBeforeORBSend(binCounts[i], binCountsGas[i],
 				       binCountsStar[i], sortingCallback,
@@ -311,33 +312,36 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
 
     case Oct_dec:
       {
-
         refineLevel = octRefineLevel;
 
         rt = new BinaryTreeNode();
         int numInitialBins = numInitDecompBins;
 
-        nodeKeys.reserve(numInitialBins);
-        nodeKeys.resize(numInitialBins>>1, 0);
-        NodeKey *tmp = &(*nodeKeys.begin());
-        rt->getChunks(nodeKeys.size(),tmp);
+        if (nodeKeys.size() == 0) {
+          nodeKeys.reserve(numInitialBins);
+          numInitialBins = numInitialBins >> 1;  // start with half of
+                                                 // the available bins
+          if(numInitialBins == 0) numInitialBins = 1;
+          nodeKeys.resize(numInitialBins, 0);
+          NodeKey *tmp = &(*nodeKeys.begin());
+          rt->getChunks(nodeKeys.size(),tmp);
+        }
         delete rt;
 
-        if (numDecompRoots > 0){
-          root->deleteBeneath();
-          delete root;
-          delete[] decompRoots;
-        }
-        
         activeNodes->clear();
         tmpActiveNodes->clear();
 
         numDecompRoots = nodeKeys.size();
-        decompRoots = new OctDecompNode[numDecompRoots];
-        for(int i = 0; i < nodeKeys.size(); i++){
-          decompRoots[i].key = nodeKeys[i];
-          //CkPrintf("init add %llu to activeNodes\n", decompRoots[i].key);
-          activeNodes->push_back(&decompRoots[i]);
+        if (decompRoots == NULL) {
+          decompRoots = new OctDecompNode[numDecompRoots];
+          for(int i = 0; i < nodeKeys.size(); i++){
+            decompRoots[i].key = nodeKeys[i];
+            //CkPrintf("init add %llu to activeNodes\n", decompRoots[i].key);
+            activeNodes->push_back(&decompRoots[i]);
+          }
+        }
+        else {
+          root->getLeafNodes(activeNodes);
         }
 
         //CkPrintf("Sorter: initially %d keys\n", activeNodes->length());
@@ -372,7 +376,9 @@ void Sorter::startSorting(const CkGroupID& dataManagerID,
       // XXX: Optimizations available if sort has been done before!
       //create initial evenly distributed guesses for splitter keys
       keyBoundaries.clear();
+      accumulatedBinCounts.clear();
       keyBoundaries.reserve(numChares + 1);
+      accumulatedBinCounts.reserve(numChares + 1);
       keyBoundaries.push_back(firstPossibleKey);      
     } else {
       //send out all the decided keys to get final bin counts
@@ -487,15 +493,15 @@ void Sorter::collectEvaluations(CkReductionMsg* m) {
 void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 
   numIterations++;
-  numCounts = m->getSize() / sizeof(int);
-  int* startCounts = static_cast<int *>(m->getData());
+  numCounts = m->getSize() / sizeof(int64_t);
+  int64_t* startCounts = static_cast<int64_t *>(m->getData());
 
   //call function which will balance the bin counts: define it in GenericTreeNode
   //make it a templated function
   //Pass the bincounts as well as the nodekeys
 
   if (joinThreshold == 0) {
-    int total_particles = std::accumulate(startCounts, startCounts+numCounts, 0);
+    int64_t total_particles = std::accumulate(startCounts, startCounts+numCounts, 0);
     joinThreshold = total_particles / (numTreePieces>>1);
     splitThreshold = (int) (joinThreshold * 1.5);
   }
@@ -504,17 +510,17 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     int i=0;
     CkPrintf("Bin Counts in collect eval (%d):",numCounts);
     for ( ; i<numCounts; i++) {
-      CkPrintf("%d,",startCounts[i]);
+      CkPrintf("%ld,",startCounts[i]);
     }
     CkPrintf("\n");
     CkPrintf("Nodekeys:");
     for(int j=0;j<nodeKeys.size();j++)
-      CkPrintf("%llx,",nodeKeys[j]);
+      CkPrintf("%s,", make_formatted_string(nodeKeys[j]).c_str());
     CkPrintf("\n");
     if (nodesOpened.size() > 0) {
-      CkPrintf("Nodes opened (%d):",nodesOpened.size());
+      CkPrintf("Nodes opened (%lu):",nodesOpened.size());
       for (int j=0;j<nodesOpened.size();j++)
-        CkPrintf("%llx,",nodesOpened[j]);
+        CkPrintf("%s,", make_formatted_string(nodesOpened[j]).c_str());
       CkPrintf("\n");
     }
   }
@@ -527,9 +533,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
   delete m;
 
   if(verbosity>=3){
-    CkPrintf("Nodekeys after (%d):",nodeKeys.size());
+    CkPrintf("Nodekeys after (%lu):",nodeKeys.size());
     for(int i=0;i<nodeKeys.size();i++)
-      CkPrintf("%llx,",nodeKeys[i]);
+      CkPrintf("%s,", make_formatted_string(nodeKeys[i]).c_str());
     CkPrintf("\n");
   }
   if(histogram){
@@ -550,30 +556,44 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     sorted=true;
     splitters.clear();
 
-    // build a tree out of decompRoots
-    // requires numDecompRoots to be a power of OctDecompNode::maxNumChildren
-    CkVec<OctDecompNode*> *leaves = new CkVec<OctDecompNode*>;
-    root = new OctDecompNode;
-    root->key = 1;
-    int depth = 0;
-    for (int numLeaves = numDecompRoots; numLeaves > OctDecompNode::maxNumChildren; numLeaves /= OctDecompNode::maxNumChildren) {
-      depth++;
-    }
-
-    root->makeSubTree(depth, leaves);
-    // CkPrintf("num leaves: %d numDecompRoots: %d\n", leaves->length(), numDecompRoots);
-
-    for (int i = 0; i < leaves->length(); i++) {
-      (*leaves)[i]->nchildren = OctDecompNode::maxNumChildren;
-      (*leaves)[i]->children = new OctDecompNode[OctDecompNode::maxNumChildren];
-      for (int j = 0; j < OctDecompNode::maxNumChildren; j++) {
-        (*leaves)[i]->children[j] = decompRoots[i * OctDecompNode::maxNumChildren + j];
+    if (root == NULL) {
+      // build a tree out of decompRoots
+      // requires numDecompRoots to be a power of OctDecompNode::maxNumChildren
+      CkVec<OctDecompNode*> *leaves = new CkVec<OctDecompNode*>;
+      root = new OctDecompNode;
+      root->key = 1;
+      int depth = 0;
+      for (int numLeaves = numDecompRoots; numLeaves > OctDecompNode::maxNumChildren; numLeaves /= OctDecompNode::maxNumChildren) {
+        depth++;
       }
+
+      root->makeSubTree(depth, leaves);
+
+      if(leaves->length() == numDecompRoots) {
+          for (unsigned int i = 0; i < leaves->length(); i++) {
+              *(*leaves)[i] = decompRoots[i];
+          }
+      }
+      else{
+          CkAssert(numDecompRoots
+              == leaves->length()*OctDecompNode::maxNumChildren);
+
+          for (unsigned int i = 0; i < leaves->length(); i++) {
+            (*leaves)[i]->nchildren = OctDecompNode::maxNumChildren;
+            (*leaves)[i]->children = new OctDecompNode[OctDecompNode::maxNumChildren];
+            for (int j = 0; j < OctDecompNode::maxNumChildren; j++) {
+              (*leaves)[i]->children[j] = decompRoots[i * OctDecompNode::maxNumChildren + j];
+            }
+          }
+      }
+
+      delete leaves;
     }
 
-    delete leaves;
-    int total = root->buildCounts();
-    // CkPrintf("total number of particles: %d\n", total);
+    // N.B. While "total" is not used, the buildCounts() method has
+    // necessary side effects.
+    int64_t total = root->buildCounts();
+    // CkPrintf("total number of particles: %ld\n", total);
     do {
 	// Convert Oct domains to splitters, ensuring that we do not exceed
 	// the number of available TreePieces.
@@ -583,9 +603,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
         root->combine(joinThreshold, nodeKeys, binCounts);
 
 	if(binCounts.size() > numTreePieces) {
-	    CkPrintf("bumping joinThreshold: %d, size: %d\n", joinThreshold,
+	    CkPrintf("bumping joinThreshold: %d, size: %lu\n", joinThreshold,
 		     binCounts.size());
-	    joinThreshold = (int) (1.1*joinThreshold);
+	    joinThreshold = (int) (1.1*joinThreshold) + 1;
 	    }
 	}
     while(binCounts.size() > numTreePieces);
@@ -637,7 +657,7 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
     //We also have the final bin counts
 		
     if(binCounts.size() > numTreePieces){
-      CkPrintf("Need %d tree pieces, available %d\n", binCounts.size(), numTreePieces);
+      CkPrintf("Need %lu tree pieces, available %u\n", binCounts.size(), numTreePieces);
       CkAbort("too few tree pieces\n");
     }
 
@@ -660,6 +680,9 @@ void Sorter::collectEvaluationsOct(CkReductionMsg* m) {
 int OctDecompNode::maxNumChildren = 2;
 int OctDecompNode::lgMaxNumChildren = 1;
 
+/// @brief Make a balanced subtree of OctDecompNode
+/// @param refineLevel depth of subtree
+/// @param active CkVec of leaves
 void OctDecompNode::makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active){
   if(refineLevel == 0){
     active->push_back(this);
@@ -678,7 +701,7 @@ void OctDecompNode::makeSubTree(int refineLevel, CkVec<OctDecompNode*> *active){
   }
 }
 
-int OctDecompNode::buildCounts() {
+int64_t OctDecompNode::buildCounts() {
   if (children == NULL) {
     return nparticles;
   }
@@ -691,7 +714,7 @@ int OctDecompNode::buildCounts() {
   }
 }
 
-void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<unsigned int> &counts){
+void OctDecompNode::combine(int joinThreshold, vector<NodeKey> &finalKeys, vector<uint64_t> &counts){
   if(nparticles < joinThreshold || nchildren == 0){
     finalKeys.push_back(key);
     counts.push_back(nparticles);
@@ -717,6 +740,17 @@ void OctDecompNode::deleteBeneath(){
   nchildren = 0;
 }
 
+ void OctDecompNode::getLeafNodes(CkVec<OctDecompNode*> *activeNodes) {
+   if (nchildren == 0) {
+     activeNodes->push_back(this); 
+   }
+   else {
+     for(int i = 0; i < nchildren; i++){
+       children[i].getLeafNodes(activeNodes);
+     }
+   }
+ }
+
 /**
  * This function uses nodeKeys as tree holding the current status of
  * the decomposition. It modifies it to decide when it is time to join two nodes,
@@ -727,10 +761,7 @@ void OctDecompNode::deleteBeneath(){
  * refinement, "nodesOpened" will be changed to reflect this request for more data.
  * Returns true if more refinement is requested.
  */
-bool Sorter::refineOctSplitting(int n, int *count) {
-  unsigned int nprocess = 0;
-  unsigned int nopen = 0;
-  unsigned int njoin = 0;
+bool Sorter::refineOctSplitting(int n, int64_t *count) {
 
   CkAssert(activeNodes->length() == n);
 
@@ -771,24 +802,24 @@ bool Sorter::refineOctSplitting(int n, int *count) {
  */
 void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	numIterations++;
-	numCounts = m->getSize() / sizeof(int);
+	numCounts = m->getSize() / sizeof(int64_t);
 	binCounts.resize(numCounts + 1);
 	binCounts[0] = 0;
-	int* startCounts = static_cast<int *>(m->getData());
+	int64_t* startCounts = static_cast<int64_t *>(m->getData());
 	copy(startCounts, startCounts + numCounts, binCounts.begin() + 1);
 	delete m;
-	
-	if(sorted) { //true after the final keys have been binned
-		//send out the final splitters and responsibility table
-		dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
-		numIterations = 0;
-		sorted = false;
-		return;
-	}
-	
+
+        if (sorted) { // needed only when skipping decomposition
+
+          dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()) + 1, keyBoundaries.size(), sortingCallback);
+          numIterations = 0;
+          sorted = false;
+          return;
+        }
+
 	if(verbosity >= 4)
 		ckout << "Sorter: On iteration " << numIterations << endl;
-	CkAssert(numIterations < 1000);  // Sorter has not converged.
+        CkMustAssert(numIterations < 1000, "SFC Domain decomposition has not converged\n");
 	
 	//sum up the individual bin counts, so each bin has the count of it and all preceding
 	partial_sum(binCounts.begin(), binCounts.end(), binCounts.begin());
@@ -803,8 +834,20 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 		}
 		
 		//each splitter key will split the keys near a goal number of keys
-		goals.assign(numChares - 1, avgValue);
-		partial_sum(goals.begin(), goals.end(), goals.begin());
+                numGoalsPending = numChares - 1;
+                goals = new int64_t[numGoalsPending];
+
+		int rem = numKeys % numChares;
+                int64_t prev = 0;
+		// evenly distribute extra particles.
+                for (int i = 0; i < rem; i++) {
+                  goals[i] = prev + avgValue + 1;
+                  prev = goals[i];
+                }
+                for (int i = rem; i < numGoalsPending; i++) {
+                  goals[i] = prev + avgValue;
+                  prev = goals[i];
+                }
 		
 		if(verbosity >= 3)
 			ckout << "Sorter: Target keys per chare: " << avgValue << " plus/minus " << (2 * closeEnough) << endl;
@@ -813,34 +856,41 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
 	//make adjustments to the splitter keys based on the results of the previous iteration
 	adjustSplitters();
 
-	if(verbosity >= 4) {
+        if(verbosity >= 4) {
 		ckout << "Sorter: Probing " << splitters.size() << " splitter keys" << endl;
 		ckout << "Sorter: Decided on " << (keyBoundaries.size() - 1) << " splitting keys" << endl;
-	}
+        }
 
-        std::vector<SFC::Key>* keys; 
 	//check if we have found all the splitters
 	if(sorted) {
           
 		if(verbosity)
 			ckout << "Sorter: Histograms balanced after " << numIterations << " iterations." << endl;
-		
+
 		sort(keyBoundaries.begin() + 1, keyBoundaries.end());
 		keyBoundaries.push_back(lastPossibleKey);
-		
-		//send out all the decided keys to get final bin counts
-                keys = &keyBoundaries; 
+                accumulatedBinCounts.push_back(binCounts.back());
+                sort(accumulatedBinCounts.begin(), accumulatedBinCounts.end());
+                binCounts.resize(accumulatedBinCounts.size());
+                std::adjacent_difference(accumulatedBinCounts.begin(), accumulatedBinCounts.end(), binCounts.begin());
+                accumulatedBinCounts.clear();
+
+                //send out the final splitters and responsibility table
+                dm.acceptFinalKeys(&(*keyBoundaries.begin()), &(*chareIDs.begin()), &(*binCounts.begin()), keyBoundaries.size(), sortingCallback);
+		numIterations = 0;
+		sorted = false;
+
 	} else {
           //send out the new guesses to be evaluated
-          keys = &splitters; 
+#ifdef REDUCTION_HELPER
+          CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy;
+          boundariesTargetProxy.evaluateBoundaries(binsToSplit, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#else
+          CProxy_TreePiece boundariesTargetProxy = treeProxy;
+          boundariesTargetProxy.evaluateBoundaries(&splitters[0], splitters.size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
+#endif
         }
 
-#ifdef REDUCTION_HELPER
-        CProxy_ReductionHelper boundariesTargetProxy = reductionHelperProxy; 
-#else
-        CProxy_TreePiece boundariesTargetProxy = treeProxy; 
-#endif
-        boundariesTargetProxy.evaluateBoundaries(&(*keys->begin()), keys->size(), 0, CkCallback(CkIndex_Sorter::collectEvaluations(0), thishandle));
 }
 
 /** Generate new guesses for splitter keys based on the histograms that came
@@ -851,75 +901,77 @@ void Sorter::collectEvaluationsSFC(CkReductionMsg* m) {
  for each splitter key not yet found.
  */
 void Sorter::adjustSplitters() {
-	
-	set<Key> newSplitters;
+
+  std::vector<SFC::Key> newSplitters;
+  binsToSplit.Resize(splitters.size() -1 );
+  binsToSplit.Zero();
+  newSplitters.reserve(splitters.size() * 4);
+  newSplitters.push_back(firstPossibleKey);
 	
 	Key leftBound, rightBound;
-	vector<unsigned int>::iterator numLeftKey, numRightKey = binCounts.begin();
+	vector<uint64_t>::iterator numLeftKey, numRightKey = binCounts.begin();
 	
+        int numActiveGoals = 0;
 	//for each goal not yet met (each splitter key not yet found)
-	for(list<int>::iterator Ngoal = goals.begin(); Ngoal != goals.end(); ) {
+	for(int i = 0; i < numGoalsPending; i++) {
 
 		//find the positions that bracket the goal
-		numRightKey = lower_bound(numRightKey, binCounts.end(), *Ngoal);
+		numRightKey = lower_bound(numRightKey, binCounts.end(), goals[i]);
 		numLeftKey = numRightKey - 1;
 		
 		if(numRightKey == binCounts.begin())
-			ckerr << "Sorter: Looking for " << *Ngoal << " How could this happen at the beginning?" << endl;
+			ckerr << "Sorter: Looking for " << goals[i] << " How could this happen at the beginning?" << endl;
 		if(numRightKey == binCounts.end())
-			ckerr << "Sorter: Looking for " << *Ngoal << " How could this happen at the end?" << endl;
+			ckerr << "Sorter: Looking for " << goals[i] << " How could this happen at the end?" << endl;
 		
 		//translate the positions into the bracketing keys
 		leftBound = splitters[numLeftKey - binCounts.begin()];
 		rightBound = splitters[numRightKey - binCounts.begin()];
-		
+
 		//check if one of the bracketing keys is close enough to the goal
-		if(abs((int)*numLeftKey - *Ngoal) <= closeEnough) {
+		if(abs((int64_t)*numLeftKey - goals[i]) <= closeEnough) {
 			//add this key to the list of decided splitter keys
 			keyBoundaries.push_back(leftBound);
-			//the goal has been met, delete it
-			list<int>::iterator temp = Ngoal;
-			++Ngoal;
-			goals.erase(temp);
-		} else if(abs((int)*numRightKey - *Ngoal) <= closeEnough) {
+                        accumulatedBinCounts.push_back(*numLeftKey);
+		} else if(abs((int64_t)*numRightKey - goals[i]) <= closeEnough) {
 			keyBoundaries.push_back(rightBound);
-			list<int>::iterator temp = Ngoal;
-			++Ngoal;
-			goals.erase(temp);
+                        accumulatedBinCounts.push_back(*numRightKey);
 		} else {
 			// not close enough yet, add the bracketing keys and
 			// the middle to the guesses
 			// Set bottom bits to avoid trees to deep.
-			newSplitters.insert(leftBound | 7L);
-			newSplitters.insert((leftBound / 4 * 3 + rightBound / 4)
-					    | 7L);
-			newSplitters.insert((leftBound / 2 + rightBound / 2)
-					    | 7L);
-			newSplitters.insert((leftBound / 4 + rightBound / 4 * 3)
-					    | 7L);
-			newSplitters.insert(rightBound | 7L);
-			++Ngoal;
+		        if (newSplitters.back() != (rightBound | 7L) ) {
+                            if (newSplitters.back() != (leftBound | 7L)) {
+                              newSplitters.push_back(leftBound | 7L);
+                            }
+			    newSplitters.push_back((leftBound / 4 * 3 + rightBound / 4) | 7L);
+			    newSplitters.push_back((leftBound / 2 + rightBound / 2) | 7L);
+			    newSplitters.push_back((leftBound / 4 + rightBound / 4 * 3) | 7L);
+			    newSplitters.push_back(rightBound | 7L);
+			}
+			goals[numActiveGoals++] = goals[i];
+                        binsToSplit.Set(numLeftKey - binCounts.begin());
 		}
 	}
-	
-	//if we don't have any new keys to probe, then we're done
-	if(newSplitters.empty())
+	numGoalsPending = numActiveGoals;
+
+	if(numGoalsPending == 0) {
 		sorted = true;
+                delete [] goals;
+        }
 	else {
-		//evaluate the new set of splitters
-		newSplitters.insert(firstPossibleKey);
-		newSplitters.insert(lastPossibleKey);
-		// The following statement breaks with the PGI
-		// compiler.  (version PGCC/x86 Linux/x86-64 6.1-2)
-		// The following loop is a work around.
-		// splitters.assign(newSplitters.begin(), newSplitters.end());
-		splitters.clear();
-		if(verbosity >=4 ) CkPrintf("Keys:");
-		for(set<Key>::iterator iterNew = newSplitters.begin();
-		    iterNew != newSplitters.end(); iterNew++) {
-		    if(verbosity >= 4) CkPrintf("%lx,", *iterNew);
-		    splitters.push_back(*iterNew);
-		    }
-		if(verbosity >=4 ) CkPrintf("\n");
+                if (newSplitters.back() != lastPossibleKey) {
+		    newSplitters.push_back(lastPossibleKey);
+                }
+		splitters.reserve(newSplitters.size());
+		splitters.assign(newSplitters.begin(), newSplitters.end());
+
+               if(verbosity >=4 ) {
+                  CkPrintf("Keys:");
+                  for (std::vector<Key>::iterator  it = splitters.begin(); it < splitters.end(); it++) {
+                    CkPrintf("%s,", make_formatted_string(*it).c_str());
+                  }
+                  CkPrintf("\n");
+                }
 	}
 }

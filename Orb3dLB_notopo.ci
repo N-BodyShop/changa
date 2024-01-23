@@ -5,7 +5,6 @@ initnode void lbinit(void);
 
 group [migratable] Orb3dLB_notopo : CentralLB {
   entry void Orb3dLB_notopo(const CkLBOptions &);  
-  entry void receiveCentroids(CkReductionMsg *msg);
 };
 
 };
