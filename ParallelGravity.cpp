@@ -245,15 +245,14 @@ Main::Main(CkArgMsg* m) {
 	traceRegisterUserEvent("Ser Local Trans", SER_LOCAL_TRANSFORM);
 	traceRegisterUserEvent("Ser Local Memcpy", SER_LOCAL_MEMCPY);
 
-        traceRegisterUserEvent("Local Node", CUDA_LOCAL_NODE_KERNEL);
-        traceRegisterUserEvent("Remote Node", CUDA_REMOTE_NODE_KERNEL);
-        traceRegisterUserEvent("Remote Resume Node", CUDA_REMOTE_RESUME_NODE_KERNEL);
-        traceRegisterUserEvent("Local Particle", CUDA_LOCAL_PART_KERNEL);
-        traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
-        traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
-
-	traceRegisterUserEvent("Xfer Local Enqueue", CUDA_XFER_LOCAL_ENQUEUE);
-	traceRegisterUserEvent("Xfer Local Callback", CUDA_XFER_LOCAL_CB);
+        traceRegisterUserEvent("Xfer Local", CUDA_XFER_LOCAL);
+        traceRegisterUserEvent("Xfer Remote", CUDA_XFER_REMOTE);
+        traceRegisterUserEvent("Grav Local", CUDA_GRAV_LOCAL);
+        traceRegisterUserEvent("Grav Remote", CUDA_GRAV_REMOTE);
+        traceRegisterUserEvent("Remote Resume", CUDA_REMOTE_RESUME);
+        traceRegisterUserEvent("Part Gravity Local", CUDA_PART_GRAV_LOCAL);
+        traceRegisterUserEvent("Part Gravity Remote", CUDA_PART_GRAV_REMOTE);
+        traceRegisterUserEvent("Xfer Back", CUDA_XFER_BACK);
 #endif
 
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");

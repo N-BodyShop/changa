@@ -121,6 +121,8 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 				  cudaStream_t stream,
                                   int mype, void *callback) {
 
+        HAPI_TRACE_BEGIN();
+
 	hapiCheck(cudaMalloc(d_localMoments, sMoments));
         hapiCheck(cudaMalloc(d_compactParts, sCompactParts));
         hapiCheck(cudaMalloc(d_varParts, sVarParts));
@@ -128,7 +130,9 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 	cudaMemcpyAsync(*d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, stream);
 	cudaMemcpyAsync(*d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, stream);
 	cudaMemcpyAsync(*d_varParts, varParts, sVarParts, cudaMemcpyHostToDevice, stream);
+
 	cudaStreamSynchronize(stream);
+	HAPI_TRACE_END(CUDA_XFER_LOCAL);
 
 	hapiAddCallback(stream, callback);
 
@@ -140,11 +144,15 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
                                     cudaStream_t stream,
                                     void *callback) {
 
+  HAPI_TRACE_BEGIN();
+
   hapiCheck(cudaMalloc(d_remoteMoments, sMoments));
   hapiCheck(cudaMalloc(d_remoteParts, sRemoteParts));
   hapiCheck(cudaMemcpyAsync(*d_remoteMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
   hapiCheck(cudaMemcpyAsync(*d_remoteParts, remoteParts, sRemoteParts, cudaMemcpyHostToDevice, stream));
+
   cudaStreamSynchronize(stream);
+  HAPI_TRACE_END(CUDA_XFER_REMOTE);
 
   hapiAddCallback(stream, callback);
 }
@@ -170,6 +178,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
       );
 #endif
 
+ HAPI_TRACE_BEGIN();
 #ifndef CUDA_NO_KERNELS
     #ifdef GPU_LOCAL_TREE_WALK
 	gpuLocalTreeWalk<<<(data->lastParticle - data->firstParticle + 1)
@@ -204,7 +213,10 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
       );
 
     #endif
+
+	HAPI_TRACE_END(CUDA_GRAV_LOCAL);
 	cudaStreamSynchronize(stream);
+
 	hapiAddCallback(stream, data->cb);
 #endif
 }
@@ -227,11 +239,12 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 #endif
 
 #ifndef CUDA_NO_KERNELS
-        dim3 dimensions = THREADS_PER_BLOCK;
+    HAPI_TRACE_BEGIN();
+    dim3 dimensions = THREADS_PER_BLOCK;
     #ifdef CUDA_2D_TB_KERNEL
         dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
     #endif
-	nodeGravityComputation<<<data->numBucketsPlusOne-1, dimensions, 0, stream>>> (
+    nodeGravityComputation<<<data->numBucketsPlusOne-1, dimensions, 0, stream>>> (
         data->d_localParts,
 	data->d_localVars,
 	data->d_remoteMoments,
@@ -242,6 +255,7 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 	data->fperiod
       );
 
+    HAPI_TRACE_END(CUDA_GRAV_REMOTE);
     cudaStreamSynchronize(stream);
 #endif
 }
@@ -269,13 +283,13 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
       );
 #endif
 
-
 #ifndef CUDA_NO_KERNELS
-        dim3 dimensions = THREADS_PER_BLOCK;
+    HAPI_TRACE_BEGIN();
+    dim3 dimensions = THREADS_PER_BLOCK;
     #ifdef CUDA_2D_TB_KERNEL
         dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
     #endif
-	nodeGravityComputation<<<data->numBucketsPlusOne-1, dimensions, 0, stream>>> (
+    nodeGravityComputation<<<data->numBucketsPlusOne-1, dimensions, 0, stream>>> (
         data->d_localParts,
 	data->d_localVars,
 	data->d_missedNodes,
@@ -285,9 +299,10 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
 	data->d_bucketSizes,
         data->fperiod
 	);
+   cudaStreamSynchronize(stream);
+   HAPI_TRACE_END(CUDA_REMOTE_RESUME);
 #endif
 
-  cudaStreamSynchronize(stream);
   hapiAddCallback(stream, data->cb);
 }
 
@@ -353,6 +368,7 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
 #endif
 
 #ifndef CUDA_NO_KERNELS
+    HAPI_TRACE_BEGIN();
     #ifdef CUDA_2D_TB_KERNEL
     particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
        data->d_localParts,
@@ -376,8 +392,9 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
        data->fperiod
       );
     #endif
-#endif
     cudaStreamSynchronize(stream);
+    HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL);
+#endif
     hapiAddCallback(stream, data->cb);
 }
 
@@ -394,6 +411,7 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
     cudaStream_t stream = data->stream;
 
 #ifndef CUDA_NO_KERNELS
+    HAPI_TRACE_BEGIN();
     #ifdef CUDA_2D_TB_KERNEL
     particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
        data->d_localParts,
@@ -417,9 +435,10 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
        data->fperiod
       );
     #endif
+    cudaStreamSynchronize(stream);
+    HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
 #endif
 
-    cudaStreamSynchronize(stream);
     hapiAddCallback(stream, data->cb);
 }
 
@@ -442,6 +461,35 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
       data->d_missedParts,
       data->d_list
       );
+#endif
+
+#ifndef CUDA_NO_KERNELS
+   HAPI_TRACE_BEGIN();
+   #ifdef CUDA_2D_TB_KERNEL
+    particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
+       data->d_localParts,
+       data->d_localVars,
+       data->d_remoteParts,
+       (ILCell *)data->d_list,
+       data->d_bucketMarkers,
+       data->d_bucketStarts,
+       data->d_bucketSizes,
+       data->fperiod
+      );
+    #else
+    particleGravityComputation<<<data->numBucketsPlusOne-1, THREADS_PER_BLOCK, 0, stream>>> (
+       data->d_localParts,
+       data->d_localVars,
+       data->d_remoteParts,
+       (ILPart *)data->d_list,
+       data->d_bucketMarkers,
+       data->d_bucketStarts,
+       data->d_bucketSizes,
+       data->fperiod
+      );
+   #endif
+   cudaStreamSynchronize(stream);
+   HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
 #endif
 }
 
@@ -570,7 +618,10 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer,
      cudaStream_t stream, void *cb,
      bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
   
+  HAPI_TRACE_BEGIN();
   cudaMemcpyAsync(hostBuffer, d_varParts, size, cudaMemcpyDeviceToHost, stream);
+  cudaStreamSynchronize(stream);
+  HAPI_TRACE_END(CUDA_XFER_BACK);
   hapiAddCallback(stream, cb);
 }
 
