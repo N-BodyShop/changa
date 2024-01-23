@@ -134,17 +134,11 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 
 }
 
-#ifdef HAPI_INSTRUMENT_WRS
-void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
-                                    void *compactParts, size_t sCompactParts,
-                                    int mype, char phase, void *callback) {
-#else
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
                                     void *remoteParts, size_t sRemoteParts,
 				    void **d_remoteMoments, void **d_remoteParts,
                                     cudaStream_t stream,
                                     void *callback) {
-#endif
 
   hapiCheck(cudaMalloc(d_remoteMoments, sMoments));
   hapiCheck(cudaMalloc(d_remoteParts, sRemoteParts));
@@ -498,11 +492,7 @@ TP_PART_GRAVITY_REMOTE_RESUME
 
  */
 
-#ifdef HAPI_INSTRUMENT_WRS
-void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int index, char phase){
-#else
 void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart){
-#endif
   /*hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
 
   gravityKernel->addBuffer(NULL, 0, false, false, freemom, LOCAL_MOMENTS);
@@ -538,11 +528,7 @@ void run_DM_TRANSFER_FREE_REMOTE_CHUNK(hapiWorkRequest *wr, cudaStream_t kernel_
 }
 
 
-#ifdef HAPI_INSTRUMENT_WRS
-void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool freepart, int index, char phase){
-#else
 void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool freepart){
-#endif
   /*hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
 
   gravityKernel->addBuffer(NULL, 0, false, false, freemom, REMOTE_MOMENTS);
@@ -579,16 +565,10 @@ void run_DM_TRANSFER_BACK(hapiWorkRequest *wr, cudaStream_t kernel_stream,void**
  * This also schedules the freeing of the device buffers used for the
  * force calculation.
  */
-#ifdef HAPI_INSTRUMENT_WRS
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
-     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart,
-     int index, char phase){
-#else
 void TransferParticleVarsBack(VariablePartData *hostBuffer, 
 		size_t size, void *d_varParts,
      cudaStream_t stream, void *cb,
      bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
-#endif
   
   cudaMemcpyAsync(hostBuffer, d_varParts, size, cudaMemcpyDeviceToHost, stream);
   hapiAddCallback(stream, cb);
@@ -1913,12 +1893,8 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
  *    "bottom" for the k-space loop.
  *  
  */
-#ifdef HAPI_INSTRUMENT_WRS
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase)
-#else
 void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
                EwaldData *h_idata, cudaStream_t stream, void *cb, int myIndex, int largephase)
-#endif
 {
   int n = h_idata->cachedData->n;
   int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);

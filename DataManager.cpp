@@ -1143,13 +1143,9 @@ void DataManager::transferParticleVarsBack(){
     hapiCheck(cudaFree(d_localVars));
 
     hapiCheck(cudaFree(d_remoteMoments));
-    hapiCheck(cudaFree(d_remoteParts)); // *
-    // *'s look like they were never allocated
+    hapiCheck(cudaFree(d_remoteParts)); 
 
     gputransfer = false;
-
-
-    // Cleanup device memory here
   }
   CmiUnlock(__nodelock);
 }

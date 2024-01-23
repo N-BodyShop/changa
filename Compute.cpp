@@ -2002,7 +2002,6 @@ void cudaCallback(void *param, void *msg){
 #endif
   for(int i = 0; i < numBucketsDone; i++){
     bucket = affectedBuckets[i];
-    CkPrintf("***decrement bucket***\n");
     state->counterArrays[0][bucket]--;
 #if COSMO_PRINT_BK > 1
     CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", tp->getIndex(), bucket, tp->getSRemoteGravityState()->counterArrays[0][bucket], tp->getSLocalGravityState()->counterArrays[0][bucket]);
@@ -2237,13 +2236,11 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 #endif
     if(tp->largePhase()){
       TreePiecePartListDataTransferLocal(data);
-      // callback? should be okay if bEwald=0
     }
     else{
       CompactPartData *parts = state->particles->getVec();
       int leng = state->particles->length();
       TreePiecePartListDataTransferLocalSmallPhase(data, parts, leng);
-      // callback? should be okay if bEwald=0
       tp->clearMarkedBuckets(state->markedBuckets);
     }
 #ifdef HAPI_INSTRUMENT_WRS

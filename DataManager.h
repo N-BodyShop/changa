@@ -145,10 +145,6 @@ protected:
         size_t sCompactParts;
         size_t sVarParts;
 
-	void *d_EwaldMarkers;
-	void *d_cachedData;
-	void *d_ewt;
-
 	int numStreams;
 	cudaStream_t *streams;
 
