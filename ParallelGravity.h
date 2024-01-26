@@ -1936,7 +1936,7 @@ public:
 	/// and if we have, check also if we are done with all buckets
 	void finishBucket(int iBucket);
 
-	void replicateTreePieces(CkCallback& cb);
+	void replicateTreePieces(const CkCallback& cb);
 
   void recvAck();
 

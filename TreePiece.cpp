@@ -6614,7 +6614,9 @@ int TreePiece::getResponsibleIndex(int first, int last){
   return dm->responsibleIndex[which];
 }
 
-void TreePiece::replicateTreePieces(CkCallback& cb) {
+#include "TreePieceReplica.h"
+
+void TreePiece::replicateTreePieces(const CkCallback& cb) {
 	acks_count = 0;
 	if (root == NULL) {
 		contribute(cb);
@@ -6622,12 +6624,8 @@ void TreePiece::replicateTreePieces(CkCallback& cb) {
 	}
 
 	int depth_count = ((Tree::BinaryTreeNode*)root)->countDepth(100000000);
-	//CkPrintf("[%d] Depth %d ^^^^ root key %d\n", thisIndex, depth_count, root->getKey());
+	// CkPrintf("[%d] Depth %d ^^^^ root key %d\n", thisIndex, depth_count, root->getKey());
 
-	CkCacheFillMsg<KeyType> *reply = new (depth_count * (sizeof(Tree::BinaryTreeNode)))
-		CkCacheFillMsg<KeyType>(root->getKey(), thisIndex);
-
-	((Tree::BinaryTreeNode*)root)->packNodes((Tree::BinaryTreeNode*)reply->data, depth_count, 0);
 	int hash_pe = thisIndex % CkNumPes();
 	int k;
 	for (int i = 0; i < 4; i++) {
@@ -6635,8 +6633,8 @@ void TreePiece::replicateTreePieces(CkCallback& cb) {
 		k += i*23;
 		k %= CkNumPes();
 
-		CkCacheFillMsg<KeyType> *reply = new (depth_count * (sizeof(Tree::BinaryTreeNode)))
-			CkCacheFillMsg<KeyType>(root->getKey(), thisIndex);
+                TreeReplicaMsg *reply = new (depth_count * ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode)))
+                    TreeReplicaMsg(root->getKey(), thisIndex);
 
 
 		((Tree::BinaryTreeNode*)root)->packNodes((Tree::BinaryTreeNode*)reply->data, depth_count, 0);

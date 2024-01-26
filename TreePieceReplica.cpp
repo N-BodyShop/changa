@@ -41,12 +41,13 @@ void TreePieceReplica::fillRequestNodeFromReplica(
   delete msg;
 }
 
-void TreePieceReplica::recvTreePiece(CkCacheFillMsg<KeyType> *msg) {
+void TreePieceReplica::recvTreePiece(TreeReplicaMsg *msg) {
 	//CkPrintf("Recv TP %d at PE %d\n", msg->idx, CkMyPe());
 	Tree::BinaryTreeNode *node = (Tree::BinaryTreeNode *) ((char *)msg->data);
 	node->unpackNodes();
-	treeProxy[msg->idx].recvAck();
+	treeProxy[msg->iFrom].recvAck();
 	fillNodeLookupTable(node);
+        msgRecvd.push_back(msg);
 }
 
 void TreePieceReplica::fillNodeLookupTable(Tree::BinaryTreeNode *node) {
@@ -62,7 +63,10 @@ void TreePieceReplica::fillNodeLookupTable(Tree::BinaryTreeNode *node) {
 	}
 }
 
-void TreePieceReplica::clearTable(CkCallback &cb) {
+void TreePieceReplica::clearTable(const CkCallback &cb) {
+        for(int i = 0; i < msgRecvd.size(); i++)
+            delete msgRecvd[i];
+        msgRecvd.clear();
 	nodeLookupTable.clear();
 	contribute(cb);
 }

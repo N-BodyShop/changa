@@ -3,10 +3,20 @@
 
 #include "ParallelGravity.decl.h"
 
+class TreeReplicaMsg : public CMessage_TreeReplicaMsg {
+public:
+    NodeKey key;                ///< Key of the root of this replica
+    char *data;                 ///< Packed nodes of the replica
+    int iFrom;                  ///< The TreePiece sending this replica
+    TreeReplicaMsg (NodeKey k, int i) : key(k), iFrom(i) {}
+};
+
 class TreePieceReplica : public CBase_TreePieceReplica {
 	private:
   	typedef std::map<NodeKey, GenericTreeNode *> NodeLookupType;
 		NodeLookupType nodeLookupTable;
+        std::vector<TreeReplicaMsg *> msgRecvd; ///< Hold received message
+                                                /// pointers for memory management
 
 	public:
 		TreePieceReplica();
@@ -14,7 +24,7 @@ class TreePieceReplica : public CBase_TreePieceReplica {
 
 		void fillRequestNodeFromReplica(CkCacheRequestMsg<KeyType> *msg);
 
-		void recvTreePiece(CkCacheFillMsg<KeyType> *msg);
+            void recvTreePiece(TreeReplicaMsg *msg);
 
 		const GenericTreeNode *lookupNode(Tree::NodeKey key){
 			return keyToNode(key);
@@ -27,7 +37,7 @@ class TreePieceReplica : public CBase_TreePieceReplica {
 		}
 
 		void fillNodeLookupTable(Tree::BinaryTreeNode *node);
-		void clearTable(CkCallback &cb);
+		void clearTable(const CkCallback &cb);
 };
 
 

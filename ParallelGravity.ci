@@ -102,6 +102,10 @@ mainmodule ParallelGravity {
     extraStarData pStar[];
   };
 
+  message TreeReplicaMsg {
+    char data[];
+  };
+
 #ifdef PUSH_GRAVITY
   message BucketMsg {
     GenericTreeNode buckets[];
@@ -221,8 +225,8 @@ mainmodule ParallelGravity {
   group [migratable] TreePieceReplica {
     entry TreePieceReplica();
     entry [expedited] void fillRequestNodeFromReplica(CkCacheRequestMsg<KeyType> *msg);
-    entry [expedited] void recvTreePiece(CkCacheFillMsg<KeyType> *msg);
-    entry void clearTable(CkCallback &cb);
+    entry [expedited] void recvTreePiece(TreeReplicaMsg *msg);
+    entry void clearTable(const CkCallback &cb);
   };
 
   chare [migratable] Sorter {
@@ -501,7 +505,7 @@ mainmodule ParallelGravity {
     //	       unsigned int reqID);
     //entry void receiveParticle(GravityParticle part,
     //			   BucketGravityRequest &req);
-    entry void replicateTreePieces(CkCallback& cb);
+    entry void replicateTreePieces(const CkCallback& cb);
     entry void recvAck();
 
     entry [expedited] void fillRequestParticles(CkCacheRequestMsg<KeyType> *msg);
