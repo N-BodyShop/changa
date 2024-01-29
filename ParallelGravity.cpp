@@ -253,6 +253,7 @@ Main::Main(CkArgMsg* m) {
         traceRegisterUserEvent("Part Gravity Local", CUDA_PART_GRAV_LOCAL);
         traceRegisterUserEvent("Part Gravity Remote", CUDA_PART_GRAV_REMOTE);
         traceRegisterUserEvent("Xfer Back", CUDA_XFER_BACK);
+        traceRegisterUserEvent("Ewald", CUDA_EWALD);
 #endif
 
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");

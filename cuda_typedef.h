@@ -36,6 +36,7 @@ typedef cosmoType hosttype;
 #define CUDA_PART_GRAV_LOCAL 9915
 #define CUDA_PART_GRAV_REMOTE 9916
 #define CUDA_XFER_BACK 9917
+#define CUDA_EWALD 9918
 
 #define SER_LOCAL_WALK 9922
 #define SER_LOCAL_GATHER 9923

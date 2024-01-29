@@ -214,8 +214,8 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 
     #endif
 
-	HAPI_TRACE_END(CUDA_GRAV_LOCAL);
 	cudaStreamSynchronize(stream);
+	HAPI_TRACE_END(CUDA_GRAV_LOCAL);
 
 	hapiAddCallback(stream, data->cb);
 #endif
@@ -255,8 +255,8 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 	data->fperiod
       );
 
-    HAPI_TRACE_END(CUDA_GRAV_REMOTE);
     cudaStreamSynchronize(stream);
+    HAPI_TRACE_END(CUDA_GRAV_REMOTE);
 #endif
 }
 
@@ -307,7 +307,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
 }
 
 void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *particles, int len){
-	int numBlocks = data->numBucketsPlusOne-1;
+	//int numBlocks = data->numBucketsPlusOne-1;
 
 	/*hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
 	void* bufferHostBuffer;
@@ -1958,7 +1958,7 @@ void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
   if(largephase) size = n * sizeof(int);
   else size = 0;
 
-  // Only needed for large phase
+  HAPI_TRACE_BEGIN();
   int *d_EwaldMarkers;
   hapiCheck(cudaMalloc(&d_EwaldMarkers, size));
 
@@ -1977,6 +1977,7 @@ void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
 							 NULL, 0,
 							 h_idata->EwaldRange[0], h_idata->EwaldRange[1]);
   cudaStreamSynchronize(stream);
+  HAPI_TRACE_END(CUDA_EWALD);
   hapiAddCallback(stream, cb);
   hapiCheck(cudaFree(d_EwaldMarkers));
 }
