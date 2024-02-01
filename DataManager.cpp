@@ -866,8 +866,9 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   int pTPindex = 0;
   treePiecesBufferFilled = 0;
   for(int i = 0; i < numTreePieces; i++){
-      treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer((intptr_t) bufLocalParts, (intptr_t) bufLocalMoments,
-      		      (intptr_t) localMoments.getVec(), pTPindex, numParticles, (intptr_t) node);
+      treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer((intptr_t) bufLocalParts,
+		      (intptr_t) bufLocalMoments, (intptr_t) localMoments.getVec(), pTPindex,
+		      numParticles, (intptr_t) node);
       pTPindex += registeredTreePieces[i].treePiece->getDMNumParticles();
       }
 }
@@ -901,9 +902,7 @@ void DataManager::transferLocalToGPU(int numParticles, GenericTreeNode *node)
   starttime = CmiWallTimer();
   size_t sLocalVars = numParticles*sizeof(VariablePartData);
   size_t sLocalParts = numParticles*sizeof(CompactPartData);
-  //memcpy(bufLocalParts, localParticles.getVec(), sLocalParts);
 
-  //TODO move this to treePiece::fillGPUBuffer somehow
   size_t sLocalMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
   memcpy(bufLocalMoments, localMoments.getVec(), sLocalMoments);
   traceUserBracketEvent(SER_LOCAL_MEMCPY, starttime, CmiWallTimer());

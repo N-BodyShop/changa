@@ -3805,7 +3805,7 @@ void TreePiece::finishBucket(int iBucket) {
 #ifdef CUDA
 /// @brief Fill GPU buffer with particle data
 void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
-		              intptr_t bufLocalMoments,
+                              intptr_t bufLocalMoments,
                               intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node)
 {
     CompactPartData *aLocalParts = (CompactPartData *)bufLocalParts;
@@ -3839,7 +3839,6 @@ void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
         aLocalParts[k].nodeId = id;
       }
     }
-    // Copy moments to bufLocalMoments. Need to get a list of IDs
 #endif
     dm->transferLocalToGPU(nParts, (GenericTreeNode *)node);
 }
@@ -4973,6 +4972,7 @@ void TreePiece::recvTotalMass(CkReductionMsg *msg){
 void TreePiece::startGravity(int am, // the active mask for multistepping
 			       double myTheta, // opening criterion
 			       const CkCallback& cb) {
+  double starttime;
   LBTurnInstrumentOn();
   iterationNo++;
 
@@ -4980,6 +4980,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   activeRung = am;
   theta = myTheta;
   thetaMono = theta*theta*theta*theta;
+
+  starttime = CmiWallTimer();
 
   int oldNumChunks = numChunks;
   dm->getChunks(numChunks, prefetchRoots);
@@ -5043,9 +5045,13 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   prevBucket = -1;
   prevRemoteBucket = -1;
 #endif
+  traceUserBracketEvent(START_REG, starttime, CmiWallTimer());
 
+  starttime = CmiWallTimer();
   initBuckets();
+  traceUserBracketEvent(START_IB, starttime, CmiWallTimer());
 
+  starttime = CmiWallTimer();
   prefetchReq.reset();
   for (unsigned int i=1; i<=myNumParticles; ++i) {
       if (myParticles[i].rung >= activeRung) {
@@ -5254,6 +5260,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
 #endif
+  traceUserBracketEvent(START_PW, starttime, CmiWallTimer());
 
   if (bEwald) thisProxy[thisIndex].EwaldInit();
 #if defined CUDA

@@ -132,7 +132,7 @@ protected:
 
         /// host buffer to transfer local moments to GPU
         CkVec<CudaMultipoleMoments> localMoments;
-	CkVec<CompactPartData> localParticles;
+        CkVec<CompactPartData> localParticles;
         CudaMultipoleMoments *bufLocalMoments;
         /// host buffer to transfer local particles to GPU
         CompactPartData *bufLocalParts;
