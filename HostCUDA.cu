@@ -76,9 +76,9 @@ void allocatePinnedHostMemory(void **ptr, size_t size){
     return;
   }
 #ifdef HAPI_MEMPOOL
-  *ptr = hapiPoolMalloc(size);
+  hapiMallocHost(ptr, size, true);
 #else
-  cudaMallocHost(ptr, size);
+  hapiMallocHost(ptr, size, false);
 #endif
 #ifdef CUDA_PRINT_ERRORS
   printf("allocatePinnedHostMemory: %s size: %zu\n", cudaGetErrorString( cudaGetLastError() ), size);
@@ -93,7 +93,11 @@ void freePinnedHostMemory(void *ptr){
     assert(0);
     return;
   }
-  hapiHostFree(ptr);
+#ifdef HAPI_MEMPOOL
+  hapiFreeHost(ptr, true);
+#else
+  hapiFreeHost(ptr, false);
+#endif
 #ifdef CUDA_PRINT_ERRORS
   printf("freePinnedHostMemory: %s\n", cudaGetErrorString( cudaGetLastError() ));
 #endif
@@ -147,12 +151,12 @@ void run_DM_TRANSFER_FREE_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,
 #ifdef HAPI_INSTRUMENT_WRS
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
-                                  void *varParts, size_t sVarParts,
+                                  void *varParts, size_t sVarParts, int numParticles,
                                   int mype, char phase, void *wrCallback) {
 #else
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
-                                  void *varParts, size_t sVarParts,
+                                  void *varParts, size_t sVarParts, int numParticles,
                                   int mype, void *wrCallback) {
 #endif
 
@@ -168,7 +172,10 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 	transferKernel->addBuffer(varParts, sVarParts, (sVarParts > 0), false,
                                   false, LOCAL_PARTICLE_VARS);
 
-	transferKernel->setKernelCallback(wrCallback);
+       // +1 to avoid dimGrid = 0 when we run test with extremely small input.
+       transferKernel->setExecParams(numParticles / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK));
+
+	transferKernel->setDeviceToHostCallback(*(CkCallback *)wrCallback);
 #ifdef HAPI_TRACE
 	transferKernel->setTraceName("xferLocal");
 #endif
@@ -221,7 +228,7 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
             );
 #endif
 
-  transferKernel->setDeviceToHostCallback(wrCallback);
+  transferKernel->setDeviceToHostCallback(*(CkCallback *)wrCallback);
 #ifdef HAPI_TRACE
   transferKernel->setTraceName("xferRemote");
 #endif
@@ -586,7 +593,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
         printf("(%d) TRANSFER LOCAL CELL\n", CmiMyPe());
 #endif
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("gravityLocal");
 #endif
@@ -615,7 +622,7 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
         printf("(%d) TRANSFER REMOTE CELL\n", CmiMyPe());
 #endif
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("gravityRemote");
 #endif
@@ -652,7 +659,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
 
   ParameterStruct *ptr = (ParameterStruct *)gravityKernel->getUserData();
 
-  gravityKernel->setDeviceToHostCallback(data->cb);
+  gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
   gravityKernel->setTraceName("remoteResume");
 #endif
@@ -743,7 +750,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 #endif
 
         if(transfer){
-          CUDA_MALLOC(bufferHostBuffer, size);
+          allocatePinnedHostMemory(&bufferHostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
           printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -751,7 +758,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
         }
         gravityKernel->addBuffer(bufferHostBuffer, size, transfer, false, transfer);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityLocal");
 #endif
@@ -777,7 +784,7 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
 
 	TreePiecePartListDataTransferBasic(data, gravityKernel);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityLocal");
 #endif
@@ -806,7 +813,7 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 
 	TreePiecePartListDataTransferBasic(data, gravityKernel);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityRemote");
 #endif
@@ -847,7 +854,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
         gravityKernel->addBuffer(data->missedParts, data->sMissed, transfer,
                                  false, transfer);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityRemote");
 #endif
@@ -1025,7 +1032,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *c
 
   gravityKernel->addBuffer(NULL, 0, false, false, freeRemotePart, REMOTE_PARTICLE_CORES);
 
-  gravityKernel->setDeviceToHostCallback(cb);
+  gravityKernel->setDeviceToHostCallback(*(CkCallback *)cb);
 #ifdef HAPI_TRACE
   gravityKernel->setTraceName("transferBack");
 #endif
@@ -2403,7 +2410,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
    */
   assert(NUM_GRAVITY_BUFS + EWALD_TABLE < 256);
 
-  EwaldKernel->setDeviceToHostCallback(cb);
+  EwaldKernel->setDeviceToHostCallback(*(CkCallback *)cb);
   if(largephase){
     EwaldKernel->setRunKernel(run_EWALD_KERNEL_Large);
 #ifdef HAPI_TRACE
@@ -2664,7 +2671,8 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
 
 __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     int id;
-    id = First + blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    //id = First + blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
 
     particleVars[id].a.x = 0.0;

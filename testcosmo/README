@@ -15,7 +15,7 @@ takes 15 minutes to run on a 2007 era dual core processor.
 
 4) After running ChaNGa and making the modifications in 1, type
 "mf.sh" at the prompt to check the results.  It runs SKID and SO on
-the results, and then calls an IDL program (mf2.pro) to compare the
+the results, and then calls a python script (mf2.py) to compare the
 resulting mass function to the expected mass function.
 
   - If the mass function matches that expected, a congratulatory statement is 

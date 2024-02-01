@@ -77,9 +77,6 @@ void Stfm::AddParams(PRM prm)
     dInitBHMass = 0.0;
     prmAddParam(prm,"dInitBHMass",paramDouble, &dInitBHMass, sizeof(double),
 		"bhm0", "<initial BH mass> = 0.0");
-    iRandomSeed = 1;
-    prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
-		"iRand", "<Star formation random Seed> = 1");
     }
 
 /*
@@ -149,8 +146,8 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 
 void TreePiece::initRand(int iRand, const CkCallback &cb)  
 {
-   srand(iRand + thisIndex);  // make each piece unique
-   contribute(cb);
+    rndGen = Rand(iRand + thisIndex);  // make each piece unique
+    contribute(cb);
 }
 
 ///
@@ -222,8 +219,9 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 	GravityParticle *p = &myParticles[i];
 	if(p->isGas()) {
 	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
-						   dDelta, dCosmoFac, 
-						   &TempForm,&H2FractionForm);
+                                                   dDelta, dCosmoFac, 
+                                                   &TempForm,&H2FractionForm,
+                                                   rndGen);
 	    
 	    if(starp != NULL) {
 		nFormed++;
@@ -261,8 +259,11 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 
 */
 GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-				double dDelta,  // drift timestep
-				double dCosmoFac, double *T, double *H2FractionForm) 
+                                double dDelta,  // drift timestep
+                                double dCosmoFac, double *T,
+                                double *H2FractionForm,
+                                Rand& rndGen
+                                ) 
 {
     /*
      * Determine dynamical time.
@@ -303,9 +304,8 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     double dTimeStarForm = (dDelta > dDeltaStarForm ? dDelta : dDeltaStarForm);
 
 #ifdef COOLING_MOLECULARH
-    double yH;
     double dMprob;
-    if (dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
+    if (!bGasCooling || dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
     else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
     			    dStarFormEfficiencyH2*p->CoolParticle().f_H2);    
     *H2FractionForm = p->CoolParticle().f_H2;
@@ -326,7 +326,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     /* No negative or very tiny masses please! */
     if ( (dDeltaM > p->mass) ) dDeltaM = p->mass;
 
-    if(dMprob*p->mass < dDeltaM*(rand()/((double) RAND_MAX)))
+    if(dMprob*p->mass < dDeltaM*rndGen.dbl())
 	return NULL;
 
     /* 
@@ -352,7 +352,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     /* Seed BH Formation JMB 1/19/09*/
     int newbh = 0;  /* BH tracker */
     if (bBHForm == 1 && starp->fStarMetals() <= 1.0e-6
-	&& dBHFormProb > (rand()/((double) RAND_MAX ))) {
+        && dBHFormProb > rndGen.dbl()) {
 	starp->fTimeForm() = -1.0*starp->fTimeForm();
 	newbh = 1;
 	/* Decrement mass of particle.*/
@@ -401,12 +401,11 @@ void Main::initStarLog(){
 	    FILE *fpLog = CmiFopen(stLogFile.c_str(),"r");
 	    XDR xdrs;
             if(fpLog == NULL)
-                CkAbort("Bad open of starlog file on restart");
+                CkMustAssert(!(fpLog == NULL), "Bad open of starlog file on restart");
 
 	    xdrstdio_create(&xdrs,fpLog,XDR_DECODE);
 	    xdr_int(&xdrs, &iSize);
-            if(iSize != sizeof(StarLogEvent))
-                CkAbort("starlog file format mismatch");
+        CkMustAssert(iSize == sizeof(StarLogEvent), "starlog file format mismatch");
 	    xdr_destroy(&xdrs);
 	    CmiFclose(fpLog);
 	    } else {
@@ -416,8 +415,7 @@ void Main::initStarLog(){
 	FILE *fpLog = CmiFopen(stLogFile.c_str(),"w");
 	XDR xdrs;
 
-        if(fpLog == NULL) 
-            CkAbort("Can't create starlog file");
+    CkMustAssert(!(fpLog == NULL), "Can't create starlog file");
 	xdrstdio_create(&xdrs,fpLog,XDR_ENCODE);
 	iSize = sizeof(StarLogEvent);
 	xdr_int(&xdrs, &iSize);
@@ -452,6 +450,10 @@ void TreePiece::flushStarLog(const CkCallback& cb) {
     return;
     }
 
+/// @brief Flush starlog data to a file
+/// If the file format is changed remember to change logMetaData()
+/// below.
+///
 void StarLog::flush(void) {
     if (seTab.size() > 0) {
 	FILE* outfile;
@@ -483,9 +485,32 @@ void StarLog::flush(void) {
 	    }
 	xdr_destroy(&xdrs);
 	int result = CmiFclose(outfile);
-	if(result != 0)
-            CkAbort("Bad close of starlog");
+    CkMustAssert(result == 0, "Bad close of starlog");
 	seTab.clear();
 	nOrdered = 0;
 	}
     }
+
+/// @brief Print out metadata for the starlog.
+/// @param osfLog output file stream to write the metadata.
+/// Note: This needs to match the format in StarLog::flush() above.
+void StarLog::logMetaData(std::ofstream &osfLog) 
+{
+    osfLog << "# starlog data:\n";
+    osfLog << "# iOrdStar i" << sizeof(StarLogEvent::iOrdStar) << endl;
+    osfLog << "# iOrdGas i" << sizeof(StarLogEvent::iOrdGas) << endl;
+    osfLog << "# timeForm f" << sizeof(double) << endl;
+    osfLog << "# rForm[0] f" << sizeof(double) << endl;
+    osfLog << "# rForm[1] f" << sizeof(double) << endl;
+    osfLog << "# rForm[2] f" << sizeof(double) << endl;
+    osfLog << "# vForm[0] f" << sizeof(double) << endl;
+    osfLog << "# vForm[1] f" << sizeof(double) << endl;
+    osfLog << "# vForm[2] f" << sizeof(double) << endl;
+    osfLog << "# massForm f" << sizeof(double) << endl;
+    osfLog << "# rhoForm f" << sizeof(double) << endl;
+    osfLog << "# TForm f" << sizeof(double) << endl;
+#ifdef COOLING_MOLECULARH 
+    osfLog <<" #  H2FracForm f" << sizeof(double) << endl;
+#endif
+    osfLog << "# end starlog data\n";
+}

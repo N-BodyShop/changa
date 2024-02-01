@@ -25,6 +25,8 @@
 #include "dumpframe.h"
 #include <liveViz.h>
 
+#include "rand.h"
+
 #include "TaggedVector3D.h"
 
 #include "codes.h"
@@ -50,7 +52,13 @@ PUPbytes(COOLPARAM);
 
 #include <map>
 
-#define MERGE_REMOTE_REQUESTS_VERBOSE /*CkPrintf*/
+#define MERGE_REMOTE_REQUESTS_VERBOSE(X) /*CkPrintf x*/
+
+/// @brief CkAssert() replacement works even in production mode.
+inline void CkMustAssert(bool cond, const char *err)
+{
+    if (!cond) CkAbort("%s", err);
+}
 
 using namespace std;
 
@@ -165,6 +173,10 @@ extern CProxy_CkCacheManager<KeyType> cacheNode;
 
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;
+
+extern int START_REG;
+extern int START_IB;
+extern int START_PW;
 
 extern int boundaryEvaluationUE;
 extern int weightBalanceUE;
@@ -432,6 +444,10 @@ class Main : public CBase_Main {
 	std::string basefilename;
         /// Save parameters for output
         OutputParams *pOutput;
+    // NChilada file names used to generate the XML description
+    CkVec<std::string> *NCgasNames;
+    CkVec<std::string> *NCdarkNames;
+    CkVec<std::string> *NCstarNames;
 	/// globally finished IO
 	CkCallback cbIO;
         /// Save file token for CkIO
@@ -567,6 +583,8 @@ public:
         void cbIOComplete(CkMessage *msg);
         void cbIOClosed(CkMessage *msg);
         std::string getNCNextOutput(OutputParams& params);
+    void writeNCXML(std::string filename);
+    void NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string family);
 	void updateSoft();
 	void growMass(double dTime, double dDelta);
 	void initSph();
@@ -591,6 +609,7 @@ public:
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
         void doSIDM(double dTime,double dDelta, int activeRung); /* SIDM */
+        void restartNSIDM();
 };
 
 /* IBM brain damage */
@@ -1001,8 +1020,9 @@ class TreePiece : public CBase_TreePiece {
 
         void continueStartRemoteChunk(int chunk);
 #ifdef CUDA
-        void fillGPUBuffer(intptr_t pLocalParts, intptr_t pLocalMoments,
-                           int nParts);
+       void fillGPUBuffer(intptr_t bufLocalParts,
+		          intptr_t bufLocalMoments,
+                          intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
         void updateParticles(intptr_t data, int partIndex);
 #endif
         void continueWrapUp();
@@ -1038,6 +1058,8 @@ class TreePiece : public CBase_TreePiece {
 	/// Time read in from input file
 	double dStartTime;
 
+        Rand rndGen;            // Random number generator for star
+                                // formation and other uses.
 private:        
 	// liveViz 
 	liveVizRequestMsg * savedLiveVizMsg;
@@ -1779,12 +1801,12 @@ public:
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, double gammam1, const CkCallback& cb);
+			int bUpdateState, double gammam1, double dResolveJeans, const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
     void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
-        double dEvapMinTemp, double dDtCourantFac, const CkCallback &cb);
+        double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);
     void getCoolingGasPressure(double gamma, double gammam1, double dThermalCondCoeff,
         double dThermalCond2Coeff, double dThermalCondSatCoeff, double dThermalCond2SatCoeff,
         double dEvapMinTemp, double dDtCourantFac, double dResolveJeans, const CkCallback &cb);

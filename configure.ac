@@ -2,7 +2,7 @@
 # Process this file with autoconf to produce a configure script.
 
 AC_PREREQ(2.59)
-AC_INIT([ChaNGa], [3.4], [changa-users@u.washington.edu])
+AC_INIT([ChaNGa], [3.5], [changa-users@u.washington.edu])
 AC_DEFINE_UNQUOTED([NBODY_PACKAGE_VERSION], [$PACKAGE_VERSION])
 AC_CONFIG_SRCDIR([Reductions.h])
 
@@ -79,15 +79,17 @@ else
 fi
 if test "${MISSING_XDR}" = "yes" ; then
    echo "XDR missing, attempting to use xdr with package"
-   if test -d ../xdr ; then
-   	ln -s $PWD/../xdr ../rpc
+   if test -d $STRUCT_DIR/../xdr ; then
+        ln -s $STRUCT_DIR/../xdr ./rpc
+        (cd $STRUCT_DIR; ln -s ../xdr ./rpc)
+        (cd $STRUCT_DIR/../xdr; make)
    else
 	echo "Try downloading the xdr package and place it in the parent directory."
 	echo "And do a make in ../xdr"
 	exit
    fi
-   CPPFLAGS="$CPPFLAGS -I.."
-   LDFLAGS="$LDFLAGS -L../xdr"
+   CPPFLAGS="$CPPFLAGS -I."
+   LDFLAGS="$LDFLAGS -L$STRUCT_DIR/../xdr"
 fi
 
 # Compiler-specific options
@@ -170,7 +172,7 @@ AC_ARG_ENABLE([interlist],
 	[AS_HELP_STRING([--enable-interlist], [interaction list version])],
 	[interlist=$enableval], [interlist=2])
 case $interlist in
-	1|2) FLAG_INTERLIST="-DINTERLIST_VER=$interlist";;
+	0|1|2) FLAG_INTERLIST="-DINTERLIST_VER=$interlist";;
 	*  ) AC_MSG_ERROR([invalid argument for '--enable-interlist': $interlist]);;
 esac
 AC_SUBST([FLAG_INTERLIST])
@@ -288,8 +290,11 @@ ARG_ENABLE([cullenalpha], [Cullen Dehnen artificial viscosity], [FLAG_CULLENALPH
 # Use alternative calculation of viscosity term similar to Morris & Monahan (1997)
 ARG_ENABLE([vsigvisc], [alternative Monahan artificial viscosity], [FLAG_VSIGVISC], [-DVSIGVISC], [yes])
 
-# Richie-Thomas forces (Pressure SPH)
-ARG_ENABLE([rtforce], [Richie-Thomas forces], [FLAG_RTFORCE], [-DRTFORCE], [yes])
+# Geometryic Density forces (Gasoline2 Wadsley+ 2007)
+ARG_ENABLE([gdforce], [Geometric Density forces], [FLAG_GDFORCE], [-DGDFORCE], [yes])
+
+# Jeans pressure floor based on gravitational softening
+ARG_ENABLE([jeanssoft], [gravitational softening jeans floor], [FLAG_JEANSSOFTONLY], [-DJEANSSOFTONLY], [yes])
 
 # SIDM interactions
 ARG_ENABLE([sidminter], [SIDM interactions], [FLAG_SIDMINTERACT], [-DSIDMINTERACT], [no])
@@ -357,7 +362,7 @@ echo "    "Charm compiler"   " $CHARMC
 echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
-echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_RTFORCE $FLAG_SUPERBUBBLE
+echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH

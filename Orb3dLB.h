@@ -12,9 +12,6 @@
 #include "TaggedVector3D.h"
 #include <queue>
 
-void CreateOrb3dLB();
-BaseLB * AllocateOrb3dLB();
-
 class Orb3dLB : public CBase_Orb3dLB {
   friend class MultistepLB;
 private:
@@ -23,7 +20,7 @@ private:
   ComparatorFn compares[NDIMS];
   ComparatorFn pc[NDIMS];
   // pointer to stats->to_proc
-  CkVec<int> *mapping;
+  decltype(LDStats::to_proc) *mapping;
 
   int procsPerNode;
 

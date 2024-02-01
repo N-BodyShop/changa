@@ -5,16 +5,6 @@
 #include <cuda_runtime.h>
 #include "cuda_typedef.h"
 
-#ifdef HAPI_USE_CUDAMALLOCHOST
-# ifdef HAPI_MEMPOOL
-#  define CUDA_MALLOC(ptr,sz) ptr = hapiPoolMalloc(size)
-# else
-#  define CUDA_MALLOC(ptr,sz) cudaMallocHost(&(ptr), size)
-# endif
-#else
-# define CUDA_MALLOC(ptr,sz) ptr = malloc(sz)
-#endif
-
 #define THREADS_PER_BLOCK 128
 
 #ifdef GPU_LOCAL_TREE_WALK
@@ -188,7 +178,7 @@ void freePinnedHostMemory(void *);
 #ifdef HAPI_INSTRUMENT_WRS
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                         void *compactParts, size_t sCompactParts,
-                        void *varParts, size_t sVarParts,
+                        void *varParts, size_t sVarParts, int numParticles,
                         int mype, char phase, void *wrCallback);
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments, 
                                     void *compactParts, size_t sCompactParts,
@@ -200,7 +190,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *c
 #else
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
-                                  void *varParts, size_t sVarParts,
+                                  void *varParts, size_t sVarParts, int numParticles,
                                   int mype, void *wrCallback);
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
