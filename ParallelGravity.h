@@ -327,7 +327,7 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 };
 #endif
 
-struct EwaldGPUmsg: public CkMcastBaseMsg, public CMessage_EwaldGPUmsg {
+struct EwaldMsg: public CMessage_EwaldMsg {
     bool fromInit;
 };
     
@@ -1233,8 +1233,6 @@ private:
 #ifdef HEXADECAPOLE
 	MOMC momcRoot;		/* complete moments of root */
 #endif
-        /// Have the Ewald h loop tables been calculated.
-        bool bEwaldInited;
 
 	int bGasCooling;
 #ifndef COOLING_NONE
@@ -1495,7 +1493,6 @@ public:
 	  prefetchRoots = NULL;
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
-          bEwaldInited = false;
 
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
@@ -1536,7 +1533,6 @@ public:
 	  prefetchRoots = NULL;
 	  //remaining Chunk = NULL;
           ewt = NULL;
-          bEwaldInited = false;
 	  root = NULL;
 	  pTreeNodes = NULL;
 
@@ -1604,12 +1600,8 @@ public:
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
-#ifdef SPCUDA
-	void calculateEwald(EwaldGPUmsg *m);
-#else
-	void calculateEwald(dummyMsg *m);
-#endif
-  void calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num);
+	void calculateEwald(EwaldMsg *m);
+  void calculateEwaldUsingCkLoop(int yield_num);
   void callBucketEwald(int id);
   void doParallelNextBucketWork(int id, LoopParData* lpdata);
 	void initCoolingData(const CkCallback& cb);

@@ -1568,7 +1568,6 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     Vector3D<double> dv;
     double ph,absmu;
     double fNorm1,vFac;
-    double fDivv_Corrector;
     double dt;
     int i;
 
@@ -1586,7 +1585,12 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     params.aFac = a;        /* comoving acceleration factor */
     vFac = 1./(a*a); /* converts v to xdot */
 
-#ifdef GDFORCE
+#if defined(GDFORCE) && defined(DIVVCORRECTOR)
+    // The following calculates the correction factor of eq. 8 in
+    // Wadsley et al, 2017.  However, Robert Wissing has shown
+    // (private communication, 2022) that this correction is
+    // problematic for large, sharp density jumps.  By default
+    // DIVVCORRECTOR is not defined, and no correction is calculated.
     double divvi = 0;
     double divvj = 0;
     for (i=0;i<nSmooth;++i) {
@@ -1599,9 +1603,9 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         divvj += rs1/q->fDensity;
     }
     divvi /= p->fDensity;
-    fDivv_Corrector = (divvj != 0.0 ? divvi/divvj : 1.0);
+    double fDivv_Corrector = (divvj != 0.0 ? divvi/divvj : 1.0);
 #else
-    fDivv_Corrector = 1.0;
+    const double fDivv_Corrector = 1.0;
 #endif
 
     for (i=0;i<nSmooth;++i) {

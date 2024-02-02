@@ -83,7 +83,7 @@ mainmodule ParallelGravity {
   message dummyMsg;
   message ComputeChunkMsg;
 
-  message EwaldGPUmsg{
+  message EwaldMsg{
     bool fromInit;
   };
 
@@ -277,13 +277,9 @@ mainmodule ParallelGravity {
     entry void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod, int bEwald,
                            double fEwCut, double fEwhCut, int bPeriod,
                            int bComove, double dRhoFac);
-    entry [notrace] void initCoolingData(const CkCallback& cb);
     entry [notrace] void EwaldInit();
-#ifdef SPCUDA
-    entry void calculateEwald(EwaldGPUmsg *m);
-#else
-    entry void calculateEwald(dummyMsg *m);
-#endif
+    entry [notrace] void initCoolingData(const CkCallback& cb);
+    entry void calculateEwald(EwaldMsg *m);
     entry [notrace] void EwaldGPUComplete(); 
     entry void EwaldGPU();
     entry void velScale(double dScale, const CkCallback& cb);

@@ -373,14 +373,9 @@ void TreePiece::EwaldInit()
 			}
 		}
 	nEwhLoop = i;
-        bEwaldInited = true;
 
-#ifndef CUDA
-	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-#else
-	EwaldGPUmsg *msg = new EwaldGPUmsg;
-	msg->fromInit = true;
-#endif
+	EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
+        msg->fromInit = true;
         // Make priority lower than gravity or smooth.
 	*((int *)CkPriorityPtr(msg)) = 3*numTreePieces * numChunks + thisIndex + 1;
 	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
