@@ -34,11 +34,22 @@ void TreePieceReplica::fillRequestNodeFromReplica(
     } else {
       CkAbort("Non cached version not anymore supported, feel free to fix it!");
     }
+    delete msg;
   }
   else {	// Handle NULL nodes
-    CkAbort("Ok, before it handled this, but why do we have a null pointer in the tree?!?");
+      // Somehow, we don't don't own this node.  Fall back to using
+      // the TreePieces to find it.
+      // Go to the datamanager to find a local treepiece to hand this
+      // request off to.
+      //
+      // DataManager *dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+      // TreePiece *tpLocal = dm->registeredTreePieces[0].treePiece;
+      //
+      // Unfortunately, registeredTreepieces gets cleared immediately
+      // after the tree is built.  Until that is fixed, lets pick a
+      // random piece (I know 0 exists) to handle this node.
+      treeProxy[0].fillRequestNode(msg);
   }
-  delete msg;
 }
 
 void TreePieceReplica::recvTreePiece(TreeReplicaMsg *msg) {
