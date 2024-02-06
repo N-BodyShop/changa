@@ -347,6 +347,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
       );
 #endif
 
+  HAPI_TRACE_BEGIN();
   allocatePinnedHostMemory(&bufferHostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
   printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
@@ -386,6 +387,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 #endif
 
   cudaStreamSynchronize(stream);
+  HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL_SMALL);
   hapiCheck(cudaFree(d_smallParts));
   hapiAddCallback(stream, data->cb);
 }

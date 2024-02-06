@@ -251,6 +251,7 @@ Main::Main(CkArgMsg* m) {
         traceRegisterUserEvent("Grav Remote", CUDA_GRAV_REMOTE);
         traceRegisterUserEvent("Remote Resume", CUDA_REMOTE_RESUME);
         traceRegisterUserEvent("Part Gravity Local", CUDA_PART_GRAV_LOCAL);
+        traceRegisterUserEvent("Part Gravity Local Small", CUDA_PART_GRAV_LOCAL_SMALL);
         traceRegisterUserEvent("Part Gravity Remote", CUDA_PART_GRAV_REMOTE);
         traceRegisterUserEvent("Xfer Back", CUDA_XFER_BACK);
         traceRegisterUserEvent("Ewald", CUDA_EWALD);
