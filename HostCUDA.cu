@@ -255,8 +255,8 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
       );
 #endif
 
+ HAPI_TRACE_BEGIN();
 #ifndef CUDA_NO_KERNELS
-    HAPI_TRACE_BEGIN();
     dim3 dimensions = THREADS_PER_BLOCK;
     #ifdef CUDA_2D_TB_KERNEL
         dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
@@ -272,9 +272,9 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 	data->fperiod
       );
 
-    cudaStreamSynchronize(stream);
-    HAPI_TRACE_END(CUDA_GRAV_REMOTE);
 #endif
+  cudaStreamSynchronize(stream);
+  HAPI_TRACE_END(CUDA_GRAV_REMOTE);
 
   hapiAddCallback(stream, data->cb);
 }
@@ -302,8 +302,8 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
       );
 #endif
 
+  HAPI_TRACE_BEGIN();
 #ifndef CUDA_NO_KERNELS
-    HAPI_TRACE_BEGIN();
     dim3 dimensions = THREADS_PER_BLOCK;
     #ifdef CUDA_2D_TB_KERNEL
         dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
@@ -318,9 +318,9 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
 	data->d_bucketSizes,
         data->fperiod
 	);
-   cudaStreamSynchronize(stream);
-   HAPI_TRACE_END(CUDA_REMOTE_RESUME);
 #endif
+  cudaStreamSynchronize(stream);
+  HAPI_TRACE_END(CUDA_REMOTE_RESUME);
 
   hapiAddCallback(stream, data->cb);
 }
@@ -406,8 +406,8 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
       );
 #endif
 
+  HAPI_TRACE_BEGIN();
 #ifndef CUDA_NO_KERNELS
-    HAPI_TRACE_BEGIN();
     #ifdef CUDA_2D_TB_KERNEL
     particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
        data->d_localParts,
@@ -431,9 +431,9 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
        data->fperiod
       );
     #endif
+#endif
     cudaStreamSynchronize(stream);
     HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL);
-#endif
     hapiAddCallback(stream, data->cb);
 }
 
@@ -454,8 +454,8 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 
     cudaStream_t stream = data->stream;
 
-#ifndef CUDA_NO_KERNELS
     HAPI_TRACE_BEGIN();
+#ifndef CUDA_NO_KERNELS
     #ifdef CUDA_2D_TB_KERNEL
     particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
        data->d_localParts,
@@ -479,9 +479,9 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
        data->fperiod
       );
     #endif
+#endif
     cudaStreamSynchronize(stream);
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
-#endif
 
     hapiAddCallback(stream, data->cb);
 }
@@ -507,8 +507,8 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
       );
 #endif
 
-#ifndef CUDA_NO_KERNELS
    HAPI_TRACE_BEGIN();
+#ifndef CUDA_NO_KERNELS
    #ifdef CUDA_2D_TB_KERNEL
     particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
        data->d_localParts,
@@ -532,9 +532,9 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
        data->fperiod
       );
    #endif
+#endif
    cudaStreamSynchronize(stream);
    HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
-#endif
 }
 
 void TreePieceDataTransferBasic(CudaRequest *data){
