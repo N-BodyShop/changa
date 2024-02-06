@@ -1406,6 +1406,10 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
   hapiCheck(cudaFree(data->d_bucketStarts));
   hapiCheck(cudaFree(data->d_bucketSizes));
 
+#ifdef CUDA_PRINT_ERRORS
+    printf("cudaCallbackForAllBuckets: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+#endif
+
   delete ((CkCallback *)data->cb);
   delete data;
 }

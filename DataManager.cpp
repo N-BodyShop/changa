@@ -1074,12 +1074,15 @@ void DataManager::transferParticleVarsBack(){
                              savedNumTotalParticles > 0, lastChunkMoments > 0,
                              lastChunkParticles > 0);
     
-    hapiCheck(cudaFree(d_localMoments));
-    hapiCheck(cudaFree(d_localParts));
-    hapiCheck(cudaFree(d_localVars));
+    cudaFree(d_localMoments);
+    cudaFree(d_localParts);
+    cudaFree(d_localVars);
+    cudaFree(d_remoteMoments);
+    cudaFree(d_remoteParts); 
 
-    hapiCheck(cudaFree(d_remoteMoments));
-    hapiCheck(cudaFree(d_remoteParts)); 
+#ifdef CUDA_PRINT_ERRORS
+    printf("transferParticleVarsBack: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+#endif
   }
   CmiUnlock(__nodelock);
 }
