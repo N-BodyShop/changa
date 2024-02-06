@@ -5,9 +5,6 @@
 #ifdef HAPI_MEMPOOL
 #define GPU_MEMPOOL
 #endif
-#ifdef HAPI_INSTRUMENT_WRS
-#define GPU_INSTRUMENT_WRS
-#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -607,11 +604,6 @@ void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart){
 #endif
   gravityKernel->setRunKernel(run_DM_TRANSFER_FREE_LOCAL);
   //printf("DM TRANSFER FREE LOCAL\n");
-#ifdef HAPI_INSTRUMENT_WRS
-  gravityKernel->chare_index = index;
-  gravityKernel->comp_type = DM_TRANSFER_FREE_LOCAL;
-  gravityKernel->comp_phase = phase;
-#endif
   hapiEnqueue(gravityKernel);*/
 
 }
@@ -648,11 +640,6 @@ void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool fr
   // the memory for this chunk has been freed
   gravityKernel->setUserData(dm);
   //printf("DM TRANSFER FREE REMOTE CHUNK\n");
-#ifdef HAPI_INSTRUMENT_WRS
-  gravityKernel->chare_index = index;
-  gravityKernel->comp_type = DM_TRANSFER_FREE_REMOTE_CHUNK;
-  gravityKernel->comp_phase = phase;
-#endif
   hapiEnqueue(gravityKernel);*/
 
 }

@@ -12,14 +12,6 @@
 #include "hapi.h"
 #include "cuda_typedef.h"
 #include "SFC.h"
-
-#ifdef HAPI_INSTRUMENT_WRS
-//#define GPU_INSTRUMENT_WRS
-//#include "wr.h"
-void hapi_initInstrument(int, char);
-void hapi_clearInstrument();
-#endif
-
 #endif
 
 #include "Compute.h"
@@ -47,10 +39,6 @@ void DataManager::init() {
   treePiecesDoneRemoteChunkComputation = 0;
   treePiecesWantParticlesBack = 0;
   treePiecesParticlesUpdated = 0;
-#ifdef HAPI_INSTRUMENT_WRS
-  treePiecesDoneInitInstrumentation = 0;
-#endif
-
   gpuFree = true;
 
 #endif
@@ -476,21 +464,6 @@ const char *typeString(NodeType type);
 #ifdef CUDA
 #include "HostCUDA.h"
 
-#ifdef HAPI_INSTRUMENT_WRS
-int DataManager::initInstrumentation(){
-  CmiLock(__nodelock);
-  int saved = treePiecesDoneInitInstrumentation;
-  treePiecesDoneInitInstrumentation++;
-  if(treePiecesDoneInitInstrumentation == registeredTreePieces.length()){
-    activeRung = registeredTreePieces[0].treePiece->getActiveRung();
-    hapi_initInstrument(registeredTreePieces.length(), EWALD_KERNEL+1);
-    treePiecesDoneInitInstrumentation = 0;
-  }
-  CmiUnlock(__nodelock);
-  return saved;
-}
-#endif
-
 /// @brief After all treepieces have registered, tranfer tree of entire node
 /// to GPU.
 void DataManager::serializeLocalTree(){
@@ -613,17 +586,11 @@ void DataManager::donePrefetch(int chunk){
           bufRemoteParts = NULL;
 
       // Transfer moments and particle cores to gpu
-#ifdef HAPI_INSTRUMENT_WRS
-      DataManagerTransferRemoteChunk(bufRemoteMoments, sRemMoments,
-                                     bufRemoteParts, sRemParts, 0, activeRung,
-                                     remoteChunkTransferCallback);
-#else
       DataManagerTransferRemoteChunk(bufRemoteMoments, sRemMoments,
                                      bufRemoteParts, sRemParts,
                                      (void **)&d_remoteMoments,  (void **)&d_remoteParts,
 				     streams[0],
                                      remoteChunkTransferCallback);
-#endif
 
     }
     else{
@@ -949,18 +916,11 @@ void DataManager::serializeLocal(GenericTreeNode *node){
       zeroArray[i].dtGrav = 0.0;
       }
   // Transfer moments and particle cores to gpu
-#ifdef HAPI_INSTRUMENT_WRS
-  DataManagerTransferLocalTree(bufLocalMoments, sMoments, bufLocalParts,
-                               sCompactParts, bufLocalVars, sVarParts, 
-			       d_localMoments, d_localParts, d_localVars, 0,
-                               activeRung, localTransferCallback);
-#else
   DataManagerTransferLocalTree(bufLocalMoments, sMoments, bufLocalParts,
                                sCompactParts, bufLocalVars, sVarParts,
 			       (void **)&d_localMoments, (void **)&d_localParts, (void **)&d_localVars,
 			       streams[0],
                                localTransferCallback);
-#endif
 }// end serializeLocal
 
 #ifdef GPU_LOCAL_TREE_WALK
@@ -1013,11 +973,7 @@ void DataManager::freeLocalTreeMemory(){
   treePiecesDoneLocalComputation++;
   if(treePiecesDoneLocalComputation == registeredTreePieces.length()){
     treePiecesDoneLocalComputation = 0; 
-#ifdef HAPI_INSTRUMENT_WRS
-    FreeDataManagerLocalTreeMemory(savedNumTotalNodes > 0, savedNumTotalParticles > 0, 0, activeRung);
-#else
     FreeDataManagerLocalTreeMemory(savedNumTotalNodes > 0, savedNumTotalParticles > 0);
-#endif
   }
   CmiUnlock(__nodelock);
 }
@@ -1028,11 +984,7 @@ void DataManager::freeRemoteChunkMemory(int chunk){
   if(treePiecesDoneRemoteChunkComputation == registeredTreePieces.length()){
     treePiecesDoneRemoteChunkComputation = 0;
     //CkPrintf("(%d) DM freeRemoteChunkMemory chunk %d called\n", CkMyPe(), chunk);
-#ifdef HAPI_INSTRUMENT_WRS
-    FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0, 0, activeRung);
-#else
     FreeDataManagerRemoteChunkMemory(chunk, (void *)this, lastChunkMoments != 0, lastChunkParticles != 0);
-#endif
   }
   CmiUnlock(__nodelock);
 }
@@ -1075,17 +1027,11 @@ void DataManager::initiateNextChunkTransfer(){
           bufRemoteParts = NULL;
 
       // Transfer moments and particle cores to gpu
-#ifdef HAPI_INSTRUMENT_WRS
-      DataManagerTransferRemoteChunk(bufRemoteMoments, sRemMoments,
-                                     bufRemoteParts, sRemParts, 0, activeRung,
-                                     remoteChunkTransferCallback);
-#else
       DataManagerTransferRemoteChunk(bufRemoteMoments, sRemMoments,
                                      bufRemoteParts, sRemParts,
         			     (void **)&d_remoteMoments,  (void **)&d_remoteParts,
 				     streams[0],
                                      remoteChunkTransferCallback);
-#endif
   }
   else{
     gpuFree = true;
@@ -1120,13 +1066,6 @@ void DataManager::transferParticleVarsBack(){
     data->size = savedNumTotalParticles;
 
     if(verbosity > 1) CkPrintf("[%d] transferParticleVarsBack\n", CkMyPe());
-#ifdef HAPI_INSTRUMENT_WRS
-    TransferParticleVarsBack(buf,
-                             savedNumTotalParticles*sizeof(VariablePartData),
-                             data->cb, savedNumTotalNodes > 0,
-                             savedNumTotalParticles > 0, lastChunkMoments > 0,
-                             lastChunkParticles > 0, 0, activeRung);
-#else
     TransferParticleVarsBack(buf, 
                              savedNumTotalParticles*sizeof(VariablePartData),
 			     d_localVars,
@@ -1134,7 +1073,6 @@ void DataManager::transferParticleVarsBack(){
                              data->cb, savedNumTotalNodes > 0,
                              savedNumTotalParticles > 0, lastChunkMoments > 0,
                              lastChunkParticles > 0);
-#endif
     
     hapiCheck(cudaFree(d_localMoments));
     hapiCheck(cudaFree(d_localParts));
@@ -1201,13 +1139,6 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
         registeredTreePieces.length() = 0;
     }
     CmiUnlock(__nodelock);
-}
-
-void DataManager::clearInstrument(CkCallback const& cb){
-#ifdef HAPI_INSTRUMENT_WRS
-  hapi_clearInstrument();
-  contribute(cb);
-#endif
 }
 
 #endif // CUDA

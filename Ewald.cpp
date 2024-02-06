@@ -518,9 +518,6 @@ void TreePiece::EwaldGPU(){
   cbEwaldGPU = new CkCallback(CkIndex_TreePiece::EwaldGPUComplete(), myIndex,
                               thisArrayID);
 
-#ifdef HAPI_INSTRUMENT_WRS
-  EwaldHost(h_idata, (void *) cbEwaldGPU, instrumentId, activeRung, largephase);
-#else
   int myLocalIndex;
   for(myLocalIndex = 0; this != dm->registeredTreePieces[myLocalIndex].treePiece;
       myLocalIndex++);
@@ -528,8 +525,6 @@ void TreePiece::EwaldGPU(){
 
   EwaldHost(this->d_localParts, this->d_localVars,
 	    h_idata, this->stream, (void *) cbEwaldGPU, myLocalIndex, largephase);
-#endif
-
 #endif
 }
 

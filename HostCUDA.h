@@ -157,10 +157,6 @@ typedef struct _CudaRequest{
         bool node;
         /// is this a remote or local computation?
         bool remote;
-#ifdef HAPI_INSTRUMENT_WRS
-        int tpIndex;
-        char phase;
-#endif
 #ifdef GPU_LOCAL_TREE_WALK
   int firstParticle;
   int lastParticle;
@@ -195,19 +191,6 @@ void allocatePinnedHostMemory(void **, size_t);
 void freePinnedHostMemory(void *);
 void freeDeviceMemory(void *);
 
-#ifdef HAPI_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(void *moments, size_t sMoments,
-                        void *compactParts, size_t sCompactParts,
-                        void *varParts, size_t sVarParts,
-                        int mype, char phase, void *callback);
-void DataManagerTransferRemoteChunk(void *moments, size_t sMoments, 
-                                    void *compactParts, size_t sCompactParts,
-                                    void *varParts, size_t sVarParts,
-                                    int mype, char phase, void *callback);
-void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int pe, char phase);
-void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart, int pe, char phase);
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb, bool, bool, bool, bool, int pe, char phase);
-#else
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *varParts, size_t sVarParts,
@@ -234,7 +217,6 @@ void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart)
  */
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb,
     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart);
-#endif
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
 void TreePieceCellListDataTransferRemote(CudaRequest *data);

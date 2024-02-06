@@ -146,10 +146,6 @@ protected:
 	int numStreams;
 	cudaStream_t *streams;
 
-#ifdef HAPI_INSTRUMENT_WRS
-        int activeRung;
-        int treePiecesDoneInitInstrumentation;
-#endif
 #endif
 	/// The root of the combined trees
 	Tree::GenericTreeNode * root;
@@ -201,13 +197,9 @@ public:
         void updateParticles(UpdateParticlesStruct *data);
         void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
-#ifdef HAPI_INSTRUMENT_WRS
-        int initInstrumentation();
-#endif
         DataManager(){}
 
 #endif
-        void clearInstrument(CkCallback const& cb);
 
 private:
         void init();

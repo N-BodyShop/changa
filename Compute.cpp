@@ -2064,11 +2064,6 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
   data->d_remoteMoments = tp->d_remoteMoments;
   data->stream = tp->stream;
 
-#ifdef HAPI_INSTRUMENT_WRS
-  data->tpIndex = tp->getInstrumentId();
-  data->phase = tp->getActiveRung();
-#endif
-
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS
   CkPrintf("*************\n");
   CkPrintf("[%d] %d cellLists:\n", thisIndex, getOptType());
@@ -2110,28 +2105,17 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
       return;
   }
 
-#ifdef HAPI_INSTRUMENT_WRS
-  double time = state->nodeListConstructionTimeStop();
-#endif
   if(type == Local){
 #ifdef HAPI_TRACE
     tp->localNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferLocal(data);
-#ifdef HAPI_INSTRUMENT_WRS
-    tp->localNodeListConstructionTime += time;
-    tp->nLocalNodeReqs++;
-#endif
   }
   else if(type == Remote && !state->resume){
 #ifdef HAPI_TRACE
     tp->remoteNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferRemote(data);
-#ifdef HAPI_INSTRUMENT_WRS
-    tp->remoteNodeListConstructionTime += time;
-    tp->nRemoteNodeReqs++;
-#endif
   }
   else if(type == Remote && state->resume){
     CudaMultipoleMoments *missedNodes = state->nodes->getVec();
@@ -2144,18 +2128,11 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
     tp->remoteResumeNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
     TreePieceCellListDataTransferRemoteResume(data);
-#ifdef HAPI_INSTRUMENT_WRS
-    tp->remoteResumeNodeListConstructionTime += time;
-    tp->nRemoteResumeNodeReqs++;
-#endif
   }
   else {CkAssert(0);}
 #ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("memcheck after sendNodeInteractionsToGpu\n");
   CmiMemoryCheck();
-#endif
-#ifdef HAPI_INSTRUMENT_WRS
-  state->nodeListConstructionTimeStart();
 #endif
 }
 
@@ -2180,11 +2157,6 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
   data->d_localParts = tp->d_localParts;
   data->d_localVars = tp->d_localVars;
   data->stream = tp->stream;
-
-#ifdef HAPI_INSTRUMENT_WRS
-  data->tpIndex = tp->getInstrumentId();
-  data->phase = tp->getActiveRung();
-#endif
 
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS
   CkPrintf("*************\n");
@@ -2226,10 +2198,6 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
       return;
   }
 
-#ifdef HAPI_INSTRUMENT_WRS
-  double time = state->partListConstructionTimeStop();
-#endif
-
   if(type == Local){
 #ifdef HAPI_TRACE
     tp->localPartInteractions += state->particleLists.totalNumInteractions;
@@ -2243,20 +2211,12 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
       TreePiecePartListDataTransferLocalSmallPhase(data, parts, leng);
       tp->clearMarkedBuckets(state->markedBuckets);
     }
-#ifdef HAPI_INSTRUMENT_WRS
-    tp->localPartListConstructionTime += time;
-    tp->nLocalPartReqs++;
-#endif
   }
   else if(type == Remote && !state->resume){
 #ifdef HAPI_TRACE
     tp->remotePartInteractions += state->particleLists.totalNumInteractions;
 #endif
     TreePiecePartListDataTransferRemote(data);
-#ifdef HAPI_INSTRUMENT_WRS
-    tp->remotePartListConstructionTime += time;
-    tp->nRemotePartReqs++;
-#endif
   }
   else if(type == Remote && state->resume){
     CompactPartData *missedParts = state->particles->getVec();
@@ -2269,18 +2229,11 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
     tp->remoteResumePartInteractions += state->particleLists.totalNumInteractions;
 #endif
     TreePiecePartListDataTransferRemoteResume(data);
-#ifdef HAPI_INSTRUMENT_WRS
-    tp->remoteResumePartListConstructionTime += time;
-    tp->nRemoteResumePartReqs++;
-#endif
   }
   else {CkAssert(0);}
 #ifdef CHANGA_REFACTOR_MEMCHECK
   CkPrintf("memcheck after sendPartInteractionsToGpu\n");
   CmiMemoryCheck();
-#endif
-#ifdef HAPI_INSTRUMENT_WRS
-  state->partListConstructionTimeStart();
 #endif
 }
 

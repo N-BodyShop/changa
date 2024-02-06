@@ -912,9 +912,6 @@ class TreePiece : public CBase_TreePiece {
         void callFreeRemoteChunkMemory(int chunk);
 
         int getActiveRung(){ return activeRung; }
-#ifdef HAPI_INSTRUMENT_WRS
-        int getInstrumentId(){ return instrumentId; }
-#endif
         // returns either all particles or only active particles,
         // depending on fraction of active particles to their
         // total count.
@@ -1009,25 +1006,6 @@ class TreePiece : public CBase_TreePiece {
         long long remotePartInteractions;
         long long remoteResumeNodeInteractions;
         long long remoteResumePartInteractions;
-#endif
-
-#ifdef HAPI_INSTRUMENT_WRS
-        int instrumentId;
-
-        double localNodeListConstructionTime;
-        double remoteNodeListConstructionTime;
-        double remoteResumeNodeListConstructionTime;
-        double localPartListConstructionTime;
-        double remotePartListConstructionTime;
-        double remoteResumePartListConstructionTime;
-        
-        int nLocalNodeReqs;
-        int nRemoteNodeReqs;
-        int nRemoteResumeNodeReqs;
-        int nLocalPartReqs;
-        int nRemotePartReqs;
-        int nRemoteResumePartReqs;
-
 #endif
 
 #endif

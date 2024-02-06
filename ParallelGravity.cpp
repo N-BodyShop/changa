@@ -1759,11 +1759,6 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
 #ifdef PUSH_GRAVITY
             }
 #endif
-
-#ifdef HAPI_INSTRUMENT_WRS
-            // XXX this is probably broken (cbGravity gets called too soon.)
-            dMProxy.clearInstrument(cbGravity);
-#endif
         }
         else {
 #ifdef PUSH_GRAVITY
@@ -1778,9 +1773,6 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
 #endif
 
-#ifdef HAPI_INSTRUMENT_WRS
-            dMProxy.clearInstrument(CkCallbackResumeThread());
-#endif
             double tGrav = CkWallTimer() - *startTime;
             timings[iActiveRung].tGrav += tGrav;
             CkPrintf("took %g seconds\n", tGrav);
