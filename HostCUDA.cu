@@ -107,19 +107,23 @@ void freeDeviceMemory(void *ptr){
   hapiCheck(cudaFree(ptr));
 }
 
-// TODO rewrite docstring
-/// @brief queue work request to tranfer local moments and particles to GPU
-/// @param moments array of moments
-/// @param nMoments
-/// @param compactParts  Array of particles
-/// @param nCompactParts
-/// @param mype Only used for debugging
+/// @brief Transfer local moments, particle data and acceleration fields to GPU memory
+/// @param moments Array of moments
+/// @param sMoments Size of moments array
+/// @param compactParts Array of particles
+/// @param sCompactParts Size of particle array
+/// @param varParts Zeroed-out particle acceleration fields
+/// @param sVarParts Size of acceleration array
+/// @param d_localMoments Uninitalized pointer to moments on GPU
+/// @param d_compactParts Uninitalized pointer to particles on GPU
+/// @param d_varParts Uninitalized pointer to accelerations on GPU
+/// @param stream CUDA stream to handle the memory transfer
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *varParts, size_t sVarParts,
 				  void **d_localMoments, void **d_compactParts, void **d_varParts,
 				  cudaStream_t stream,
-                                  int mype, void *callback) {
+                                  void *callback) {
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) DM LOCAL TREE moments %zu partcores %zu partvars %zu\n",
@@ -147,6 +151,14 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 
 }
 
+/// @brief Transfer remote moments and particle data to GPU memory
+/// @param moments Array of remote moments
+/// @param sMoments Size of remote moments array
+/// @param remoteParts Array of remote particles
+/// @param sRemoteParts Size of remote particle array
+/// @param d_remoteMoments Uninitalized pointer to remote moments on GPU
+/// @param d_remoteParts Uninitalized pointer to remote particles on GPU
+/// @param stream CUDA stream to handle the memory transfer
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
                                     void *remoteParts, size_t sRemoteParts,
 				    void **d_remoteMoments, void **d_remoteParts,
@@ -439,7 +451,6 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
     hapiAddCallback(stream, data->cb);
 }
 
-// see smallphase function for workRequest implementation
 void TreePiecePartListDataTransferRemote(CudaRequest *data){
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
