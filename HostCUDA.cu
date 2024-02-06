@@ -326,52 +326,68 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
 }
 
 void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *particles, int len){
-	//int numBlocks = data->numBucketsPlusOne-1;
+  TreePieceDataTransferBasic(data);
+  cudaStream_t stream = data->stream;
+  size_t size = (len) * sizeof(CompactPartData);
+  void* bufferHostBuffer;
+  void* d_smallParts;
 
-	/*hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-	void* bufferHostBuffer;
-        size_t size;
-        bool transfer;
-
-#ifdef CUDA_2D_TB_KERNEL
-	gravityKernel->setExecParams(numBlocks, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART));
-#else
-	gravityKernel->setExecParams(numBlocks, THREADS_PER_BLOCK);
+#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
+  printf("TreePiecePartListDataTransferLocalSmallPhase KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: (0x%x)\n",
+      data->d_localParts,
+      data->d_localVars,
+      data->d_list
+      );
 #endif
-
-	TreePiecePartListDataTransferBasic(data, gravityKernel);
-        transfer = gravityKernel->buffers[ILPART_IDX].transfer_to_device;
-
-        size = (len) * sizeof(CompactPartData);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER LOCAL SMALL PHASE  %zu (%d)\n",
-            CmiMyPe(),
-            size,
-            transfer
-            );
+  printf("(%d) TRANSFER LOCAL SMALL PHASE  %zu\n",
+      CmiMyPe(),
+      size,
+      );
 #endif
 
-        if(transfer){
-          allocatePinnedHostMemory(&bufferHostBuffer, size);
+  allocatePinnedHostMemory(&bufferHostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
-          printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+  printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
-          memcpy(bufferHostBuffer, particles, size);
-        }
-        gravityKernel->addBuffer(bufferHostBuffer, size, transfer, false, transfer);
+  memcpy(bufferHostBuffer, particles, size);
+  hapiCheck(cudaMalloc(&d_smallParts, size));
+  cudaMemcpyAsync(d_smallParts, bufferHostBuffer, size, cudaMemcpyHostToDevice, stream);
+  cudaStreamSynchronize(stream);
 
-	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
-#ifdef HAPI_TRACE
-	gravityKernel->setTraceName("partGravityLocal");
+#ifndef CUDA_NO_KERNELS
+#ifdef CUDA_2D_TB_KERNEL
+  particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>>
+    (
+     data->d_localParts,
+     data->d_localVars,
+     (CompactPartData *)d_smallParts,
+     (ILCell *)data->d_list,
+     data->d_bucketMarkers,
+     data->d_bucketStarts,
+     data->d_bucketSizes,
+     data->fperiod
+    );
+#else
+  particleGravityComputation<<<data->numBucketsPlusOne-1, THREADS_PER_BLOCK, 0, stream>>>
+    (
+     data->d_localParts,
+     data->d_localVars,
+     (CompactPartData *)d_smallParts,
+     (ILCell *)data->d_list,
+     data->d_bucketMarkers,
+     data->d_bucketStarts,
+     data->d_bucketSizes,
+     data->fperiod
+    );
 #endif
-	gravityKernel->setRunKernel(run_TP_PART_GRAVITY_LOCAL_SMALLPHASE);
-#ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chare_index = data->tpIndex;
-        gravityKernel->comp_type = TP_PART_GRAVITY_LOCAL_SMALLPHASE;
-        gravityKernel->comp_phase = data->phase;
+  cudaChk(cudaPeekAtLastError());
 #endif
-	hapiEnqueue(gravityKernel);*/
+
+  cudaStreamSynchronize(stream);
+  hapiCheck(cudaFree(d_smallParts));
+  hapiAddCallback(stream, data->cb);
 }
 
 void TreePiecePartListDataTransferLocal(CudaRequest *data){
