@@ -104,7 +104,7 @@ void freePinnedHostMemory(void *ptr){
 }
 
 void freeDeviceMemory(void *ptr){
-  hapiCheck(cudaFree(ptr));
+  cudaChk(cudaFree(ptr));
 }
 
 /// @brief Transfer local moments, particle data and acceleration fields to GPU memory
@@ -136,13 +136,13 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 
         HAPI_TRACE_BEGIN();
 
-	hapiCheck(cudaMalloc(d_localMoments, sMoments));
-        hapiCheck(cudaMalloc(d_compactParts, sCompactParts));
-        hapiCheck(cudaMalloc(d_varParts, sVarParts));
+	cudaChk(cudaMalloc(d_localMoments, sMoments));
+        cudaChk(cudaMalloc(d_compactParts, sCompactParts));
+        cudaChk(cudaMalloc(d_varParts, sVarParts));
 
-	cudaMemcpyAsync(*d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, stream);
-	cudaMemcpyAsync(*d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, stream);
-	cudaMemcpyAsync(*d_varParts, varParts, sVarParts, cudaMemcpyHostToDevice, stream);
+	cudaChk(cudaMemcpyAsync(*d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
+	cudaChk(cudaMemcpyAsync(*d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, stream));
+	cudaChk(cudaMemcpyAsync(*d_varParts, varParts, sVarParts, cudaMemcpyHostToDevice, stream));
 
 	cudaStreamSynchronize(stream);
 	HAPI_TRACE_END(CUDA_XFER_LOCAL);
@@ -175,10 +175,10 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 
   HAPI_TRACE_BEGIN();
 
-  hapiCheck(cudaMalloc(d_remoteMoments, sMoments));
-  hapiCheck(cudaMalloc(d_remoteParts, sRemoteParts));
-  hapiCheck(cudaMemcpyAsync(*d_remoteMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
-  hapiCheck(cudaMemcpyAsync(*d_remoteParts, remoteParts, sRemoteParts, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMalloc(d_remoteMoments, sMoments));
+  cudaChk(cudaMalloc(d_remoteParts, sRemoteParts));
+  cudaChk(cudaMemcpyAsync(*d_remoteMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMemcpyAsync(*d_remoteParts, remoteParts, sRemoteParts, cudaMemcpyHostToDevice, stream));
 
   cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_XFER_REMOTE);
@@ -240,12 +240,12 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
       );
 
     #endif
-
-	cudaStreamSynchronize(stream);
-	HAPI_TRACE_END(CUDA_GRAV_LOCAL);
-
-	hapiAddCallback(stream, data->cb);
+        cudaChk(cudaPeekAtLastError());
 #endif
+  cudaStreamSynchronize(stream);
+  HAPI_TRACE_END(CUDA_GRAV_LOCAL);
+
+  hapiAddCallback(stream, data->cb);
 }
 
 void TreePieceCellListDataTransferRemote(CudaRequest *data){
@@ -281,8 +281,9 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
         data->d_bucketSizes,
 	data->fperiod
       );
-
+  cudaChk(cudaPeekAtLastError());
 #endif
+
   cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_GRAV_REMOTE);
 
@@ -298,8 +299,8 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
     printf("(%d) TRANSFER REMOTE RESUME CELL (%d)\n", CmiMyPe());
 #endif
 
-    hapiCheck(cudaMalloc(&data->d_missedNodes, data->sMissed));
-    cudaMemcpyAsync(data->d_missedNodes, data->missedNodes, data->sMissed, cudaMemcpyHostToDevice, stream);
+    cudaChk(cudaMalloc(&data->d_missedNodes, data->sMissed));
+    cudaChk(cudaMemcpyAsync(data->d_missedNodes, data->missedNodes, data->sMissed, cudaMemcpyHostToDevice, stream));
     cudaStreamSynchronize(stream);
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
@@ -327,6 +328,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
 	data->d_bucketSizes,
         data->fperiod
 	);
+  cudaChk(cudaPeekAtLastError());
 #endif
   cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_REMOTE_RESUME);
@@ -363,9 +365,8 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
   printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
   memcpy(bufferHostBuffer, particles, size);
-  hapiCheck(cudaMalloc(&d_smallParts, size));
-  cudaMemcpyAsync(d_smallParts, bufferHostBuffer, size, cudaMemcpyHostToDevice, stream);
-  cudaStreamSynchronize(stream);
+  cudaChk(cudaMalloc(&d_smallParts, size));
+  cudaChk(cudaMemcpyAsync(d_smallParts, bufferHostBuffer, size, cudaMemcpyHostToDevice, stream));
 
 #ifndef CUDA_NO_KERNELS
 #ifdef CUDA_2D_TB_KERNEL
@@ -398,7 +399,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 
   cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL_SMALL);
-  hapiCheck(cudaFree(d_smallParts));
+  cudaChk(cudaFree(d_smallParts));
   hapiAddCallback(stream, data->cb);
 }
 
@@ -443,6 +444,7 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
        data->fperiod
       );
     #endif
+    cudaChk(cudaPeekAtLastError());
 #endif
     cudaStreamSynchronize(stream);
     HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL);
@@ -491,6 +493,7 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
        data->fperiod
       );
     #endif
+  cudaChk(cudaPeekAtLastError());
 #endif
     cudaStreamSynchronize(stream);
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
@@ -506,9 +509,8 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
         printf("(%d) TRANSFER REMOTE RESUME PART (%d)\n", CmiMyPe());
 #endif
 
-    hapiCheck(cudaMalloc(&data->d_missedParts, data->sMissed));
-    cudaMemcpyAsync(data->d_missedParts, data->missedParts, data->sMissed, cudaMemcpyHostToDevice, stream);
-    cudaStreamSynchronize(stream);
+    cudaChk(cudaMalloc(&data->d_missedParts, data->sMissed));
+    cudaChk(cudaMemcpyAsync(data->d_missedParts, data->missedParts, data->sMissed, cudaMemcpyHostToDevice, stream));
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TreePiecePartListDataTransferRemoteResume KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_parts (0x%x)\nil_cell: (0x%x)\n", 
@@ -544,6 +546,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
        data->fperiod
       );
    #endif
+   cudaChk(cudaPeekAtLastError());
 #endif
    cudaStreamSynchronize(stream);
    HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
@@ -560,14 +563,14 @@ void TreePieceDataTransferBasic(CudaRequest *data){
     size_t markerSize = (numBucketsPlusOne) * sizeof(int);
     size_t startSize = (numBuckets) * sizeof(int);
 
-    hapiCheck(cudaMalloc(&data->d_list, listSize));
-    hapiCheck(cudaMalloc(&data->d_bucketMarkers, markerSize));
-    hapiCheck(cudaMalloc(&data->d_bucketStarts, startSize));
-    hapiCheck(cudaMalloc(&data->d_bucketSizes, startSize));
-    hapiCheck(cudaMemcpyAsync(data->d_list, data->list, listSize, cudaMemcpyHostToDevice, stream));
-    hapiCheck(cudaMemcpyAsync(data->d_bucketMarkers, data->bucketMarkers, markerSize, cudaMemcpyHostToDevice, stream));
-    hapiCheck(cudaMemcpyAsync(data->d_bucketStarts, data->bucketStarts, startSize, cudaMemcpyHostToDevice, stream));
-    hapiCheck(cudaMemcpyAsync(data->d_bucketSizes, data->bucketSizes, startSize, cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMalloc(&data->d_list, listSize));
+    cudaChk(cudaMalloc(&data->d_bucketMarkers, markerSize));
+    cudaChk(cudaMalloc(&data->d_bucketStarts, startSize));
+    cudaChk(cudaMalloc(&data->d_bucketSizes, startSize));
+    cudaChk(cudaMemcpyAsync(data->d_list, data->list, listSize, cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(data->d_bucketMarkers, data->bucketMarkers, markerSize, cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(data->d_bucketStarts, data->bucketStarts, startSize, cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(data->d_bucketSizes, data->bucketSizes, startSize, cudaMemcpyHostToDevice, stream));
 
     cudaStreamSynchronize(stream);
 
@@ -671,7 +674,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer,
      bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
   
   HAPI_TRACE_BEGIN();
-  cudaMemcpyAsync(hostBuffer, d_varParts, size, cudaMemcpyDeviceToHost, stream);
+  cudaChk(cudaMemcpyAsync(hostBuffer, d_varParts, size, cudaMemcpyDeviceToHost, stream));
   cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_XFER_BACK);
   hapiAddCallback(stream, cb);
@@ -2012,7 +2015,7 @@ void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
 
   HAPI_TRACE_BEGIN();
   int *d_EwaldMarkers;
-  hapiCheck(cudaMalloc(&d_EwaldMarkers, size));
+  cudaChk(cudaMalloc(&d_EwaldMarkers, size));
 
   cudaMemcpyAsync(d_EwaldMarkers, h_idata->EwaldMarkers, size, cudaMemcpyHostToDevice, stream);
   cudaMemcpyToSymbolAsync(cachedData, h_idata->cachedData, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice, stream);
@@ -2031,7 +2034,7 @@ void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
   cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_EWALD);
   hapiAddCallback(stream, cb);
-  hapiCheck(cudaFree(d_EwaldMarkers));
+  cudaChk(cudaFree(d_EwaldMarkers));
 }
 
 __global__ void EwaldKernel(CompactPartData *particleCores, 

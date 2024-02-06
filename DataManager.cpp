@@ -959,7 +959,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
                                sCompactParts, bufLocalVars, sVarParts,
 			       (void **)&d_localMoments, (void **)&d_localParts, (void **)&d_localVars,
 			       streams[0],
-                               CkMyPe(), localTransferCallback);
+                               localTransferCallback);
 #endif
 }// end serializeLocal
 
