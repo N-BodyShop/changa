@@ -537,6 +537,8 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
 #endif
    cudaStreamSynchronize(stream);
    HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
+
+   hapiAddCallback(stream, data->cb);
 }
 
 void TreePieceDataTransferBasic(CudaRequest *data){
