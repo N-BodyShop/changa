@@ -258,6 +258,8 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
     cudaStreamSynchronize(stream);
     HAPI_TRACE_END(CUDA_GRAV_REMOTE);
 #endif
+
+  hapiAddCallback(stream, data->cb);
 }
 
 void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
