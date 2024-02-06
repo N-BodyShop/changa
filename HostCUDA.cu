@@ -189,14 +189,12 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 /************** Gravity *****************/
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data){
-
+	cudaStream_t stream = data->stream;
 	TreePieceDataTransferBasic(data);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) TRANSFER LOCAL CELL\n", CmiMyPe());
 #endif
-
-	cudaStream_t stream = data->stream;
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TRANSFER LOCAL CELL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nremote_moments: (0x%x)\nil_cell: (0x%x)\n", 
@@ -252,8 +250,8 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 
 void TreePieceCellListDataTransferRemote(CudaRequest *data){
 	cudaStream_t stream = data->stream;
-
         TreePieceDataTransferBasic(data);
+
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) TRANSFER REMOTE CELL\n", CmiMyPe());
 #endif
@@ -293,13 +291,12 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 
 void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
 
+    cudaStream_t stream = data->stream;
     TreePieceDataTransferBasic(data);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
     printf("(%d) TRANSFER REMOTE RESUME CELL (%d)\n", CmiMyPe());
 #endif
-
-    cudaStream_t stream = data->stream;
 
     hapiCheck(cudaMalloc(&data->d_missedNodes, data->sMissed));
     cudaMemcpyAsync(data->d_missedNodes, data->missedNodes, data->sMissed, cudaMemcpyHostToDevice, stream);
@@ -338,8 +335,9 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
 }
 
 void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *particles, int len){
-  TreePieceDataTransferBasic(data);
   cudaStream_t stream = data->stream;
+  TreePieceDataTransferBasic(data);
+
   size_t size = (len) * sizeof(CompactPartData);
   void* bufferHostBuffer;
   void* d_smallParts;
@@ -405,8 +403,8 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 }
 
 void TreePiecePartListDataTransferLocal(CudaRequest *data){
-    TreePieceDataTransferBasic(data);
     cudaStream_t stream = data->stream;
+    TreePieceDataTransferBasic(data);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
     printf("(%d) TRANSFER LOCAL LARGEPHASE PART\n", CmiMyPe());
@@ -448,24 +446,25 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
 #endif
     cudaStreamSynchronize(stream);
     HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL);
+
     hapiAddCallback(stream, data->cb);
 }
 
 void TreePiecePartListDataTransferRemote(CudaRequest *data){
+    cudaStream_t stream = data->stream;
+    TreePieceDataTransferBasic(data);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) TRANSFER REMOTE PART\n", CmiMyPe());
 #endif
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("TP_PART_GRAVITY_REMOTE KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: (0x%x)\n",
+  printf("TreePiecePartListDataTransferRemote KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: (0x%x)\n",
       data->d_localParts,
       data->d_localVars,
       data->d_list
       );
 #endif
-
-    cudaStream_t stream = data->stream;
 
     HAPI_TRACE_BEGIN();
 #ifndef CUDA_NO_KERNELS
@@ -500,8 +499,8 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 }
 
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
-    TreePieceDataTransferBasic(data);
     cudaStream_t stream = data->stream;
+    TreePieceDataTransferBasic(data);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
         printf("(%d) TRANSFER REMOTE RESUME PART (%d)\n", CmiMyPe());
@@ -512,7 +511,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
     cudaStreamSynchronize(stream);
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("TP_PART_GRAVITY_REMOTE_RESUME KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_parts (0x%x)\nil_cell: (0x%x)\n", 
+  printf("TreePiecePartListDataTransferRemoteResume KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_parts (0x%x)\nil_cell: (0x%x)\n", 
       data->d_localParts,
       data->d_localVars,
       data->d_missedParts,
@@ -553,13 +552,13 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
 }
 
 void TreePieceDataTransferBasic(CudaRequest *data){
+    cudaStream_t stream = data->stream;
+
     int numBucketsPlusOne = data->numBucketsPlusOne;
     int numBuckets = numBucketsPlusOne-1;
     size_t listSize = (data->numInteractions) * sizeof(ILCell);
     size_t markerSize = (numBucketsPlusOne) * sizeof(int);
     size_t startSize = (numBuckets) * sizeof(int);
-
-    cudaStream_t stream = data->stream;
 
     hapiCheck(cudaMalloc(&data->d_list, listSize));
     hapiCheck(cudaMalloc(&data->d_bucketMarkers, markerSize));
