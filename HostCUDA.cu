@@ -654,7 +654,6 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer,
   
   HAPI_TRACE_BEGIN();
   cudaChk(cudaMemcpyAsync(hostBuffer, d_varParts, size, cudaMemcpyDeviceToHost, stream));
-  cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_XFER_BACK);
   hapiAddCallback(stream, cb);
 }
@@ -2010,7 +2009,6 @@ void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
                                                          d_localVars,
 							 NULL, 0,
 							 h_idata->EwaldRange[0], h_idata->EwaldRange[1]);
-  cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_EWALD);
   hapiAddCallback(stream, cb);
   cudaChk(cudaFree(d_EwaldMarkers));
