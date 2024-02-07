@@ -612,65 +612,6 @@ TP_PART_GRAVITY_REMOTE_RESUME
 
  */
 
-void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart){
-  /*hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freemom, LOCAL_MOMENTS);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freepart, LOCAL_PARTICLE_CORES);
-
-#ifdef HAPI_TRACE
-  gravityKernel->setTraceName("freeLocal");
-#endif
-  gravityKernel->setRunKernel(run_DM_TRANSFER_FREE_LOCAL);
-  //printf("DM TRANSFER FREE LOCAL\n");
-  hapiEnqueue(gravityKernel);*/
-
-}
-
-// this function begins the transfer of the next
-// pending chunk on dm, once we are assured that
-// the previous chunk's allocated memory has been
-// freed
-void initiateNextChunkTransfer(void *dm);
-
-void run_DM_TRANSFER_FREE_REMOTE_CHUNK(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("DM_TRANSFER_FREE_REMOTE_CHUNK KERNELSELECT\n");
-
-#endif
-  initiateNextChunkTransfer(wr->getUserData());
-}
-
-
-void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool freepart){
-  /*hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freemom, REMOTE_MOMENTS);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freepart, REMOTE_PARTICLE_CORES);
-
-#ifdef HAPI_TRACE
-  gravityKernel->setTraceName("freeRemote");
-#endif
-  gravityKernel->setRunKernel(run_DM_TRANSFER_FREE_REMOTE_CHUNK);
-
-  // save a pointer to the data manager so that
-  // the next chunk's transfer can be initiated once
-  // the memory for this chunk has been freed
-  gravityKernel->setUserData(dm);
-  //printf("DM TRANSFER FREE REMOTE CHUNK\n");
-  hapiEnqueue(gravityKernel);*/
-
-}
-
-
-void run_DM_TRANSFER_BACK(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("DM_TRANSFER_BACK: 0x%x KERNELSELECT\n", devBuffers[LOCAL_PARTICLE_VARS]);
-#endif
-}
-
 /* Schedule the transfer of the accelerations back from the GPU to the host.
  * This also schedules the freeing of the device buffers used for the
  * force calculation.

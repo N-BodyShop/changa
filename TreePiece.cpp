@@ -3760,7 +3760,6 @@ void TreePiece::finishBucket(int iBucket) {
       // not be reset, so that the data manager gets 
       // confused.
       dm->transferParticleVarsBack();
-      //dm->freeLocalTreeMemory();
 #else
       // move on to markwalkdone in non-cuda version
       continueWrapUp();
@@ -4608,12 +4607,6 @@ void TreePiece::executeCkLoopParallelization(LoopParData *lpdata,
   CkAbort("CkLoop not implemented for non-interaction list gravity");
 #endif
 }
-
-#ifdef CUDA
-void TreePiece::callFreeRemoteChunkMemory(int chunk){
-  dm->freeRemoteChunkMemory(chunk);
-}
-#endif
 
 #if INTERLIST_VER > 0
 /// @brief return the largest node which contains current bucket, but

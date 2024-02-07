@@ -203,8 +203,6 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 				  void **d_remoteMoments, void **d_remoteParts,
 				  cudaStream_t stream,
                                   void *callback);
-void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
-void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
 /** @brief Transfer forces from the GPU back to the host.
  *  @param hostBuffer Buffer to store results.
  *  @param size hostBuffer size.

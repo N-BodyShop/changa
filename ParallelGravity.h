@@ -909,8 +909,6 @@ class TreePiece : public CBase_TreePiece {
         	return numBuckets;
         }
 
-        void callFreeRemoteChunkMemory(int chunk);
-
         int getActiveRung(){ return activeRung; }
         // returns either all particles or only active particles,
         // depending on fraction of active particles to their
