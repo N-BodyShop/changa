@@ -293,20 +293,21 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr *devPtr = new CudaDevPtr;
+  void *d_missedNodes;
   TreePieceDataTransferBasic(data, devPtr);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) TRANSFER REMOTE RESUME CELL\n", CmiMyPe());
 #endif
 
-  cudaChk(cudaMalloc(&data->d_missedNodes, data->sMissed));
-  cudaChk(cudaMemcpyAsync(data->d_missedNodes, data->missedNodes, data->sMissed, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMalloc(&d_missedNodes, data->sMissed));
+  cudaChk(cudaMemcpyAsync(d_missedNodes, data->missedNodes, data->sMissed, cudaMemcpyHostToDevice, stream));
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TRANSFER REMOTE RESUME CELL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_moments (0x%x)\nil_cell (0x%x)\n", 
         data->d_localParts,
 	data->d_localVars,
-	data->d_missedNodes,
+	d_missedNodes,
 	devPtr->d_list
       );
 #endif
@@ -320,7 +321,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
     nodeGravityComputation<<<data->numBucketsPlusOne-1, dimensions, 0, stream>>> (
       data->d_localParts,
       data->d_localVars,
-      data->d_missedNodes,
+      (CudaMultipoleMoments *)d_missedNodes,
       (ILCell *)devPtr->d_list,
       devPtr->d_bucketMarkers,
       devPtr->d_bucketStarts,
@@ -329,6 +330,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
       );
 #endif
   TreePieceDataTransferBasicCleanup(devPtr);
+  cudaChk(cudaFree(d_missedNodes));
   cudaChk(cudaPeekAtLastError());
   cudaStreamSynchronize(stream);
   delete devPtr;
@@ -512,20 +514,21 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr *devPtr = new CudaDevPtr;
+  void* d_missedParts;
   TreePieceDataTransferBasic(data, devPtr);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) TRANSFER REMOTE RESUME PART\n", CmiMyPe());
 #endif
 
-  cudaChk(cudaMalloc(&data->d_missedParts, data->sMissed));
-  cudaChk(cudaMemcpyAsync(data->d_missedParts, data->missedParts, data->sMissed, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMalloc(&d_missedParts, data->sMissed));
+  cudaChk(cudaMemcpyAsync(d_missedParts, data->missedParts, data->sMissed, cudaMemcpyHostToDevice, stream));
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
   printf("TreePiecePartListDataTransferRemoteResume KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_parts (0x%x)\nil_cell: (0x%x) (0x%x)\n", 
         data->d_localParts,
         data->d_localVars,
-        data->d_missedParts,
+        (CompactPartData *)d_missedParts,
 	data->list,
         devPtr->d_list
         );
@@ -537,7 +540,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
   particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
     data->d_localParts,
     data->d_localVars,
-    data->d_missedParts,
+    (CompactPartData *)d_missedParts,
     (ILCell *)devPtr->d_list,
     devPtr->d_bucketMarkers,
     devPtr->d_bucketStarts,
@@ -548,7 +551,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
   particleGravityComputation<<<data->numBucketsPlusOne-1, THREADS_PER_BLOCK, 0, stream>>> (
     data->d_localParts,
     data->d_localVars,
-    data->d_missedParts,
+    (CompactPartData *)d_missedParts,
     (ILPart *)devPtr->d_list,
     devPtr->d_bucketMarkers,
     devPtr->d_bucketStarts,
@@ -558,6 +561,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
 #endif
 #endif
   TreePieceDataTransferBasicCleanup(devPtr);
+  cudaChk(cudaFree(d_missedParts));
   cudaChk(cudaPeekAtLastError());
   cudaStreamSynchronize(stream);
   delete devPtr;

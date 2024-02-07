@@ -2024,11 +2024,9 @@ void cudaCallback(void *param, void *msg){
   freePinnedHostMemory(data->bucketSizes);
   if(data->missedNodes) {
       freePinnedHostMemory(data->missedNodes);
-      hapiCheck(cudaFree(data->d_missedNodes));
   }
   if(data->missedParts) {
       freePinnedHostMemory(data->missedParts);
-      hapiCheck(cudaFree(data->d_missedParts));
   }
   
   delete ((CkCallback *)data->cb);
@@ -2156,7 +2154,6 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
   data->d_localParts = tp->d_localParts;
   data->d_localVars = tp->d_localVars;
   data->d_remoteParts = tp->d_remoteParts;
-  data->d_missedParts = tp->d_missedParts;
   data->stream = tp->stream;
 
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS

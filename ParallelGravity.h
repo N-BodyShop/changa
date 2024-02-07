@@ -895,9 +895,7 @@ class TreePiece : public CBase_TreePiece {
 	// For accessing GPU memory
 	CudaMultipoleMoments *d_localMoments;
         CudaMultipoleMoments *d_remoteMoments;
-        CudaMultipoleMoments *d_missedNodes;
         CompactPartData *d_localParts;
-        CompactPartData *d_missedParts;
 	CompactPartData *d_remoteParts;
         VariablePartData *d_localVars;
         size_t sMoments;
