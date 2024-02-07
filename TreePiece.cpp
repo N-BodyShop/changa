@@ -4064,8 +4064,6 @@ void TreePiece::calculateEwald(EwaldMsg *msg) {
   delete msg;
 #else
 
-void TreePiece::calculateEwald(dummyMsg *msg) {
-
   bool useckloop = false;
   int yield_num = _yieldPeriod;
 
