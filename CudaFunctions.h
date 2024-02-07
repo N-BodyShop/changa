@@ -4,7 +4,8 @@
 #ifdef CUDA
 #include "hapi.h"
 #include "HostCUDA.h"
-void TreePieceDataTransferBasic(CudaRequest *data);
+void TreePieceDataTransferBasic(CudaRequest *data, CudaDevPtr *ptr);
+void TreePieceDataTransferBasicCleanup(CudaDevPtr *ptr);
 
 #ifdef GPU_LOCAL_TREE_WALK
 __global__ void gpuLocalTreeWalk(

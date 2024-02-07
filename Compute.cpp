@@ -1401,11 +1401,6 @@ void cudaCallbackForAllBuckets(void *param, void *msg) {
   freePinnedHostMemory(data->bucketStarts);
   freePinnedHostMemory(data->bucketSizes);
 
-  hapiCheck(cudaFree(data->d_list));
-  hapiCheck(cudaFree(data->d_bucketMarkers));
-  hapiCheck(cudaFree(data->d_bucketStarts));
-  hapiCheck(cudaFree(data->d_bucketSizes));
-
 #ifdef CUDA_PRINT_ERRORS
     printf("cudaCallbackForAllBuckets: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -2160,6 +2155,8 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 
   data->d_localParts = tp->d_localParts;
   data->d_localVars = tp->d_localVars;
+  data->d_remoteParts = tp->d_remoteParts;
+  data->d_missedParts = tp->d_missedParts;
   data->stream = tp->stream;
 
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS

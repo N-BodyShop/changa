@@ -116,12 +116,6 @@ typedef struct _CudaRequest{
 	size_t sMoments;
 	size_t sCompactParts;
 	size_t sVarParts;
-
-	void *d_list;
-	int *d_bucketMarkers;
-	int *d_bucketStarts;
-	int *d_bucketSizes;
-
 	cudaStream_t stream;
 
         /// can either be a ILCell* or an ILPart*
@@ -186,6 +180,13 @@ typedef struct _ParameterStruct{
   cudatype fperiodZ;  // Support periodic boundary condition in more dimensions
 #endif //GPU_LOCAL_TREE_WALK
 }ParameterStruct;
+
+typedef struct _CudaDevPtr{
+    void *d_list;
+    int *d_bucketMarkers;
+    int *d_bucketStarts;
+    int *d_bucketSizes;
+}CudaDevPtr;
 
 void allocatePinnedHostMemory(void **, size_t);
 void freePinnedHostMemory(void *);

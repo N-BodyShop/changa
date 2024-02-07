@@ -125,7 +125,7 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) DM LOCAL TREE moments %zu partcores %zu partvars %zu\n",
            CmiMyPe(),
-           sLocalMoments,
+           sMoments,
            sCompactParts,
            sVarParts
            );
@@ -165,7 +165,7 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
   printf("(%d) DM REMOTE CHUNK moments %zu partcores %zu\n",
         CmiMyPe(),
         sMoments,
-        sRemoteParts,
+        sRemoteParts
         );
 #endif
 
@@ -186,7 +186,8 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data){
   cudaStream_t stream = data->stream;
-  TreePieceDataTransferBasic(data);
+  CudaDevPtr *devPtr = new CudaDevPtr;
+  TreePieceDataTransferBasic(data, devPtr);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) TRANSFER LOCAL CELL\n", CmiMyPe());
@@ -197,7 +198,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 	data->d_localParts,
 	data->d_localVars,
 	data->d_localMoments,
-	data->d_list
+	devPtr->d_list
       );
 #endif
 
@@ -228,16 +229,18 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
     data->d_localParts,
     data->d_localVars,
     data->d_localMoments,
-    (ILCell *)data->d_list,
-    data->d_bucketMarkers,
-    data->d_bucketStarts,
-    data->d_bucketSizes,
+    (ILCell *)devPtr->d_list,
+    devPtr->d_bucketMarkers,
+    devPtr->d_bucketStarts,
+    devPtr->d_bucketSizes,
     data->fperiod
     );
 #endif
-  cudaChk(cudaPeekAtLastError());
 #endif
+  TreePieceDataTransferBasicCleanup(devPtr);
+  cudaChk(cudaPeekAtLastError());
   cudaStreamSynchronize(stream);
+  delete devPtr;
   HAPI_TRACE_END(CUDA_GRAV_LOCAL);
 
   hapiAddCallback(stream, data->cb);
@@ -245,7 +248,8 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 
 void TreePieceCellListDataTransferRemote(CudaRequest *data){
   cudaStream_t stream = data->stream;
-  TreePieceDataTransferBasic(data);
+  CudaDevPtr *devPtr = new CudaDevPtr;
+  TreePieceDataTransferBasic(data, devPtr);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) TRANSFER REMOTE CELL\n", CmiMyPe());
@@ -256,7 +260,7 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 	data->d_localParts,
 	data->d_localVars,
 	data->d_remoteMoments,
-	data->d_list
+	devPtr->d_list
         );
 #endif
 
@@ -270,16 +274,17 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
     data->d_localParts,
     data->d_localVars,
     data->d_remoteMoments,
-    (ILCell *)data->d_list, 
-    data->d_bucketMarkers,
-    data->d_bucketStarts,
-    data->d_bucketSizes,
+    (ILCell *)devPtr->d_list, 
+    devPtr->d_bucketMarkers,
+    devPtr->d_bucketStarts,
+    devPtr->d_bucketSizes,
     data->fperiod
-    );
-  cudaChk(cudaPeekAtLastError());
+    ); 
 #endif
-
+  TreePieceDataTransferBasicCleanup(devPtr);
+  cudaChk(cudaPeekAtLastError());
   cudaStreamSynchronize(stream);
+  delete devPtr;
   HAPI_TRACE_END(CUDA_GRAV_REMOTE);
 
   hapiAddCallback(stream, data->cb);
@@ -287,10 +292,11 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 
 void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
   cudaStream_t stream = data->stream;
-  TreePieceDataTransferBasic(data);
+  CudaDevPtr *devPtr = new CudaDevPtr;
+  TreePieceDataTransferBasic(data, devPtr);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("(%d) TRANSFER REMOTE RESUME CELL (%d)\n", CmiMyPe());
+  printf("(%d) TRANSFER REMOTE RESUME CELL\n", CmiMyPe());
 #endif
 
   cudaChk(cudaMalloc(&data->d_missedNodes, data->sMissed));
@@ -301,7 +307,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
         data->d_localParts,
 	data->d_localVars,
 	data->d_missedNodes,
-	data->d_list,
+	devPtr->d_list
       );
 #endif
 
@@ -315,15 +321,17 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
       data->d_localParts,
       data->d_localVars,
       data->d_missedNodes,
-      (ILCell *)data->d_list,
-      data->d_bucketMarkers,
-      data->d_bucketStarts,
-      data->d_bucketSizes,
+      (ILCell *)devPtr->d_list,
+      devPtr->d_bucketMarkers,
+      devPtr->d_bucketStarts,
+      devPtr->d_bucketSizes,
       data->fperiod
       );
-  cudaChk(cudaPeekAtLastError());
 #endif
+  TreePieceDataTransferBasicCleanup(devPtr);
+  cudaChk(cudaPeekAtLastError());
   cudaStreamSynchronize(stream);
+  delete devPtr;
   HAPI_TRACE_END(CUDA_REMOTE_RESUME);
 
   hapiAddCallback(stream, data->cb);
@@ -331,7 +339,8 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
 
 void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *particles, int len){
   cudaStream_t stream = data->stream;
-  TreePieceDataTransferBasic(data);
+  CudaDevPtr *devPtr = new CudaDevPtr;
+  TreePieceDataTransferBasic(data, devPtr);
 
   size_t size = (len) * sizeof(CompactPartData);
   void* bufferHostBuffer;
@@ -341,14 +350,14 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
   printf("TreePiecePartListDataTransferLocalSmallPhase KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: (0x%x)\n",
       data->d_localParts,
       data->d_localVars,
-      data->d_list
+      devPtr->d_list
       );
 #endif
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) TRANSFER LOCAL SMALL PHASE  %zu\n",
       CmiMyPe(),
-      size,
+      size
       );
 #endif
 
@@ -367,10 +376,10 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
     data->d_localParts,
     data->d_localVars,
     (CompactPartData *)d_smallParts,
-    (ILCell *)data->d_list,
-    data->d_bucketMarkers,
-    data->d_bucketStarts,
-    data->d_bucketSizes,
+    (ILCell *)devPtr->d_list,
+    devPtr->d_bucketMarkers,
+    devPtr->d_bucketStarts,
+    devPtr->d_bucketSizes,
     data->fperiod
     );
 #else
@@ -378,17 +387,18 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
     data->d_localParts,
     data->d_localVars,
     (CompactPartData *)d_smallParts,
-    (ILCell *)data->d_list,
-    data->d_bucketMarkers,
-    data->d_bucketStarts,
-    data->d_bucketSizes,
+    (ILCell *)devPtr->d_list,
+    devPtr->d_bucketMarkers,
+    devPtr->d_bucketStarts,
+    devPtr->d_bucketSizes,
     data->fperiod
     );
 #endif
-  cudaChk(cudaPeekAtLastError());
 #endif
-
+  TreePieceDataTransferBasicCleanup(devPtr);
+  cudaChk(cudaPeekAtLastError());
   cudaStreamSynchronize(stream);
+  delete devPtr;
   HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL_SMALL);
   cudaChk(cudaFree(d_smallParts));
   hapiAddCallback(stream, data->cb);
@@ -396,7 +406,8 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 
 void TreePiecePartListDataTransferLocal(CudaRequest *data){
   cudaStream_t stream = data->stream;
-  TreePieceDataTransferBasic(data);
+  CudaDevPtr *devPtr = new CudaDevPtr;
+  TreePieceDataTransferBasic(data, devPtr);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) TRANSFER LOCAL LARGEPHASE PART\n", CmiMyPe());
@@ -406,7 +417,7 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
   printf("TreePiecePartListDataTransferLocal buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: (0x%x)\n",
         data->d_localParts,
         data->d_localVars,
-        data->d_list
+        devPtr->d_list
         );
 #endif
 
@@ -417,10 +428,10 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
     data->d_localParts,
     data->d_localVars,
     data->d_localParts,
-    (ILCell *)data->d_list,
-    data->d_bucketMarkers,
-    data->d_bucketStarts,
-    data->d_bucketSizes,
+    (ILCell *)devPtr->d_list,
+    devPtr->d_bucketMarkers,
+    devPtr->d_bucketStarts,
+    devPtr->d_bucketSizes,
     data->fperiod
     );
 #else
@@ -428,16 +439,18 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
     data->d_localParts,
     data->d_localVars,
     data->d_localParts,
-    (ILPart *)data->d_list,
-    data->d_bucketMarkers,
-    data->d_bucketStarts,
-    data->d_bucketSizes,
+    (ILPart *)devPtr->d_list,
+    devPtr->d_bucketMarkers,
+    devPtr->d_bucketStarts,
+    devPtr->d_bucketSizes,
     data->fperiod
     );
 #endif
-  cudaChk(cudaPeekAtLastError());
 #endif
+  TreePieceDataTransferBasicCleanup(devPtr);
+  cudaChk(cudaPeekAtLastError());
   cudaStreamSynchronize(stream);
+  delete devPtr;
   HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL);
 
   hapiAddCallback(stream, data->cb);
@@ -445,17 +458,19 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
 
 void TreePiecePartListDataTransferRemote(CudaRequest *data){
   cudaStream_t stream = data->stream;
-  TreePieceDataTransferBasic(data);
+  CudaDevPtr *devPtr = new CudaDevPtr;
+  TreePieceDataTransferBasic(data, devPtr);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) TRANSFER REMOTE PART\n", CmiMyPe());
 #endif
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("TreePiecePartListDataTransferRemote KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: (0x%x)\n",
+  printf("TreePiecePartListDataTransferRemote KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: (0x%x) (0x%x)\n",
         data->d_localParts,
         data->d_localVars,
-        data->d_list
+	data->list,
+        devPtr->d_list
         );
 #endif
 
@@ -466,10 +481,10 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
     data->d_localParts,
     data->d_localVars,
     data->d_remoteParts,
-    (ILCell *)data->d_list,
-    data->d_bucketMarkers,
-    data->d_bucketStarts,
-    data->d_bucketSizes,
+    (ILCell *)devPtr->d_list,
+    devPtr->d_bucketMarkers,
+    devPtr->d_bucketStarts,
+    devPtr->d_bucketSizes,
     data->fperiod
     );
 #else
@@ -477,16 +492,18 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
     data->d_localParts,
     data->d_localVars,
     data->d_remoteParts,
-    (ILPart *)data->d_list,
-    data->d_bucketMarkers,
-    data->d_bucketStarts,
-    data->d_bucketSizes,
+    (ILPart *)devPtr->d_list,
+    devPtr->d_bucketMarkers,
+    devPtr->d_bucketStarts,
+    devPtr->d_bucketSizes,
     data->fperiod
     );
 #endif
-  cudaChk(cudaPeekAtLastError());
 #endif
+  TreePieceDataTransferBasicCleanup(devPtr);
+  cudaChk(cudaPeekAtLastError());
   cudaStreamSynchronize(stream);
+  delete devPtr;
   HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
 
   hapiAddCallback(stream, data->cb);
@@ -494,21 +511,23 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
   cudaStream_t stream = data->stream;
-  TreePieceDataTransferBasic(data);
+  CudaDevPtr *devPtr = new CudaDevPtr;
+  TreePieceDataTransferBasic(data, devPtr);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("(%d) TRANSFER REMOTE RESUME PART (%d)\n", CmiMyPe());
+  printf("(%d) TRANSFER REMOTE RESUME PART\n", CmiMyPe());
 #endif
 
   cudaChk(cudaMalloc(&data->d_missedParts, data->sMissed));
   cudaChk(cudaMemcpyAsync(data->d_missedParts, data->missedParts, data->sMissed, cudaMemcpyHostToDevice, stream));
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("TreePiecePartListDataTransferRemoteResume KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_parts (0x%x)\nil_cell: (0x%x)\n", 
+  printf("TreePiecePartListDataTransferRemoteResume KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_parts (0x%x)\nil_cell: (0x%x) (0x%x)\n", 
         data->d_localParts,
         data->d_localVars,
         data->d_missedParts,
-        data->d_list
+	data->list,
+        devPtr->d_list
         );
 #endif
 
@@ -518,34 +537,36 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
   particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
     data->d_localParts,
     data->d_localVars,
-    data->d_remoteParts,
-    (ILCell *)data->d_list,
-    data->d_bucketMarkers,
-    data->d_bucketStarts,
-    data->d_bucketSizes,
+    data->d_missedParts,
+    (ILCell *)devPtr->d_list,
+    devPtr->d_bucketMarkers,
+    devPtr->d_bucketStarts,
+    devPtr->d_bucketSizes,
     data->fperiod
     );
 #else
   particleGravityComputation<<<data->numBucketsPlusOne-1, THREADS_PER_BLOCK, 0, stream>>> (
     data->d_localParts,
     data->d_localVars,
-    data->d_remoteParts,
-    (ILPart *)data->d_list,
-    data->d_bucketMarkers,
-    data->d_bucketStarts,
-    data->d_bucketSizes,
+    data->d_missedParts,
+    (ILPart *)devPtr->d_list,
+    devPtr->d_bucketMarkers,
+    devPtr->d_bucketStarts,
+    devPtr->d_bucketSizes,
     data->fperiod
     );
 #endif
-  cudaChk(cudaPeekAtLastError());
 #endif
+  TreePieceDataTransferBasicCleanup(devPtr);
+  cudaChk(cudaPeekAtLastError());
   cudaStreamSynchronize(stream);
+  delete devPtr;
   HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
 
   hapiAddCallback(stream, data->cb);
 }
 
-void TreePieceDataTransferBasic(CudaRequest *data){
+void TreePieceDataTransferBasic(CudaRequest *data, CudaDevPtr *ptr){
   cudaStream_t stream = data->stream;
 
   int numBucketsPlusOne = data->numBucketsPlusOne;
@@ -554,23 +575,30 @@ void TreePieceDataTransferBasic(CudaRequest *data){
   size_t markerSize = (numBucketsPlusOne) * sizeof(int);
   size_t startSize = (numBuckets) * sizeof(int);
 
-  cudaChk(cudaMalloc(&data->d_list, listSize));
-  cudaChk(cudaMalloc(&data->d_bucketMarkers, markerSize));
-  cudaChk(cudaMalloc(&data->d_bucketStarts, startSize));
-  cudaChk(cudaMalloc(&data->d_bucketSizes, startSize));
-  cudaChk(cudaMemcpyAsync(data->d_list, data->list, listSize, cudaMemcpyHostToDevice, stream));
-  cudaChk(cudaMemcpyAsync(data->d_bucketMarkers, data->bucketMarkers, markerSize, cudaMemcpyHostToDevice, stream));
-  cudaChk(cudaMemcpyAsync(data->d_bucketStarts, data->bucketStarts, startSize, cudaMemcpyHostToDevice, stream));
-  cudaChk(cudaMemcpyAsync(data->d_bucketSizes, data->bucketSizes, startSize, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMalloc(&ptr->d_list, listSize));
+  cudaChk(cudaMalloc(&ptr->d_bucketMarkers, markerSize));
+  cudaChk(cudaMalloc(&ptr->d_bucketStarts, startSize));
+  cudaChk(cudaMalloc(&ptr->d_bucketSizes, startSize));
+  cudaChk(cudaMemcpyAsync(ptr->d_list, data->list, listSize, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMemcpyAsync(ptr->d_bucketMarkers, data->bucketMarkers, markerSize, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMemcpyAsync(ptr->d_bucketStarts, data->bucketStarts, startSize, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMemcpyAsync(ptr->d_bucketSizes, data->bucketSizes, startSize, cudaMemcpyHostToDevice, stream));
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
     printf("(%d) TRANSFER BASIC %zu bucket_markers %zu bucket_starts %zu\n",
            CmiMyPe(),
            listSize,
            markerSize,
-           startSize,
+           startSize
            );
 #endif
+}
+
+void TreePieceDataTransferBasicCleanup(CudaDevPtr *ptr){
+  cudaChk(cudaFree(ptr->d_list));
+  cudaChk(cudaFree(ptr->d_bucketMarkers));
+  cudaChk(cudaFree(ptr->d_bucketStarts));
+  cudaChk(cudaFree(ptr->d_bucketSizes));
 }
 
 /* kernels:
