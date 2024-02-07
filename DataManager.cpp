@@ -1000,9 +1000,7 @@ void DataManager::transferParticleVarsBack(){
                              savedNumTotalParticles*sizeof(VariablePartData),
 			     d_localVars,
 			     streams[0],
-                             data->cb, savedNumTotalNodes > 0,
-                             savedNumTotalParticles > 0, lastChunkMoments > 0,
-                             lastChunkParticles > 0);
+                             data->cb);
     
     cudaFree(d_localMoments);
     cudaFree(d_localParts);

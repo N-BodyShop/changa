@@ -203,19 +203,8 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 				  void **d_remoteMoments, void **d_remoteParts,
 				  cudaStream_t stream,
                                   void *callback);
-/** @brief Transfer forces from the GPU back to the host.
- *  @param hostBuffer Buffer to store results.
- *  @param size hostBuffer size.
- *  @param cb Callback when transfer is done.
- *  @param freemom Boolean: free device buffer with local moment data.
- *  @param freepart Boolean: free device buffer with local particle data.
- *  @param freeRemoteMom Boolean: free device buffer with remote
- *  moment data.
- *  @param freeRemotePart Boolean: free device buffer with remote
- *  particle data.
- */
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb,
-    bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart);
+
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb);
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
 void TreePieceCellListDataTransferRemote(CudaRequest *data);

@@ -612,14 +612,20 @@ TP_PART_GRAVITY_REMOTE_RESUME
 
  */
 
-/* Schedule the transfer of the accelerations back from the GPU to the host.
- * This also schedules the freeing of the device buffers used for the
- * force calculation.
+/** @brief Transfer forces from the GPU back to the host. Also schedules
+ *         the freeing of the device buffers used for the force calculation.
+ *  @param hostBuffer Buffer to store results.
+ *  @param size hostBuffer size.
+ *  @param cb Callback when transfer is done.
+ *  @param freemom Boolean: free device buffer with local moment data.
+ *  @param freepart Boolean: free device buffer with local particle data.
+ *  @param freeRemoteMom Boolean: free device buffer with remote
+ *  moment data.
+ *  @param freeRemotePart Boolean: free device buffer with remote
+ *  particle data.
  */
-void TransferParticleVarsBack(VariablePartData *hostBuffer, 
-		size_t size, void *d_varParts,
-     cudaStream_t stream, void *cb,
-     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts,
+                              cudaStream_t stream, void *cb){
   
   HAPI_TRACE_BEGIN();
   cudaChk(cudaMemcpyAsync(hostBuffer, d_varParts, size, cudaMemcpyDeviceToHost, stream));
