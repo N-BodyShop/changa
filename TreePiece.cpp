@@ -3804,6 +3804,15 @@ void TreePiece::finishBucket(int iBucket) {
 
 #ifdef CUDA
 /// @brief Fill GPU buffer with particle data
+/// @param bufLocalParts GPU buffer for particles
+/// @param bufLocalMoments GPU buffer for Moments
+/// @param pLocalMoments pointer to vector of Moments to be copied into the GPU
+/// buffer
+/// @param partIndex index into bufLocalParts at which to copy this
+/// TreePieces particles
+/// @param nParts total number of particles to be transfered to the
+/// GPU (pass through)
+/// @param node Root node of tree walk (pass through)
 void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
                               intptr_t bufLocalMoments,
                               intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node)

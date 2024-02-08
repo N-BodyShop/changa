@@ -2669,9 +2669,9 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
   return;
 }
 
+// initialize accelerations and potentials to zero
 __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     int id;
-    //id = First + blockIdx.x * BLOCK_SIZE + threadIdx.x;
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
 

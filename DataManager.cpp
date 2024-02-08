@@ -779,8 +779,8 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
 }// end serializeNodes
 
 /// @brief gather local nodes and particles and send to GPU
-/// @param node Root of tree to walk.
-void DataManager::serializeLocal(GenericTreeNode *node){
+/// @param nodeRoot Root of tree to walk.
+void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
   /// queue for breadth first treewalk.
   CkQ<GenericTreeNode *> queue;
 
@@ -810,7 +810,7 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 #endif
   double  starttime = CmiWallTimer();
   // Walk local tree
-  queue.enq(node);
+  queue.enq(nodeRoot);
   while(!queue.isEmpty()){
     GenericTreeNode *node = queue.deq();
     NodeType type = node->getType();
@@ -847,7 +847,6 @@ void DataManager::serializeLocal(GenericTreeNode *node){
 
   // used later, when copying particle vars back to the host
   savedNumTotalParticles = numParticles;
-  localParticles.resize(numParticles);
   savedNumTotalNodes = localMoments.length();
 
 
@@ -868,13 +867,15 @@ void DataManager::serializeLocal(GenericTreeNode *node){
   for(int i = 0; i < numTreePieces; i++){
       treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer((intptr_t) bufLocalParts,
 		      (intptr_t) bufLocalMoments, (intptr_t) localMoments.getVec(), pTPindex,
-		      numParticles, (intptr_t) node);
+		      numParticles, (intptr_t) nodeRoot);
       pTPindex += registeredTreePieces[i].treePiece->getDMNumParticles();
       }
 }
 
 ///
 /// @brief After all pieces have filled the buffer, initiate the transfer.
+/// @param numParticles total number of particles on this node
+/// @param node root of tree
 ///
 void DataManager::transferLocalToGPU(int numParticles, GenericTreeNode *node)
 {

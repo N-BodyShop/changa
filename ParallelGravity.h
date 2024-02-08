@@ -1021,7 +1021,7 @@ class TreePiece : public CBase_TreePiece {
         void continueStartRemoteChunk(int chunk);
 #ifdef CUDA
        void fillGPUBuffer(intptr_t bufLocalParts,
-		          intptr_t bufLocalMoments,
+                          intptr_t bufLocalMoments,
                           intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
         void updateParticles(intptr_t data, int partIndex);
 #endif
