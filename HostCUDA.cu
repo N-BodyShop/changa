@@ -620,17 +620,6 @@ void TreePieceDataTransferBasicCleanup(CudaDevPtr *ptr){
   cudaChk(cudaFree(ptr->d_bucketSizes));
 }
 
-/* kernels:
-
-TP_GRAVITY_LOCAL,
-TP_GRAVITY_REMOTE,
-TP_GRAVITY_REMOTE_RESUME,
-TP_PART_GRAVITY_LOCAL,
-TP_PART_GRAVITY_REMOTE,
-TP_PART_GRAVITY_REMOTE_RESUME
-
- */
-
 /** @brief Transfer forces from the GPU back to the host. Also schedules
  *         the freeing of the device buffers used for the force calculation.
  *  @param hostBuffer Buffer to store results.
@@ -1905,44 +1894,6 @@ __global__ void particleGravityComputation(
 
 __global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
 
-void run_EWALD_KERNEL_Large(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  int *Ewaldptr = (int*)wr->getUserData();
-  cudaChk(cudaMemcpyToSymbolAsync(cachedData, wr->buffers[EWALD_READ_ONLY_DATA_IDX].host_buffer,
-                                  sizeof(EwaldReadOnlyData), 0,
-                                  cudaMemcpyHostToDevice, kernel_stream));
-  cudaChk(cudaMemcpyToSymbolAsync(ewt, wr->buffers[EWALD_TABLE_IDX].host_buffer,
-                                  NEWH * sizeof(EwtData), 0,
-                                  cudaMemcpyHostToDevice, kernel_stream));
-  EwaldKernel<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-    ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-     (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-     (int *)devBuffers[wr->buffers[PARTICLE_TABLE_IDX].id], 1,
-     Ewaldptr[0], Ewaldptr[1]);
-    cudaChk(cudaPeekAtLastError());
-#ifdef CUDA_PRINT_ERRORS
-  printf("EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-}
-
-void run_EWALD_KERNEL_Small(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  int *Ewaldptr = (int*)wr->getUserData();
-  cudaChk(cudaMemcpyToSymbolAsync(cachedData, wr->buffers[EWALD_READ_ONLY_DATA_IDX].host_buffer,
-                                  sizeof(EwaldReadOnlyData), 0,
-                                  cudaMemcpyHostToDevice, kernel_stream));
-  cudaChk(cudaMemcpyToSymbolAsync(ewt, wr->buffers[EWALD_TABLE_IDX].host_buffer,
-                                  NEWH * sizeof(EwtData), 0,
-                                  cudaMemcpyHostToDevice, kernel_stream));
-  EwaldKernel<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-    ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-     (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-     (int *)NULL, 0,
-     Ewaldptr[0], Ewaldptr[1]);
-    cudaChk(cudaPeekAtLastError());
-#ifdef CUDA_PRINT_ERRORS
-  printf("EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-}
-
 extern unsigned int timerHandle; 
 
 void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop, int largephase) {
@@ -1982,8 +1933,6 @@ void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
   int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
   int nEwhLoop = h_idata->cachedData->nEwhLoop;
   assert(nEwhLoop <= NEWH);
-  assert(NUM_GRAVITY_BUFS + EWALD_TABLE < 256);
-
 
   size_t size;
   if(largephase) size = n * sizeof(int);

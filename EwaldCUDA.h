@@ -3,22 +3,8 @@
 
 #include "HostCUDA.h"
 
-/* defines for Hybrid API buffer indices */ 
-
-#define EWALD_READ_ONLY_DATA  0
-#define EWALD_TABLE           1
-
-/* Defines for place in the hapiBufferInfo array */
-#define PARTICLE_TABLE_IDX    0 
-#define EWALD_READ_ONLY_DATA_IDX  1
-#define EWALD_TABLE_IDX           2
-
 #define NEWH 80
 #define BLOCK_SIZE 128
-
-/* See "defines for Hybrid API buffer indices" in HostCUDA.h for this
- * number. */
-#define NUM_GRAVITY_BUFS 5
 
 /** @brief Data for the Ewald h loop in the CUDA kernel
  */
