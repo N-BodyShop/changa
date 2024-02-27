@@ -184,6 +184,9 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 
 /************** Gravity *****************/
 
+/// @brief Initiate a local gravity calculation on the GPU, via an interaction
+///        list calculation between nodes, or do a local tree walk
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePieceCellListDataTransferLocal(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr *devPtr = new CudaDevPtr;
@@ -246,6 +249,8 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Initiate a remote gravity calculation on the GPU between tree nodes
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePieceCellListDataTransferRemote(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr *devPtr = new CudaDevPtr;
@@ -290,6 +295,8 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Initiate a remote resume gravity calculation on the GPU between tree nodes
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr *devPtr = new CudaDevPtr;
@@ -339,6 +346,8 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Initiate a small phase local gravity calculation on the GPU between particles
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *particles, int len){
   cudaStream_t stream = data->stream;
   CudaDevPtr *devPtr = new CudaDevPtr;
@@ -406,6 +415,8 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Initiate a local gravity calculation on the GPU between particles
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePiecePartListDataTransferLocal(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr *devPtr = new CudaDevPtr;
@@ -458,6 +469,8 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Initiate a remote gravity calculation on the GPU between particles
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePiecePartListDataTransferRemote(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr *devPtr = new CudaDevPtr;
@@ -511,6 +524,8 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Initiate a remote gravity calculation on the GPU between particles
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr *devPtr = new CudaDevPtr;
@@ -1947,9 +1962,13 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
 }
 
 /** @brief Set up CUDA kernels to perform Ewald sum.
+ *  @param d_localParts Local particle data on device
+ *  @param d_localVars Local particle accelerations on device
  *  @param h_idata Host data buffers
+ *  @param stream CUDA stream to perform GPU operations over
  *  @param cb Callback
  *  @param myIndex Chare index on this node that called this request.
+ *  @param largephase Whether to perform large or small phase calculation
  *  
  *  The "top" and "bottom" Ewlad kernels have been combined:
  *    "top" for the real space loop,
@@ -1989,6 +2008,12 @@ void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
 							 NULL, 0,
 							 h_idata->EwaldRange[0], h_idata->EwaldRange[1]);
   HAPI_TRACE_END(CUDA_EWALD);
+
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
+  printf("[%d] in EwaldHost, enqueued EwaldKernel\n", myIndex);
+#endif
+
+  cudaChk(cudaPeekAtLastError());
   hapiAddCallback(stream, cb);
   cudaChk(cudaFree(d_EwaldMarkers));
 }

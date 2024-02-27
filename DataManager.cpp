@@ -48,6 +48,8 @@ void DataManager::init() {
 }
 
 #ifdef CUDA
+/// @brief Initialize CUDA streams
+/// @param _numStreams Total number of streams to create
 void DataManager::createStreams(int _numStreams, const CkCallback& cb) {
   numStreams = _numStreams;
   streams = new cudaStream_t[numStreams];
@@ -970,6 +972,9 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
 
 void updateParticlesCallback(void *, void *);
 
+/// @brief Copy particle accelerations back from GPU to host memory and
+///        deallocate the device memory
+/// This is triggered when all TreePieces call finishBucket
 void DataManager::transferParticleVarsBack(){
   UpdateParticlesStruct *data;
   CmiLock(__nodelock);

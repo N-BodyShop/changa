@@ -4056,6 +4056,8 @@ void TreePiece::calculateGravityLocal() {
   doAllBuckets();
 }
 
+/// @brief Start the ewald calculation on this TreePiece
+/// @param msg Indicates whether this function was called from EwaldInit
 void TreePiece::calculateEwald(EwaldMsg *msg) {
 #ifdef SPCUDA
   if(!msg->fromInit){
@@ -5202,6 +5204,9 @@ void TreePiece::initiatePrefetch(int chunk){
 
 }
 
+/// @brief Entry method wrapper for calculateGravityLocal
+/// If using the GPU, this TreePiece is assigned a cudaStream and given
+/// handles to device memory
 #ifdef CUDA
 void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments, 
 		                              intptr_t d_localParts, 

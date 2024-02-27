@@ -327,6 +327,8 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 };
 #endif
 
+/// Associated with calls to calculateEwald
+/// Indicates whether the function was called by initEwald
 struct EwaldMsg: public CMessage_EwaldMsg {
     bool fromInit;
 };

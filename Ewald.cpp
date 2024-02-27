@@ -383,6 +383,7 @@ void TreePiece::EwaldInit()
 }
 
 
+/// @brief Transfer Ewald data to GPU memory and launch EwaldHost kernel
 void TreePiece::EwaldGPU(){
   /* when not using CUDA, definition is required because
      EwaldGPU is an entry method
@@ -528,7 +529,7 @@ void TreePiece::EwaldGPU(){
 #endif
 }
 
-
+/// @brief Callback for EwaldGPU. Clean up device memory + host buffer and call finishBucket
 void TreePiece::EwaldGPUComplete() {
   /* when not using CUDA, definition is required because
      EwaldGPUComplete is an entry method
