@@ -843,7 +843,9 @@ void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
     }
   }// end while queue not empty
 
+#ifdef HAPI_TRACE
   traceUserBracketEvent(SER_LOCAL_WALK, starttime, CmiWallTimer());
+#endif
 
   // used later, when copying particle vars back to the host
   savedNumTotalParticles = numParticles;
@@ -894,7 +896,9 @@ void DataManager::transferLocalToGPU(int numParticles, GenericTreeNode *node)
 #ifdef GPU_LOCAL_TREE_WALK
   transformLocalTreeRecursive(node, localMoments);
 #endif //GPU_LOCAL_TREE_WALK
+#ifdef HAPI_TRACE
   traceUserBracketEvent(SER_LOCAL_TRANS, starttime, CmiWallTimer());
+#endif
 
   localTransferCallback
       = new CkCallback(CkIndex_DataManager::startLocalWalk(), CkMyNode(), dMProxy);
@@ -906,8 +910,9 @@ void DataManager::transferLocalToGPU(int numParticles, GenericTreeNode *node)
 
   size_t sLocalMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
   memcpy(bufLocalMoments, localMoments.getVec(), sLocalMoments);
+#ifdef HAPI_TRACE
   traceUserBracketEvent(SER_LOCAL_MEMCPY, starttime, CmiWallTimer());
-  starttime = CmiWallTimer();
+#endif
 
   allocatePinnedHostMemory((void **)&bufLocalVars, sLocalVars);
   // Transfer moments and particle cores to gpu
