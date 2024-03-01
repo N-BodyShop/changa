@@ -145,6 +145,9 @@ cosmoType thetaMono;               ///< Criterion of excepting monopole
 
 /// @brief Boundary evaluation user event (for Projections tracing).
 int boundaryEvaluationUE;
+int START_REG;
+int START_IB;
+int START_PW;
 /// @brief Weight balancing during Oct decomposition user event (for Projections tracing).
 int weightBalanceUE;
 int networkProgressUE;
@@ -228,6 +231,9 @@ Main::Main(CkArgMsg* m) {
 	// Floating point exceptions.
 	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
 
+        START_REG = traceRegisterUserEvent("Register");
+        START_IB = traceRegisterUserEvent("Init Buckets");
+        START_PW = traceRegisterUserEvent("Prefetch Walk");
         boundaryEvaluationUE = traceRegisterUserEvent("Evaluating Boudaries");
         weightBalanceUE = traceRegisterUserEvent("Weight Balancer");
         networkProgressUE = traceRegisterUserEvent("CmiNetworkProgress");
@@ -236,6 +242,10 @@ Main::Main(CkArgMsg* m) {
 #ifdef HAPI_TRACE
         traceRegisterUserEvent("Tree Serialization", CUDA_SER_TREE);
         traceRegisterUserEvent("List Serialization", CUDA_SER_LIST);
+        traceRegisterUserEvent("Ser Local Walk", SER_LOCAL_WALK);
+        traceRegisterUserEvent("Ser Local Memcpy", SER_LOCAL_MEMCPY);
+        traceRegisterUserEvent("Ser Local Zero", SER_LOCAL_ZERO);
+        traceRegisterUserEvent("Ser Local Trans", SER_LOCAL_TRANS);
 
         traceRegisterUserEvent("Local Node", CUDA_LOCAL_NODE_KERNEL);
         traceRegisterUserEvent("Remote Node", CUDA_REMOTE_NODE_KERNEL);

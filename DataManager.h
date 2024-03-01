@@ -104,10 +104,12 @@ protected:
         // * either do not concern yourself with cached particles
         // * or for each entry, get key, find bucket node in CM, DM or TPs and get number
         // for now, the former
-
         std::map<NodeKey, int> cachedPartsOnGpu;
         // local particles that have been copied to the gpu
         //std::map<NodeKey, int> localPartsOnGpu;
+
+        // TreePiece counter for multi-threaded GPU host buffer copy
+	int treePiecesBufferFilled;
 
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
@@ -127,6 +129,8 @@ protected:
         /// host buffer to transfer remote particles to GPU
         CompactPartData *bufRemoteParts;
 
+        /// Vector to accumulate localMoments for transfering to GPU
+        CkVec<CudaMultipoleMoments> localMoments;
         /// host buffer to transfer local moments to GPU
         CudaMultipoleMoments *bufLocalMoments;
         /// host buffer to transfer local particles to GPU
@@ -182,6 +186,7 @@ public:
         // actual serialization methods
         PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
+	void transferLocalToGPU(int nParts, GenericTreeNode *node);
         void freeLocalTreeMemory();
         void freeRemoteChunkMemory(int chunk);
         void transferParticleVarsBack();
