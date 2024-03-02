@@ -17,7 +17,6 @@
 #include "ckBIconfig.h"
 #endif
 
-
 /// @brief Information about TreePieces on an SMP node.
 struct TreePieceDescriptor{
 	TreePiece *treePiece;
@@ -138,10 +137,19 @@ protected:
         /// host buffer to transfer initial accelerations to GPU
         VariablePartData *bufLocalVars;
 
-#ifdef HAPI_INSTRUMENT_WRS
-        int activeRung;
-        int treePiecesDoneInitInstrumentation;
-#endif
+	// Pointers to particle and tree data on GPU
+	CudaMultipoleMoments *d_localMoments;
+        CudaMultipoleMoments *d_remoteMoments;
+        CompactPartData *d_localParts;
+	CompactPartData *d_remoteParts;
+        VariablePartData *d_localVars;
+        size_t sMoments;
+        size_t sCompactParts;
+        size_t sVarParts;
+
+	int numStreams;
+	cudaStream_t *streams;
+
 #endif
 	/// The root of the combined trees
 	Tree::GenericTreeNode * root;
@@ -176,6 +184,7 @@ public:
         void startLocalWalk();
         void resumeRemoteChunk();
 #ifdef CUDA
+	void createStreams(int _numStreams, const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
 
@@ -193,12 +202,9 @@ public:
         void updateParticles(UpdateParticlesStruct *data);
         void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
-#ifdef HAPI_INSTRUMENT_WRS
-        int initInstrumentation();
+        DataManager(){}
+
 #endif
-        DataManager(){} 
-#endif
-        void clearInstrument(CkCallback const& cb);
 
 private:
         void init();
@@ -214,6 +220,12 @@ public:
 	    CoolFinalize(Cool);
 	    delete starLog;
 	    CmiDestroyLock(lockStarLog);
+#ifdef CUDA
+            for (int i = 0; i < numStreams; i++) {
+                cudaStreamDestroy(streams[i]);
+	    }
+	    delete[] streams;
+#endif
 	    }
 
 	/// Called by ORB Sorter, save the list of which TreePiece is

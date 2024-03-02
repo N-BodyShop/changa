@@ -4,14 +4,14 @@
 #ifdef CUDA
 #include "hapi.h"
 #include "HostCUDA.h"
-void TreePieceCellListDataTransferBasic(CudaRequest *data, hapiWorkRequest *wr);
-void TreePiecePartListDataTransferBasic(CudaRequest *data, hapiWorkRequest *wr);
+void TreePieceDataTransferBasic(CudaRequest *data, CudaDevPtr *ptr);
+void TreePieceDataTransferBasicCleanup(CudaDevPtr *ptr);
 
 #ifdef GPU_LOCAL_TREE_WALK
 __global__ void gpuLocalTreeWalk(
+    CudaMultipoleMoments* moments,
     CompactPartData *particleCores,
     VariablePartData *particleVars,
-    CudaMultipoleMoments* moments,
     int firstParticle,
     int lastParticle,
     int rootIdx,
