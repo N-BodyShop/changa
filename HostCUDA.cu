@@ -115,11 +115,12 @@ void freeDeviceMemory(void *ptr){
 /// @param d_compactParts Uninitalized pointer to particles on GPU
 /// @param d_varParts Uninitalized pointer to accelerations on GPU
 /// @param stream CUDA stream to handle the memory transfer
+/// @param numParticles Total number of particle accelerations to initalize
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *varParts, size_t sVarParts,
 				  void **d_localMoments, void **d_compactParts, void **d_varParts,
-				  cudaStream_t stream,
+				  cudaStream_t stream, int numParticles,
                                   void *callback) {
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
@@ -140,6 +141,11 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
   cudaChk(cudaMemcpyAsync(*d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(*d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(*d_varParts, varParts, sVarParts, cudaMemcpyHostToDevice, stream));
+
+  ZeroVars<<<numParticles / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(
+      (VariablePartData *) *d_varParts,
+      numParticles);
+  cudaChk(cudaPeekAtLastError());
 
   cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_XFER_LOCAL);
@@ -2201,4 +2207,17 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
   particleVars[id].potential += fPot;
   
   return;
+}
+
+// initialize accelerations and potentials to zero
+__global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
+    int id;
+    id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    if(id >= nVars) return;
+
+    particleVars[id].a.x = 0.0;
+    particleVars[id].a.y = 0.0;
+    particleVars[id].a.z = 0.0;
+    particleVars[id].potential = 0.0;
+    particleVars[id].dtGrav = 0.0;
 }

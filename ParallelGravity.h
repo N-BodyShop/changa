@@ -175,6 +175,10 @@ extern CProxy_CkCacheManager<KeyType> cacheNode;
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;
 
+extern int START_REG;
+extern int START_IB;
+extern int START_PW;
+
 extern int boundaryEvaluationUE;
 extern int weightBalanceUE;
 extern int networkProgressUE;
@@ -1009,7 +1013,10 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
 #ifdef CUDA
-	void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
+       void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
+       void fillGPUBuffer(intptr_t bufLocalParts,
+                          intptr_t bufLocalMoments,
+                          intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
         void updateParticles(intptr_t data, int partIndex);
 #else
         void continueStartRemoteChunk(int chunk);

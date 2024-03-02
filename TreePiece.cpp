@@ -3769,6 +3769,55 @@ void TreePiece::finishBucket(int iBucket) {
 }
 
 #ifdef CUDA
+/// @brief Fill GPU buffer with particle data
+/// @param bufLocalParts GPU buffer for particles
+/// @param bufLocalMoments GPU buffer for Moments
+/// @param pLocalMoments pointer to vector of Moments to be copied into the GPU
+/// buffer
+/// @param partIndex index into bufLocalParts at which to copy this
+/// TreePieces particles
+/// @param nParts total number of particles to be transfered to the
+/// GPU (pass through)
+/// @param node Root node of tree walk (pass through)
+void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
+                              intptr_t bufLocalMoments,
+                              intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node)
+{
+    CompactPartData *aLocalParts = (CompactPartData *)bufLocalParts;
+    CudaMultipoleMoments *aLocalMoments = (CudaMultipoleMoments *)pLocalMoments;
+    getDMParticles(aLocalParts, partIndex);
+#ifdef GPU_LOCAL_TREE_WALK
+    // set the bucketStart and bucketSize for each bucket Node
+    if (largePhase()) {
+        for (int j = 0; j < numBuckets; ++j) {
+            GenericTreeNode *bucketNode = bucketList[j];
+            int id = bucketNode->nodeArrayIndex;
+            aLocalMoments[id].bucketStart = bucketNode->bucketArrayIndex;
+            aLocalMoments[id].bucketSize = bucketNode->lastParticle
+                - bucketNode->firstParticle + 1;
+        }
+    } else {
+        for (int j = 0; j < numBuckets; ++j) {
+            GenericTreeNode *bucketNode = bucketList[j];
+            int id = bucketNode->nodeArrayIndex;
+            aLocalMoments[id].bucketStart = bucketActiveInfo[id].start;
+            aLocalMoments[id].bucketSize =  bucketActiveInfo[id].size;
+        }
+    }
+    // tell each particle which node it belongs to
+    for (int j = 0; j < numBuckets; ++j) {
+      GenericTreeNode *bucketNode = bucketList[j];
+      int id = bucketNode->nodeArrayIndex;
+      int start = aLocalMoments[id].bucketStart;
+      int end = start + aLocalMoments[id].bucketSize;
+      for (int k = start; k < end; k ++) {
+        aLocalParts[k].nodeId = id;
+      }
+    }
+#endif
+    dm->transferLocalToGPU(nParts, (GenericTreeNode *)node);
+}
+
 /// @brief update particle accelerations with GPU results
 void TreePiece::updateParticles(intptr_t data, int partIndex) {
     VariablePartData *deviceParticles = ((UpdateParticlesStruct *)data)->buf;
@@ -4882,6 +4931,7 @@ void TreePiece::recvTotalMass(CkReductionMsg *msg){
 void TreePiece::startGravity(int am, // the active mask for multistepping
 			       double myTheta, // opening criterion
 			       const CkCallback& cb) {
+  double starttime;
   LBTurnInstrumentOn();
   iterationNo++;
 
@@ -4889,6 +4939,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   activeRung = am;
   theta = myTheta;
   thetaMono = theta*theta*theta*theta;
+
+  starttime = CmiWallTimer();
 
   int oldNumChunks = numChunks;
   dm->getChunks(numChunks, prefetchRoots);
@@ -4952,9 +5004,13 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   prevBucket = -1;
   prevRemoteBucket = -1;
 #endif
+  traceUserBracketEvent(START_REG, starttime, CmiWallTimer());
 
+  starttime = CmiWallTimer();
   initBuckets();
+  traceUserBracketEvent(START_IB, starttime, CmiWallTimer());
 
+  starttime = CmiWallTimer();
   prefetchReq.reset();
   for (unsigned int i=1; i<=myNumParticles; ++i) {
       if (myParticles[i].rung >= activeRung) {
@@ -5145,6 +5201,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
 #endif
+  traceUserBracketEvent(START_PW, starttime, CmiWallTimer());
 
   if (bEwald) thisProxy[thisIndex].EwaldInit();
 #if defined CUDA

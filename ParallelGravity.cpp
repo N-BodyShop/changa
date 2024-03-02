@@ -149,6 +149,9 @@ cosmoType thetaMono;               ///< Criterion of excepting monopole
 
 /// @brief Boundary evaluation user event (for Projections tracing).
 int boundaryEvaluationUE;
+int START_REG;
+int START_IB;
+int START_PW;
 /// @brief Weight balancing during Oct decomposition user event (for Projections tracing).
 int weightBalanceUE;
 int networkProgressUE;
@@ -232,6 +235,9 @@ Main::Main(CkArgMsg* m) {
 	// Floating point exceptions.
 	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
 
+        START_REG = traceRegisterUserEvent("Register");
+        START_IB = traceRegisterUserEvent("Init Buckets");
+        START_PW = traceRegisterUserEvent("Prefetch Walk");
         boundaryEvaluationUE = traceRegisterUserEvent("Evaluating Boudaries");
         weightBalanceUE = traceRegisterUserEvent("Weight Balancer");
         networkProgressUE = traceRegisterUserEvent("CmiNetworkProgress");

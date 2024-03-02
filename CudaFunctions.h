@@ -34,6 +34,8 @@ __global__ void nodeGravityComputation(
 		cudatype fperiod
                 );
 
+__global__ void ZeroVars(VariablePartData *particleVars, int nVars);
+
 #ifdef CUDA_2D_TB_KERNEL
 __global__ void particleGravityComputation(
                 CompactPartData *targetCores,

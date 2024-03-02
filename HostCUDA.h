@@ -104,7 +104,7 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *varParts, size_t sVarParts,
 				  void **d_localMoments, void **d_compactParts, void **d_varParts,
-				  cudaStream_t stream,
+				  cudaStream_t stream, int numParticles,
                                   void *callback);
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,

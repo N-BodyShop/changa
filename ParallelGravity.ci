@@ -54,6 +54,10 @@ mainmodule ParallelGravity {
   readonly int remoteResumePartsPerReq;
   readonly double largePhaseThreshold;
 
+  readonly int START_REG;
+  readonly int START_IB;
+  readonly int START_PW;
+
   readonly int boundaryEvaluationUE;
   readonly int weightBalanceUE;
   readonly int networkProgressUE;
@@ -536,6 +540,9 @@ mainmodule ParallelGravity {
     // jetley
 #ifdef CUDA
     entry void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
+    entry void fillGPUBuffer(intptr_t bufLocalParts,
+                             intptr_t bufLocalMoments,
+                             intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
     entry void updateParticles(intptr_t data, int partIndex);
 #else
     entry void continueStartRemoteChunk(int chunk);
