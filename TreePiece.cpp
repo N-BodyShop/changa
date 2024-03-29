@@ -5278,11 +5278,9 @@ void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments,
     this->sCompactParts = sCompactParts;
     this->sVarParts = sVarParts;
 
-    calculateGravityLocal();
-}
 #else
-
 void TreePiece::commenceCalculateGravityLocal(){
+#endif
 #if INTERLIST_VER > 0 
   // must set placedRoots to false before starting local comp.
   DoubleWalkState *lstate = (DoubleWalkState *)sLocalGravityState;
@@ -5290,7 +5288,6 @@ void TreePiece::commenceCalculateGravityLocal(){
 #endif
   calculateGravityLocal();
 }
-#endif
 
 void TreePiece::startRemoteChunk() {
 #if CHANGA_REFACTOR_DEBUG > 0
