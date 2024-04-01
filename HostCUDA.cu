@@ -147,7 +147,6 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
       numParticles);
   cudaChk(cudaPeekAtLastError());
 
-  cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_XFER_LOCAL);
 
   hapiAddCallback(stream, callback);
@@ -182,7 +181,6 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
   cudaChk(cudaMemcpyAsync(*d_remoteMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(*d_remoteParts, remoteParts, sRemoteParts, cudaMemcpyHostToDevice, stream));
 
-  cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_XFER_REMOTE);
 
   hapiAddCallback(stream, callback);
@@ -248,7 +246,6 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
 #endif
   TreePieceDataTransferBasicCleanup(devPtr);
   cudaChk(cudaPeekAtLastError());
-  cudaStreamSynchronize(stream);
   delete devPtr;
   HAPI_TRACE_END(CUDA_GRAV_LOCAL);
 
@@ -294,7 +291,6 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
 #endif
   TreePieceDataTransferBasicCleanup(devPtr);
   cudaChk(cudaPeekAtLastError());
-  cudaStreamSynchronize(stream);
   delete devPtr;
   HAPI_TRACE_END(CUDA_GRAV_REMOTE);
 
@@ -345,7 +341,6 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
   TreePieceDataTransferBasicCleanup(devPtr);
   cudaChk(cudaFree(d_missedNodes));
   cudaChk(cudaPeekAtLastError());
-  cudaStreamSynchronize(stream);
   delete devPtr;
   HAPI_TRACE_END(CUDA_REMOTE_RESUME);
 
@@ -414,7 +409,6 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 #endif
   TreePieceDataTransferBasicCleanup(devPtr);
   cudaChk(cudaPeekAtLastError());
-  cudaStreamSynchronize(stream);
   delete devPtr;
   HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL_SMALL);
   cudaChk(cudaFree(d_smallParts));
@@ -468,7 +462,6 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
 #endif
   TreePieceDataTransferBasicCleanup(devPtr);
   cudaChk(cudaPeekAtLastError());
-  cudaStreamSynchronize(stream);
   delete devPtr;
   HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL);
 
@@ -523,7 +516,6 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 #endif
   TreePieceDataTransferBasicCleanup(devPtr);
   cudaChk(cudaPeekAtLastError());
-  cudaStreamSynchronize(stream);
   delete devPtr;
   HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
 
@@ -584,7 +576,6 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
   TreePieceDataTransferBasicCleanup(devPtr);
   cudaChk(cudaFree(d_missedParts));
   cudaChk(cudaPeekAtLastError());
-  cudaStreamSynchronize(stream);
   delete devPtr;
   HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
 
