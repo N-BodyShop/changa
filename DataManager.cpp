@@ -788,7 +788,6 @@ void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
 
   // fill up postPrefetchMoments with node moments
   int nodeIndex = 0;
-  int partIndex = 0;
 
 #ifdef CUDA_DM_PRINT_TREES
   CkPrintf("*************\n");
@@ -841,7 +840,7 @@ void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
 #ifdef CUDA_DM_PRINT_TREES
   CkPrintf("*************\n");
 #endif
-  CkAssert(partIndex == numParticles);
+
 #if COSMO_PRINT_BK > 1
   CkPrintf("(%d): DM->GPU local tree\n", CkMyPe());
 #endif
