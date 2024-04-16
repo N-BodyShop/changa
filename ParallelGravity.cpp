@@ -634,7 +634,7 @@ Main::Main(CkArgMsg* m) {
 
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
-		    sizeof(int), "iRand", "<Feedback random Seed> = 1");
+		    sizeof(int), "iRand", "<Random Seed> = 1");
 	
 	param.sinks.AddParams(prm, param);
 
@@ -1133,8 +1133,7 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "bBulkViscosity parameter ignored." << endl;
 	    }
 #ifdef COOLING_NONE
-        if(param.bGasCooling)
-	    CkAbort("Gas cooling requested but not compiled in");
+        CkMustAssert(!param.bGasCooling, "Gas cooling requested but not compiled in");
 #endif
 	if(param.bGasCooling) {
 	    CkAssert(prmSpecified(prm, "dMsolUnit")
@@ -1145,6 +1144,10 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Enabling SPH" << endl;
 	    param.bDoGas = 1;
 	    }
+        if(!param.bStarForm && !prmSpecified(prm, "bDoStellarLW")) {
+            // Stellar LW output is meaningless if we are not forming stars.
+            param.bDoStellarLW = 0;
+            }
 	if(param.bDoGas && !(param.bGasCooling || param.bGasAdiabatic
 			     || param.bGasIsothermal)) {
 	    ckerr << "Defaulting to Adiabatic Gas Model." << endl;
@@ -1196,10 +1199,10 @@ Main::Main(CkArgMsg* m) {
 
         /* Convert K(T) to k(u)  erg s^-1 (erg/gm)^-7/2 cm^-1 */
         param.dThermalCondCoeffCode = param.dThermalCondCoeff
-            *pow(1.5*KBOLTZ/(param.dMeanMolWeight*MHYDR),-3.5);
+            *pow(1.5*KBOLTZ/(0.6*MHYDR),-3.5);
         /* Convert K2(T) to k2(u)  erg s^-1 (erg/gm)^-3/2 cm^-1 */
         param.dThermalCond2CoeffCode = param.dThermalCond2Coeff
-            *pow(1.5*KBOLTZ/(param.dMeanMolWeight*MHYDR),-1.5);
+            *pow(1.5*KBOLTZ/(0.6*MHYDR),-1.5);
         /* Convert to code units */
         param.dThermalCondCoeffCode /= 
             pow(param.dErgPerGmUnit,-3.5)
@@ -1214,7 +1217,7 @@ Main::Main(CkArgMsg* m) {
         /* You enter effective thermal coefficient e.g. kappa0=6.1d-7 erg s^-1 K^-7/2 cm^-1 
            Code then multiplies by prefactors to 4/25 kappa0 mmw/k (1.5k/mmw)^-5/2 */
         param.dEvapCoeffCode = param.dEvapCoeff*pow(32./param.nSmooth,.3333333333)*
-            4/25.*(param.dMeanMolWeight*MHYDR)/KBOLTZ*pow(1.5*KBOLTZ/(param.dMeanMolWeight*MHYDR),-2.5);
+            4/25.*(0.6*MHYDR)/KBOLTZ*pow(1.5*KBOLTZ/(0.6*MHYDR),-2.5);
         /* Convert final units: g/cm/s (erg/g)^-2.5 to code units 
                [Later: Multiply by u^5/2 and multiply a length gives mdot   units g/s] */
         param.dEvapCoeffCode /= 
@@ -1229,14 +1232,10 @@ Main::Main(CkArgMsg* m) {
 		}
 
 #ifndef DIFFUSION
-	if (prmSpecified(prm,"dMetalDiffusionCoeff")) {
-	    CkAbort("Metal Diffusion Rate specified but not compiled for\nUse -DDIFFUSION during compilation\n");
-	    }
+        CkMustAssert(!prmSpecified(prm,"dMetalDiffusionCoeff"), "Metal Diffusion Rate specified but not compiled for\nUse -DDIFFUSION during compilation\n");
 #endif
 #ifdef NODIFFUSIONTHERMAL
-	if (prmSpecified(prm,"dThermalDiffusionCoeff")) {
-	    CkAbort("Thermal Diffusion Rate specified but not compiled for\n");
-	    }
+        CkMustAssert(!prmSpecified(prm, "dThermalDiffusionCoeff"), "Thermal Diffusion Rate specified but not compiled for\n");
 #endif
 
         if (domainDecomposition == SFC_peano_dec) peanoKey = 3;
@@ -1260,16 +1259,14 @@ Main::Main(CkArgMsg* m) {
 
 	if (verbosity) 
 	  ckerr << "yieldPeriod set to " << _yieldPeriod << endl;
-	if(_cacheLineDepth < 0)
-		CkAbort("Cache Line depth must be greater than or equal to 0");
+    CkMustAssert(_cacheLineDepth >= 0, "Cache Line depth must be greater than or equal to 0");
 
         if(verbosity)
           ckerr << "Prefetching..." << (_prefetch?"ON":"OFF") << endl;
   
         if (verbosity)
 	  ckerr << "Number of chunks for remote tree walk set to " << _numChunks << endl;
-	if (_numChunks <= 0)
-	  CkAbort("Number of chunks for remote tree walk must be greater than 0");
+    CkMustAssert(_numChunks > 0, "Number of chunks for remote tree walk must be greater than 0");
 
         if(verbosity)
           ckerr << "Chunk Randomization..." << (_randChunks?"ON":"OFF") << endl;
@@ -1317,20 +1314,18 @@ Main::Main(CkArgMsg* m) {
             CkAbort("None of the implemented decompositions specified");
           }
         }
-	
+
+        CkMustAssert(numTreePieces >= CkNumPes(),
+                     "We need at least one treepiece on each processor");
 	CkArrayOptions opts(numTreePieces); 
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	if (domainDecomposition == Oct_dec) {
-	  CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
-	  opts.setMap(myMap);
+            CProxy_RRMap myMap=CProxy_RRMap::ckNew(); 
+            opts.setMap(myMap);
 	} else {
 #endif
-#ifdef DEFAULT_ARRAY_MAP
-          CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
-#else
-	  CProxy_BlockMap myMap = CProxy_BlockMap::ckNew(); 
-#endif
-	  opts.setMap(myMap);
+            CProxy_DefaultArrayMap myMap = CProxy_DefaultArrayMap::ckNew();
+            opts.setMap(myMap);
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	}
 #endif
@@ -1823,11 +1818,13 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
     if(verbosity)
         CkPrintf("uDot update: Rung %d ... ", iActiveRung);
     double z = 1.0/csmTime2Exp(param.csm,dTime) - 1.0;
+    double a = csmTime2Exp(param.csm,dTime);
     if(param.bGasCooling)
         dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
     treeProxy.updateuDot(iActiveRung, duKick, dStartTime,
                          param.bGasCooling, bUpdateState, bAll,
                          (param.dConstGamma-1),
+                         param.dResolveJeans/a,
                          CkCallbackResumeThread());
     double tuDot = CkWallTimer() - startTime;
     timings[iActiveRung].tuDot += tuDot;
@@ -2036,7 +2033,7 @@ void Main::advanceBigStep(int iStep) {
 	nSink = *(int *) msgCnt->getData();
 	delete msgCnt;
 	if(nSink != 0)
-	    CkPrintf("Sink number of Sinks: nSink = %d\n", nSink);
+	    CkPrintf("Sink number of Sinks: nSink = %ld\n", nSink);
 	}
 
     ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
@@ -2049,17 +2046,20 @@ void Main::advanceBigStep(int iStep) {
     if(verbosity > 1)
 	memoryStats();
 
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /***** Resorting of particles and Domain Decomposition *****/
     domainDecomp(activeRung);
 
     if(verbosity > 1)
 	memoryStats();
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /********* Load balancer ********/
     loadBalance(activeRung);
 
     if(verbosity > 1)
 	memoryStats();
 
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /******** Tree Build *******/
     buildTree(activeRung);
 
@@ -2072,6 +2072,7 @@ void Main::advanceBigStep(int iStep) {
 
     if(verbosity > 1)
 	memoryStats();
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     double gravStartTime;
     startGravity(cbGravity, activeRung, &gravStartTime);
     if(param.bDoExternalGravity)
@@ -2136,6 +2137,7 @@ void Main::advanceBigStep(int iStep) {
         }
 
     double startTime = CkWallTimer();
+    CkPrintf("Elapsed time: %g\n", startTime - dSimStartTime);
     treeProxy.finishNodeCache(CkCallbackResumeThread());
     double tCache = CkWallTimer() - startTime;
     timings[activeRung].tCache += tCache;
@@ -2177,7 +2179,9 @@ void Main::setupICs() {
       struct stat s;
       int err = stat(basefilename.c_str(), &s);
       if(err == -1) {
-          ckerr << "File error: " << basefilename.c_str() << endl;
+          char *achErr = strerror(errno);
+          ckerr << "File error: " << basefilename.c_str() << ": " << achErr
+                << endl;
           CkExit();
           return;
           }
@@ -2273,8 +2277,10 @@ void Main::setupICs() {
       param.stfm->CheckParams(prm, param);
       if(param.sinks.bBHSink)
 	  param.sinks.dDeltaStarForm = param.stfm->dDeltaStarForm;
-      treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
       }
+  if(param.bStarForm || param.bFeedback || param.iSIDMSelect) {
+      treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
+  }
 
   if(param.bStarForm)
       initStarLog();
@@ -2294,8 +2300,11 @@ void Main::setupICs() {
       param.dSIDMSigma=param.dSIDMSigma*param.dMsolUnit*MSOLG/(param.dKpcUnit*KPCCM*param.dKpcUnit*KPCCM); //converts input cross section in cm^2 g^-1 to simulation units in len_unit^2 / mass_unit
       if (param.iSIDMSelect==2){ //only for classical regime do this
           param.dSIDMVariable=param.dSIDMVariable/(pow(param.dMsolUnit*MSOLG*GCGS/(KPCCM*param.dKpcUnit),.5)/100000.0) ; //converts from km/s to sim units
-          }
-      } 
+      }
+      // iStartStep != 0 indicates we are restarting from an output:
+      // read in extra information.
+      if(param.iStartStep) restartNSIDM();
+  }
   
   param.externalGravity.CheckParams(prm, param);
 
@@ -2305,8 +2314,7 @@ void Main::setupICs() {
       ofsLog.open(achLogFileName.c_str(), ios_base::app);
   else
       ofsLog.open(achLogFileName.c_str(), ios_base::trunc);
-  if(!ofsLog)
-      CkAbort("Error opening log file.");
+  CkMustAssert(bool(ofsLog), "Error opening log file.");
       
 #define xstr(s) str(s)
 #define str(s) #s
@@ -2372,6 +2380,9 @@ void Main::setupICs() {
 #ifdef COOLING_MOLECULARH
   ofsLog << " COOLING_MOLECULARH";
 #endif
+#ifdef COOLING_GRACKLE
+  ofsLog << " COOLING_GRACKLE";
+#endif
 #ifdef DIFFUSION
   ofsLog << " DIFFUSION";
 #endif
@@ -2384,8 +2395,8 @@ void Main::setupICs() {
 #ifdef FEEDBACKDIFFLIMIT
   ofsLog << " FEEDBACKDIFFLIMIT";
 #endif
-#ifdef RTFORCE
-  ofsLog << " RTFORCE";
+#ifdef GDFORCE
+  ofsLog << " GDFORCE";
 #endif
 #ifdef CULLENALPHA
   ofsLog << " CULLENALPHA";
@@ -2434,14 +2445,19 @@ void Main::setupICs() {
          << sizeof(NodeKey) << " bytes node" << endl;
 
   // Print out load balance information
-  LBDatabase *lbdb = LBDatabaseObj();
-  int nlbs = lbdb->getNLoadBalancers(); 
+#ifdef LB_MANAGER_VERSION
+  LBManager *lbMgr = LBManagerObj();
+#else
+  LBDatabase *lbMgr = LBDatabaseObj();
+#endif
+
+  int nlbs = lbMgr->getNLoadBalancers();
   if(nlbs == 0) {
       ofsLog << "# No load balancer in use" << endl;
       }
   else {
       int ilb;
-      BaseLB **lbs = lbdb->getLoadBalancers();
+      BaseLB **lbs = lbMgr->getLoadBalancers();
       ofsLog << "# Load balancers:";
       for(ilb = 0; ilb < nlbs; ilb++){
 	  ofsLog << " " << lbs[ilb]->lbName();
@@ -2454,6 +2470,8 @@ void Main::setupICs() {
   prmLogParam(prm, achLogFileName.c_str());
 	
   ofsLog.open(achLogFileName.c_str(), ios_base::app);
+  if(param.bStarForm)
+      StarLog::logMetaData(ofsLog);
   if(param.csm->bComove) {
       ofsLog << "# RedOut:";
       if(vdOutTime.size() == 0) ofsLog << " none";
@@ -2471,8 +2489,7 @@ void Main::setupICs() {
     }
   ofsLog << endl;
   ofsLog.close();
-  if(!ofsLog)
-      CkAbort("Error closing log file");
+  CkMustAssert(bool(ofsLog), "Error closing log file");
 
   if(prmSpecified(prm,"dSoft")) {
     ckout << "Set Softening...\n";
@@ -2618,36 +2635,32 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	}
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
-  if (bUseCkLoopPar) {
-    CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
-  } else {
-    CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
-  }
-  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                  CkCallbackResumeThread());
+        if (bUseCkLoopPar) {
+            CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
+        } else {
+            CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
+        }
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                        CkCallbackResumeThread());
 	if(param.bGasCooling || param.bStarForm) 
 	    initCooling();
 	if(param.bStarForm)
 	    initStarLog();
-        if(param.bStarForm || param.bFeedback)
-            treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
+        if(param.bStarForm || param.bFeedback || param.iSIDMSelect)
+            treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
         DumpFrameInit(dTime0, 0.0, bIsRestarting);
         timings.resize(PHASE_FEEDBACK+1);
         nActiveGrav = nTotalParticles;
         nActiveSPH = nTotalSPH;
-
+        treeProxy.resetObjectLoad(CkCallbackResumeThread());
         /***** Initial sorting of particles and Domain Decomposition *****/
         CkPrintf("Initial ");
         domainDecomp(0);
 
-        // Balance load initially after decomposition
-        loadBalance(-1);
-
         doSimulation();
 	}
     else {
-        if(msg->status != CK_CHECKPOINT_SUCCESS)
-            CkAbort("Checkpoint failed! Is there a disk problem?\n");
+        CkMustAssert(msg->status == CK_CHECKPOINT_SUCCESS, "Checkpoint failed! Is there a disk problem?\n");
 
 	ofstream ofsCheck("lastcheckpoint", ios_base::trunc);
 	ofsCheck << bChkFirst << endl;
@@ -2790,6 +2803,7 @@ Main::doSimulation()
     
     if (verbosity) ckout << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
+    CkPrintf("Elapsed time: %g\n", startTime - dSimStartTime);
     starCenterOfMass();
     for(int iRung = 0; iRung < timings.size(); iRung++) {
         timings[iRung].clear();
@@ -2846,6 +2860,7 @@ Main::doSimulation()
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
+        CkWaitQD(); // Be sure system is quiescent before checkpoint
 	CkCallback cb(CkIndex_Main::restart(0), mainChare);
 	CkStartCheckpoint(achCheckFileName.c_str(), cb, true);
 	return;
@@ -2856,7 +2871,7 @@ Main::doSimulation()
 
   /******** Shutdown process ********/
 
-  if(param.nSteps == 0) {
+  if(param.nSteps == 0 && param.bBenchmark == 0) {
       string achFile = string(param.achOutName) + ".000000";
       // assign each particle its domain for diagnostic.
       treeProxy.assignDomain(CkCallbackResumeThread());
@@ -2888,22 +2903,18 @@ Main::doSimulation()
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
           if(param.iBinaryOut == 6) {
               // Set up N-Chilada directory structure
-              if(safeMkdir(achFile.c_str()) != 0)
-                  CkAbort("Can't create N-Chilada directories\n");
+              CkMustAssert(safeMkdir(achFile.c_str()) == 0, "Can't create N-Chilada directories\n");
               if(nTotalSPH > 0) {
                     string dirname(string(achFile) + "/gas");
-                    if(safeMkdir(dirname.c_str()) != 0)
-                        CkAbort("Can't create N-Chilada directories\n");
+                    CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
                     }
               if(nTotalDark > 0) {
                     string dirname(string(achFile) + "/dark");
-                    if(safeMkdir(dirname.c_str()) != 0)
-                        CkAbort("Can't create N-Chilada directories\n");
+                    CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
                     }
               if(nTotalStar > 0) {
                     string dirname(string(achFile) + "/star");
-                    if(safeMkdir(dirname.c_str()) != 0)
-                        CkAbort("Can't create N-Chilada directories\n");
+                    CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
                     }
               }
 	  ckout << "Outputting densities ...";
@@ -3074,7 +3085,8 @@ Main::doSimulation()
 	  }
   }
 
-  treeProxy[0].flushStarLog(CkCallbackResumeThread());
+  if(param.bBenchmark == 0)
+      treeProxy[0].flushStarLog(CkCallbackResumeThread());
 	
 #if COSMO_STATS > 0
   ckerr << "Outputting statistics ...";
@@ -3343,23 +3355,22 @@ void Main::writeOutput(int iStep)
         }
     else { // N-Chilada output
         // Set up N-Chilada directory structure
-        if(safeMkdir(achFile) != 0)
-            CkAbort("Can't create N-Chilada directories\n");
+        CkMustAssert(safeMkdir(achFile) == 0, "Can't create N-Chilada directories\n");
         if(nTotalSPH > 0) {
             string dirname(string(achFile) + "/gas");
-            if(safeMkdir(dirname.c_str()) != 0)
-                CkAbort("Can't create N-Chilada directories\n");
+            CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
             }
         if(nTotalDark > 0) {
             string dirname(string(achFile) + "/dark");
-            if(safeMkdir(dirname.c_str()) != 0)
-                CkAbort("Can't create N-Chilada directories\n");
+            CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
             }
         if(nTotalStar > 0) {
             string dirname(string(achFile) + "/star");
-            if(safeMkdir(dirname.c_str()) != 0)
-                CkAbort("Can't create N-Chilada directories\n");
+            CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
             }
+        NCgasNames = new CkVec<std::string>;
+        NCdarkNames = new CkVec<std::string>;
+        NCstarNames = new CkVec<std::string>;
         MassOutputParams pMassOut(achFile, param.iBinaryOut, dOutTime);
         outputBinary(pMassOut, param.bParaWrite, CkCallbackResumeThread());
         PosOutputParams pPosOut(achFile, param.iBinaryOut, dOutTime);
@@ -3491,9 +3502,11 @@ void Main::writeOutput(int iStep)
 	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
 	    outputBinary(pIOrdOut, param.bParaWrite, CkCallbackResumeThread());
+        if(param.bDoGas 
 #ifndef SPLITGAS
-	    if(param.bStarForm) 
+	   && param.bStarForm
 #endif
+           )
         {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
@@ -3556,10 +3569,9 @@ void Main::writeOutput(int iStep)
 #endif /*COOLING_MOLECULARH*/
 #endif
 #ifdef DIFFUSION
-        if(param.bDoGas)
+        if (param.bStarForm || param.bFeedback) {
             treeProxy[0].outputASCII(pMetalsDotOut, param.bParaWrite,
                                      CkCallbackResumeThread());
-	if (param.bStarForm || param.bFeedback) {
 	    treeProxy[0].outputASCII(pOxDotOut, param.bParaWrite,
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pFeDotOut, param.bParaWrite,
@@ -3579,9 +3591,11 @@ void Main::writeOutput(int iStep)
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
 	    treeProxy[0].outputASCII(pIOrdOut, param.bParaWrite,
 					CkCallbackResumeThread());
+        if(param.bDoGas 
 #ifndef SPLITGAS
-	    if(param.bStarForm) 
+	   && param.bStarForm
 #endif
+           )
         {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
@@ -3603,9 +3617,9 @@ void Main::writeOutput(int iStep)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
     if(param.nSteps != 0 && param.bDoDensity) {
-	// The following call is to get the particles in key order
-	// before the sort.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+        // The following call is to get the particles in key order
+        // before the sort.
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                         CkCallbackResumeThread());
         domainDecomp(0);
         buildTree(0);
@@ -3667,8 +3681,19 @@ void Main::writeOutput(int iStep)
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		      << endl;
-	    }
-	}
+        }
+    }
+    if(param.nSteps != 0) {     // Get particles back to home
+                                // processors for continuing the simulation.
+        // The following call is to get the particles in key order
+        // before the sort.
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+                        CkCallbackResumeThread());
+        domainDecomp(0);
+    }
+        
+    if(param.iBinaryOut == 6)
+        writeNCXML(achFile);
     }
 
 ///
@@ -3834,8 +3859,10 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 	if (param.dDumpFrameStep > 0 || param.dDumpFrameTime > 0) {
                 if(param.iDirector < 1) {
                     CkError("WARNING: DumpFrame parameters set, but iDirector is %d; DumpFrame is disabled\n", param.iDirector);
+                    param.dDumpFrameStep = -1.0;
+                    param.dDumpFrameTime = -1.0;
                     return 0;
-                    }
+                }
 		bDumpFrame = 1;
 		int i;
 
@@ -3860,19 +3887,18 @@ Main::DumpFrameInit(double dTime, double dStep, int bRestart) {
 		  auto file_name = make_formatted_string("%s.photogenic", param.achOutName);
 		  char const* achFile = file_name.c_str();
 		  FILE *fp = fopen(achFile, "r" );
-		  if(fp == NULL)
-		      CkAbort("DumpFrame: photogenic specified, but no photogenic file\n");
+          CkMustAssert(!(fp == NULL), "DumpFrame: photogenic specified, but no photogenic file\n");
 		  fclose(fp);
 
-		  CkReductionMsg *msg;
-		  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
-		  int *nSet = (int *)msg->getData();
-		  if (verbosity)
-		      ckout << nSet[0] << " iOrder numbers read. " << nSet[1]
-			    <<" direct iOrder photogenic particles selected."
-			    << endl;
-		  delete msg;
-		  }
+                  CkReductionMsg *msg;
+                  treeProxy.setTypeFromFile(TYPE_PHOTOGENIC, achFile, CkCallbackResumeThread((void*&)msg));
+                  int64_t *nSet = (int64_t *)msg->getData();
+                  if (verbosity)
+                      ckout << nSet[0] << " iOrder numbers read. " << nSet[1]
+                            <<" direct iOrder photogenic particles selected."
+                            << endl;
+                  delete msg;
+                }
 
 		if(!bRestart)
 		    DumpFrame(dTime, dStep );

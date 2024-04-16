@@ -16,6 +16,7 @@ public:
     double dJ2;              ///< Oblateness coefficients of central body
     double dJ4;
     double dJ6;
+    int bLogarithmicHalo;    ///< Type of halo is logarithmic
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
@@ -34,6 +35,7 @@ inline void ExternalGravity::pup(PUP::er &p) {
      p | dJ2;
      p | dJ4;
      p | dJ6;
+     p | bLogarithmicHalo;
     }
 
 #endif

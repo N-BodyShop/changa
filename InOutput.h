@@ -149,7 +149,11 @@ class TempEffOutputParams : public OutputParams
             double x = p->massHot()/p->mass;
 #ifndef COOLING_NONE
             return CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(),
-                                               x*p->uHot()+(1-x)*p->u(), p->fMetals());
+                                               x*p->uHot()+(1-x)*p->u(),
+#ifdef COOLING_GRACKLE
+                                               p->fDensity,
+#endif
+                                               p->fMetals());
 #else
             CkAssert(0);
 #endif

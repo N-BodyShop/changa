@@ -1,6 +1,6 @@
 # optional CUDA flags: 
 # memory:
-# -DHAPI_USE_CUDAMALLOCHOST
+# -DPINNED_HOST_MEMORY
 # -DHAPI_MEMPOOL
 #
 # verbosity, debugging:
@@ -29,7 +29,7 @@ CUDA_DEBUG   = $(DEBUG)
 CUDA_VERBOSE = $(VERBOSE)
 
 cuda_defines += -DCUDA -DSPCUDA
-cuda_defines += -DHAPI_MEMPOOL -DHAPI_USE_CUDAMALLOCHOST
+cuda_defines += -DHAPI_MEMPOOL -DPINNED_HOST_MEMORY
 cuda_defines += -DCUDA_2D_TB_KERNEL
 #cuda_defines += -DCUDA_2D_FLAT
 

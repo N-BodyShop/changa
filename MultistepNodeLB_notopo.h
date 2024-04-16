@@ -21,10 +21,6 @@
 
 #include "MultistepNodeLB_notopo.decl.h"
 
-void CreateMultistepLB_notopo();
-BaseLB * AllocateMultistepNodeLB_notopo();
-
-
 /// @brief Multistep load balancer where no processor topology
 /// information is used. This first performs orb partition at the node level and
 /// assigns the partitioned TreePieces to the PEs belonging to the node. Finally

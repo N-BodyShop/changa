@@ -24,7 +24,15 @@ void Orb3dLB_notopo::init() {
 
 using namespace std;
 
+#if CHARM_VERSION > 61002
+static void lbinit()
+{
+    LBRegisterBalancer<Orb3dLB_notopo>("Orb3dLB_notopo",
+      "3D ORB mapping of treepiece space onto processors without topology information");
+}
+#else
 CreateLBFunc_Def(Orb3dLB_notopo, "3d ORB mapping of tree piece space onto 3d processor mesh");
+#endif
 
 Orb3dLB_notopo::Orb3dLB_notopo(const CkLBOptions &opt): CBase_Orb3dLB_notopo(opt)
 {
@@ -41,8 +49,7 @@ bool Orb3dLB_notopo::QueryBalanceNow(int step){
 
 void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 {
-  int numobjs = stats->n_objs;
-  int nmig = stats->n_migrateobjs;
+  const int numobjs = stats->objData.size();
   double gstarttime = CkWallTimer();
 
   vector<Event> tpEvents[NDIMS];
@@ -67,7 +74,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   }
   else{
 
-    for(int i = 0; i < stats->n_objs; i++){
+    for(int i = 0; i < numobjs; i++){
       float load;
       load = stats->objData[i].wallTime;
 
@@ -105,7 +112,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
   }
 
   orbPrepare(tpEvents, box, numobjs, stats);
-  orbPartition(tpEvents,box,stats->count, tps, stats);
+  orbPartition(tpEvents,box,stats->nprocs(), tps, stats);
   int mcount = 0;
 	for(int i = 0; i < numobjs; i++) {
     if (stats->to_proc[i] != stats->from_proc[i]) {
@@ -134,7 +141,7 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
     for(int i = 0; i < numobjs; i++) {
       if (!stats->objData[i].migratable) continue;
 
-	    CkAssert(tps[i].lbindex < stats->n_objs);
+	    CkAssert(tps[i].lbindex < numobjs);
 	    CkAssert(tps[i].lbindex >= 0);
 	    fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d 0.0\n",
 		stats->objData[tps[i].lbindex].wallTime,
@@ -155,7 +162,6 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
 
 void Orb3dLB_notopo::pupDump(PUP::er &p, BaseLB::LDStats *stats, vector<Event> *tpEvents){
   stats->pup(p);
-  p|stats->count;
   for(int i = XDIM; i <= ZDIM; i++){
     p|tpEvents[i];
   }

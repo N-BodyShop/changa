@@ -24,6 +24,7 @@
 
 #include "hapi.h"
 #include "cuda_typedef.h"
+#include "cuda/intrinsics/voting.hu"
 #include "cuda/intrinsics/shfl.hu"
 
 #ifdef GPU_LOCAL_TREE_WALK
@@ -75,9 +76,9 @@ void allocatePinnedHostMemory(void **ptr, size_t size){
     return;
   }
 #ifdef HAPI_MEMPOOL
-  *ptr = hapiPoolMalloc(size);
+  hapiMallocHost(ptr, size, true);
 #else
-  cudaMallocHost(ptr, size);
+  hapiMallocHost(ptr, size, false);
 #endif
 #ifdef CUDA_PRINT_ERRORS
   printf("allocatePinnedHostMemory: %s size: %zu\n", cudaGetErrorString( cudaGetLastError() ), size);
@@ -92,7 +93,11 @@ void freePinnedHostMemory(void *ptr){
     assert(0);
     return;
   }
-  hapiHostFree(ptr);
+#ifdef HAPI_MEMPOOL
+  hapiFreeHost(ptr, true);
+#else
+  hapiFreeHost(ptr, false);
+#endif
 #ifdef CUDA_PRINT_ERRORS
   printf("freePinnedHostMemory: %s\n", cudaGetErrorString( cudaGetLastError() ));
 #endif
@@ -163,7 +168,7 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 	transferKernel->addBuffer(varParts, sVarParts, (sVarParts > 0), false,
                                   false, LOCAL_PARTICLE_VARS);
 
-	transferKernel->setDeviceToHostCallback(wrCallback);
+	transferKernel->setDeviceToHostCallback(*(CkCallback *)wrCallback);
 #ifdef HAPI_TRACE
 	transferKernel->setTraceName("xferLocal");
 #endif
@@ -216,7 +221,7 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
             );
 #endif
 
-  transferKernel->setDeviceToHostCallback(wrCallback);
+  transferKernel->setDeviceToHostCallback(*(CkCallback *)wrCallback);
 #ifdef HAPI_TRACE
   transferKernel->setTraceName("xferRemote");
 #endif
@@ -581,7 +586,7 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
         printf("(%d) TRANSFER LOCAL CELL\n", CmiMyPe());
 #endif
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("gravityLocal");
 #endif
@@ -610,7 +615,7 @@ void TreePieceCellListDataTransferRemote(CudaRequest *data){
         printf("(%d) TRANSFER REMOTE CELL\n", CmiMyPe());
 #endif
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("gravityRemote");
 #endif
@@ -647,7 +652,7 @@ void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
 
   ParameterStruct *ptr = (ParameterStruct *)gravityKernel->getUserData();
 
-  gravityKernel->setDeviceToHostCallback(data->cb);
+  gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
   gravityKernel->setTraceName("remoteResume");
 #endif
@@ -738,7 +743,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 #endif
 
         if(transfer){
-          CUDA_MALLOC(bufferHostBuffer, size);
+          allocatePinnedHostMemory(&bufferHostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
           printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -746,7 +751,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
         }
         gravityKernel->addBuffer(bufferHostBuffer, size, transfer, false, transfer);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityLocal");
 #endif
@@ -772,7 +777,7 @@ void TreePiecePartListDataTransferLocal(CudaRequest *data){
 
 	TreePiecePartListDataTransferBasic(data, gravityKernel);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityLocal");
 #endif
@@ -801,7 +806,7 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data){
 
 	TreePiecePartListDataTransferBasic(data, gravityKernel);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityRemote");
 #endif
@@ -842,7 +847,7 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
         gravityKernel->addBuffer(data->missedParts, data->sMissed, transfer,
                                  false, transfer);
 
-	gravityKernel->setDeviceToHostCallback(data->cb);
+	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
 #ifdef HAPI_TRACE
 	gravityKernel->setTraceName("partGravityRemote");
 #endif
@@ -1020,7 +1025,7 @@ void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *c
 
   gravityKernel->addBuffer(NULL, 0, false, false, freeRemotePart, REMOTE_PARTICLE_CORES);
 
-  gravityKernel->setDeviceToHostCallback(cb);
+  gravityKernel->setDeviceToHostCallback(*(CkCallback *)cb);
 #ifdef HAPI_TRACE
   gravityKernel->setTraceName("transferBack");
 #endif
@@ -1145,6 +1150,17 @@ __global__ void gpuLocalTreeWalk(
   CUDABucketNode  myNode;
   CompactPartData myParticle;
 
+#if __CUDA_ARCH__ >= 700
+  // Non-lockstepping code for Volta GPUs
+  int sp;
+  int stk[stackDepth];
+  CUDATreeNode targetNode;
+
+#define SP sp
+#define STACK_TOP_INDEX stk[SP]
+#define TARGET_NODE targetNode
+#else
+  // Default lockstepping code
   __shared__ int sp[WARPS_PER_BLOCK];
   __shared__ int stk[WARPS_PER_BLOCK][stackDepth];
   __shared__ CUDATreeNode targetNode[WARPS_PER_BLOCK];
@@ -1152,6 +1168,7 @@ __global__ void gpuLocalTreeWalk(
 #define SP sp[WARP_INDEX]
 #define STACK_TOP_INDEX stk[WARP_INDEX][SP]
 #define TARGET_NODE targetNode[WARP_INDEX]
+#endif
 
   CudaVector3D acc = {0,0,0};
   cudatype pot = 0;
@@ -1187,7 +1204,11 @@ __global__ void gpuLocalTreeWalk(
           flag = 1;
           critical = stackDepth;
           cond = 1;
+#if __CUDA_ARCH__ >= 700
+          stackInit(SP, stk, rootIdx);
+#else
           stackInit(SP, stk[WARP_INDEX], rootIdx);
+#endif
           while(SP >= 0) {
             if (flag == 0 && critical >= SP) {
               flag = 1;
@@ -1298,7 +1319,7 @@ __global__ void gpuLocalTreeWalk(
                 }
               }
 
-              if (!__any(cond)) {
+              if (!any(cond)) {
                 continue;
               }
 
@@ -1315,6 +1336,9 @@ __global__ void gpuLocalTreeWalk(
                 }
               }
             }
+#if __CUDA_ARCH__ >= 700
+            __syncwarp();
+#endif
           }
         } // z replicas
       } // y replicas
@@ -2379,7 +2403,7 @@ void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
    */
   assert(NUM_GRAVITY_BUFS + EWALD_TABLE < 256);
 
-  EwaldKernel->setDeviceToHostCallback(cb);
+  EwaldKernel->setDeviceToHostCallback(*(CkCallback *)cb);
   if(largephase){
     EwaldKernel->setRunKernel(run_EWALD_KERNEL_Large);
 #ifdef HAPI_TRACE

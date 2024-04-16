@@ -163,7 +163,7 @@ void TopDownTreeWalk::bft(GenericTreeNode *node, State *state, int chunk, int re
   CkQ<GenericTreeNode*> queue(1024);
   queue.enq(node);
 
-  while (node = queue.deq()) {
+  while ((node = queue.deq())) {
 
     NodeKey globalKey = node->getKey();
     // process this node

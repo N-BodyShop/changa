@@ -116,7 +116,7 @@ typedef struct parameters {
     double dEvapCoeffCode;
     int bDoExternalGravity;
     ExternalGravity externalGravity;
-    int iRandomSeed;
+    int iRandomSeed;            /* Seed for random numbers */
     
     Sinks sinks;
 
