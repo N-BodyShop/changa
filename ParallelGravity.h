@@ -1856,6 +1856,9 @@ public:
 	/// force that its particles see due to the other particles hosted in
 	/// this TreePiece. The opening angle theta has already been passed
 	/// through startGravity().  This function just calls doAllBuckets().
+	void calculateGravityLocal();
+	/// Do some minor preparation for the local walk then
+	/// calculateGravityLocal().
 #ifdef CUDA
 	void commenceCalculateGravityLocal(intptr_t d_localMoments,
                                            intptr_t d_localParts,
@@ -1865,9 +1868,7 @@ public:
 #else
 	void commenceCalculateGravityLocal();
 #endif
-	/// Do some minor preparation for the local walkk then
-	/// calculateGravityLocal().
-	void calculateGravityLocal();
+
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted
 	/// by this TreePiece, and belonging to a subset of the global tree
