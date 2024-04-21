@@ -1868,7 +1868,6 @@ public:
 	/// Do some minor preparation for the local walkk then
 	/// calculateGravityLocal().
 	void calculateGravityLocal();
-	
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted
 	/// by this TreePiece, and belonging to a subset of the global tree

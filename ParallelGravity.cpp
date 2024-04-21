@@ -754,7 +754,7 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
 		    sizeof(int),"p", "Number of TreePieces (default: 8*procs)");
 #ifdef CUDA
-	numStreams = 100;
+        numStreams = 100;
         prmAddParam(prm, "nStreams", paramInt, &numStreams,
                     sizeof(int),"str", "Number of CUDA streams (default: 100)");
 #endif
@@ -2178,7 +2178,7 @@ void Main::setupICs() {
   double startTime;
 
 #ifdef CUDA
-        dMProxy.createStreams(numStreams, CkCallbackResumeThread());
+  dMProxy.createStreams(numStreams, CkCallbackResumeThread());
 #endif
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
