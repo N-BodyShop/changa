@@ -100,10 +100,6 @@ void freePinnedHostMemory(void *ptr){
 #endif
 }
 
-void freeDeviceMemory(void *ptr){
-  cudaChk(cudaFree(ptr));
-}
-
 /// @brief Transfer local moments, particle data and acceleration fields to GPU memory
 /// @param moments Array of moments
 /// @param sMoments Size of moments array

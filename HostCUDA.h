@@ -98,7 +98,6 @@ typedef struct _CudaDevPtr{
 
 void allocatePinnedHostMemory(void **, size_t);
 void freePinnedHostMemory(void *);
-void freeDeviceMemory(void *);
 
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
