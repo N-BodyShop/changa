@@ -620,13 +620,9 @@ void TreePieceDataTransferBasicCleanup(CudaDevPtr *ptr){
  *         the freeing of the device buffers used for the force calculation.
  *  @param hostBuffer Buffer to store results.
  *  @param size hostBuffer size.
+ *  @param d_varParts Pointer to finalized accelerations on GPU
+ *  @param stream CUDA stream to handle the memory transfer
  *  @param cb Callback when transfer is done.
- *  @param freemom Boolean: free device buffer with local moment data.
- *  @param freepart Boolean: free device buffer with local particle data.
- *  @param freeRemoteMom Boolean: free device buffer with remote
- *  moment data.
- *  @param freeRemotePart Boolean: free device buffer with remote
- *  particle data.
  */
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts,
                               cudaStream_t stream, void *cb){
