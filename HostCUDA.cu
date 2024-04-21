@@ -575,6 +575,10 @@ void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Allocate space and copy bucket and interaction list data to
+///         device memory
+/// @param data CudaRequest object containing parameters for the calculation
+/// @param ptr CudaDevPtr object that stores handles to device memory
 void TreePieceDataTransferBasic(CudaRequest *data, CudaDevPtr *ptr){
   cudaStream_t stream = data->stream;
 
@@ -603,6 +607,8 @@ void TreePieceDataTransferBasic(CudaRequest *data, CudaDevPtr *ptr){
 #endif
 }
 
+/// @brief Free device memory used for interaction list and bucket data
+/// @param ptr CudaDevPtr object that stores handles to device memory
 void TreePieceDataTransferBasicCleanup(CudaDevPtr *ptr){
   cudaChk(cudaFree(ptr->d_list));
   cudaChk(cudaFree(ptr->d_bucketMarkers));
