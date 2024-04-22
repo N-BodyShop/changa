@@ -113,6 +113,10 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 /// @brief Number of pieces into which to divide the tree.
 unsigned int numTreePieces;
+#ifdef CUDA
+    /// @brief Number of CUDA streams to use
+    unsigned int numStreams;
+#endif
 /// @brief Number of particles per TreePiece.  Used to determine the
 /// number of TreePieces.
 unsigned int particlesPerChare;
@@ -242,17 +246,21 @@ Main::Main(CkArgMsg* m) {
 #ifdef HAPI_TRACE
         traceRegisterUserEvent("Tree Serialization", CUDA_SER_TREE);
         traceRegisterUserEvent("List Serialization", CUDA_SER_LIST);
-        traceRegisterUserEvent("Ser Local Walk", SER_LOCAL_WALK);
-        traceRegisterUserEvent("Ser Local Memcpy", SER_LOCAL_MEMCPY);
-        traceRegisterUserEvent("Ser Local Zero", SER_LOCAL_ZERO);
-        traceRegisterUserEvent("Ser Local Trans", SER_LOCAL_TRANS);
+	traceRegisterUserEvent("Ser Local Walk", SER_LOCAL_WALK);
+	traceRegisterUserEvent("Ser Local Gather", SER_LOCAL_GATHER);
+	traceRegisterUserEvent("Ser Local Trans", SER_LOCAL_TRANSFORM);
+	traceRegisterUserEvent("Ser Local Memcpy", SER_LOCAL_MEMCPY);
 
-        traceRegisterUserEvent("Local Node", CUDA_LOCAL_NODE_KERNEL);
-        traceRegisterUserEvent("Remote Node", CUDA_REMOTE_NODE_KERNEL);
-        traceRegisterUserEvent("Remote Resume Node", CUDA_REMOTE_RESUME_NODE_KERNEL);
-        traceRegisterUserEvent("Local Particle", CUDA_LOCAL_PART_KERNEL);
-        traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
-        traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
+        traceRegisterUserEvent("Xfer Local", CUDA_XFER_LOCAL);
+        traceRegisterUserEvent("Xfer Remote", CUDA_XFER_REMOTE);
+        traceRegisterUserEvent("Grav Local", CUDA_GRAV_LOCAL);
+        traceRegisterUserEvent("Grav Remote", CUDA_GRAV_REMOTE);
+        traceRegisterUserEvent("Remote Resume", CUDA_REMOTE_RESUME);
+        traceRegisterUserEvent("Part Gravity Local", CUDA_PART_GRAV_LOCAL);
+        traceRegisterUserEvent("Part Gravity Local Small", CUDA_PART_GRAV_LOCAL_SMALL);
+        traceRegisterUserEvent("Part Gravity Remote", CUDA_PART_GRAV_REMOTE);
+        traceRegisterUserEvent("Xfer Back", CUDA_XFER_BACK);
+        traceRegisterUserEvent("Ewald", CUDA_EWALD);
 #endif
 
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
@@ -745,6 +753,11 @@ Main::Main(CkArgMsg* m) {
 	numTreePieces = 8 * CkNumPes();
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
 		    sizeof(int),"p", "Number of TreePieces (default: 8*procs)");
+#ifdef CUDA
+        numStreams = 100;
+        prmAddParam(prm, "nStreams", paramInt, &numStreams,
+                    sizeof(int),"str", "Number of CUDA streams (default: 100)");
+#endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
             sizeof(int),"ppc", "Average number of particles per TreePiece");
@@ -1752,11 +1765,6 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
 #ifdef PUSH_GRAVITY
             }
 #endif
-
-#ifdef HAPI_INSTRUMENT_WRS
-            // XXX this is probably broken (cbGravity gets called too soon.)
-            dMProxy.clearInstrument(cbGravity);
-#endif
         }
         else {
 #ifdef PUSH_GRAVITY
@@ -1771,9 +1779,6 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
 #endif
 
-#ifdef HAPI_INSTRUMENT_WRS
-            dMProxy.clearInstrument(CkCallbackResumeThread());
-#endif
             double tGrav = CkWallTimer() - *startTime;
             timings[iActiveRung].tGrav += tGrav;
             CkPrintf("took %g seconds\n", tGrav);
@@ -2172,6 +2177,9 @@ void Main::advanceBigStep(int iStep) {
 void Main::setupICs() {
   double startTime;
 
+#ifdef CUDA
+  dMProxy.createStreams(numStreams, CkCallbackResumeThread());
+#endif
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,

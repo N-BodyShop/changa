@@ -39,12 +39,6 @@
 #error "Please recompile charm with --enable-lbuserdata"
 #endif
 
-#ifdef CUDA
-#ifdef HAPI_INSTRUMENT_WRS
-#include "hapi.h"
-#endif
-#endif
-
 #ifdef PUSH_GRAVITY
 #include "ckmulticast.h"
 #endif
@@ -3766,7 +3760,6 @@ void TreePiece::finishBucket(int iBucket) {
       // not be reset, so that the data manager gets 
       // confused.
       dm->transferParticleVarsBack();
-      //dm->freeLocalTreeMemory();
 #else
       // move on to markwalkdone in non-cuda version
       continueWrapUp();
@@ -3878,12 +3871,12 @@ void TreePiece::doAllBuckets(){
   report();
 #endif
 
-#ifdef GPU_LOCAL_TREE_WALK 
+#ifdef GPU_LOCAL_TREE_WALK
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
   listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
-
+  //
   // Set up the book keeping flags
   bool useckloop = false;
   for (int i = 0; i < numBuckets; i ++) {
@@ -3906,12 +3899,7 @@ void TreePiece::doAllBuckets(){
   CkSetQueueing(msg,CK_QUEUEING_IFIFO);
 
   thisProxy[thisIndex].nextBucket(msg);
-#endif //GPU_LOCAL_TREE_WALK
-
-#ifdef HAPI_INSTRUMENT_WRS
-  ((DoubleWalkState *)sLocalGravityState)->nodeListConstructionTimeStart();
-  ((DoubleWalkState *)sLocalGravityState)->partListConstructionTimeStart();
-#endif
+#endif // GPU_LOCAL_TREE_WALK
 }
 
 void TreePiece::nextBucket(dummyMsg *msg){
@@ -4117,6 +4105,8 @@ void TreePiece::calculateGravityLocal() {
   doAllBuckets();
 }
 
+/// @brief Start the ewald calculation on this TreePiece
+/// @param msg Indicates whether this function was called from EwaldInit
 void TreePiece::calculateEwald(EwaldMsg *msg) {
 #ifdef SPCUDA
   if(!msg->fromInit){
@@ -4242,12 +4232,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
   CmiMemoryCheck();
 #endif
 
-#ifdef HAPI_INSTRUMENT_WRS
-  ((DoubleWalkState *)sRemoteGravityState)->nodeListConstructionTimeStart();
-  ((DoubleWalkState *)sRemoteGravityState)->partListConstructionTimeStart();
-  ((DoubleWalkState *)sInterListStateRemoteResume)->nodeListConstructionTimeStart();
-  ((DoubleWalkState *)sInterListStateRemoteResume)->partListConstructionTimeStart();
-#endif
   CkAssert(chunkRoot != NULL);
 
   bool useckloop = false;
@@ -4672,12 +4656,6 @@ void TreePiece::executeCkLoopParallelization(LoopParData *lpdata,
   CkAbort("CkLoop not implemented for non-interaction list gravity");
 #endif
 }
-
-#ifdef CUDA
-void TreePiece::callFreeRemoteChunkMemory(int chunk){
-  dm->freeRemoteChunkMemory(chunk);
-}
-#endif
 
 #if INTERLIST_VER > 0
 /// @brief return the largest node which contains current bucket, but
@@ -5108,24 +5086,6 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   // (i.e. all buckets have finished their RNR/Local walks)
 #ifdef CUDA
 
-#ifdef HAPI_INSTRUMENT_WRS
-  instrumentId = dm->initInstrumentation();
-
-  localNodeListConstructionTime = 0.0;
-  remoteNodeListConstructionTime = 0.0;
-  remoteResumeNodeListConstructionTime = 0.0;
-  localPartListConstructionTime = 0.0;
-  remotePartListConstructionTime = 0.0;
-  remoteResumePartListConstructionTime = 0.0;
-
-  nLocalNodeReqs = 0;
-  nRemoteNodeReqs = 0;
-  nRemoteResumeNodeReqs = 0;
-  nLocalPartReqs = 0;
-  nRemotePartReqs = 0;
-  nRemoteResumePartReqs = 0;
-#endif
-
   numActiveBuckets = 0;
   calculateNumActiveParticles();
 
@@ -5301,7 +5261,26 @@ void TreePiece::initiatePrefetch(int chunk){
 
 }
 
+/// @brief Entry method wrapper for calculateGravityLocal
+/// If using the GPU, this TreePiece is assigned a cudaStream and given
+/// handles to device memory
+#ifdef CUDA
+void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments, 
+		                              intptr_t d_localParts, 
+					      intptr_t d_localVars,
+					      intptr_t streams, int numStreams,
+                                              size_t sMoments, size_t sCompactParts, size_t sVarParts) {
+    this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
+    this->d_localParts = (CompactPartData *)d_localParts;
+    this->d_localVars = (VariablePartData *)d_localVars;
+    this->stream = ((cudaStream_t *)streams)[thisIndex % numStreams];
+    this->sMoments = sMoments;
+    this->sCompactParts = sCompactParts;
+    this->sVarParts = sVarParts;
+
+#else
 void TreePiece::commenceCalculateGravityLocal(){
+#endif
 #if INTERLIST_VER > 0 
   // must set placedRoots to false before starting local comp.
   DoubleWalkState *lstate = (DoubleWalkState *)sLocalGravityState;
@@ -5330,7 +5309,13 @@ void TreePiece::startRemoteChunk() {
 /// @brief Main work of StartRemoteChunk()
 /// Schedule a TreePiece::calculateGravityRemote() then start
 /// prefetching for the next chunk.
+#ifdef CUDA
+void TreePiece::continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts){
+  this->d_remoteMoments = (CudaMultipoleMoments *)d_remoteMoments;
+  this->d_remoteParts = (CompactPartData *)d_remoteParts;
+#else
 void TreePiece::continueStartRemoteChunk(int chunk){
+#endif
   // FIXME - can value of chunk be different from current Prefetch?
   ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(sPrefetchState->currentBucket);
   *(int*)CkPriorityPtr(msg) = numTreePieces * numChunks + thisIndex + 1;
@@ -6355,112 +6340,6 @@ void TreePiece::finishWalk()
   CkPrintf("[%d] inside finishWalk contrib callback\n", thisIndex);
 #endif
 
-#ifdef HAPI_INSTRUMENT_WRS
-  hapiRequestTimeInfo *rti1 = hapiQueryInstrument(instrumentId, DM_TRANSFER_LOCAL, activeRung);
-  hapiRequestTimeInfo *rti2 = hapiQueryInstrument(instrumentId, DM_TRANSFER_REMOTE_CHUNK, activeRung);
-  hapiRequestTimeInfo *rti3 = hapiQueryInstrument(instrumentId, DM_TRANSFER_BACK, activeRung);
-  hapiRequestTimeInfo *rti4 = hapiQueryInstrument(instrumentId, DM_TRANSFER_FREE_LOCAL, activeRung);
-  hapiRequestTimeInfo *rti5 = hapiQueryInstrument(instrumentId, DM_TRANSFER_FREE_REMOTE_CHUNK, activeRung);
-
-  hapiRequestTimeInfo *rti6 = hapiQueryInstrument(instrumentId, TP_GRAVITY_LOCAL, activeRung);
-  hapiRequestTimeInfo *rti7 = hapiQueryInstrument(instrumentId, TP_GRAVITY_REMOTE, activeRung);
-  hapiRequestTimeInfo *rti8 = hapiQueryInstrument(instrumentId, TP_GRAVITY_REMOTE_RESUME, activeRung);
-
-  hapiRequestTimeInfo *rti9 = hapiQueryInstrument(instrumentId,TP_PART_GRAVITY_LOCAL_SMALLPHASE, activeRung);
-  hapiRequestTimeInfo *rti10 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_LOCAL, activeRung);
-  hapiRequestTimeInfo *rti11 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE, activeRung);
-  hapiRequestTimeInfo *rti12 = hapiQueryInstrument(instrumentId, TP_PART_GRAVITY_REMOTE_RESUME, activeRung);
-
-  hapiRequestTimeInfo *rti13 = hapiQueryInstrument(instrumentId, EWALD_KERNEL, activeRung);
-
-  if(rti6 != NULL){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS localnode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti6->transfer_time/rti6->n,
-        rti6->kernel_time/rti6->n,
-        rti6->cleanup_time/rti6->n, rti6->n);
-  }
-  if(rti7 != NULL){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remotenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti7->transfer_time/rti7->n,
-        rti7->kernel_time/rti7->n,
-        rti7->cleanup_time/rti7->n, rti7->n);
-  }
-  if(rti8 != NULL){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remoteresumenode: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti8->transfer_time/rti8->n,
-        rti8->kernel_time/rti8->n,
-        rti8->cleanup_time/rti8->n, rti8->n);
-  }
-
-  if(rti10 != NULL){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS localpart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti10->transfer_time/rti10->n,
-        rti10->kernel_time/rti10->n,
-        rti10->cleanup_time/rti10->n, rti10->n);
-  }
-  if(rti11 != NULL){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remotepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti11->transfer_time/rti11->n,
-        rti11->kernel_time/rti11->n,
-        rti11->cleanup_time/rti11->n, rti11->n);
-  }
-  if(rti12 != NULL){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS remoteresumepart: (%f,%f,%f) count: %d\n", thisIndex, activeRung, 
-        rti12->transfer_time/rti12->n,
-        rti12->kernel_time/rti12->n,
-        rti12->cleanup_time/rti12->n, rti12->n);
-  }
-
-  if(nLocalNodeReqs > 0){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction local node reqs: %d, avg: %f\n", 
-              thisIndex, 
-              activeRung,
-              nLocalNodeReqs,
-              localNodeListConstructionTime/nLocalNodeReqs
-              );
-  }
-  if(nRemoteNodeReqs > 0){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote node reqs: %d, avg: %f\n", 
-              thisIndex, 
-              activeRung,
-              nRemoteNodeReqs,
-              remoteNodeListConstructionTime/nRemoteNodeReqs
-              );
-  }
-  if(nRemoteResumeNodeReqs > 0){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote resume node reqs: %d, avg: %f\n", 
-              thisIndex, 
-              activeRung,
-              nRemoteResumeNodeReqs,
-              remoteResumeNodeListConstructionTime/nRemoteResumeNodeReqs
-              );
-  }
-  if(nLocalPartReqs > 0){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction local part reqs: %d, avg: %f\n", 
-              thisIndex, 
-              activeRung,
-              nLocalPartReqs,
-              localPartListConstructionTime/nLocalPartReqs
-              );
-  }
-  if(nRemotePartReqs > 0){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote part reqs: %d, avg: %f\n", 
-              thisIndex, 
-              activeRung,
-              nRemotePartReqs,
-              remotePartListConstructionTime/nRemotePartReqs
-              );
-  }
-  if(nRemoteResumePartReqs > 0){
-    CkPrintf("[%d] (%d) HAPI_INSTRUMENT_WRS construction remote resume part reqs: %d, avg: %f\n", 
-              thisIndex, 
-              activeRung,
-              nRemoteResumePartReqs,
-              remoteResumePartListConstructionTime/nRemoteResumePartReqs
-              );
-  }
-
-#endif
 #ifdef HAPI_TRACE
   CkPrintf("[%d] (%d) HAPI_TRACE localnode: %lld\n", thisIndex, activeRung, localNodeInteractions);
   CkPrintf("[%d] (%d) HAPI_TRACE remotenode: %lld\n", thisIndex, activeRung, remoteNodeInteractions);

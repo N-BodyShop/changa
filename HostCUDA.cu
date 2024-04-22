@@ -5,9 +5,6 @@
 #ifdef HAPI_MEMPOOL
 #define GPU_MEMPOOL
 #endif
-#ifdef HAPI_INSTRUMENT_WRS
-#define GPU_INSTRUMENT_WRS
-#endif
 
 #include <stdlib.h>
 #include <stdio.h>
@@ -103,949 +100,533 @@ void freePinnedHostMemory(void *ptr){
 #endif
 }
 
+/// @brief Transfer local moments, particle data and acceleration fields to GPU memory
+/// @param moments Array of moments
+/// @param sMoments Size of moments array
+/// @param compactParts Array of particles
+/// @param sCompactParts Size of particle array
+/// @param varParts Zeroed-out particle acceleration fields
+/// @param sVarParts Size of acceleration array
+/// @param d_localMoments Uninitalized pointer to moments on GPU
+/// @param d_compactParts Uninitalized pointer to particles on GPU
+/// @param d_varParts Uninitalized pointer to accelerations on GPU
+/// @param stream CUDA stream to handle the memory transfer
+/// @param numParticles Total number of particle accelerations to initalize
+void DataManagerTransferLocalTree(void *moments, size_t sMoments,
+                                  void *compactParts, size_t sCompactParts,
+                                  void *varParts, size_t sVarParts,
+				  void **d_localMoments, void **d_compactParts, void **d_varParts,
+				  cudaStream_t stream, int numParticles,
+                                  void *callback) {
 
-/******************* Transfers ******************/
-
-void run_DM_TRANSFER_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("DM_TRANSFER_LOCAL KERNELSELECT\n");
-  printf("mom: 0x%x\n", devBuffers[LOCAL_MOMENTS]);
-  printf("cores: 0x%x\n", devBuffers[LOCAL_PARTICLE_CORES]);
-  printf("vars: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
+  printf("(%d) DM LOCAL TREE moments %zu partcores %zu partvars %zu\n",
+           CmiMyPe(),
+           sMoments,
+           sCompactParts,
+           sVarParts
+           );
 #endif
-  ZeroVars<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>(
-      (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-      wr->buffers[LOCAL_PARTICLE_VARS_IDX].size/sizeof(VariablePartData));
+
+  HAPI_TRACE_BEGIN();
+
+  cudaChk(cudaMalloc(d_localMoments, sMoments));
+  cudaChk(cudaMalloc(d_compactParts, sCompactParts));
+  cudaChk(cudaMalloc(d_varParts, sVarParts));
+
+  cudaChk(cudaMemcpyAsync(*d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMemcpyAsync(*d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMemcpyAsync(*d_varParts, varParts, sVarParts, cudaMemcpyHostToDevice, stream));
+
+  ZeroVars<<<numParticles / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(
+      (VariablePartData *) *d_varParts,
+      numParticles);
   cudaChk(cudaPeekAtLastError());
+
+  HAPI_TRACE_END(CUDA_XFER_LOCAL);
+
+  hapiAddCallback(stream, callback);
 }
 
-void run_DM_TRANSFER_REMOTE_CHUNK(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("DM_TRANSFER_REMOTE_CHUNK, %d KERNELSELECT\n", wr->buffers[REMOTE_MOMENTS_IDX].transfer_to_device);
-#endif
-}
-
-
-void run_DM_TRANSFER_FREE_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("DM_TRANSFER_FREE_LOCAL KERNELSELECT\n");
-  printf("buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nlocal_moments: (0x%x)\n", 
-      devBuffers[LOCAL_PARTICLE_CORES],
-      devBuffers[LOCAL_PARTICLE_VARS],
-      devBuffers[LOCAL_MOMENTS]
-      );
-
-#endif
-}
-
-
-
-
-
-/// @brief queue work request to tranfer local moments and particles to GPU
-/// @param moments array of moments
-/// @param nMoments
-/// @param compactParts  Array of particles
-/// @param nCompactParts
-/// @param mype Only used for debugging
-#ifdef HAPI_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(void *moments, size_t sMoments,
-                                  void *compactParts, size_t sCompactParts,
-                                  void *varParts, size_t sVarParts, int numParticles,
-                                  int mype, char phase, void *wrCallback) {
-#else
-void DataManagerTransferLocalTree(void *moments, size_t sMoments,
-                                  void *compactParts, size_t sCompactParts,
-                                  void *varParts, size_t sVarParts, int numParticles,
-                                  int mype, void *wrCallback) {
-#endif
-
-	hapiWorkRequest* transferKernel = hapiCreateWorkRequest();
-
-        transferKernel->addBuffer(moments, sMoments, (sMoments > 0), false,
-                                  false, LOCAL_MOMENTS);
-
-        transferKernel->addBuffer(compactParts, sCompactParts,
-                                  (sCompactParts > 0), false, false,
-                                  LOCAL_PARTICLE_CORES);
-
-	transferKernel->addBuffer(varParts, sVarParts, (sVarParts > 0), false,
-                                  false, LOCAL_PARTICLE_VARS);
-
-       // +1 to avoid dimGrid = 0 when we run test with extremely small input.
-       transferKernel->setExecParams(numParticles / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK));
-
-	transferKernel->setDeviceToHostCallback(*(CkCallback *)wrCallback);
-#ifdef HAPI_TRACE
-	transferKernel->setTraceName("xferLocal");
-#endif
-	transferKernel->setRunKernel(run_DM_TRANSFER_LOCAL);
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) DM LOCAL TREE moments %zu (%d) partcores %zu (%d) partvars %zu (%d)\n",
-                  CmiMyPe(),
-                  transferKernel->buffers[LOCAL_MOMENTS_IDX].size,
-                  transferKernel->buffers[LOCAL_MOMENTS_IDX].transfer_to_device,
-                  transferKernel->buffers[LOCAL_PARTICLE_CORES_IDX].size,
-                  transferKernel->buffers[LOCAL_PARTICLE_CORES_IDX].transfer_to_device,
-                  transferKernel->buffers[LOCAL_PARTICLE_VARS_IDX].size,
-                  transferKernel->buffers[LOCAL_PARTICLE_VARS_IDX].transfer_to_device
-                  );
-#endif
-#ifdef HAPI_INSTRUMENT_WRS
-        transferKernel->chare_index = mype;
-        transferKernel->comp_type = DM_TRANSFER_LOCAL;
-        transferKernel->comp_phase = phase;
-#endif
-	hapiEnqueue(transferKernel);
-
-}
-
-#ifdef HAPI_INSTRUMENT_WRS
+/// @brief Transfer remote moments and particle data to GPU memory
+/// @param moments Array of remote moments
+/// @param sMoments Size of remote moments array
+/// @param remoteParts Array of remote particles
+/// @param sRemoteParts Size of remote particle array
+/// @param d_remoteMoments Uninitalized pointer to remote moments on GPU
+/// @param d_remoteParts Uninitalized pointer to remote particles on GPU
+/// @param stream CUDA stream to handle the memory transfer
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
-                                    void *compactParts, size_t sCompactParts,
-                                    int mype, char phase, void *wrCallback) {
-#else
-void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
-                                    void *compactParts, size_t sCompactParts,
-                                    void *wrCallback) {
-#endif
-
-  hapiWorkRequest* transferKernel = hapiCreateWorkRequest();
-
-  transferKernel->addBuffer(moments, sMoments, (sMoments > 0), false, false,
-                                REMOTE_MOMENTS);
-
-  transferKernel->addBuffer(compactParts, sCompactParts, (sCompactParts > 0),
-                            false, false, REMOTE_PARTICLE_CORES);
+                                    void *remoteParts, size_t sRemoteParts,
+				    void **d_remoteMoments, void **d_remoteParts,
+                                    cudaStream_t stream,
+                                    void *callback) {
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("(%d) DM REMOTE CHUNK moments %zu (%d) partcores %zu (%d)\n",
-            CmiMyPe(),
-            transferKernel->buffers[REMOTE_MOMENTS_IDX].size,
-            transferKernel->buffers[REMOTE_MOMENTS_IDX].transfer_to_device,
-            transferKernel->buffers[REMOTE_PARTICLE_CORES_IDX].size,
-            transferKernel->buffers[REMOTE_PARTICLE_CORES_IDX].transfer_to_device
-            );
+  printf("(%d) DM REMOTE CHUNK moments %zu partcores %zu\n",
+        CmiMyPe(),
+        sMoments,
+        sRemoteParts
+        );
 #endif
 
-  transferKernel->setDeviceToHostCallback(*(CkCallback *)wrCallback);
-#ifdef HAPI_TRACE
-  transferKernel->setTraceName("xferRemote");
-#endif
-  transferKernel->setRunKernel(run_DM_TRANSFER_REMOTE_CHUNK);
-#ifdef HAPI_INSTRUMENT_WRS
-  transferKernel->chare_index = mype;
-  transferKernel->comp_type = DM_TRANSFER_REMOTE_CHUNK;
-  transferKernel->comp_phase = phase;
-#endif
-  hapiEnqueue(transferKernel);
+  HAPI_TRACE_BEGIN();
 
+  cudaChk(cudaMalloc(d_remoteMoments, sMoments));
+  cudaChk(cudaMalloc(d_remoteParts, sRemoteParts));
+  cudaChk(cudaMemcpyAsync(*d_remoteMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMemcpyAsync(*d_remoteParts, remoteParts, sRemoteParts, cudaMemcpyHostToDevice, stream));
+
+  HAPI_TRACE_END(CUDA_XFER_REMOTE);
+
+  hapiAddCallback(stream, callback);
 }
-
 
 /************** Gravity *****************/
 
-void run_TP_GRAVITY_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("TP_GRAVITY_LOCAL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nlocal_moments: (0x%x)\nil_cell: %d (0x%x)\n", 
-      devBuffers[LOCAL_PARTICLE_CORES],
-      devBuffers[LOCAL_PARTICLE_VARS],
-      devBuffers[LOCAL_MOMENTS],
-      wr->buffers[ILCELL_IDX].id,
-      devBuffers[wr->buffers[ILCELL_IDX].id]
-      );
-#endif
-  if( wr->buffers[ILCELL_IDX].transfer_to_device ){
-#ifndef CUDA_NO_KERNELS
-  #ifdef GPU_LOCAL_TREE_WALK
-    gpuLocalTreeWalk<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>> (
-      (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-      (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-      (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
-      ptr->firstParticle,
-      ptr->lastParticle,
-      ptr->rootIdx,
-      ptr->theta,
-      ptr->thetaMono,
-      ptr->nReplicas,
-      ptr->fperiod,
-      ptr->fperiodY,
-      ptr->fperiodZ
-    );
-  #else
-    nodeGravityComputation<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-      (
-        (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-        (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-        (CudaMultipoleMoments *)devBuffers[LOCAL_MOMENTS],
-        (ILCell *)devBuffers[wr->buffers[ILCELL_IDX].id],
-        (int *)devBuffers[wr->buffers[NODE_BUCKET_MARKERS_IDX].id],
-        (int *)devBuffers[wr->buffers[NODE_BUCKET_START_MARKERS_IDX].id],
-        (int *)devBuffers[wr->buffers[NODE_BUCKET_SIZES_IDX].id],
-        ptr->fperiod
-      );
-  #endif //GPU_LOCAL_TREE_WALK
-    cudaChk(cudaPeekAtLastError());
-#endif
-    HAPI_TRACE_BEGIN();
-
-#ifdef CUDA_PRINT_ERRORS
-    printf("TP_GRAVITY_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-    HAPI_TRACE_END(CUDA_LOCAL_NODE_KERNEL);
-
-  }
-}
-
-void run_TP_PART_GRAVITY_LOCAL_SMALLPHASE(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("TP_PART_GRAVITY_LOCAL_SMALLPHASE KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: %d (0x%x)\n", 
-      devBuffers[LOCAL_PARTICLE_CORES],
-      devBuffers[LOCAL_PARTICLE_VARS],
-      wr->buffers[ILPART_IDX].id,
-      devBuffers[wr->buffers[ILPART_IDX].id]
-      );
-#endif
-  if( wr->buffers[ILPART_IDX].transfer_to_device ){
-#ifndef CUDA_NO_KERNELS
-#ifdef CUDA_2D_TB_KERNEL
-    particleGravityComputation<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CompactPartData *)devBuffers[wr->buffers[MISSED_PARTS_IDX].id],
-       (ILCell *)devBuffers[wr->buffers[ILPART_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_START_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_SIZES_IDX].id],
-       ptr->fperiod 
-      );
-#else
-    particleGravityComputation<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CompactPartData *)devBuffers[wr->buffers[MISSED_PARTS_IDX].id],
-       (ILPart *)devBuffers[wr->buffers[ILPART_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_START_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_SIZES_IDX].id],
-       ptr->fperiod 
-      );
-#endif
-    cudaChk(cudaPeekAtLastError());
-#endif
-
-
-    HAPI_TRACE_BEGIN();
-
-#ifdef CUDA_PRINT_ERRORS
-    printf("TP_PART_GRAVITY_LOCAL_SMALLPHASE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-    HAPI_TRACE_END(CUDA_LOCAL_PART_KERNEL);
-  }
-}
-
-void run_TP_PART_GRAVITY_LOCAL(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("TP_PART_GRAVITY_LOCAL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: %d (0x%x)\n", 
-      devBuffers[LOCAL_PARTICLE_CORES],
-      devBuffers[LOCAL_PARTICLE_VARS],
-      wr->buffers[ILPART_IDX].id,
-      devBuffers[wr->buffers[ILPART_IDX].id]
-      );
-#endif
-  if( wr->buffers[ILPART_IDX].transfer_to_device ){
-#ifndef CUDA_NO_KERNELS
-#ifdef CUDA_2D_TB_KERNEL
-    particleGravityComputation<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (ILCell *)devBuffers[wr->buffers[ILPART_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_START_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_SIZES_IDX].id],
-       ptr->fperiod
-      );
-#else
-    particleGravityComputation<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (ILPart *)devBuffers[wr->buffers[ILPART_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_START_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_SIZES_IDX].id],
-       ptr->fperiod
-      );
-#endif
-    cudaChk(cudaPeekAtLastError());
-#endif
-
-    HAPI_TRACE_BEGIN();
-
-#ifdef CUDA_PRINT_ERRORS
-    printf("TP_PART_GRAVITY_LOCAL 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-    HAPI_TRACE_END(CUDA_LOCAL_PART_KERNEL);
-  }
-}
-
-void run_TP_GRAVITY_REMOTE(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("TP_GRAVITY_REMOTE KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nremote_moments: (0x%x)\nil_cell: %d (0x%x)\n", 
-      devBuffers[LOCAL_PARTICLE_CORES],
-      devBuffers[LOCAL_PARTICLE_VARS],
-      devBuffers[REMOTE_MOMENTS],
-      wr->buffers[ILCELL_IDX].id,
-      devBuffers[wr->buffers[ILCELL_IDX].id]
-      );
-#endif
-  if( wr->buffers[ILCELL_IDX].transfer_to_device ){
-#ifndef CUDA_NO_KERNELS
-    nodeGravityComputation<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CudaMultipoleMoments *)devBuffers[REMOTE_MOMENTS],
-       (ILCell *)devBuffers[wr->buffers[ILCELL_IDX].id],
-       (int *)devBuffers[wr->buffers[NODE_BUCKET_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[NODE_BUCKET_START_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[NODE_BUCKET_SIZES_IDX].id],
-       ptr->fperiod
-      );
-    cudaChk(cudaPeekAtLastError());
-#endif
-
-    HAPI_TRACE_BEGIN();
-#ifdef CUDA_PRINT_ERRORS
-    printf("TP_GRAVITY_REMOTE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-    HAPI_TRACE_END(CUDA_REMOTE_NODE_KERNEL);
-  }
-}
-
-void run_TP_PART_GRAVITY_REMOTE(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("TP_PART_GRAVITY_REMOTE KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: %d (0x%x)\n", 
-      devBuffers[LOCAL_PARTICLE_CORES],
-      devBuffers[LOCAL_PARTICLE_VARS],
-      wr->buffers[ILPART_IDX].id,
-      devBuffers[wr->buffers[ILPART_IDX].id]
-      );
-#endif
-  if( wr->buffers[ILPART_IDX].transfer_to_device ){
-#ifndef CUDA_NO_KERNELS
-#ifdef CUDA_2D_TB_KERNEL
-    particleGravityComputation<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CompactPartData *)devBuffers[REMOTE_PARTICLE_CORES],
-       (ILCell *)devBuffers[wr->buffers[ILPART_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_START_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_SIZES_IDX].id],
-       ptr->fperiod
-      );
-#else
-    particleGravityComputation<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CompactPartData *)devBuffers[REMOTE_PARTICLE_CORES],
-       (ILPart *)devBuffers[wr->buffers[ILPART_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_START_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_SIZES_IDX].id],
-       ptr->fperiod
-      );
-#endif
-    cudaChk(cudaPeekAtLastError());
-#endif
-
-
-    HAPI_TRACE_BEGIN();
-
-#ifdef CUDA_PRINT_ERRORS
-    printf("TP_PART_GRAVITY_REMOTE 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-    HAPI_TRACE_END(CUDA_REMOTE_PART_KERNEL);
-  }
-}
-
-void run_TP_GRAVITY_REMOTE_RESUME(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("TP_GRAVITY_REMOTE_RESUME KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_moments: %d (0x%x)\nil_cell: %d (0x%x)\n", 
-      devBuffers[LOCAL_PARTICLE_CORES],
-      devBuffers[LOCAL_PARTICLE_VARS],
-      wr->buffers[MISSED_MOMENTS_IDX].id,
-      devBuffers[wr->buffers[MISSED_MOMENTS_IDX].id],
-      wr->buffers[ILCELL_IDX].id,
-      devBuffers[wr->buffers[ILCELL_IDX].id]
-      );
-#endif
-  if( wr->buffers[ILCELL_IDX].transfer_to_device ){
-#ifndef CUDA_NO_KERNELS
-    nodeGravityComputation<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CudaMultipoleMoments *)devBuffers[wr->buffers[MISSED_MOMENTS_IDX].id],
-       (ILCell *)devBuffers[wr->buffers[ILCELL_IDX].id],
-       (int *)devBuffers[wr->buffers[NODE_BUCKET_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[NODE_BUCKET_START_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[NODE_BUCKET_SIZES_IDX].id],
-       ptr->fperiod
-      );
-    cudaChk(cudaPeekAtLastError());
-#endif
-
-
-    HAPI_TRACE_BEGIN();
-#ifdef CUDA_PRINT_ERRORS
-    printf("TP_GRAVITY_REMOTE_RESUME 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-    HAPI_TRACE_END(CUDA_REMOTE_RESUME_NODE_KERNEL);
-  }
-}
-
-void run_TP_PART_GRAVITY_REMOTE_RESUME(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  ParameterStruct *ptr = (ParameterStruct *)wr->getUserData();
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("TP_PART_GRAVITY_REMOTE_RESUME KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_parts: %d (0x%x)\nil_cell: %d (0x%x)\n", 
-      devBuffers[LOCAL_PARTICLE_CORES],
-      devBuffers[LOCAL_PARTICLE_VARS],
-      wr->buffers[MISSED_PARTS_IDX].id,
-      devBuffers[wr->buffers[MISSED_PARTS_IDX].id],
-      wr->buffers[ILPART_IDX].id,
-      devBuffers[wr->buffers[ILPART_IDX].id]
-      );
-#endif
-  if( wr->buffers[ILPART_IDX].transfer_to_device ){
-#ifndef CUDA_NO_KERNELS
-#ifdef CUDA_2D_TB_KERNEL
-    particleGravityComputation<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CompactPartData *)devBuffers[wr->buffers[MISSED_PARTS_IDX].id],
-       (ILCell *)devBuffers[wr->buffers[ILPART_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_START_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_SIZES_IDX].id],
-       ptr->fperiod
-      );
-#else
-    particleGravityComputation<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-      (
-       (CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-       (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-       (CompactPartData *)devBuffers[wr->buffers[MISSED_PARTS_IDX].id],
-       (ILPart *)devBuffers[wr->buffers[ILPART_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_START_MARKERS_IDX].id],
-       (int *)devBuffers[wr->buffers[PART_BUCKET_SIZES_IDX].id],
-       ptr->fperiod
-      );
-#endif
-    cudaChk(cudaPeekAtLastError());
-#endif
-
-    HAPI_TRACE_BEGIN();
-#ifdef CUDA_PRINT_ERRORS
-    printf("TP_PART_GRAVITY_REMOTE_RESUME 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-    HAPI_TRACE_END(CUDA_REMOTE_RESUME_PART_KERNEL);
-  }
-}
-
-
-
+/// @brief Initiate a local gravity calculation on the GPU, via an interaction
+///        list calculation between nodes, or do a local tree walk
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePieceCellListDataTransferLocal(CudaRequest *data){
-	int numBlocks = data->numBucketsPlusOne-1;
+  cudaStream_t stream = data->stream;
+  CudaDevPtr devPtr;
+  TreePieceDataTransferBasic(data, &devPtr);
 
-	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-
-#ifdef CUDA_2D_TB_KERNEL
-	gravityKernel->setExecParams(numBlocks, dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK));
-#else
-	gravityKernel->setexecParams(numBlocks, THREADS_PER_BLOCK);
-#endif
-
-#ifdef GPU_LOCAL_TREE_WALK
-       // +1 to avoid dimGrid = 0 when we run test with extremely small input.
-       gravityKernel->setExecParams((data->lastParticle - data->firstParticle + 1)
-                                    / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK));
-#endif //GPU_LOCAL_TREE_WALK
-
-	TreePieceCellListDataTransferBasic(data, gravityKernel);
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER LOCAL CELL\n", CmiMyPe());
+  printf("(%d) TRANSFER LOCAL CELL\n", CmiMyPe());
 #endif
 
-	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
-#ifdef HAPI_TRACE
-	gravityKernel->setTraceName("gravityLocal");
+#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
+  printf("TRANSFER LOCAL CELL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nremote_moments: (0x%x)\nil_cell: (0x%x)\n", 
+	data->d_localParts,
+	data->d_localVars,
+	data->d_localMoments,
+	devPtr.d_list
+      );
 #endif
-	gravityKernel->setRunKernel(run_TP_GRAVITY_LOCAL);
-#ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chare_index = data->tpIndex;
-        gravityKernel->comp_type = TP_GRAVITY_LOCAL;
-        gravityKernel->comp_phase = data->phase;
+
+  HAPI_TRACE_BEGIN();
+#ifndef CUDA_NO_KERNELS
+#ifdef GPU_LOCAL_TREE_WALK
+  gpuLocalTreeWalk<<<(data->lastParticle - data->firstParticle + 1)
+                     / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
+    data->d_localMoments,
+    data->d_localParts,
+    data->d_localVars,
+    data->firstParticle,
+    data->lastParticle,
+    data->rootIdx,
+    data->theta,
+    data->thetaMono,
+    data->nReplicas,
+    data->fperiod,
+    data->fperiodY,
+    data->fperiodZ
+    );
+ #else
+    dim3 dimensions = THREADS_PER_BLOCK;
+ #ifdef CUDA_2D_TB_KERNEL
+    dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
+ #endif
+  nodeGravityComputation<<<dim3(data->numBucketsPlusOne-1), dimensions, 0, stream>>> (
+    data->d_localParts,
+    data->d_localVars,
+    data->d_localMoments,
+    (ILCell *)devPtr.d_list,
+    devPtr.d_bucketMarkers,
+    devPtr.d_bucketStarts,
+    devPtr.d_bucketSizes,
+    data->fperiod
+    );
 #endif
-	hapiEnqueue(gravityKernel);
+#endif
+  TreePieceDataTransferBasicCleanup(&devPtr);
+  cudaChk(cudaPeekAtLastError());
+  HAPI_TRACE_END(CUDA_GRAV_LOCAL);
+
+  hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Initiate a remote gravity calculation on the GPU between tree nodes
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePieceCellListDataTransferRemote(CudaRequest *data){
-	int numBlocks = data->numBucketsPlusOne-1;
+  cudaStream_t stream = data->stream;
+  CudaDevPtr devPtr;
+  TreePieceDataTransferBasic(data, &devPtr);
 
-	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-
-#ifdef CUDA_2D_TB_KERNEL
-	gravityKernel->setExecParams(numBlocks, dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK));
-#else
-	gravityKernel->setExecParams(numBlocks, THREADS_PER_BLOCK);
-#endif
-
-	TreePieceCellListDataTransferBasic(data, gravityKernel);
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER REMOTE CELL\n", CmiMyPe());
+  printf("(%d) TRANSFER REMOTE CELL\n", CmiMyPe());
 #endif
 
-	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
-#ifdef HAPI_TRACE
-	gravityKernel->setTraceName("gravityRemote");
+#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
+  printf("TRANSFER REMOTE CELL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nremote_moments: (0x%x)\nil_cell: (0x%x)\n", 
+	data->d_localParts,
+	data->d_localVars,
+	data->d_remoteMoments,
+	devPtr.d_list
+        );
 #endif
-	gravityKernel->setRunKernel(run_TP_GRAVITY_REMOTE);
-#ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chare_index = data->tpIndex;
-        gravityKernel->comp_type = TP_GRAVITY_REMOTE;
-        gravityKernel->comp_phase = data->phase;
+
+  HAPI_TRACE_BEGIN();
+#ifndef CUDA_NO_KERNELS
+  dim3 dimensions = THREADS_PER_BLOCK;
+#ifdef CUDA_2D_TB_KERNEL
+  dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
 #endif
-	hapiEnqueue(gravityKernel);
+  nodeGravityComputation<<<data->numBucketsPlusOne-1, dimensions, 0, stream>>> (
+    data->d_localParts,
+    data->d_localVars,
+    data->d_remoteMoments,
+    (ILCell *)devPtr.d_list, 
+    devPtr.d_bucketMarkers,
+    devPtr.d_bucketStarts,
+    devPtr.d_bucketSizes,
+    data->fperiod
+    ); 
+#endif
+  TreePieceDataTransferBasicCleanup(&devPtr);
+  cudaChk(cudaPeekAtLastError());
+  HAPI_TRACE_END(CUDA_GRAV_REMOTE);
+
+  hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Initiate a remote resume gravity calculation on the GPU between tree nodes
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePieceCellListDataTransferRemoteResume(CudaRequest *data){
-  int numBlocks = data->numBucketsPlusOne-1;
+  cudaStream_t stream = data->stream;
+  CudaDevPtr devPtr;
+  void *d_missedNodes;
+  TreePieceDataTransferBasic(data, &devPtr);
 
-  hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-  bool transfer;
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
+  printf("(%d) TRANSFER REMOTE RESUME CELL\n", CmiMyPe());
+#endif
 
+  cudaChk(cudaMalloc(&d_missedNodes, data->sMissed));
+  cudaChk(cudaMemcpyAsync(d_missedNodes, data->missedNodes, data->sMissed, cudaMemcpyHostToDevice, stream));
+
+#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
+  printf("TRANSFER REMOTE RESUME CELL KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_moments (0x%x)\nil_cell (0x%x)\n", 
+        data->d_localParts,
+	data->d_localVars,
+	d_missedNodes,
+	devPtr.d_list
+      );
+#endif
+
+  HAPI_TRACE_BEGIN();
+#ifndef CUDA_NO_KERNELS
+    dim3 dimensions = THREADS_PER_BLOCK;
 #ifdef CUDA_2D_TB_KERNEL
-  gravityKernel->setExecParams(numBlocks, dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK));
-#else
-  gravityKernel->setExecParams(numBlocks, THREADS_PER_BLOCK);
+    dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
 #endif
-
-  TreePieceCellListDataTransferBasic(data, gravityKernel);
-  transfer = gravityKernel->buffers[ILCELL_IDX].transfer_to_device;
-
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("(%d) TRANSFER REMOTE RESUME CELL (%d)\n", CmiMyPe(), transfer);
+    nodeGravityComputation<<<data->numBucketsPlusOne-1, dimensions, 0, stream>>> (
+      data->d_localParts,
+      data->d_localVars,
+      (CudaMultipoleMoments *)d_missedNodes,
+      (ILCell *)devPtr.d_list,
+      devPtr.d_bucketMarkers,
+      devPtr.d_bucketStarts,
+      devPtr.d_bucketSizes,
+      data->fperiod
+      );
 #endif
+  TreePieceDataTransferBasicCleanup(&devPtr);
+  cudaChk(cudaFree(d_missedNodes));
+  cudaChk(cudaPeekAtLastError());
+  HAPI_TRACE_END(CUDA_REMOTE_RESUME);
 
-  gravityKernel->addBuffer(data->missedNodes, data->sMissed, transfer, false,
-                           transfer);
-
-  ParameterStruct *ptr = (ParameterStruct *)gravityKernel->getUserData();
-
-  gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
-#ifdef HAPI_TRACE
-  gravityKernel->setTraceName("remoteResume");
-#endif
-  gravityKernel->setRunKernel(run_TP_GRAVITY_REMOTE_RESUME);
-#ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chare_index = data->tpIndex;
-        gravityKernel->comp_type = TP_GRAVITY_REMOTE_RESUME;
-        gravityKernel->comp_phase = data->phase;
-#endif
-  hapiEnqueue(gravityKernel);
+  hapiAddCallback(stream, data->cb);
 }
 
-void TreePieceCellListDataTransferBasic(CudaRequest *data, hapiWorkRequest *gravityKernel){
-	int numBucketsPlusOne = data->numBucketsPlusOne;
-        int numBuckets = numBucketsPlusOne-1;
-        size_t size = (data->numInteractions) * sizeof(ILCell);
-        bool transfer = size > 0;
-
-	gravityKernel->addBuffer(data->list, size, transfer, false, transfer);
-
-        size = (numBucketsPlusOne) * sizeof(int);
-	gravityKernel->addBuffer(data->bucketMarkers, (transfer ? size : 0),
-	                             transfer, false, transfer);
-
-	size = (numBuckets) * sizeof(int);
-	gravityKernel->addBuffer(data->bucketStarts, size, transfer, false, transfer);
-
-	gravityKernel->addBuffer(data->bucketSizes, size, transfer, false, transfer);
-
-        ParameterStruct *ptr = (ParameterStruct *)malloc(sizeof(ParameterStruct));
-        ptr->numInteractions = data->numInteractions;
-        ptr->numBucketsPlusOne = numBucketsPlusOne;
-        ptr->fperiod = data->fperiod;
-
-#ifdef GPU_LOCAL_TREE_WALK
-        ptr->firstParticle  = data->firstParticle;
-        ptr->lastParticle   = data->lastParticle;
-        ptr->rootIdx        = data->rootIdx;
-        ptr->theta          = data->theta;
-        ptr->thetaMono      = data->thetaMono;
-        ptr->nReplicas      = data->nReplicas;
-        ptr->fperiod        = data->fperiod;
-        ptr->fperiodY       = data->fperiodY;
-        ptr->fperiodZ       = data->fperiodZ;
-#endif //GPU_LOCAL_TREE_WALK
-        gravityKernel->setUserData(ptr, true);
-
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER BASIC cells %zu (%d) bucket_markers %zu (%d) bucket_starts %zu (%d) bucket_sizes %zu (%d)\n",
-            CmiMyPe(),
-            gravityKernel->buffers[ILCELL_IDX].size,
-            gravityKernel->buffers[ILCELL_IDX].transfer_to_device,
-            gravityKernel->buffers[NODE_BUCKET_MARKERS_IDX].size,
-            gravityKernel->buffers[NODE_BUCKET_MARKERS_IDX].transfer_to_device,
-            gravityKernel->buffers[NODE_BUCKET_START_MARKERS_IDX].size,
-            gravityKernel->buffers[NODE_BUCKET_START_MARKERS_IDX].transfer_to_device,
-            gravityKernel->buffers[NODE_BUCKET_SIZES_IDX].size,
-            gravityKernel->buffers[NODE_BUCKET_SIZES_IDX].transfer_to_device
-            );
-#endif
-}
-
+/// @brief Initiate a small phase local gravity calculation on the GPU between particles
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *particles, int len){
-	int numBlocks = data->numBucketsPlusOne-1;
+  cudaStream_t stream = data->stream;
+  CudaDevPtr devPtr;
+  TreePieceDataTransferBasic(data, &devPtr);
 
-	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-	void* bufferHostBuffer;
-        size_t size;
-        bool transfer;
+  size_t size = (len) * sizeof(CompactPartData);
+  void* bufferHostBuffer;
+  void* d_smallParts;
 
-#ifdef CUDA_2D_TB_KERNEL
-	gravityKernel->setExecParams(numBlocks, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART));
-#else
-	gravityKernel->setExecParams(numBlocks, THREADS_PER_BLOCK);
+#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
+  printf("TreePiecePartListDataTransferLocalSmallPhase KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: (0x%x)\n",
+      data->d_localParts,
+      data->d_localVars,
+      devPtr.d_list
+      );
 #endif
-
-	TreePiecePartListDataTransferBasic(data, gravityKernel);
-        transfer = gravityKernel->buffers[ILPART_IDX].transfer_to_device;
-
-        size = (len) * sizeof(CompactPartData);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER LOCAL SMALL PHASE  %zu (%d)\n",
-            CmiMyPe(),
-            size,
-            transfer
-            );
+  printf("(%d) TRANSFER LOCAL SMALL PHASE  %zu\n",
+      CmiMyPe(),
+      size
+      );
 #endif
 
-        if(transfer){
-          allocatePinnedHostMemory(&bufferHostBuffer, size);
+  HAPI_TRACE_BEGIN();
+  allocatePinnedHostMemory(&bufferHostBuffer, size);
 #ifdef CUDA_PRINT_ERRORS
-          printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
+  printf("TPPartSmallPhase 0: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
-          memcpy(bufferHostBuffer, particles, size);
-        }
-        gravityKernel->addBuffer(bufferHostBuffer, size, transfer, false, transfer);
+  memcpy(bufferHostBuffer, particles, size);
+  cudaChk(cudaMalloc(&d_smallParts, size));
+  cudaChk(cudaMemcpyAsync(d_smallParts, bufferHostBuffer, size, cudaMemcpyHostToDevice, stream));
 
-	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
-#ifdef HAPI_TRACE
-	gravityKernel->setTraceName("partGravityLocal");
+#ifndef CUDA_NO_KERNELS
+#ifdef CUDA_2D_TB_KERNEL
+  particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
+    data->d_localParts,
+    data->d_localVars,
+    (CompactPartData *)d_smallParts,
+    (ILCell *)devPtr.d_list,
+    devPtr.d_bucketMarkers,
+    devPtr.d_bucketStarts,
+    devPtr.d_bucketSizes,
+    data->fperiod
+    );
+#else
+  particleGravityComputation<<<data->numBucketsPlusOne-1, THREADS_PER_BLOCK, 0, stream>>> (
+    data->d_localParts,
+    data->d_localVars,
+    (CompactPartData *)d_smallParts,
+    (ILCell *)devPtr.d_list,
+    devPtr.d_bucketMarkers,
+    devPtr.d_bucketStarts,
+    devPtr.d_bucketSizes,
+    data->fperiod
+    );
 #endif
-	gravityKernel->setRunKernel(run_TP_PART_GRAVITY_LOCAL_SMALLPHASE);
-#ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chare_index = data->tpIndex;
-        gravityKernel->comp_type = TP_PART_GRAVITY_LOCAL_SMALLPHASE;
-        gravityKernel->comp_phase = data->phase;
 #endif
-	hapiEnqueue(gravityKernel);
+  TreePieceDataTransferBasicCleanup(&devPtr);
+  cudaChk(cudaPeekAtLastError());
+  HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL_SMALL);
+  cudaChk(cudaFree(d_smallParts));
+  hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Initiate a local gravity calculation on the GPU between particles
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePiecePartListDataTransferLocal(CudaRequest *data){
-	int numBlocks = data->numBucketsPlusOne-1;
+  cudaStream_t stream = data->stream;
+  CudaDevPtr devPtr;
+  TreePieceDataTransferBasic(data, &devPtr);
 
-	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-
-#ifdef CUDA_2D_TB_KERNEL
-	gravityKernel->setExecParams(numBlocks, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART));
-#else
-	gravityKernel->setExecParams(numBlocks, THREADS_PER_BLOCK);
-#endif
-
-	TreePiecePartListDataTransferBasic(data, gravityKernel);
-
-	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
-#ifdef HAPI_TRACE
-	gravityKernel->setTraceName("partGravityLocal");
-#endif
-	gravityKernel->setRunKernel(run_TP_PART_GRAVITY_LOCAL);
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER LOCAL LARGEPHASE PART\n", CmiMyPe());
+  printf("(%d) TRANSFER LOCAL LARGEPHASE PART\n", CmiMyPe());
 #endif
-#ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chare_index = data->tpIndex;
-        gravityKernel->comp_type = TP_PART_GRAVITY_LOCAL;
-        gravityKernel->comp_phase = data->phase;
+
+#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
+  printf("TreePiecePartListDataTransferLocal buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: (0x%x)\n",
+        data->d_localParts,
+        data->d_localVars,
+        devPtr.d_list
+        );
 #endif
-	hapiEnqueue(gravityKernel);
+
+  HAPI_TRACE_BEGIN();
+#ifndef CUDA_NO_KERNELS
+#ifdef CUDA_2D_TB_KERNEL
+  particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
+    data->d_localParts,
+    data->d_localVars,
+    data->d_localParts,
+    (ILCell *)devPtr.d_list,
+    devPtr.d_bucketMarkers,
+    devPtr.d_bucketStarts,
+    devPtr.d_bucketSizes,
+    data->fperiod
+    );
+#else
+  particleGravityComputation<<<data->numBucketsPlusOne-1, THREADS_PER_BLOCK, 0, stream>>> (
+    data->d_localParts,
+    data->d_localVars,
+    data->d_localParts,
+    (ILPart *)devPtr.d_list,
+    devPtr.d_bucketMarkers,
+    devPtr.d_bucketStarts,
+    devPtr.d_bucketSizes,
+    data->fperiod
+    );
+#endif
+#endif
+  TreePieceDataTransferBasicCleanup(&devPtr);
+  cudaChk(cudaPeekAtLastError());
+  HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL);
+
+  hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Initiate a remote gravity calculation on the GPU between particles
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePiecePartListDataTransferRemote(CudaRequest *data){
-	int numBlocks = data->numBucketsPlusOne-1;
+  cudaStream_t stream = data->stream;
+  CudaDevPtr devPtr;
+  TreePieceDataTransferBasic(data, &devPtr);
 
-	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-
-#ifdef CUDA_2D_TB_KERNEL
-	gravityKernel->setExecParams(numBlocks, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART));
-#else
-	gravityKernel->setExecParams(numBlocks, THREADS_PER_BLOCK);
-#endif
-
-	TreePiecePartListDataTransferBasic(data, gravityKernel);
-
-	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
-#ifdef HAPI_TRACE
-	gravityKernel->setTraceName("partGravityRemote");
-#endif
-	gravityKernel->setRunKernel(run_TP_PART_GRAVITY_REMOTE);
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER REMOTE PART\n", CmiMyPe());
+  printf("(%d) TRANSFER REMOTE PART\n", CmiMyPe());
 #endif
-#ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chare_index = data->tpIndex;
-        gravityKernel->comp_type = TP_PART_GRAVITY_REMOTE;
-        gravityKernel->comp_phase = data->phase;
+
+#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
+  printf("TreePiecePartListDataTransferRemote KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nil_cell: (0x%x) (0x%x)\n",
+        data->d_localParts,
+        data->d_localVars,
+	data->list,
+        devPtr.d_list
+        );
 #endif
-	hapiEnqueue(gravityKernel);
+
+  HAPI_TRACE_BEGIN();
+#ifndef CUDA_NO_KERNELS
+#ifdef CUDA_2D_TB_KERNEL
+  particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
+    data->d_localParts,
+    data->d_localVars,
+    data->d_remoteParts,
+    (ILCell *)devPtr.d_list,
+    devPtr.d_bucketMarkers,
+    devPtr.d_bucketStarts,
+    devPtr.d_bucketSizes,
+    data->fperiod
+    );
+#else
+  particleGravityComputation<<<data->numBucketsPlusOne-1, THREADS_PER_BLOCK, 0, stream>>> (
+    data->d_localParts,
+    data->d_localVars,
+    data->d_remoteParts,
+    (ILPart *)devPtr.d_list,
+    devPtr.d_bucketMarkers,
+    devPtr.d_bucketStarts,
+    devPtr.d_bucketSizes,
+    data->fperiod
+    );
+#endif
+#endif
+  TreePieceDataTransferBasicCleanup(&devPtr);
+  cudaChk(cudaPeekAtLastError());
+  HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
+
+  hapiAddCallback(stream, data->cb);
 }
 
+/// @brief Initiate a remote gravity calculation on the GPU between particles
+/// @param data CudaRequest object containing parameters for the calculation
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data){
-	int numBlocks = data->numBucketsPlusOne-1;
-        bool transfer;
+  cudaStream_t stream = data->stream;
+  CudaDevPtr devPtr;
+  void* d_missedParts;
+  TreePieceDataTransferBasic(data, &devPtr);
 
-	hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
+  printf("(%d) TRANSFER REMOTE RESUME PART\n", CmiMyPe());
+#endif
 
+  cudaChk(cudaMalloc(&d_missedParts, data->sMissed));
+  cudaChk(cudaMemcpyAsync(d_missedParts, data->missedParts, data->sMissed, cudaMemcpyHostToDevice, stream));
+
+#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
+  printf("TreePiecePartListDataTransferRemoteResume KERNELSELECT buffers:\nlocal_particles: (0x%x)\nlocal_particle_vars: (0x%x)\nmissed_parts (0x%x)\nil_cell: (0x%x) (0x%x)\n", 
+        data->d_localParts,
+        data->d_localVars,
+        (CompactPartData *)d_missedParts,
+	data->list,
+        devPtr.d_list
+        );
+#endif
+
+  HAPI_TRACE_BEGIN();
+#ifndef CUDA_NO_KERNELS
 #ifdef CUDA_2D_TB_KERNEL
-	gravityKernel->setExecParams(numBlocks, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART));
+  particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
+    data->d_localParts,
+    data->d_localVars,
+    (CompactPartData *)d_missedParts,
+    (ILCell *)devPtr.d_list,
+    devPtr.d_bucketMarkers,
+    devPtr.d_bucketStarts,
+    devPtr.d_bucketSizes,
+    data->fperiod
+    );
 #else
-	gravityKernel->setExecParams(numBlocks, THREADS_PER_BLOCK);
+  particleGravityComputation<<<data->numBucketsPlusOne-1, THREADS_PER_BLOCK, 0, stream>>> (
+    data->d_localParts,
+    data->d_localVars,
+    (CompactPartData *)d_missedParts,
+    (ILPart *)devPtr.d_list,
+    devPtr.d_bucketMarkers,
+    devPtr.d_bucketStarts,
+    devPtr.d_bucketSizes,
+    data->fperiod
+    );
 #endif
-
-	TreePiecePartListDataTransferBasic(data, gravityKernel);
-        transfer = gravityKernel->buffers[ILPART_IDX].transfer_to_device;
-
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER REMOTE RESUME PART (%d)\n",
-            CmiMyPe(),
-            transfer
-            );
 #endif
+  TreePieceDataTransferBasicCleanup(&devPtr);
+  cudaChk(cudaFree(d_missedParts));
+  cudaChk(cudaPeekAtLastError());
+  HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
 
-        gravityKernel->addBuffer(data->missedParts, data->sMissed, transfer,
-                                 false, transfer);
-
-	gravityKernel->setDeviceToHostCallback(*(CkCallback *)(data->cb));
-#ifdef HAPI_TRACE
-	gravityKernel->setTraceName("partGravityRemote");
-#endif
-	gravityKernel->setRunKernel(run_TP_PART_GRAVITY_REMOTE_RESUME);
-#ifdef HAPI_INSTRUMENT_WRS
-        gravityKernel->chare_index = data->tpIndex;
-        gravityKernel->comp_type = TP_PART_GRAVITY_REMOTE_RESUME;
-        gravityKernel->comp_phase = data->phase;
-#endif
-	hapiEnqueue(gravityKernel);
+  hapiAddCallback(stream, data->cb);
 }
 
-void TreePiecePartListDataTransferBasic(CudaRequest *data, hapiWorkRequest *gravityKernel){
-	int numInteractions = data->numInteractions;
-	int numBucketsPlusOne = data->numBucketsPlusOne;
-        int numBuckets = numBucketsPlusOne-1;
-        size_t size;
-        bool transfer;
+/// @brief Allocate space and copy bucket and interaction list data to
+///         device memory
+/// @param data CudaRequest object containing parameters for the calculation
+/// @param ptr CudaDevPtr object that stores handles to device memory
+void TreePieceDataTransferBasic(CudaRequest *data, CudaDevPtr *ptr){
+  cudaStream_t stream = data->stream;
 
-	size = (numInteractions) * sizeof(ILCell);
-        transfer = size > 0;
-	gravityKernel->addBuffer(data->list, size, transfer, false, transfer);
+  int numBucketsPlusOne = data->numBucketsPlusOne;
+  int numBuckets = numBucketsPlusOne-1;
+  size_t listSize = (data->numInteractions) * sizeof(ILCell);
+  size_t markerSize = (numBucketsPlusOne) * sizeof(int);
+  size_t startSize = (numBuckets) * sizeof(int);
 
-	size = (numBucketsPlusOne) * sizeof(int);
-	gravityKernel->addBuffer(data->bucketMarkers, (transfer ? size : 0), transfer, false, transfer);
-
-	size = (numBuckets) * sizeof(int);
-	gravityKernel->addBuffer(data->bucketStarts, size, transfer, false, transfer);
-
-	gravityKernel->addBuffer(data->bucketSizes, size, transfer, false, transfer);
-        
-        ParameterStruct *ptr = (ParameterStruct *)malloc(sizeof(ParameterStruct));
-        ptr->numInteractions = data->numInteractions;
-        ptr->numBucketsPlusOne = numBucketsPlusOne;
-        ptr->fperiod = data->fperiod;
-                                       
-        gravityKernel->setUserData(ptr, true);
+  cudaChk(cudaMalloc(&ptr->d_list, listSize));
+  cudaChk(cudaMalloc(&ptr->d_bucketMarkers, markerSize));
+  cudaChk(cudaMalloc(&ptr->d_bucketStarts, startSize));
+  cudaChk(cudaMalloc(&ptr->d_bucketSizes, startSize));
+  cudaChk(cudaMemcpyAsync(ptr->d_list, data->list, listSize, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMemcpyAsync(ptr->d_bucketMarkers, data->bucketMarkers, markerSize, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMemcpyAsync(ptr->d_bucketStarts, data->bucketStarts, startSize, cudaMemcpyHostToDevice, stream));
+  cudaChk(cudaMemcpyAsync(ptr->d_bucketSizes, data->bucketSizes, startSize, cudaMemcpyHostToDevice, stream));
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-        printf("(%d) TRANSFER BASIC PART parts %zu (%d) bucket_markers %zu (%d) bucket_starts %zu (%d) bucket_sizes %zu (%d)\n",
-            CmiMyPe(),
-            gravityKernel->buffers[ILPART_IDX].size,
-            gravityKernel->buffers[ILPART_IDX].transfer_to_device,
-            gravityKernel->buffers[PART_BUCKET_MARKERS_IDX].size,
-            gravityKernel->buffers[PART_BUCKET_MARKERS_IDX].transfer_to_device,
-            gravityKernel->buffers[PART_BUCKET_START_MARKERS_IDX].size,
-            gravityKernel->buffers[PART_BUCKET_START_MARKERS_IDX].transfer_to_device,
-            gravityKernel->buffers[PART_BUCKET_SIZES_IDX].size,
-            gravityKernel->buffers[PART_BUCKET_SIZES_IDX].transfer_to_device
-            );
+    printf("(%d) TRANSFER BASIC %zu bucket_markers %zu bucket_starts %zu\n",
+           CmiMyPe(),
+           listSize,
+           markerSize,
+           startSize
+           );
 #endif
-
 }
 
-/* kernels:
+/// @brief Free device memory used for interaction list and bucket data
+/// @param ptr CudaDevPtr object that stores handles to device memory
+void TreePieceDataTransferBasicCleanup(CudaDevPtr *ptr){
+  cudaChk(cudaFree(ptr->d_list));
+  cudaChk(cudaFree(ptr->d_bucketMarkers));
+  cudaChk(cudaFree(ptr->d_bucketStarts));
+  cudaChk(cudaFree(ptr->d_bucketSizes));
+}
 
-TP_GRAVITY_LOCAL,
-TP_GRAVITY_REMOTE,
-TP_GRAVITY_REMOTE_RESUME,
-TP_PART_GRAVITY_LOCAL,
-TP_PART_GRAVITY_REMOTE,
-TP_PART_GRAVITY_REMOTE_RESUME
-
+/** @brief Transfer forces from the GPU back to the host. Also schedules
+ *         the freeing of the device buffers used for the force calculation.
+ *  @param hostBuffer Buffer to store results.
+ *  @param size hostBuffer size.
+ *  @param d_varParts Pointer to finalized accelerations on GPU
+ *  @param stream CUDA stream to handle the memory transfer
+ *  @param cb Callback when transfer is done.
  */
-
-#ifdef HAPI_INSTRUMENT_WRS
-void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int index, char phase){
-#else
-void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart){
-#endif
-  hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freemom, LOCAL_MOMENTS);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freepart, LOCAL_PARTICLE_CORES);
-
-#ifdef HAPI_TRACE
-  gravityKernel->setTraceName("freeLocal");
-#endif
-  gravityKernel->setRunKernel(run_DM_TRANSFER_FREE_LOCAL);
-  //printf("DM TRANSFER FREE LOCAL\n");
-#ifdef HAPI_INSTRUMENT_WRS
-  gravityKernel->chare_index = index;
-  gravityKernel->comp_type = DM_TRANSFER_FREE_LOCAL;
-  gravityKernel->comp_phase = phase;
-#endif
-  hapiEnqueue(gravityKernel);
-
-}
-
-// this function begins the transfer of the next
-// pending chunk on dm, once we are assured that
-// the previous chunk's allocated memory has been
-// freed
-void initiateNextChunkTransfer(void *dm);
-
-void run_DM_TRANSFER_FREE_REMOTE_CHUNK(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("DM_TRANSFER_FREE_REMOTE_CHUNK KERNELSELECT\n");
-
-#endif
-  initiateNextChunkTransfer(wr->getUserData());
-}
-
-
-#ifdef HAPI_INSTRUMENT_WRS
-void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool freepart, int index, char phase){
-#else
-void FreeDataManagerRemoteChunkMemory(int chunk, void *dm, bool freemom, bool freepart){
-#endif
-  hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freemom, REMOTE_MOMENTS);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freepart, REMOTE_PARTICLE_CORES);
-
-#ifdef HAPI_TRACE
-  gravityKernel->setTraceName("freeRemote");
-#endif
-  gravityKernel->setRunKernel(run_DM_TRANSFER_FREE_REMOTE_CHUNK);
-
-  // save a pointer to the data manager so that
-  // the next chunk's transfer can be initiated once
-  // the memory for this chunk has been freed
-  gravityKernel->setUserData(dm);
-  //printf("DM TRANSFER FREE REMOTE CHUNK\n");
-#ifdef HAPI_INSTRUMENT_WRS
-  gravityKernel->chare_index = index;
-  gravityKernel->comp_type = DM_TRANSFER_FREE_REMOTE_CHUNK;
-  gravityKernel->comp_phase = phase;
-#endif
-  hapiEnqueue(gravityKernel);
-
-}
-
-
-void run_DM_TRANSFER_BACK(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-#ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
-  printf("DM_TRANSFER_BACK: 0x%x KERNELSELECT\n", devBuffers[LOCAL_PARTICLE_VARS]);
-#endif
-}
-
-/* Schedule the transfer of the accelerations back from the GPU to the host.
- * This also schedules the freeing of the device buffers used for the
- * force calculation.
- */
-#ifdef HAPI_INSTRUMENT_WRS
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
-     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart,
-     int index, char phase){
-#else
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
-     bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart){
-#endif
-  hapiWorkRequest* gravityKernel = hapiCreateWorkRequest();
-
-#ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
-  printf("Enqueue kernel to transfer particles back from: 0x%x\n", devBuffers[LOCAL_PARTICLE_VARS]);
-#endif
-
-  /* The buffers are: 1) forces on local particles, 2) Local multipole moments
-   * 3) Local particle data, 4) Remote multipole moments and 5) remote
-   * particle data.  Buffers 2-5 are here to get their device buffer
-   * deallocated.
-   */
-
-  /* schedule buffers for transfer to the GPU */
-  gravityKernel->addBuffer(hostBuffer, size, false, (size > 0), (size > 0), LOCAL_PARTICLE_VARS);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freemom, LOCAL_MOMENTS);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freepart, LOCAL_PARTICLE_CORES);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freeRemoteMom, REMOTE_MOMENTS);
-
-  gravityKernel->addBuffer(NULL, 0, false, false, freeRemotePart, REMOTE_PARTICLE_CORES);
-
-  gravityKernel->setDeviceToHostCallback(*(CkCallback *)cb);
-#ifdef HAPI_TRACE
-  gravityKernel->setTraceName("transferBack");
-#endif
-  gravityKernel->setRunKernel(run_DM_TRANSFER_BACK);
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("(%d) DM TRANSFER BACK\n", CmiMyPe());
-#endif
-#ifdef HAPI_INSTRUMENT_WRS
-  gravityKernel->chare_index = index;
-  gravityKernel->comp_type = DM_TRANSFER_BACK;
-  gravityKernel->comp_phase = phase;
-#endif
-  hapiEnqueue(gravityKernel);
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts,
+                              cudaStream_t stream, void *cb){
+  
+  HAPI_TRACE_BEGIN();
+  cudaChk(cudaMemcpyAsync(hostBuffer, d_varParts, size, cudaMemcpyDeviceToHost, stream));
+  HAPI_TRACE_END(CUDA_XFER_BACK);
+  hapiAddCallback(stream, cb);
 }
 
 /*
@@ -1141,9 +722,9 @@ const int stackDepth = 64;
 
 //__launch_bounds__(1024,1)
 __global__ void gpuLocalTreeWalk(
+  CudaMultipoleMoments *moments,
   CompactPartData *particleCores,
   VariablePartData *particleVars,
-  CudaMultipoleMoments* moments,
   int firstParticle,
   int lastParticle,
   int rootIdx,
@@ -1195,6 +776,7 @@ __global__ void gpuLocalTreeWalk(
 
   for(int pidx = blockIdx.x*blockDim.x + threadIdx.x + firstParticle;
       pidx <= lastParticle; pidx += gridDim.x*blockDim.x) {
+    
     // initialize the variables belonging to current thread
     int nodePointer = particleCores[pidx].nodeId;
     ldgParticle(myParticle, &particleCores[pidx]);
@@ -2300,44 +1882,6 @@ __global__ void particleGravityComputation(
 
 __global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
 
-void run_EWALD_KERNEL_Large(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  int *Ewaldptr = (int*)wr->getUserData();
-  cudaChk(cudaMemcpyToSymbolAsync(cachedData, wr->buffers[EWALD_READ_ONLY_DATA_IDX].host_buffer,
-                                  sizeof(EwaldReadOnlyData), 0,
-                                  cudaMemcpyHostToDevice, kernel_stream));
-  cudaChk(cudaMemcpyToSymbolAsync(ewt, wr->buffers[EWALD_TABLE_IDX].host_buffer,
-                                  NEWH * sizeof(EwtData), 0,
-                                  cudaMemcpyHostToDevice, kernel_stream));
-  EwaldKernel<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-    ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-     (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-     (int *)devBuffers[wr->buffers[PARTICLE_TABLE_IDX].id], 1,
-     Ewaldptr[0], Ewaldptr[1]);
-    cudaChk(cudaPeekAtLastError());
-#ifdef CUDA_PRINT_ERRORS
-  printf("EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-}
-
-void run_EWALD_KERNEL_Small(hapiWorkRequest *wr, cudaStream_t kernel_stream,void** devBuffers) {
-  int *Ewaldptr = (int*)wr->getUserData();
-  cudaChk(cudaMemcpyToSymbolAsync(cachedData, wr->buffers[EWALD_READ_ONLY_DATA_IDX].host_buffer,
-                                  sizeof(EwaldReadOnlyData), 0,
-                                  cudaMemcpyHostToDevice, kernel_stream));
-  cudaChk(cudaMemcpyToSymbolAsync(ewt, wr->buffers[EWALD_TABLE_IDX].host_buffer,
-                                  NEWH * sizeof(EwtData), 0,
-                                  cudaMemcpyHostToDevice, kernel_stream));
-  EwaldKernel<<<wr->grid_dim, wr->block_dim, wr->shared_mem, kernel_stream>>>
-    ((CompactPartData *)devBuffers[LOCAL_PARTICLE_CORES],
-     (VariablePartData *)devBuffers[LOCAL_PARTICLE_VARS],
-     (int *)NULL, 0,
-     Ewaldptr[0], Ewaldptr[1]);
-    cudaChk(cudaPeekAtLastError());
-#ifdef CUDA_PRINT_ERRORS
-  printf("EWALD_KERNEL: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
-}
-
 extern unsigned int timerHandle; 
 
 void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop, int largephase) {
@@ -2357,80 +1901,58 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
 }
 
 /** @brief Set up CUDA kernels to perform Ewald sum.
+ *  @param d_localParts Local particle data on device
+ *  @param d_localVars Local particle accelerations on device
  *  @param h_idata Host data buffers
+ *  @param stream CUDA stream to perform GPU operations over
  *  @param cb Callback
  *  @param myIndex Chare index on this node that called this request.
+ *  @param largephase Whether to perform large or small phase calculation
  *  
  *  The "top" and "bottom" Ewlad kernels have been combined:
  *    "top" for the real space loop,
  *    "bottom" for the k-space loop.
  *  
  */
-#ifdef HAPI_INSTRUMENT_WRS
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase)
-#else
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase)
-#endif
+void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
+               EwaldData *h_idata, cudaStream_t stream, void *cb, int myIndex, int largephase)
 {
-
   int n = h_idata->cachedData->n;
   int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
   int nEwhLoop = h_idata->cachedData->nEwhLoop;
   assert(nEwhLoop <= NEWH);
 
-  hapiWorkRequest* EwaldKernel = hapiCreateWorkRequest();
-
-  EwaldKernel->setExecParams(numBlocks, BLOCK_SIZE);
-
-  //Range of particles on GPU
-  EwaldKernel->copyUserData(h_idata->EwaldRange, sizeof(h_idata->EwaldRange));
-
-  /* schedule buffers for transfer to the GPU */
-  bool transferToDevice, freeBuffer;
   size_t size;
-  if(largephase) transferToDevice = true;
-  else transferToDevice = false;
-  if(largephase) freeBuffer = true;
-  else freeBuffer = false;
   if(largephase) size = n * sizeof(int);
   else size = 0;
-  EwaldKernel->addBuffer(h_idata->EwaldMarkers, size, transferToDevice,
-                             false, freeBuffer);
 
-  EwaldKernel->addBuffer(h_idata->cachedData, sizeof(EwaldReadOnlyData),
-                                false, false, false,
-                                NUM_GRAVITY_BUFS + EWALD_READ_ONLY_DATA);
+  HAPI_TRACE_BEGIN();
+  int *d_EwaldMarkers;
+  cudaChk(cudaMalloc(&d_EwaldMarkers, size));
 
-  EwaldKernel->addBuffer(h_idata->ewt, nEwhLoop * sizeof(EwtData), false, false,
-                         false, NUM_GRAVITY_BUFS + EWALD_TABLE);
+  cudaMemcpyAsync(d_EwaldMarkers, h_idata->EwaldMarkers, size, cudaMemcpyHostToDevice, stream);
+  cudaMemcpyToSymbolAsync(cachedData, h_idata->cachedData, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice, stream);
+  cudaMemcpyToSymbolAsync(ewt, h_idata->ewt, nEwhLoop * sizeof(EwtData), 0, cudaMemcpyHostToDevice, stream);
 
-  /* See NUM_BUFFERS define in
-   * charm/src/arch/cuda/hybridAPI/cuda-hybrid-api.cu
-   * BufferIDs larger than this are assigned by the runtime.
-   */
-  assert(NUM_GRAVITY_BUFS + EWALD_TABLE < 256);
+  if (largephase)
+      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>(d_localParts, 
+		                                         d_localVars,
+							 d_EwaldMarkers, 1,
+							 h_idata->EwaldRange[0], h_idata->EwaldRange[1]);
+  else
+      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>(d_localParts, 
+                                                         d_localVars,
+							 NULL, 0,
+							 h_idata->EwaldRange[0], h_idata->EwaldRange[1]);
+  HAPI_TRACE_END(CUDA_EWALD);
 
-  EwaldKernel->setDeviceToHostCallback(*(CkCallback *)cb);
-  if(largephase){
-    EwaldKernel->setRunKernel(run_EWALD_KERNEL_Large);
-#ifdef HAPI_TRACE
-    EwaldKernel->setTraceName("EwaldLarge");
-#endif
-  }else{
-    EwaldKernel->setRunKernel(run_EWALD_KERNEL_Small);
-#ifdef HAPI_TRACE
-    EwaldKernel->setTraceName("EwaldSmall");
-#endif
-  }
-#ifdef HAPI_INSTRUMENT_WRS
-  EwaldKernel->chare_index = myIndex;
-  EwaldKernel->comp_type = EWALD_KERNEL;
-  EwaldKernel->comp_phase = phase;
-#endif
-  hapiEnqueue(EwaldKernel);
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("[%d] in EwaldHost, enqueued EwaldKernel\n", myIndex);
 #endif
+
+  cudaChk(cudaPeekAtLastError());
+  hapiAddCallback(stream, cb);
+  cudaChk(cudaFree(d_EwaldMarkers));
 }
 
 __global__ void EwaldKernel(CompactPartData *particleCores, 

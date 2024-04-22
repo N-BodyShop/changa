@@ -38,6 +38,7 @@
 
 #ifdef CUDA
 #include "cuda_typedef.h"
+#include "hapi.h"
 #endif
 
 #include "keytype.h"
@@ -330,6 +331,8 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 };
 #endif
 
+/// Associated with calls to calculateEwald
+/// Indicates whether the function was called by initEwald
 struct EwaldMsg: public CMessage_EwaldMsg {
     bool fromInit;
 };
@@ -895,16 +898,22 @@ class TreePiece : public CBase_TreePiece {
         int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
 
+	// For accessing GPU memory
+	CudaMultipoleMoments *d_localMoments;
+        CudaMultipoleMoments *d_remoteMoments;
+        CompactPartData *d_localParts;
+	CompactPartData *d_remoteParts;
+        VariablePartData *d_localVars;
+        size_t sMoments;
+        size_t sCompactParts;
+        size_t sVarParts;
+	cudaStream_t stream;
+
         int getNumBuckets(){
         	return numBuckets;
         }
 
-        void callFreeRemoteChunkMemory(int chunk);
-
         int getActiveRung(){ return activeRung; }
-#ifdef HAPI_INSTRUMENT_WRS
-        int getInstrumentId(){ return instrumentId; }
-#endif
         // returns either all particles or only active particles,
         // depending on fraction of active particles to their
         // total count.
@@ -1001,33 +1010,16 @@ class TreePiece : public CBase_TreePiece {
         long long remoteResumePartInteractions;
 #endif
 
-#ifdef HAPI_INSTRUMENT_WRS
-        int instrumentId;
-
-        double localNodeListConstructionTime;
-        double remoteNodeListConstructionTime;
-        double remoteResumeNodeListConstructionTime;
-        double localPartListConstructionTime;
-        double remotePartListConstructionTime;
-        double remoteResumePartListConstructionTime;
-        
-        int nLocalNodeReqs;
-        int nRemoteNodeReqs;
-        int nRemoteResumeNodeReqs;
-        int nLocalPartReqs;
-        int nRemotePartReqs;
-        int nRemoteResumePartReqs;
-
 #endif
 
-#endif
-
-        void continueStartRemoteChunk(int chunk);
 #ifdef CUDA
+       void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
        void fillGPUBuffer(intptr_t bufLocalParts,
                           intptr_t bufLocalMoments,
                           intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
         void updateParticles(intptr_t data, int partIndex);
+#else
+        void continueStartRemoteChunk(int chunk);
 #endif
         void continueWrapUp();
 
@@ -1349,7 +1341,7 @@ private:
   EwaldData *h_idata;
   CkCallback *cbEwaldGPU;
 #endif
-  void EwaldGPU(); 
+  void EwaldGPU();
   void EwaldGPUComplete();
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
@@ -1865,9 +1857,17 @@ public:
 	/// this TreePiece. The opening angle theta has already been passed
 	/// through startGravity().  This function just calls doAllBuckets().
 	void calculateGravityLocal();
-	/// Do some minor preparation for the local walkk then
+	/// Do some minor preparation for the local walk then
 	/// calculateGravityLocal().
+#ifdef CUDA
+	void commenceCalculateGravityLocal(intptr_t d_localMoments,
+                                           intptr_t d_localParts,
+                                           intptr_t d_localVars,
+                                           intptr_t streams, int numStreams,
+                                           size_t sMoments, size_t sCompactParts, size_t sVarParts);
+#else
 	void commenceCalculateGravityLocal();
+#endif
 
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted
