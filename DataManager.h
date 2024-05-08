@@ -314,6 +314,10 @@ class ProjectionsControl : public CBase_ProjectionsControl {
   public: 
   ProjectionsControl() {
 #ifdef CUDA
+    // GPUs are assigned to nodes in a round-robin fashion. This allows the user to define
+    // one virtual node per device and utilize multiple GPUs on a single node
+    // Beacuse devices are assigned per-PE, this is a convenient place to call setDevice
+    // Note that this code has nothing to do with initalizing projections
     int numGpus;
     cudaGetDeviceCount(&numGpus);
     cudaSetDevice(CmiMyNode() % numGpus);
