@@ -313,6 +313,11 @@ inline static void setBIconfig()
 class ProjectionsControl : public CBase_ProjectionsControl { 
   public: 
   ProjectionsControl() {
+#ifdef CUDA
+    int numGpus;
+    cudaGetDeviceCount(&numGpus);
+    cudaSetDevice(CmiMyNode() % numGpus);
+#endif
     setBIconfig();
     LBTurnCommOff();
 #ifndef LB_MANAGER_VERSION
