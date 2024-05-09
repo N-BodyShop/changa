@@ -148,7 +148,11 @@ class GravityCompute : public Compute{
 class ListCompute : public Compute{
 
   public:
-  ListCompute() : Compute(List) {}
+  ListCompute() : Compute(List) {
+#ifdef CUDA
+    bUseGpu = 1;
+#endif
+  }
 
   int doWork(GenericTreeNode *, TreeWalk *tw, State *state, int chunk, int reqID, bool isRoot, bool &didcomp, int awi);
 
@@ -186,6 +190,7 @@ class ListCompute : public Compute{
 #endif //GPU_LOCAL_TREE_WALK
   void sendNodeInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
   void sendPartInteractionsToGpu(DoubleWalkState *state, TreePiece *tp);
+  void disableGpu() {bUseGpu = 0;}
 #endif
 
   private:
@@ -194,6 +199,10 @@ class ListCompute : public Compute{
   void addNodeToInt(GenericTreeNode *node, int offsetID, DoubleWalkState *s);
 
   DoubleWalkState *allocDoubleWalkState();
+#ifdef CUDA
+  // used to flag cpu for usage when compiling with CUDA enabled
+  int bUseGpu;
+#endif
 
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
   void addRemoteParticlesToInt(ExternalGravityParticle *parts, int n,

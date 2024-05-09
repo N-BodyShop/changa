@@ -908,6 +908,7 @@ class TreePiece : public CBase_TreePiece {
         size_t sCompactParts;
         size_t sVarParts;
 	cudaStream_t stream;
+        int bUseGpu;
 
         int getNumBuckets(){
         	return numBuckets;
@@ -1459,6 +1460,7 @@ public:
 #endif
 #ifdef CUDA
           numActiveBuckets = -1;
+          bUseGpu = 0; // TODO fix
 #ifdef HAPI_TRACE
           localNodeInteractions = 0;
           localPartInteractions = 0;

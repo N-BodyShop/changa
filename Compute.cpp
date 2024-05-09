@@ -103,8 +103,10 @@ void ListCompute::freeDoubleWalkState(DoubleWalkState *state){
   }
 
 #ifdef CUDA
-  state->nodeLists.free();
-  state->particleLists.free();
+  if (bUseGpu) {
+    state->nodeLists.free();
+    state->particleLists.free();
+  }
 #endif
 
   if(state->placedRoots){
@@ -370,17 +372,19 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
 #endif
   if (remainingChunk == 0) {
 #ifdef CUDA
-    // no more nodes/particles are going to be delivered by the cache
-    // flush the interactions remaining in the state
-    DoubleWalkState *ds = (DoubleWalkState *)state;
+    if (bUseGpu) {
+      // no more nodes/particles are going to be delivered by the cache
+      // flush the interactions remaining in the state
+      DoubleWalkState *ds = (DoubleWalkState *)state;
 
-    if(ds->nodeLists.totalNumInteractions > 0){
-      sendNodeInteractionsToGpu(ds, owner);
-      resetCudaNodeState(ds);
-    }
-    if(ds->particleLists.totalNumInteractions > 0){
-      sendPartInteractionsToGpu(ds, owner);
-      resetCudaPartState(ds);
+      if(ds->nodeLists.totalNumInteractions > 0){
+        sendNodeInteractionsToGpu(ds, owner);
+        resetCudaNodeState(ds);
+      }
+      if(ds->particleLists.totalNumInteractions > 0){
+        sendPartInteractionsToGpu(ds, owner);
+        resetCudaPartState(ds);
+      }
     }
 
 #endif
@@ -787,9 +791,13 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
     CkAssert(part);
     int computed = node->lastParticle-node->firstParticle+1;
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
-    NodeKey key = node->getKey();
-    addLocalParticlesToInt(part, computed, offset, s, key, node);
-    //addLocalParticlesToInt(part, computed, offset, s, key);
+    if (bUseGpu) {
+      NodeKey key = node->getKey();
+      addLocalParticlesToInt(part, computed, offset, s, key, node);
+      //addLocalParticlesToInt(part, computed, offset, s, key);
+    } else {
+      addLocalParticlesToInt(part, computed, offset, s, 0, 0);
+    }
 #else
     addLocalParticlesToInt(part, computed, offset, s);
 #endif
@@ -828,8 +836,12 @@ int ListCompute::doWork(GenericTreeNode *node, TreeWalk *tw, State *state, int c
       int computed = node->lastParticle-node->firstParticle+1;
 
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
-      NodeKey key = node->getKey();
-      addRemoteParticlesToInt(part, computed, offset, s, key);
+      if (bUseGpu) {
+        NodeKey key = node->getKey();
+        addRemoteParticlesToInt(part, computed, offset, s, key);
+      } else {
+        addRemoteParticlesToInt(part, computed, offset, s, 0);
+      }
 #else
       addRemoteParticlesToInt(part, computed, offset, s);
 #endif
@@ -907,8 +919,12 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   // (key) here.
   state->level = level;
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
-  NodeKey key = remoteBucket >> 1;
-  addRemoteParticlesToInt(part, num, offset, state, key);
+  if (bUseGpu) {
+    NodeKey key = remoteBucket >> 1;
+    addRemoteParticlesToInt(part, num, offset, state, key);
+  } else {
+    addRemoteParticlesToInt(part, num, offset, state, 0);
+  }
 #else
   addRemoteParticlesToInt(part, num, offset, state);
 #endif
@@ -931,13 +947,15 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   CkAssert(remainingChunk >= 0);
   if (remainingChunk == 0) {
 #ifdef CUDA
-    if(state->nodeLists.totalNumInteractions > 0){
-      sendNodeInteractionsToGpu(state, tp);
-      resetCudaNodeState(state);
-    }
-    if(state->particleLists.totalNumInteractions > 0){
-      sendPartInteractionsToGpu(state, tp);
-      resetCudaPartState(state);
+    if (bUseGpu) {
+      if(state->nodeLists.totalNumInteractions > 0){
+        sendNodeInteractionsToGpu(state, tp);
+        resetCudaNodeState(state);
+      }
+      if(state->particleLists.totalNumInteractions > 0){
+        sendPartInteractionsToGpu(state, tp);
+        resetCudaPartState(state);
+      }
     }
 #endif
 #if COSMO_PRINT_BK > 1
@@ -970,7 +988,7 @@ void ListCompute::addRemoteParticlesToInt(ExternalGravityParticle *parts, int n,
   rpi.numParticles = n;
   rpi.offset = offset;
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
-  rpi.key = key;
+  if (bUseGpu) rpi.key = key;
 #endif
 
   s->rplists[level].push_back(rpi);
@@ -988,8 +1006,10 @@ void ListCompute::addLocalParticlesToInt(GravityParticle *parts, int n, Vector3D
   lpi.numParticles = n;
   lpi.offset = offset;
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA
-  lpi.key = key;
-  lpi.nd = gtn;
+  if (bUseGpu) {
+    lpi.key = key;
+    lpi.nd = gtn;
+  }
 #endif
 
   s->lplists[level].push_back(lpi);
@@ -1583,6 +1603,8 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
   }// bucket
 
 #else // else part of ifndef CUDA
+  // TODO fix indentation
+  if (bUseGpu) {
   // *************************************************************
   // calculate number of interactions first
   int numNodes = 0;
@@ -1894,6 +1916,41 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
     }// active
   }// bucket
   // *********************
+  } else { // bUseGpu = False
+    for(int b = start; b < end; b++){
+     if(tp->bucketList[b]->rungs >= activeRung){
+
+        for(int level = 0; level <= maxlevel; level++){
+
+          CkVec<OffsetNode> &clist = state->clists[level];
+          int computed;
+          computed = calcNodeForces(tp, b, activeRung, clist);
+          if(getOptType() == Remote){
+            tp->addToNodeInterRemote(chunk, computed);
+          } else if(getOptType() == Local){
+            tp->addToNodeInterLocal(computed);
+          }
+
+          // remote particles
+          if(hasRemoteLists){
+            CkVec<RemotePartInfo> &rpilist = state->rplists[level];
+            computed = calcParticleForces(tp, b, activeRung, rpilist);
+            if(getOptType() == Remote){// don't really have to perform this check
+              tp->addToParticleInterRemote(chunk, computed);
+            }
+          }
+
+          // local particles
+          if(hasLocalLists){
+            CkVec<LocalPartInfo> &lpilist = state->lplists[level];
+            computed = calcParticleForces(tp, b, activeRung, lpilist);
+            tp->addToParticleInterLocal(computed);
+          }
+        }// level
+
+      }// active
+    }// bucket
+  }
 #endif // ifndef CUDA
 }
 
@@ -1907,6 +1964,7 @@ void ListCompute::stateReadyPar(TreePiece *tp, int start, int end,
     CkVec<LocalPartInfo>& lpilist) {
 
 #ifndef CUDA
+  // TODO fix
   bool hasRemoteLists = rpilist.length() > 0 ? true : false;
   bool hasLocalLists = lpilist.length() > 0 ? true : false;
 

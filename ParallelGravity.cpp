@@ -757,6 +757,9 @@ Main::Main(CkArgMsg* m) {
         numStreams = 100;
         prmAddParam(prm, "nStreams", paramInt, &numStreams,
                     sizeof(int),"str", "Number of CUDA streams (default: 100)");
+        param.nGpuMinParts = 1000;
+        prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
+                    sizeof(int),"str", "Min particles on rung to trigger GPU (default: 1000)");
 #endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,

@@ -3759,7 +3759,11 @@ void TreePiece::finishBucket(int iBucket) {
       // been called), the registeredTreePieces list will
       // not be reset, so that the data manager gets 
       // confused.
-      dm->transferParticleVarsBack();
+      if (bUseGpu) {
+        dm->transferParticleVarsBack();
+      } else {
+        continueWrapUp();
+      }
 #else
       // move on to markwalkdone in non-cuda version
       continueWrapUp();
@@ -3872,24 +3876,35 @@ void TreePiece::doAllBuckets(){
 #endif
 
 #ifdef GPU_LOCAL_TREE_WALK
-  ListCompute *listcompute = (ListCompute *) sGravity;
-  DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
+  if (bUseGpu) {
+    ListCompute *listcompute = (ListCompute *) sGravity;
+    listcompute->disableGpu();
+    DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
-  listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
-  //
-  // Set up the book keeping flags
-  bool useckloop = false;
-  for (int i = 0; i < numBuckets; i ++) {
-    sLocalGravityState->currentBucket = i;
-    GenericTreeNode *target = bucketList[i];
-    if(target->rungs >= activeRung){
-      doBookKeepingForTargetActive(i, i+1, -1, !useckloop, sLocalGravityState);
-    } else {
-      i += doBookKeepingForTargetInactive(-1, !useckloop, sLocalGravityState) - 1;
+    listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+    //
+    // Set up the book keeping flags
+    bool useckloop = false;
+    for (int i = 0; i < numBuckets; i ++) {
+      sLocalGravityState->currentBucket = i;
+      GenericTreeNode *target = bucketList[i];
+      if(target->rungs >= activeRung){
+        doBookKeepingForTargetActive(i, i+1, -1, !useckloop, sLocalGravityState);
+      } else {
+        i += doBookKeepingForTargetInactive(-1, !useckloop, sLocalGravityState) - 1;
+      }
     }
+    listcompute->resetCudaNodeState(state);
+    listcompute->resetCudaPartState(state);
+  } else { // TODO fix repeated code
+    // Schedule a walk on the CPU
+
+    dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+    *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
+    CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+
+    thisProxy[thisIndex].nextBucket(msg);
   }
-  listcompute->resetCudaNodeState(state);
-  listcompute->resetCudaPartState(state);
 
 #else
   // Schedule a walk on the CPU
@@ -3912,7 +3927,22 @@ void TreePiece::nextBucket(dummyMsg *msg){
   bool useckloop = false;
   int yield_num = _yieldPeriod;
 #if INTERLIST_VER > 0
-#if !defined(CUDA)
+
+#ifdef CUDA
+  if (!bUseGpu) {
+    LoopParData* lpdata;
+    int tmpBucketBegin;
+    if (bUseCkLoopPar && otherIdlePesAvail()) {
+      useckloop = true;
+      // This value was chosen to be 2*Nodesize so that we have enough buckets for
+      // all the PEs in the node and also giving some extra for load balance.
+      yield_num = 2 * CkMyNodeSize();
+      lpdata = new LoopParData();
+      lpdata->tp = this;
+      tmpBucketBegin = currentBucket;
+    }
+  }
+#else
   LoopParData* lpdata;
   int tmpBucketBegin;
   if (bUseCkLoopPar && otherIdlePesAvail()) {
@@ -3946,6 +3976,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
       CkAssert(currentBucket >= startBucket);
 
 #if !defined(CUDA)
+      // TODO fix
       if (useckloop) {
         lpdata->lowNodes.insertAtEnd(lowestNode);
         lpdata->bucketids.insertAtEnd(currentBucket);
@@ -4033,6 +4064,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
   }// end while
 
 #if INTERLIST_VER > 0 && !defined(CUDA)
+  // TODO fix
   if (useckloop) {
     // Use ckloop to parallelize force calculation and this will update the
     // counterArrays as well.
@@ -4047,25 +4079,27 @@ void TreePiece::nextBucket(dummyMsg *msg){
   } else {
 
 #if INTERLIST_VER > 0 && defined CUDA
-    // The local walk might have some outstanding computation requests 
-    // at this point. Flush these lists to GPU
-    DoubleWalkState *ds = (DoubleWalkState *)sLocalGravityState;
-    ListCompute *lc = (ListCompute *)sGravity;
+    if (bUseGpu) {
+      // The local walk might have some outstanding computation requests 
+      // at this point. Flush these lists to GPU
+      DoubleWalkState *ds = (DoubleWalkState *)sLocalGravityState;
+      ListCompute *lc = (ListCompute *)sGravity;
 
-    if(lc && ds){
-      // If we are not on rung 0, sGravity may not have been
-      // initialized because startNextBucket() was not called during
-      // this entry call.  send*InteractionsToGpu() needs to know if
-      // these are local or remote interactions, which it learns from
-      // sGravity.
-      sGravity->init(NULL, activeRung, sLocal);
-      if(ds->nodeLists.totalNumInteractions > 0){
-        lc->sendNodeInteractionsToGpu(ds, this);
-        lc->resetCudaNodeState(ds);
-      }
-      if(ds->particleLists.totalNumInteractions > 0){
-        lc->sendPartInteractionsToGpu(ds, this);
-        lc->resetCudaPartState(ds);
+      if(lc && ds){
+        // If we are not on rung 0, sGravity may not have been
+        // initialized because startNextBucket() was not called during
+        // this entry call.  send*InteractionsToGpu() needs to know if
+        // these are local or remote interactions, which it learns from
+        // sGravity.
+        sGravity->init(NULL, activeRung, sLocal);
+        if(ds->nodeLists.totalNumInteractions > 0){
+          lc->sendNodeInteractionsToGpu(ds, this);
+          lc->resetCudaNodeState(ds);
+        }
+        if(ds->particleLists.totalNumInteractions > 0){
+          lc->sendPartInteractionsToGpu(ds, this);
+          lc->resetCudaPartState(ds);
+        }
       }
     }
 #endif
@@ -4109,10 +4143,12 @@ void TreePiece::calculateGravityLocal() {
 /// @param msg Indicates whether this function was called from EwaldInit
 void TreePiece::calculateEwald(EwaldMsg *msg) {
 #ifdef SPCUDA
-  if(!msg->fromInit){
-    thisProxy[thisIndex].EwaldGPU();
+  if (bUseGpu) {
+    if(!msg->fromInit){
+      thisProxy[thisIndex].EwaldGPU();
+    }
+    delete msg;
   }
-  delete msg;
 #else
 
   bool useckloop = false;
@@ -4239,6 +4275,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
 #if INTERLIST_VER > 0
 #if !defined(CUDA)
+  // TODO fix
   LoopParData* lpdata;
   // Keep track of which was the currentBucket so that it can be restored in the
   // ckloop part.
@@ -4365,6 +4402,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       // When using ckloop to parallelize force calculation, first the list is
       // populated with nodes and particles with which the force is calculated.
 #if !defined(CUDA)
+      // TODO fix
       if (useckloop) {
         lpdata->lowNodes.insertAtEnd(lowestNode);
         lpdata->bucketids.insertAtEnd(sRemoteGravityState->currentBucket);
@@ -4433,6 +4471,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
 
 #if INTERLIST_VER > 0 && !defined(CUDA)
+  // TODO fix
   if (useckloop) {
     // Now call ckloop parallelization function which will execute the force
     // calculation in parallel and update the counterArrays.
@@ -4451,19 +4490,21 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
     sRemoteGravityState->currentBucket = 0;
 
 #if INTERLIST_VER > 0 && defined CUDA
-    // The remote walk might have some outstanding computation requests 
-    // at this point. Flush these lists to GPU
-    DoubleWalkState *ds = (DoubleWalkState *)sRemoteGravityState;
-    ListCompute *lc = (ListCompute *)sGravity;
+    if (bUseGpu) {
+      // The remote walk might have some outstanding computation requests 
+      // at this point. Flush these lists to GPU
+      DoubleWalkState *ds = (DoubleWalkState *)sRemoteGravityState;
+      ListCompute *lc = (ListCompute *)sGravity;
 
-    if(lc && ds){
-      if(ds->nodeLists.totalNumInteractions > 0){
-        lc->sendNodeInteractionsToGpu(ds, this);
-        lc->resetCudaNodeState(ds);
-      }
-      if(ds->particleLists.totalNumInteractions > 0){
-        lc->sendPartInteractionsToGpu(ds, this);
-        lc->resetCudaPartState(ds);
+      if(lc && ds){
+        if(ds->nodeLists.totalNumInteractions > 0){
+          lc->sendNodeInteractionsToGpu(ds, this);
+          lc->resetCudaNodeState(ds);
+        }
+        if(ds->particleLists.totalNumInteractions > 0){
+          lc->sendPartInteractionsToGpu(ds, this);
+          lc->resetCudaPartState(ds);
+        }
       }
     }
 
@@ -4486,20 +4527,22 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
 
 #ifdef CUDA
-      // The remote-resume walk might have some outstanding computation requests 
-      // at this point. Flush these lists to GPU
-      DoubleWalkState *ds = (DoubleWalkState *)sInterListStateRemoteResume;
-      ListCompute *lc = (ListCompute *)sGravity;
+      if (bUseGpu) {
+        // The remote-resume walk might have some outstanding computation requests 
+        // at this point. Flush these lists to GPU
+        DoubleWalkState *ds = (DoubleWalkState *)sInterListStateRemoteResume;
+        ListCompute *lc = (ListCompute *)sGravity;
 
 
-      if(lc && ds){
-        if(ds->nodeLists.totalNumInteractions > 0){
-          lc->sendNodeInteractionsToGpu(ds, this);
-          lc->resetCudaNodeState(ds);
-        }
-        if(ds->particleLists.totalNumInteractions > 0){
-          lc->sendPartInteractionsToGpu(ds, this);
-          lc->resetCudaPartState(ds);
+        if(lc && ds){
+          if(ds->nodeLists.totalNumInteractions > 0){
+            lc->sendNodeInteractionsToGpu(ds, this);
+            lc->resetCudaNodeState(ds);
+          }
+          if(ds->particleLists.totalNumInteractions > 0){
+            lc->sendPartInteractionsToGpu(ds, this);
+            lc->resetCudaPartState(ds);
+          }
         }
       }
 #endif
@@ -5039,6 +5082,9 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
 #if INTERLIST_VER > 0
   compute = new ListCompute;
+#ifdef CUDA
+  if (!bUseGpu) ((ListCompute *)compute)->disableGpu();
+#endif
   walk = new LocalTargetWalk;
 #else
   compute = new GravityCompute;
@@ -5089,18 +5135,20 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   numActiveBuckets = 0;
   calculateNumActiveParticles();
 
-  for(int i = 0; i < numBuckets; i++){
-    if(bucketList[i]->rungs >= activeRung){
-      numActiveBuckets++;
-    }
-  }
-  if(numActiveBuckets > 0 && verbosity > 1){
-    CkPrintf("[%d] num active buckets %d avg size: %f\n", thisIndex,
-	     numActiveBuckets, 1.0*myNumActiveParticles/numActiveBuckets);
-  }
+  if (bUseGpu) {
+
+      for(int i = 0; i < numBuckets; i++){
+        if(bucketList[i]->rungs >= activeRung){
+          numActiveBuckets++;
+        }
+      }
+      if(numActiveBuckets > 0 && verbosity > 1){
+        CkPrintf("[%d] num active buckets %d avg size: %f\n", thisIndex,
+         	     numActiveBuckets, 1.0*myNumActiveParticles/numActiveBuckets);
+      }
 
 
-  {
+      {
 	  DoubleWalkState *state = (DoubleWalkState *)sRemoteGravityState;
 	  ((ListCompute *)sGravity)->initCudaState(state, numBuckets, remoteNodesPerReq, remotePartsPerReq, false);
           // no missed nodes/particles
@@ -5132,8 +5180,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
             // XXX - no need to allocate/delete every iteration
             bucketActiveInfo = new BucketActiveInfo[numBuckets];
           }
-  }
-  {
+      }
+      {
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
 	  ((ListCompute *)sGravity)->initCudaState(state, numBuckets, remoteResumeNodesPerReq, remoteResumePartsPerReq, true);
 
@@ -5147,7 +5195,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
           state->particles->length() = 0;
           state->nodeMap.clear();
           state->partMap.clear();
-  }
+      }
+    }
 #endif // CUDA
 
 #if HAPI_TRACE
@@ -5209,7 +5258,11 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   // prefetch can occur concurrently with this, 
   // though calculateGravityLocal can only come
   // afterwards.
-  dm->serializeLocalTree();
+  if (bUseGpu) {
+      dm->serializeLocalTree();
+  } else {
+      thisProxy[thisIndex].commenceCalculateGravityLocal(0, 0, 0, 0, 0, 0, 0, 0);
+  }
 #else
   thisProxy[thisIndex].commenceCalculateGravityLocal();
 #endif
@@ -5270,13 +5323,15 @@ void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments,
 					      intptr_t d_localVars,
 					      intptr_t streams, int numStreams,
                                               size_t sMoments, size_t sCompactParts, size_t sVarParts) {
-    this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
-    this->d_localParts = (CompactPartData *)d_localParts;
-    this->d_localVars = (VariablePartData *)d_localVars;
-    this->stream = ((cudaStream_t *)streams)[thisIndex % numStreams];
-    this->sMoments = sMoments;
-    this->sCompactParts = sCompactParts;
-    this->sVarParts = sVarParts;
+    if (bUseGpu) {
+      this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
+      this->d_localParts = (CompactPartData *)d_localParts;
+      this->d_localVars = (VariablePartData *)d_localVars;
+      this->stream = ((cudaStream_t *)streams)[thisIndex % numStreams];
+      this->sMoments = sMoments;
+      this->sCompactParts = sCompactParts;
+      this->sVarParts = sVarParts;
+    }
 
 #else
 void TreePiece::commenceCalculateGravityLocal(){
@@ -5297,6 +5352,7 @@ void TreePiece::startRemoteChunk() {
   traceUserEvent(prefetchDoneUE);
 
 #ifdef CUDA
+  // TODO fix
   // dm counts until all treepieces have acknowledged prefetch completion
   // it then flattens the tree on the processor, sends it to the device
   // and sends messages to each of the registered treepieces to continueStartRemoteChunk()
@@ -5310,6 +5366,7 @@ void TreePiece::startRemoteChunk() {
 /// Schedule a TreePiece::calculateGravityRemote() then start
 /// prefetching for the next chunk.
 #ifdef CUDA
+// TODO fix
 void TreePiece::continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts){
   this->d_remoteMoments = (CudaMultipoleMoments *)d_remoteMoments;
   this->d_remoteParts = (CompactPartData *)d_remoteParts;
@@ -6251,7 +6308,7 @@ void TreePiece::freeWalkObjects(){
   if(sGravity){
       sGravity->reassoc(0,0,sRemote);
 #if INTERLIST_VER > 0 && defined CUDA
-      {
+      if (bUseGpu) {
         DoubleWalkState *state = (DoubleWalkState *) sRemoteGravityState;
         DoubleWalkState *rstate = (DoubleWalkState *) sInterListStateRemoteResume;
         delete state->particles;
@@ -6374,12 +6431,17 @@ void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *s
 #if COSMO_PRINT_BK > 1
        CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, i, sRemoteGravityState->counterArrays[0][i], sLocalGravityState->counterArrays[0][i]);
 #endif
-#if !defined CUDA
-       // updatebucketstate is only called after we have finished
-       // with received nodes/particles (i.e. after stateReady in
-       // either case.) therefore, some work requests must already
-       // have been issued before it was invoked, so there will
-       // be a finishBucket call afterwards to ensure progress.
+
+   // updatebucketstate is only called after we have finished
+   // with received nodes/particles (i.e. after stateReady in
+   // either case.) therefore, some work requests must already
+   // have been issued before it was invoked, so there will
+   // be a finishBucket call afterwards to ensure progress.
+#ifdef CUDA
+    if (!bUseGpu) {
+        finishBucket(i);
+    }
+#else
        finishBucket(i);
 #endif
     }
