@@ -213,6 +213,12 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
 
 #ifndef CUDA
     registeredTreePieces.removeAll();
+#else
+    // TODO fix
+    int bUseGpu = 0;
+    if (!bUseGpu) {
+      registeredTreePieces.removeAll();
+    }
 #endif
 
 #ifdef PRINT_MERGED_TREE

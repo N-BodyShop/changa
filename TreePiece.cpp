@@ -3926,6 +3926,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
 #if INTERLIST_VER > 0
 
 #ifdef CUDA
+  // TODO fix repeated code
   if (!bUseGpu) {
     LoopParData* lpdata;
     int tmpBucketBegin;
@@ -5349,11 +5350,14 @@ void TreePiece::startRemoteChunk() {
   traceUserEvent(prefetchDoneUE);
 
 #ifdef CUDA
-  // TODO fix
-  // dm counts until all treepieces have acknowledged prefetch completion
-  // it then flattens the tree on the processor, sends it to the device
-  // and sends messages to each of the registered treepieces to continueStartRemoteChunk()
-  dm->donePrefetch(sPrefetchState->currentBucket);
+  if (bUseGpu) {
+    // dm counts until all treepieces have acknowledged prefetch completion
+    // it then flattens the tree on the processor, sends it to the device
+    // and sends messages to each of the registered treepieces to continueStartRemoteChunk()
+    dm->donePrefetch(sPrefetchState->currentBucket);
+  } else {
+    continueStartRemoteChunk(sPrefetchState->currentBucket, 0, 0);
+  }
 #else
   continueStartRemoteChunk(sPrefetchState->currentBucket);
 #endif
@@ -5363,10 +5367,11 @@ void TreePiece::startRemoteChunk() {
 /// Schedule a TreePiece::calculateGravityRemote() then start
 /// prefetching for the next chunk.
 #ifdef CUDA
-// TODO fix
 void TreePiece::continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts){
-  this->d_remoteMoments = (CudaMultipoleMoments *)d_remoteMoments;
-  this->d_remoteParts = (CompactPartData *)d_remoteParts;
+  if (bUseGpu) {
+    this->d_remoteMoments = (CudaMultipoleMoments *)d_remoteMoments;
+    this->d_remoteParts = (CompactPartData *)d_remoteParts;
+  }
 #else
 void TreePiece::continueStartRemoteChunk(int chunk){
 #endif

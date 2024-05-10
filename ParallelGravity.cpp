@@ -1798,7 +1798,8 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        // TODO fix
+        //dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
 #endif
         }
 }
@@ -2722,9 +2723,10 @@ Main::initialForces()
       memoryStats();
   
 #ifdef CUDA
+  // TODO fix
   ckout << "Init. Accel. ...";
   double dInitAccelTime = CkWallTimer();
-  treeProxy.initAccel(0, CkCallbackResumeThread());
+  //treeProxy.initAccel(0, CkCallbackResumeThread());
   ckout << " took " << (CkWallTimer() - dInitAccelTime) << " seconds."
         << endl;
 #endif
@@ -3650,9 +3652,10 @@ void Main::writeOutput(int iStep)
 			      CkCallbackResumeThread());
 	treeProxy.finishNodeCache(CkCallbackResumeThread());
 #ifdef CUDA
+        // TODO fix
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        //dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
 #endif
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -3691,9 +3694,10 @@ void Main::writeOutput(int iStep)
 				  CkCallbackResumeThread());
 	    treeProxy.finishNodeCache(CkCallbackResumeThread());
 #ifdef CUDA
+            // TODO fix
             // We didn't do gravity where the registered TreePieces on the
             // DataManager normally get cleared.  Clear them here instead.
-            dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+            //dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
 #endif
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
