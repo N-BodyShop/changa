@@ -3761,6 +3761,7 @@ void TreePiece::finishBucket(int iBucket) {
       // confused.
       if (bUseGpu) {
         dm->transferParticleVarsBack();
+        bUseGpu = 0; // TODO fixme is this a good place to reset this?
       } else {
         continueWrapUp();
       }
@@ -4968,10 +4969,18 @@ void TreePiece::recvTotalMass(CkReductionMsg *msg){
 /// eventually call a remote walk (a walk on non-local nodes).  It
 /// then starts the Ewald initialization, and finally starts the local
 /// gravity walk.
-
+#ifdef CUDA
+void TreePiece::startGravity(int am, // the active mask for multistepping
+			       double myTheta, // opening criterion
+                               int bUseGpu_, // whether the gpu will be used
+			       const CkCallback& cb) {
+  bUseGpu = bUseGpu_;
+#else
 void TreePiece::startGravity(int am, // the active mask for multistepping
 			       double myTheta, // opening criterion
 			       const CkCallback& cb) {
+#endif
+
   double starttime;
   LBTurnInstrumentOn();
   iterationNo++;

@@ -323,7 +323,9 @@ void Main::StellarFeedback(double dTime, double dDelta)
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        if (nActiveGrav > param.nGpuMinParts) {
+            dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        }
 #endif
 
 #ifdef SPLITGAS

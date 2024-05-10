@@ -1901,8 +1901,13 @@ public:
   /// @brief Start a tree based gravity computation.
   /// @param am the active rung for the computation
   /// @param theta the opening angle
+  /// @param bUseGpu_ whether the gpu is being used
   /// @param cb the callback to use after all the computation has finished
+#ifdef CUDA
+  void startGravity(int am, double myTheta, int bUseGpu_, const CkCallback& cb);
+#else
   void startGravity(int am, double myTheta, const CkCallback& cb);
+#endif
   /// Setup utility function for all the smooths.  Initializes caches.
   void setupSmooth();
   /// Start a tree based smooth computation.

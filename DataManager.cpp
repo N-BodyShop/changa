@@ -32,6 +32,7 @@ void DataManager::init() {
   root = NULL;
   oldNumChunks = 0;
   chunkRoots = NULL;
+  cleanupTreePieces = true;
 #ifdef CUDA
   treePiecesDone = 0;
   treePiecesDonePrefetch = 0;
@@ -161,6 +162,15 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
 /// \brief Clear registeredTreePieces on this node.
 void DataManager::clearRegisteredPieces(const CkCallback& cb) {
     registeredTreePieces.removeAll();
+    cleanupTreePieces = true;
+    contribute(cb);
+}
+
+// This gets called before a tree build happens and ensures that
+// registeredTreePieces doesnt get cleared during combineLocalTrees
+// if we are about to do a gravity calculation on the GPU
+void DataManager::unmarkTreePiecesForCleanup(const CkCallback& cb) {
+    cleanupTreePieces = false;
     contribute(cb);
 }
 
@@ -211,15 +221,9 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
     }
     root = buildProcessorTree(totalChares, &gtn[0]);
 
-#ifndef CUDA
-    registeredTreePieces.removeAll();
-#else
-    // TODO fix
-    int bUseGpu = 0;
-    if (!bUseGpu) {
+    if (cleanupTreePieces) {
       registeredTreePieces.removeAll();
     }
-#endif
 
 #ifdef PRINT_MERGED_TREE
     ostringstream dmName;
@@ -1002,6 +1006,7 @@ void DataManager::transferParticleVarsBack(){
     cudaFree(d_localVars);
     cudaFree(d_remoteMoments);
     cudaFree(d_remoteParts); 
+    cleanupTreePieces = true;
 
 #ifdef CUDA_PRINT_ERRORS
     printf("transferParticleVarsBack: %s\n", cudaGetErrorString( cudaGetLastError() ) );
