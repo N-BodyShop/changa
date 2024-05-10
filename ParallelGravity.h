@@ -1413,6 +1413,7 @@ private:
 	/** @brief Start a full step of bucket computation, it sends a message
 	 * to trigger nextBucket() which will loop over all the buckets.
 	 */
+       void schedCpuWalk();
 	void doAllBuckets();
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);

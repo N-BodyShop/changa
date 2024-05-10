@@ -165,6 +165,8 @@ class ListCompute : public Compute{
 
   void initState(State *state);
 
+  void helper(DoubleWalkState *state, TreePiece *tp, int chunk, int start,
+                         int end, int maxlevel, bool hasRemoteLists, bool hasLocalLists);
   void stateReady(State *, TreePiece *, int chunk, int start, int end);
 
   void stateReadyPar(TreePiece *tp, int start, int end,

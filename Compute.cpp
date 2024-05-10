@@ -1531,6 +1531,42 @@ void ListCompute::sendLocalTreeWalkTriggerToGpu(State *state, TreePiece *tp,
 }
 #endif //GPU_LOCAL_TREE_WALK
 
+// TODO give this function a better name, im not sure what its doing
+void ListCompute::helper(DoubleWalkState *state, TreePiece *tp, int chunk, int start, 
+                         int end, int maxlevel, bool hasRemoteLists, bool hasLocalLists){
+  for(int b = start; b < end; b++){
+   if(tp->bucketList[b]->rungs >= activeRung){
+       for(int level = 0; level <= maxlevel; level++){
+
+        CkVec<OffsetNode> &clist = state->clists[level];
+        int computed;
+        computed = calcNodeForces(tp, b, activeRung, clist);
+        if(getOptType() == Remote){
+          tp->addToNodeInterRemote(chunk, computed);
+        } else if(getOptType() == Local){
+          tp->addToNodeInterLocal(computed);
+        }
+
+        // remote particles
+        if(hasRemoteLists){
+          CkVec<RemotePartInfo> &rpilist = state->rplists[level];
+          computed = calcParticleForces(tp, b, activeRung, rpilist);
+          if(getOptType() == Remote){// don't really have to perform this check
+            tp->addToParticleInterRemote(chunk, computed);
+          }
+        }
+
+        // local particles
+        if(hasLocalLists){
+          CkVec<LocalPartInfo> &lpilist = state->lplists[level];
+          computed = calcParticleForces(tp, b, activeRung, lpilist);
+          tp->addToParticleInterLocal(computed);
+        }
+      }// level
+    }// bucket
+  }
+}
+
 /// @brief Check for computation
 /// Computation can be done on buckets indexed from start to end
 /// @param state_ State to be checked
@@ -1568,39 +1604,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
     CmiMemoryCheck();
 #endif
 #ifndef CUDA
-  for(int b = start; b < end; b++){
-    if(tp->bucketList[b]->rungs >= activeRung){
-
-      for(int level = 0; level <= maxlevel; level++){
-
-        CkVec<OffsetNode> &clist = state->clists[level];
-        int computed;
-        computed = calcNodeForces(tp, b, activeRung, clist);
-        if(getOptType() == Remote){
-          tp->addToNodeInterRemote(chunk, computed);
-        } else if(getOptType() == Local){
-          tp->addToNodeInterLocal(computed);
-        }
-
-        // remote particles
-        if(hasRemoteLists){
-          CkVec<RemotePartInfo> &rpilist = state->rplists[level];
-          computed = calcParticleForces(tp, b, activeRung, rpilist);
-          if(getOptType() == Remote){// don't really have to perform this check
-            tp->addToParticleInterRemote(chunk, computed);
-          }
-        }
-
-        // local particles
-        if(hasLocalLists){
-          CkVec<LocalPartInfo> &lpilist = state->lplists[level];
-          computed = calcParticleForces(tp, b, activeRung, lpilist);
-          tp->addToParticleInterLocal(computed);
-        }
-      }// level
-
-    }// active
-  }// bucket
+  helper(state, tp, chunk, start, end, maxlevel, hasRemoteLists, hasLocalLists);
 
 #else // else part of ifndef CUDA
   // TODO fix indentation
@@ -1917,39 +1921,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
   }// bucket
   // *********************
   } else { // bUseGpu = False
-    for(int b = start; b < end; b++){
-     if(tp->bucketList[b]->rungs >= activeRung){
-
-        for(int level = 0; level <= maxlevel; level++){
-
-          CkVec<OffsetNode> &clist = state->clists[level];
-          int computed;
-          computed = calcNodeForces(tp, b, activeRung, clist);
-          if(getOptType() == Remote){
-            tp->addToNodeInterRemote(chunk, computed);
-          } else if(getOptType() == Local){
-            tp->addToNodeInterLocal(computed);
-          }
-
-          // remote particles
-          if(hasRemoteLists){
-            CkVec<RemotePartInfo> &rpilist = state->rplists[level];
-            computed = calcParticleForces(tp, b, activeRung, rpilist);
-            if(getOptType() == Remote){// don't really have to perform this check
-              tp->addToParticleInterRemote(chunk, computed);
-            }
-          }
-
-          // local particles
-          if(hasLocalLists){
-            CkVec<LocalPartInfo> &lpilist = state->lplists[level];
-            computed = calcParticleForces(tp, b, activeRung, lpilist);
-            tp->addToParticleInterLocal(computed);
-          }
-        }// level
-
-      }// active
-    }// bucket
+    helper(state, tp, chunk, start, end, maxlevel, hasRemoteLists, hasLocalLists);
   }
 #endif // ifndef CUDA
 }

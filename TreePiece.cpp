@@ -3865,6 +3865,15 @@ void TreePiece::continueWrapUp(){
   }
 }
 
+// Schedule a walk on the CPU
+void TreePiece::schedCpuWalk(){
+    dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+    *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
+    CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+
+    thisProxy[thisIndex].nextBucket(msg);
+}
+
 void TreePiece::doAllBuckets(){
 #if COSMO_DEBUG > 0
   auto file_name = make_formatted_string("tree.%d.%d",thisIndex,iterationNo);
@@ -3896,24 +3905,12 @@ void TreePiece::doAllBuckets(){
     }
     listcompute->resetCudaNodeState(state);
     listcompute->resetCudaPartState(state);
-  } else { // TODO fix repeated code
-    // Schedule a walk on the CPU
-
-    dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-    *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
-    CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-
-    thisProxy[thisIndex].nextBucket(msg);
+  } else {
+    schedCpuWalk();
   }
 
 #else
-  // Schedule a walk on the CPU
-
-  dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-  *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
-  CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-
-  thisProxy[thisIndex].nextBucket(msg);
+  schedCpuWalk();
 #endif // GPU_LOCAL_TREE_WALK
 }
 
