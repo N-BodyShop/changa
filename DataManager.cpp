@@ -166,6 +166,7 @@ void DataManager::clearRegisteredPieces(const CkCallback& cb) {
     contribute(cb);
 }
 
+#ifdef CUDA
 // This gets called before a tree build happens and ensures that
 // registeredTreePieces doesnt get cleared during combineLocalTrees
 // if we are about to do a gravity calculation on the GPU
@@ -173,6 +174,7 @@ void DataManager::unmarkTreePiecesForCleanup(const CkCallback& cb) {
     cleanupTreePieces = false;
     contribute(cb);
 }
+#endif
 
 
 /// \brief Build a local tree inside the node.
