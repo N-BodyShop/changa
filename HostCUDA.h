@@ -113,6 +113,8 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb);
 
+void TreePieceSPH(CompactSPHData *data, int numParts, void **d_particleCores, void **d_udotVals, cudatype *buf, cudaStream_t stream);
+void TreePieceSPHFree(void **d_particleCores, void **d_udotVals);
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
 void TreePieceCellListDataTransferRemote(CudaRequest *data);
 void TreePieceCellListDataTransferRemoteResume(CudaRequest *data);

@@ -182,6 +182,26 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
   hapiAddCallback(stream, callback);
 }
 
+/************** SPH *****************/
+void TreePieceSPH(CompactSPHData *data, int numParts, void **d_particleCores, void **d_udotVals, cudatype *buf, cudaStream_t stream){
+
+    cudaChk(cudaMalloc(d_particleCores, sizeof(CompactSPHData)*numParts));
+    cudaChk(cudaMalloc(d_udotVals, sizeof(cudatype)*numParts));
+    cudaChk(cudaMemcpyAsync(*d_particleCores, data, sizeof(CompactSPHData)*numParts, cudaMemcpyHostToDevice, stream));
+
+    updateuDot<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
+      (CompactSPHData *) *d_particleCores,
+      (cudatype *) *d_udotVals, numParts);
+    cudaChk(cudaMemcpyAsync(buf, *d_udotVals, sizeof(cudatype)*numParts, cudaMemcpyDeviceToHost, stream));
+    cudaStreamSynchronize(stream);
+}
+
+void TreePieceSPHFree(void **d_particleCores, void **d_udotVals){
+    cudaChk(cudaFree(*d_particleCores));
+    cudaChk(cudaFree(*d_udotVals));
+}
+
+
 /************** Gravity *****************/
 
 /// @brief Initiate a local gravity calculation on the GPU, via an interaction
@@ -2202,4 +2222,12 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].a.z = 0.0;
     particleVars[id].potential = 0.0;
     particleVars[id].dtGrav = 0.0;
+}
+
+__global__ void updateuDot(CompactSPHData *particleCores, cudatype *udotVals, int nVars) {
+    int id;
+    id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    if(id >= nVars) return;
+    udotVals[id] = particleCores[id].uDotPdV*particleCores[id].PoverRhoGas/particleCores[id].PoverRho +
+                   particleCores[id].uDotAV + particleCores[id].uDotDiff + particleCores[id].fESNrate;
 }

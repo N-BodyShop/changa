@@ -13,6 +13,12 @@
 #include "physconst.h"
 #include "formatted_string.h"
 
+// TODO move this stuff to .cu file later
+#ifdef CUDA
+#include "hapi.h"
+#include "cuda_typedef.h"
+#endif // CUDA
+
 #include <float.h>
 
 ///
@@ -868,6 +874,56 @@ void TreePiece::updateuDot(int activeRung,
 			   const CkCallback& cb)
 {
 #ifndef COOLING_NONE
+
+#ifdef CUDA
+    // Count the number of particles to update
+    int gpuNumParts = 0;
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	if (TYPETest(p, TYPE_GAS)
+	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
+            gpuNumParts++;
+        }
+    }
+
+    // Copy required particles into buffers and copy to GPU
+    int partIndex = 0;
+    CompactSPHData buf[gpuNumParts];
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	if (TYPETest(p, TYPE_GAS)
+	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
+            buf[partIndex].uDotPdV = p->uDotPdV();
+            buf[partIndex].PoverRhoGas = gammam1*p->uPred();
+            buf[partIndex].PoverRho = buf[partIndex].PoverRhoGas;
+            buf[partIndex].uDotAV = p->uDotAV();
+            buf[partIndex].uDotDiff = p->uDotDiff();
+            buf[partIndex].fESNrate = p->fESNrate();
+            partIndex++;
+        }
+    }
+
+   void *d_particleCores;
+   void *d_udotVals;
+   cudatype *buf_out;
+   buf_out = (cudatype *) malloc(gpuNumParts*sizeof(cudatype));
+   TreePieceSPH(buf, gpuNumParts, (void **)&d_particleCores, (void **)&d_udotVals, buf_out, this->stream);
+
+   // Copy udotVals back to particles
+   partIndex = 0;
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	if (TYPETest(p, TYPE_GAS)
+	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
+            p->uDot() = buf_out[partIndex];
+            partIndex++;
+        }
+    }
+
+    TreePieceSPHFree((void  **)&d_particleCores, (void **)&d_udotVals);
+    free(buf_out);
+
+#else
     double dt; // time in seconds
     double fDensity;
     double E;
@@ -1008,6 +1064,7 @@ void TreePiece::updateuDot(int activeRung,
             CkAssert(isfinite(p->uDot()));
 	    }
 	}
+#endif /* CUDA */
 #endif
     // Use shadow array to avoid reduction conflict
     smoothProxy[thisIndex].ckLocal()->contribute(cb);

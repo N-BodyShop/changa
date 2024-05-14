@@ -271,5 +271,14 @@ typedef struct VariablePartData{
   cudatype dtGrav;
 }VariablePartData;
 
+typedef struct CompactSPHData{
+  cudatype uDotPdV;
+  cudatype PoverRhoGas;
+  cudatype PoverRho;
+  cudatype uDotAV;
+  cudatype uDotDiff;
+  cudatype fESNrate;
+}CompactSPHData;
+
 
 #endif /* CUDA_TYPEDEF_H_*/
