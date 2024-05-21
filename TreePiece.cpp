@@ -3975,7 +3975,6 @@ void TreePiece::nextBucket(dummyMsg *msg){
       CkAssert(currentBucket >= startBucket);
 
 #if !defined(CUDA)
-      // TODO fix
       if (useckloop) {
         lpdata->lowNodes.insertAtEnd(lowestNode);
         lpdata->bucketids.insertAtEnd(currentBucket);
@@ -4063,7 +4062,6 @@ void TreePiece::nextBucket(dummyMsg *msg){
   }// end while
 
 #if INTERLIST_VER > 0 && !defined(CUDA)
-  // TODO fix
   if (useckloop) {
     // Use ckloop to parallelize force calculation and this will update the
     // counterArrays as well.
@@ -4281,7 +4279,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
 #if INTERLIST_VER > 0
 #if !defined(CUDA)
-  // TODO fix
   LoopParData* lpdata;
   // Keep track of which was the currentBucket so that it can be restored in the
   // ckloop part.
@@ -4408,7 +4405,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       // When using ckloop to parallelize force calculation, first the list is
       // populated with nodes and particles with which the force is calculated.
 #if !defined(CUDA)
-      // TODO fix
       if (useckloop) {
         lpdata->lowNodes.insertAtEnd(lowestNode);
         lpdata->bucketids.insertAtEnd(sRemoteGravityState->currentBucket);
@@ -4477,7 +4473,6 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
 
 #if INTERLIST_VER > 0 && !defined(CUDA)
-  // TODO fix
   if (useckloop) {
     // Now call ckloop parallelization function which will execute the force
     // calculation in parallel and update the counterArrays.

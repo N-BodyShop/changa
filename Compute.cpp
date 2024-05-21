@@ -1935,7 +1935,6 @@ void ListCompute::stateReadyPar(TreePiece *tp, int start, int end,
     CkVec<LocalPartInfo>& lpilist) {
 
 #ifndef CUDA
-  // TODO fix
   bool hasRemoteLists = rpilist.length() > 0 ? true : false;
   bool hasLocalLists = lpilist.length() > 0 ? true : false;
 
