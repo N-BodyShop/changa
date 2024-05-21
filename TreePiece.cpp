@@ -3761,7 +3761,7 @@ void TreePiece::finishBucket(int iBucket) {
       // confused.
       if (bUseGpu) {
         dm->transferParticleVarsBack();
-        bUseGpu = 0; // TODO fixme is this a good place to reset this?
+        bUseGpu = 0;
       } else {
         continueWrapUp();
       }

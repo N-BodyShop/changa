@@ -1461,7 +1461,7 @@ public:
 #endif
 #ifdef CUDA
           numActiveBuckets = -1;
-          bUseGpu = 0; // TODO fix
+          bUseGpu = 0;
 #ifdef HAPI_TRACE
           localNodeInteractions = 0;
           localPartInteractions = 0;
