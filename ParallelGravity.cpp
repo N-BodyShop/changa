@@ -2745,16 +2745,6 @@ Main::initialForces()
   if(verbosity)
       memoryStats();
   
-#ifdef CUDA
-  // TODO fix
-  ckout << "Init. Accel. ...";
-  double dInitAccelTime = CkWallTimer();
-  //treeProxy.initAccel(0, CkCallbackResumeThread());
-  ckout << " took " << (CkWallTimer() - dInitAccelTime) << " seconds."
-        << endl;
-#endif
-
-      
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
   double gravStartTime;
