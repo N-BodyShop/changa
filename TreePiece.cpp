@@ -4138,18 +4138,7 @@ void TreePiece::calculateGravityLocal() {
   doAllBuckets();
 }
 
-/// @brief Start the ewald calculation on this TreePiece
-/// @param msg Indicates whether this function was called from EwaldInit
-void TreePiece::calculateEwald(EwaldMsg *msg) {
-#ifdef SPCUDA
-  if (bUseGpu) {
-    if(!msg->fromInit){
-      thisProxy[thisIndex].EwaldGPU();
-    }
-    delete msg;
-  }
-#else
-
+void TreePiece::ewaldCPU(EwaldMsg *msg) {
   bool useckloop = false;
   int yield_num = _yieldPeriod;
 
@@ -4179,6 +4168,24 @@ void TreePiece::calculateEwald(EwaldMsg *msg) {
   } else {
     delete msg;
   }
+}
+
+/// @brief Start the ewald calculation on this TreePiece
+/// @param msg Indicates whether this function was called from EwaldInit
+void TreePiece::calculateEwald(EwaldMsg *msg) {
+#ifdef SPCUDA
+  if (bUseGpu) {
+    if(!msg->fromInit){
+      thisProxy[thisIndex].EwaldGPU();
+    }
+    delete msg;
+  } else {
+      ewaldCPU(msg);
+  }
+#else
+
+  ewalcCpu(msg);
+
 #endif
 }
 
