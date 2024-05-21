@@ -3926,22 +3926,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
   int yield_num = _yieldPeriod;
 #if INTERLIST_VER > 0
 
-#ifdef CUDA
-  // TODO fix repeated code
-  if (!bUseGpu) {
-    LoopParData* lpdata;
-    int tmpBucketBegin;
-    if (bUseCkLoopPar && otherIdlePesAvail()) {
-      useckloop = true;
-      // This value was chosen to be 2*Nodesize so that we have enough buckets for
-      // all the PEs in the node and also giving some extra for load balance.
-      yield_num = 2 * CkMyNodeSize();
-      lpdata = new LoopParData();
-      lpdata->tp = this;
-      tmpBucketBegin = currentBucket;
-    }
-  }
-#else
+#ifndef CUDA
   LoopParData* lpdata;
   int tmpBucketBegin;
   if (bUseCkLoopPar && otherIdlePesAvail()) {
