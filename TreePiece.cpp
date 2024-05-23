@@ -4167,7 +4167,7 @@ void TreePiece::calculateEwald(EwaldMsg *msg) {
   }
 #else
 
-  ewalcCpu(msg);
+  ewaldCPU(msg);
 
 #endif
 }
