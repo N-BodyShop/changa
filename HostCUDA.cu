@@ -182,26 +182,6 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
   hapiAddCallback(stream, callback);
 }
 
-/************** SPH *****************/
-void TreePieceSPH(CompactSPHData *data, int numParts, void **d_particleCores, void **d_udotVals, cudatype *buf, cudaStream_t stream){
-
-    cudaChk(cudaMalloc(d_particleCores, sizeof(CompactSPHData)*numParts));
-    cudaChk(cudaMalloc(d_udotVals, sizeof(cudatype)*numParts));
-    cudaChk(cudaMemcpyAsync(*d_particleCores, data, sizeof(CompactSPHData)*numParts, cudaMemcpyHostToDevice, stream));
-
-    updateuDot<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
-      (CompactSPHData *) *d_particleCores,
-      (cudatype *) *d_udotVals, numParts);
-    cudaChk(cudaMemcpyAsync(buf, *d_udotVals, sizeof(cudatype)*numParts, cudaMemcpyDeviceToHost, stream));
-    cudaStreamSynchronize(stream);
-}
-
-void TreePieceSPHFree(void **d_particleCores, void **d_udotVals){
-    cudaChk(cudaFree(*d_particleCores));
-    cudaChk(cudaFree(*d_udotVals));
-}
-
-
 /************** Gravity *****************/
 
 /// @brief Initiate a local gravity calculation on the GPU, via an interaction
@@ -2224,10 +2204,288 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].dtGrav = 0.0;
 }
 
-__global__ void updateuDot(CompactSPHData *particleCores, cudatype *udotVals, int nVars) {
+void TreePieceODESolver(int numParts, cudaStream_t stream) {
+    /*cudaMalloc(d_data);
+    cudaMemcpyAsync(d_data);
+    StiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(stiff, y, tstart, dtg);
+    cudaMemcpyAsync(data);
+    cudaStreamSynchronize(stream);*/
+}
+
+void TreePieceODESolverFree() {
+    //cudaFree(d_data);
+}
+
+__device__ double sign(double val) {
+    return (val > 0) - (val < 0);
+}
+
+__device__ double sign(double x, double y) {
+    return (y >= 0) ? fabs(x) : -fabs(x);
+}
+
+__global__ void StiffStep(CudaSTIFF *s, double y[], double tstart, double dtg, int nVars) {
     int id;
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
-    udotVals[id] = particleCores[id].uDotPdV*particleCores[id].PoverRhoGas/particleCores[id].PoverRho +
-                   particleCores[id].uDotAV + particleCores[id].uDotDiff + particleCores[id].fESNrate;
-}
+
+    double tn;			/* time within step */
+    int i;
+    /*
+     * Local copies of Stiff context
+     */
+    int n = s->nv;
+    double *y0 = s->y0;
+    double *ymin = s->ymin;
+    double *q = s->q;
+    double *d = s->d;
+    double *rtau = s->rtau;
+    double *ys = s->ys;
+    double *qs = s->qs;
+    double *rtaus = s->rtaus;
+    double *scrarray = s->scrarray;
+    double *y1 = s->y1;
+    double epsmin = s->epsmin;
+    double sqreps = s->sqreps;
+    double epscl = s->epscl;
+    double epsmax = s->epsmax;
+    double dtmin = s->dtmin;
+    int itermax = s->itermax;
+    int gcount = 0;		/* count calls to derivs */
+    int rcount = 0;		/* count restart steps */
+    double scrtch;
+    double ascr;
+    double scr1;
+    double scr2;
+    double dt;			/* timestep used by the integrator */
+    double ts;			/* t at start of the chemical timestep */
+    double alpha;		/* solution parameter used in update */
+    int iter;			/* counter for corrector iterations */
+    double eps;			/* maximum correction term */
+    double rtaub;
+    double qt;			/* alpha weighted average of q */
+    double pb;
+    const double tfd = 1.000008; /* fudge for completion of timestep */
+    double rteps;		/* estimate of sqrt(eps) */
+    double dto;			/* old timestep; to rescale rtaus */
+    double temp;                
+    
+    tn = 0.0;
+    for(i = 0; i < n; i++) {
+	q[i] = 0.0;
+	d[i] = 0.0;
+	y0[i] = y[i];
+	y[i] = max(y[i], ymin[i]);
+	}
+    
+    s->derivs(tn + tstart, y, q, d, s->Data);
+    gcount++;
+    
+    /*
+    C
+    c estimate the initial stepsize.
+    C
+    c strongly increasing functions(q >>> d assumed here) use a step-
+    c size estimate proportional to the step needed for the function to
+    c reach equilibrium where as functions decreasing or in equilibrium
+    c use a stepsize estimate directly proportional to the character-
+    c istic stepsize of the function. convergence of the integration
+    c scheme is likely since the smallest estimate is chosen for the
+    c initial stepsize.
+    */
+    scrtch  = 1.0e-25;
+    for(i = 0; i < n; i++) {
+	ascr = fabs(q[i]);
+	scr2 = sign(1./y[i],.1*epsmin*ascr - d[i]);
+	scr1 = scr2 * d[i];
+	temp = -fabs(ascr-d[i])*scr2;
+	/* If the species is already at the minimum, disregard
+	   destruction when calculating step size */
+	if (y[i] == ymin[i]) temp = 0.0;
+	scrtch = max(scr1,max(temp,scrtch));
+	}
+    dt = min(sqreps/scrtch,dtg);
+    while(1) {
+	/*
+	  c the starting values are stored.
+	*/
+	ts = tn;
+	for(i = 0; i < n; i++) {
+	    rtau[i] = dt*d[i]/y[i];
+	    ys[i] = y[i];
+	    qs[i] = q[i];
+	    rtaus[i] = rtau[i];
+	    }
+
+	/*
+	 * find the predictor terms.
+	 */
+     restart:
+	for(i = 0; i < n; i++) {
+	    /*
+	     * prediction
+	     */
+	    double rtaui = rtau[i];
+	    /*
+	    c note that one of two approximations for alpha is chosen:
+	    c 1) Pade b for all rtaui (see supporting memo report)
+	    c or
+	    c 2) Pade a for rtaui<=rswitch,
+	    c linear approximation for rtaui > rswitch
+	    c (again, see supporting NRL memo report (Mott et al., 2000))
+	    c
+	    c Option 1): Pade b
+	    */
+	    alpha = (180.+rtaui*(60.+rtaui*(11.+rtaui)))
+		/(360.+ rtaui*(60. + rtaui*(12. + rtaui)));
+	    /*
+	    c Option 2): Pade a or linear
+	    c
+	    c if(rtaui.le.rswitch) then
+	    c      alpha = (840.+rtaui*(140.+rtaui*(20.+rtaui)))
+	    c    &         / (1680. + 40. * rtaui*rtaui)
+	    c else
+	    c    alpha = 1.-1./rtaui
+	    c end if
+	    */
+	    scrarray[i] = (q[i]-d[i])/(1.0 + alpha*rtaui);
+	    }
+
+	iter = 1;
+	while(iter <= itermax) {
+	    for(i = 0; i < n; i++) {
+		/*
+		C ym2(i) = ym1(i)
+		C ym1(i) = y(i)
+		*/
+		y[i] = max(ys[i] + dt*scrarray[i], ymin[i]);
+		}
+	    /*	    if(iter == 1) {  Removed from original algorithm
+		    so that previous, rather than first, corrector is
+		    compared to.  Results in faster integration. */
+		/*
+		c the first corrector step advances the time (tentatively) and
+		c saves the initial predictor value as y1 for the timestep
+		check later.
+		*/
+		tn = ts + dt;
+		for(i = 0; i < n; i++)
+		    y1[i] = y[i];
+		/*		} Close for "if(iter == 1)" above */
+	    /*
+	      evaluate the derivitives for the corrector.
+	    */
+	    s->derivs(tn + tstart, y, q, d, s->Data);
+	    gcount++;
+	    eps = 1.0e-10;
+	    for(i = 0; i < n; i++) {
+		rtaub = .5*(rtaus[i]+dt*d[i]/y[i]);
+		/*
+		c Same options for calculating alpha as in predictor:
+		c
+		c Option 1): Pade b
+		*/
+		alpha = (180.+rtaub*(60.+rtaub*(11.+rtaub)))
+		    / (360. + rtaub*(60. + rtaub*(12. + rtaub)));
+		/*
+		c Option 2): Pade a or linear
+		c
+		c if(rtaub.le.rswitch)
+		c then
+		c alpha = (840.+rtaub*(140.+rtaub*(20.+rtaub)))
+		c & / (1680. + 40.*rtaub*rtaub)
+		c else
+		c alpha = 1.- 1./rtaub
+		c end if
+		*/
+		qt = qs[i]*(1. - alpha) + q[i]*alpha;
+		pb = rtaub/dt;
+		scrarray[i] = (qt - ys[i]*pb) / (1.0 + alpha*rtaub);
+		}
+	    iter++;
+	    }
+	/*
+	c calculate new f, check for convergence, and limit decreasing
+	c functions. the order of the operations in this loop is important.
+	*/
+	for(i = 0; i < n; i++) {
+	    scr2 = max(ys[i] + dt*scrarray[i], 0.0);
+	    scr1 = fabs(scr2 - y1[i]);
+	    y[i] = max(scr2, ymin[i]);
+	    /*
+	    C ym2(i) = ymi(i)
+	    C yml(i) = y(i)
+	    */
+	    if(.25*(ys[i] + y[i]) > ymin[i]) {
+		scr1 = scr1/y[i];
+		eps = max(.5*(scr1+
+			      min(fabs(q[i]-d[i])/(q[i]+d[i]+1.0e-30),scr1)),eps);
+		}
+	    }
+	eps = eps*epscl;
+	/*
+	c check for convergence.
+	c
+	c The following section is used for the stability check
+	C       stab = 0.01
+	C if(itermax.ge.3) then
+	C       do i=1,n
+	C           stab = max(stab, abs(y(i)-yml(i))/
+	C       &       (abs(ymi(i)-ym2(i))+1.e-20*y(i)))
+	C end do
+	C endif
+	*/
+	if(eps <= epsmax) {
+	    /*
+	      & .and.stab.le.1.
+	    c
+	    c Valid step. Return if dtg has been reached.
+	    */
+	    if(dtg <= tn*tfd) return;
+	    }
+	else {
+	    /*
+	      Invalid step; reset tn to ts
+	    */
+	    tn = ts;
+	    }
+	/*
+	  perform stepsize modifications.
+	  estimate sqrt(eps) by newton iteration.
+	*/
+	rteps = 0.5*(eps + 1.0);
+	rteps = 0.5*(rteps + eps/rteps);
+	rteps = 0.5*(rteps + eps/rteps);
+
+	dto = dt;
+	dt = min(dt*(1.0/rteps+.005), tfd*(dtg - tn));
+	/* & ,dto/(stab+.001) */
+	/*
+	  begin new step if previous step converged.
+	*/
+	if(eps > epsmax) {
+	    /*    & .or. stab. gt. 1 */
+	    rcount++;
+	    /*
+	    c After an unsuccessful step the initial timescales don't
+	    c change, but dt does, requiring rtaus to be scaled by the
+	    c ratio of the new and old timesteps.
+	    */
+	    dto = dt/dto;
+	    for(i = 0; i < n; i++) {
+		rtaus[i] = rtaus[i]*dto;
+		}
+	    /*
+	     * Unsuccessful steps return to line 101 so that the initial
+	     * source terms do not get recalculated.
+	    */
+	    goto restart;
+	    }
+	/*
+	  Successful step; get the source terms for the next step
+	  and continue back at line 100
+	*/
+	s->derivs(tn + tstart, y, q, d, s->Data);
+	gcount++;
+	}
+    }

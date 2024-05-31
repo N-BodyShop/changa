@@ -2684,6 +2684,7 @@ void clTempIteration( clDerivsData *d )
  clAbunds( d->cl, &d->Y, &d->Rate, d->rho, d->ZMetal);
 }
 
+// TODO this will also need to be a CUDA function
 void clDerivs(double x, const double *y, double *dGain, double *dLoss,
 	     void *Data) {
   clDerivsData *d = Data;
@@ -2949,7 +2950,10 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
       /*#ifdef COOLDEBUG      */
       startTime = time(NULL);
       /*#endif*/
+
+      // TODO cuda function launches from here
       StiffStep( sbs, y, t, tStep);
+
       /*#ifdef COOLDEBUG*/
       endTime = time(NULL);
       if (difftime(endTime,startTime) > 1) {
