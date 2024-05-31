@@ -358,6 +358,10 @@ double clEdotInstant ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 		       double ZMetal, double *dEdotHeat, double *dEdotCool );
   void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double dt, double columnL, double dLymanWerner  );
+  void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
+		              double ExternalHeating, double rho, double ZMetal, double dt, double columnL, double dLymanWerner  );
+  void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
+		               double ExternalHeating, double rho, double ZMetal, double dt, double columnL, double dLymanWerner  );
   void clIntegrateEnergyDEBUG(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal,  double dt );
 
@@ -439,6 +443,12 @@ void CoolIntegrateEnergy(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double
 
 void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
 			     double ExternalHeating, double rho, double ZMetal, double *r, double tStep, double columnL );
+
+void CoolIntegrateEnergyCodeStart(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
+			          double ExternalHeating, double rho, double ZMetal, double *r, double tStep, double columnL );
+
+void CoolIntegrateEnergyCodeFinish(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
+			           double ExternalHeating, double rho, double ZMetal, double *r, double tStep, double columnL );
 
 void CoolDefaultParticleData( COOLPARTICLE *cp );
 

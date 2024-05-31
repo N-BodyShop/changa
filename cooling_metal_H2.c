@@ -2832,6 +2832,121 @@ void clSetyscale( COOL *cl, double Y_H, double Y_He, double *y, double *yscale) 
 
 } 
 
+void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
+		            double ExternalHeating, double rho, double ZMetal, double tStep, double columnL, double dLymanWerner  ) {
+/* Make sure no values are near roundoff ~ (1e-14)*Y_i */
+#define YHMIN 1e-12
+#define YHeMIN 1e-13
+#define YH2MIN 1e-12/2.0 
+  
+  const int array_length=5; /*Arrays expanded for H2*/
+
+  double y[array_length],yin[array_length],EMin,YTotal ;
+  double dHeat, dCool;
+  double t=0;
+  clDerivsData *d = clData;
+  STIFF *sbs = d->IntegratorContext;
+  time_t startTime, endTime;
+ 
+  if (tStep == 0) return;
+  d->bCool = 1;
+  if (tStep < 0) {
+      tStep = fabs(tStep);
+      d->bCool = 0;
+      }
+
+#ifdef Y_EMIN
+  if (Y->e < Y_EMIN) Y->e = Y_EMIN;
+#endif
+
+  y[0] = yin[0] = *E;
+  y[1] = yin[1] = Y->HI;
+  y[2] = yin[2] = Y->HeI;
+  y[3] = yin[3] = Y->HeII;
+  y[4] = yin[4] = Y->H2; /*Inititalyzing the number of H2 molecules*/ 
+
+  d->rho = rho;
+  d->ExternalHeating = ExternalHeating;
+  d->ZMetal = ZMetal; 
+  d->dLymanWerner = dLymanWerner;
+  d->columnL = columnL;
+  clSetAbundanceTotals( cl, ZMetal, &d->Y_H, &d->Y_He, &d->Y_eMax );
+  
+/* H, He total from cl now -- in future from particle */
+  YTotal = Y->HII + Y->HeII + 2*Y->HeIII + d->Y_H + d->Y_He + d->ZMetal/MU_METAL -  Y->H2; 
+
+  EMin = clThermalEnergy( YTotal, cl->TMin );
+
+ {
+     double ymin[array_length];
+     ymin[1] = YHMIN;
+     ymin[2] = YHeMIN;
+     ymin[3] = YHeMIN;
+     ymin[4] = YH2MIN;
+
+      YTotal = (d->Y_H - ymin[4]) + (d->Y_H - ymin[1] - 2.0*ymin[4]) + d->Y_He + ymin[3] + 
+	2.0*(d->Y_He - ymin[2] - ymin[3]) + d->ZMetal/MU_METAL;
+      EMin = clThermalEnergy( YTotal, cl->TMin );
+      ymin[0] = EMin;
+      StiffSetYMin(sbs, ymin);
+  }
+}
+
+void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
+		            double ExternalHeating, double rho, double ZMetal, double tStep, double columnL, double dLymanWerner  ) {
+      if(y[1] > d->Y_H) y[1] = d->Y_H;
+      if(y[4] > d->Y_H/2.0) y[4] = d->Y_H/2.0;
+      if(y[2] > d->Y_He) y[2] = d->Y_He;
+      if(y[3] > d->Y_He) y[3] = d->Y_He;
+      if (fabs(y[2])+fabs(y[3]) > d->Y_He) {
+	  if(y[2] > y[3]) y[3] = d->Y_He - y[2]; 
+	  else y[2] = d->Y_He - y[3]; 
+	  } 
+
+      if (fabs(y[1])+fabs(y[4]*2.0) > d->Y_H) { 
+        if(y[1] > y[4]*2) y[4] = (d->Y_H - y[1])/2.0; 
+          else y[1] = d->Y_H - y[4]*2.0; 
+      }
+
+      if(y[4] < YH2MIN) y[4] = YH2MIN;
+      if(y[1] < YHMIN) y[1] = YHMIN;
+      if (d->Y_H - y[1] - 2.0*y[4] < YHMIN) {
+        if (y[1] >= 2.0*y[4]) y[1] = d->Y_H - 2.0*y[4] - YHMIN;
+        else                  y[4] =(d->Y_H - y[1] - YHMIN)/2.0;
+
+      }
+      if(y[2] < YHeMIN) y[2] = YHeMIN;
+      if(y[3] < YHeMIN) y[3] = YHeMIN;
+      if (d->Y_He - y[2] - y[3] < YHeMIN) {
+        if (y[2] >= y[3]) y[2] = d->Y_He - y[3] - YHeMIN;
+        else              y[3] = d->Y_He - y[2] - YHeMIN; 
+      }
+      YTotal = (d->Y_H) - y[4] + (d->Y_H - y[1] - 2*y[4]) + d->Y_He + y[3] +
+	2.0*(d->Y_He - y[2] - y[3]) + d->ZMetal/MU_METAL;
+      EMin = clThermalEnergy( YTotal, cl->TMin );
+
+#ifdef ASSERTENEG      
+      assert(*y > 0.0);
+#else
+      if (y[0] < EMin) {
+	y[0] = EMin;
+      }
+#endif   
+   cl->its = 1;
+   }
+
+   *E = y[0];
+   d->E = y[0];
+   Y->HI = y[1];
+   Y->HeI = y[2];
+   Y->HeII = y[3];
+   Y->HeIII = d->Y_He - Y->HeI - Y->HeII;
+   Y->H2 = y[4];
+   Y->HII = d->Y_H - Y->HI - 2.0*Y->H2;
+   Y->e = Y->HII + Y->HeII + 2*Y->HeIII;
+   Y->Total =  Y->e + d->Y_H + d->Y_He + d->ZMetal/MU_METAL - Y->H2; /*as two hydrogen atoms make one molecular hydrogen particle, subtract off number of molecules to avoid double counting particles CC */
+}
+
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double tStep, double columnL, double dLymanWerner  ) {
 
@@ -3376,6 +3491,37 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 	CoolPERBARYONtoPARTICLE(cl, &Y, cp, ZMetal);
 	*ECode = CoolErgPerGmToCodeEnergy(cl, E);
 	}
+
+
+void CoolIntegrateEnergyCodeStart(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, 
+			          double *ECode, double ExternalHeatingCode, 
+			          double rhoCode, double ZMetal, double *posCode, 
+			          double tStep, double columnL ) {
+	double E;
+
+	double dLymanWerner = cp->dLymanWerner;
+
+	E = CoolCodeEnergyToErgPerGm( cl, *ECode );
+	CoolPARTICLEtoPERBARYON(cl, &Y, cp, ZMetal);
+#ifdef NOEXTHEAT
+	ExternalHeatingCode = 0;
+#endif
+	clIntegrateEnergyStart(cl, clData, &Y, &E,
+			       CoolCodeWorkToErgPerGmPerSec( cl, ExternalHeatingCode ), 
+			       CodeDensityToComovingGmPerCc(cl, rhoCode), ZMetal, tStep, columnL,dLymanWerner );
+}
+
+void CoolIntegrateEnergyCodeFinish(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, 
+			           double *ECode, double ExternalHeatingCode, 
+			           double rhoCode, double ZMetal, double *posCode, 
+			           double tStep, double columnL ) {
+	double dLymanWerner = cp->dLymanWerner;
+	clIntegrateEnergyFinish(cl, clData, &Y, &E,
+			        CoolCodeWorkToErgPerGmPerSec( cl, ExternalHeatingCode ), 
+			        CodeDensityToComovingGmPerCc(cl, rhoCode), ZMetal, tStep, columnL,dLymanWerner );
+	CoolPERBARYONtoPARTICLE(cl, &Y, cp, ZMetal);
+	*ECode = CoolErgPerGmToCodeEnergy(cl, E);
+}
 
 /* Deprecated: */
 double CoolHeatingRate( COOL *cl, COOLPARTICLE *cp, double T, double dDensity, double ZMetal, double columnL ) {

@@ -870,12 +870,12 @@ void TreePiece::updateuDot(int activeRung,
 #ifndef COOLING_NONE
 
     // Count the number of particles to update
-    int numParts = 0;
+    int numSelParts = 0;
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)
 	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
-            numParts++;
+            numSelParts++;
         }
     }
 
@@ -884,14 +884,14 @@ void TreePiece::updateuDot(int activeRung,
     double PoverRhoGas;
     double PoverRhoJeans;
     double cGas;
-    double ExternalHeating[numParts];
-    double dtUse[numParts];
-    double fDensity[numParts];
-    double E[numParts];
-    double fMetals[numParts];
-    double r[numParts][3];
-    double columnL[numParts];
-    COOLPARTICLE cp[numParts];
+    double ExternalHeating[numSelParts];
+    double dtUse[numSelParts];
+    double fDensity[numSelParts];
+    double E[numSelParts];
+    double fMetals[numSelParts];
+    double r[numSelParts][3];
+    double columnL[numSelParts];
+    COOLPARTICLE cp[numSelParts];
     int pIdx;
 
     pIdx = 0;
@@ -999,20 +999,24 @@ void TreePiece::updateuDot(int activeRung,
         pIdx++;
         }
 
-    // This is where the kernel launch could happen
     if (bCool) {
-        pIdx = 0;
-        for(unsigned int i = 1; i <= myNumParticles; ++i) {
-	    GravityParticle *p = &myParticles[i];
-	    if (TYPETest(p, TYPE_GAS)
-	        && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
+        for(unsigned int i = 1; i <= numSelParts; ++i) {
+            CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &cp[pIdx], &E[pIdx],
+	                                 ExternalHeating[pIdx], fDensity[pIdx],
+	  	                         fMetals[pIdx], r[pIdx], dtUse[pIdx], columnL[pIdx]);
+            }
+#ifdef CUDA
+        TreePieceODESolver(numSelParts, this->stream);
+        // TODO copy data back from GPU
+        TreePieceODESolverFree();
+#else
+        StiffStep( sbs, y, t, tStep);
+#endif
 
-                    CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp[pIdx], &E[pIdx],
-					    ExternalHeating[pIdx], fDensity[pIdx],
-		    			    fMetals[pIdx], r[pIdx], dtUse[pIdx], columnL[pIdx]);
-
-                }
-            pIdx++;
+        for(unsigned int i = 1; i <= numSelParts; ++i) {
+            CoolIntegrateEnergyCodeFinish(dm->Cool, CoolData, &cp[pIdx], &E[pIdx],
+	                                  ExternalHeating[pIdx], fDensity[pIdx],
+	  	                          fMetals[pIdx], r[pIdx], dtUse[pIdx], columnL[pIdx]);
             }
         }
 
