@@ -1000,24 +1000,42 @@ void TreePiece::updateuDot(int activeRung,
         }
 
     if (bCool) {
-        for(unsigned int i = 1; i <= numSelParts; ++i) {
-            CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &cp[pIdx], &E[pIdx],
-	                                 ExternalHeating[pIdx], fDensity[pIdx],
-	  	                         fMetals[pIdx], r[pIdx], dtUse[pIdx], columnL[pIdx]);
+	PERBARYON Y[numSelParts];
+	double *Ecgs = new double[numSelParts];
+	double **y = new double*[numSelParts];
+        for(unsigned int i = 0; i < numSelParts; ++i) {
+	    y[i] = new double[5]; // TODO this const is defined in clIntegrateEnergy
+	    Ecgs[i] = 0.0;
+            CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &Y[i], &Ecgs[i], &cp[i], &E[i],
+	                                 ExternalHeating[i], fDensity[i],
+	  	                         fMetals[i], r[i], dtUse[i], columnL[i], y[i]);
             }
 #ifdef CUDA
-        TreePieceODESolver(numSelParts, this->stream);
+        //TreePieceODESolver(numSelParts, this->stream);
         // TODO copy data back from GPU
-        TreePieceODESolverFree();
+        //TreePieceODESolverFree();
+
+	double t;
+        for(unsigned int i = 0; i < numSelParts; ++i) {
+            t = 0.0;
+            StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
+	}
 #else
-        StiffStep( sbs, y, t, tStep);
+	double t;
+        for(unsigned int i = 0; i < numSelParts; ++i) {
+            t = 0.0;
+            StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
+	}
 #endif
 
-        for(unsigned int i = 1; i <= numSelParts; ++i) {
-            CoolIntegrateEnergyCodeFinish(dm->Cool, CoolData, &cp[pIdx], &E[pIdx],
-	                                  ExternalHeating[pIdx], fDensity[pIdx],
-	  	                          fMetals[pIdx], r[pIdx], dtUse[pIdx], columnL[pIdx]);
+        for(unsigned int i = 0; i < numSelParts; ++i) {
+            CoolIntegrateEnergyCodeFinish(dm->Cool, CoolData, &Y[i], &Ecgs[i], &cp[i], &E[i],
+	                                  ExternalHeating[i], fDensity[i],
+	  	                          fMetals[i], r[i], dtUse[i], columnL[i], y[i]);
+	    delete[] y[i];
             }
+	delete[] Ecgs;
+	delete[] y;
         }
 
     pIdx = 0;
