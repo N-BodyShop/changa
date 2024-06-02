@@ -2204,16 +2204,175 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].dtGrav = 0.0;
 }
 
-void TreePieceODESolver(int numParts, cudaStream_t stream) {
-    /*cudaMalloc(d_data);
-    cudaMemcpyAsync(d_data);
-    StiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(stiff, y, tstart, dtg);
-    cudaMemcpyAsync(data);
-    cudaStreamSynchronize(stream);*/
+void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  y[], double tstart, double dtg, int numParts, cudaStream_t stream) {
+
+    double *d_y;
+    size_t ySize = numParts * 5 * sizeof(double); // TODO const defined in clIntegrateEnergy
+    cudaChk(cudaMalloc(&d_y), ySize);
+    cudaChk(cudaMemcpyAsync(d_y, y, ySize, cudaMemcpyHostToDevice), stream);
+
+    StiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_CudaStiff, d_y, tstart, dtg, numParts);
+    cudaChk(cudaMemcpyAsync(y, d_y, ySize, cudaMemcpyDeviceToHost), stream);
+
+    cudaFree(d_CudaStiff); // Dont forget all of the pointers in d_CudaStiff
+    cudaFree(d_y);
+
+    cudaStreamSynchronize(stream);
 }
 
-void TreePieceODESolverFree() {
-    //cudaFree(d_data);
+#define COPY_FIELD(dest, src, member) dest.member = src.member
+#define COPY_NESTED_FIELD(dest, src, nest, member) dest.nest.member = src.nest.member
+void STIFFtoCudaSTIFF(STIFF *a, CudaSTIFF *b) {
+    COPY_FIELD(b, a, epsmin);
+    COPY_FIELD(b, a, sqreps);
+    COPY_FIELD(b, a, epscl);
+    COPY_FIELD(b, a, epsmax);
+    COPY_FIELD(b, a, dtmin);
+    COPY_FIELD(b, a, itermax);
+    COPY_FIELD(b, a, nv);
+    // Skip pointers, these need to be reninitalized on device
+}
+
+void COOLtoCudaCOOL(CudaCOOL *a, COOL *b) {
+    COPY_FIELD(b, a, z);
+    COPY_FIELD(b, a, dTime);
+    
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Rate_Phot_HI);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Rate_Phot_HeI);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Rate_Phot_HeII);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Rate_Phot_H2_cosmo);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Heat_Phot_HI);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Heat_Phot_HeI);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Heat_Phot_HeII);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Heat_Phot_H2);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Coll_HI);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Coll_HeI);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Coll_HeII);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Diel_HeII);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Coll_H2);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Comp);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Tcmb);
+    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_LowTFactor);
+
+    COPY_FIELD(b, a, nTable);
+    COPY_FIELD(b, a, TMin);
+    COPY_FIELD(b, a, TMax);
+    COPY_FIELD(b, a, TlnMin);
+    COPY_FIELD(b, a, TlnMax);
+    COPY_FIELD(b, a, rDeltaTln);
+
+    COPY_FIELD(b, a, bMetal);
+    COPY_FIELD(b, a, nzMetalTable);
+    COPY_FIELD(b, a, nnHMetalTable);
+    COPY_FIELD(b, a, nTMetalTable);
+    COPY_FIELD(b, a, MetalTMin);
+    COPY_FIELD(b, a, MetalTMax);
+    COPY_FIELD(b, a, MetalnHMin);
+    COPY_FIELD(b, a, MetalnHMax);
+    COPY_FIELD(b, a, MetalnHlogMin);
+    COPY_FIELD(b, a, MetalnHlogMax);
+    COPY_FIELD(b, a, rDeltanHlog);
+    COPY_FIELD(b, a, MetalZMin);
+    COPY_FIELD(b, a, MetalZMax);
+    COPY_FIELD(b, a, rDeltaz);
+
+    // MetalCoolln
+    // MetalHeatln
+
+    // Rate_DustForm_H2 not used?
+
+    COPY_FIELD(b, a, nTableRead);
+    COPY_FIELD(b, a, bUV);
+    COPY_FIELD(b, a, nUV);
+
+    COPY_FIELD(b, a, bUVTableUsesTime);
+    COPY_FIELD(b, a, bUVTableLinear);
+    COPY_FIELD(b, a, bLowTCool);
+    COPY_FIELD(b, a, bSelfShield);
+    COPY_FIELD(b, a, bShieldHI);
+    COPY_FIELD(b, a, dClump);
+    COPY_FIELD(b, a, dLymanWernerFrac);
+    COPY_FIELD(b, a, dGmPerCcUnit);
+    COPY_FIELD(b, a, dComovingGmPerCcUnit);
+    COPY_FIELD(b, a, dExpand);
+    COPY_FIELD(b, a, dErgPerGmUnit);
+    COPY_FIELD(b, a, dSecUnit);
+    COPY_FIELD(b, a, dErgPerGmPerSecUnit);
+    COPY_FIELD(b, a, diErgPerGmUnit);
+    COPY_FIELD(b, a, dKpcUnit);
+    COPY_FIELD(b, a, dMsolUnit);
+    COPY_FIELD(b, a, dMassFracHelium);
+    COPY_FIELD(b, a, its);
+#if defined COOLDEBUG
+    COPY_FIELD(b, a, iOrder);
+#endif
+}
+
+void RATES_TtoCudaRATES_T(RATES_T *a, CudaRATES_T *b) {
+    COPY_FIELD(b, a, Rate_Coll_HI);
+    COPY_FIELD(b, a, Rate_Coll_HeI);
+    COPY_FIELD(b, a, Rate_Coll_HeII);
+    COPY_FIELD(b, a, Rate_Coll_e_H2);
+    COPY_FIELD(b, a, Rate_Coll_HI_H2);
+    COPY_FIELD(b, a, Rate_Coll_HI_H2);
+    COPY_FIELD(b, a, Rate_Coll_H2_H2);
+    COPY_FIELD(b, a, Rate_Coll_Hm_e);
+    COPY_FIELD(b, a, Rate_Coll_HI_e);
+    COPY_FIELD(b, a, Rate_Coll_HII_H2);
+    COPY_FIELD(b, a, Rate_Coll_Hm_HII);
+    COPY_FIELD(b, a, Rate_HI_e);
+    COPY_FIELD(b, a, Rate_HI_Hm);
+    COPY_FIELD(b, a, Rate_Radr_HII);
+    COPY_FIELD(b, a, Rate_Radr_HeII);
+    COPY_FIELD(b, a, Rate_Radr_HeIII);
+    COPY_FIELD(b, a, Rate_Diel_HeII);
+    COPY_FIELD(b, a, Rate_Chtr_HeII);
+    COPY_FIELD(b, a, Cool_Brem_1);
+    COPY_FIELD(b, a, Cool_Brem_2);
+    COPY_FIELD(b, a, Cool_Radr_HII);
+    COPY_FIELD(b, a, Cool_Radr_HeII);
+    COPY_FIELD(b, a, Cool_Radr_HeIII);
+    COPY_FIELD(b, a, Cool_Line_HI);
+    COPY_FIELD(b, a, Cool_Line_HeI);
+    COPY_FIELD(b, a, Cool_Line_HeII);
+    COPY_FIELD(b, a, Cool_Line_H2_H);
+    COPY_FIELD(b, a, Cool_Line_H2_H);
+    COPY_FIELD(b, a, Cool_Line_H2_H2);
+    COPY_FIELD(b, a, Cool_Line_H2_He);
+    COPY_FIELD(b, a, Cool_Line_H2_e);
+    COPY_FIELD(b, a, Cool_Line_H2_HII);
+    COPY_FIELD(b, a, Cool_LowT;
+}
+
+void UVSPECTRUMtoCudaUVSPECTRUM(UVSPECTRUM *a, CudaUVSPECTRUM *b) {
+    COPY_FIELD(b, a, zTime);
+    COPY_FIELD(b, a, Rate_Phot_HI);
+    COPY_FIELD(b, a, Rate_Phot_HeI);
+    COPY_FIELD(b, a, Rate_Phot_HeII);
+    COPY_FIELD(b, a, Rate_Phot_H2_cosmo);
+    COPY_FIELD(b, a, Heat_Phot_HI);
+    COPY_FIELD(b, a, Heat_Phot_HeI);
+    COPY_FIELD(b, a, Heat_Phot_HeII);
+    COPY_FIELD(b, a, Heat_Phot_H2);
+}
+
+void CudaSTIFFH2D(CudaSTIFF *h, CudaSTIFF *d, cudaStream_t stream) {
+    cudaChk(cudaMalloc(&d, sizeof(CudaSTIFF)));
+    cudaChk(cudaMemcpyAsync(d, h, sizeof(CudaSTIFF), cudaMemcpyHostToDevice, stream));
+
+    int nv = h->nv;
+    cudaChk(cudaMalloc(&(d->y0), sizeof(double)*nv));
+    cudaChk(cudaMalloc(&(d->y1), sizeof(double)*nv));
+    cudaChk(cudaMalloc(&(d->q), sizeof(double)*nv));
+    cudaChk(cudaMalloc(&(d->d), sizeof(double)*nv));
+    cudaChk(cudaMalloc(&(d->rtau), sizeof(double)*nv));
+    cudaChk(cudaMalloc(&(d->ys), sizeof(double)*nv));
+    cudaChk(cudaMalloc(&(d->qs), sizeof(double)*nv));
+    cudaChk(cudaMalloc(&(d->rtaus), sizeof(double)*nv));
+    cudaChk(cudaMalloc(&(d->scarray), sizeof(double)*nv));
+
+    // *data
+    // *Derivs
 }
 
 __device__ double sign(double val) {

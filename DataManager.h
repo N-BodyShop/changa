@@ -170,6 +170,13 @@ public:
 	 ** Cooling 
 	 */
 	COOL *Cool;
+#ifdef CUDA
+	CudaCOOL *d_CudaCool;
+	CudaRATES_T *d_CudaRates_T
+	CudaUVSPECTRUM *d_CudaUvspectrum;
+	float ***d_MetalCoolln;
+	float ***d_MetalHeatln;
+#endif
 	/// @brief log of star formation events.
 	///
 	/// Star formation events are stored on the data manager since there

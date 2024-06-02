@@ -142,7 +142,41 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		    dSecUnit, dKpcUnit, inParam);
     
     CoolInitRatesTable(Cool,inParam);
-#endif
+#ifdef CUDA
+    // set up *d_CudaCool
+    CudaCOOL CudaCool;
+    COOLtoCudaCOOL(&Cool, &CudaCool);
+
+    // Pointers in CudaCool need to be set up before memcpy to device
+    CudaRATES_T CudaRates_T;
+    RATES_TtoCudaRATES_T(&CudaRates_T, Cool.RATES_T);
+    cudaChk(cudaMalloc(&d_CudaRates_T), sizeof(CudaRATES_T));
+    cudaChk(cudaMemcpyAsync(CudaRates_T, d_CudaRates_T), sizeof(CudaRATES_T), cudaMemcpyDeviceToHost, stream[0]);
+    CudaCool.RATES_T = d_CudaRates_T;
+
+    CudaUVSPECTRUM CudaUvspectrum;
+    UVSPECTRUMtoCudaUVSPECTRUM(&CudaUvspectrum, Cool.UVSPECTRUM);
+    cudaChk(cudaMalloc(&d_CudaUvspectrum), sizeof(CudaUVSPECTRUM));
+    cudaChk(cudaMemcpyAsync(CudaUvspectrum, d_CudaUvspectrum), sizeof(CudaUvspectrum), cudaMemcpyDeviceToHost, stream[0]);
+    CudaCool.UVSPECTRUM = d_CudaUvspectrum;
+
+    // MetalCoolln
+    // MetalHeatln
+    // Both jagged arrays, have to do many cudaMallocs
+    int nz = CudaCool->nzMetalTable;
+    int nnH = CudaCool->nnHMetalTable;
+    int nt = CudaCool->nTMetalTable;
+    cudaChk(cudaMalloc(&d_MetalCoolln, nz*sizeof(float **)));
+    for (int i = 0; i < nz; i++ ) {
+
+    }
+
+    cudaChk(cudaMalloc(&d_CudaCool), sizeof(CudaCOOL));
+    cudaChk(cudaMemcpyAsync(CudaCool, d_CudaCool), sizeof(CudaCOOL), cudaMemcpyDeviceToHost, stream[0]);
+
+    // TODO free device pointers later
+#endif // CUDA
+#endif //COOLING_NONE
     contribute(cb);
     }
 
@@ -156,7 +190,10 @@ TreePiece::initCoolingData(const CkCallback& cb)
     bGasCooling = 1;
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     CoolData = CoolDerivsInit(dm->Cool);
-#endif
+#ifdef CUDA
+    // set up d_CudaCoolData and d_CudaStiff
+#endif // CUDA
+#endif // COOLING_NONE
     contribute(cb);
     }
 
@@ -1011,15 +1048,13 @@ void TreePiece::updateuDot(int activeRung,
 	  	                         fMetals[i], r[i], dtUse[i], columnL[i], y[i]);
             }
 #ifdef CUDA
-        //TreePieceODESolver(numSelParts, this->stream);
-        // TODO copy data back from GPU
-        //TreePieceODESolverFree();
+        TreePieceODESolver(dm->d_CudaStiff, y[i], t, dtUse[i], numSelParts, this->stream);
 
-	double t;
+	/*double t;
         for(unsigned int i = 0; i < numSelParts; ++i) {
             t = 0.0;
             StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
-	}
+	}*/
 #else
 	double t;
         for(unsigned int i = 0; i < numSelParts; ++i) {

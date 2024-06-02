@@ -123,8 +123,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 void TreePiecePartListDataTransferRemote(CudaRequest *data);
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data);
 
-void TreePieceODESolver(int numParts, cudaStream_t stream);
-void TreePieceODESolverFree(int numParts, cudaStream_t stream);
+void void TreePieceODESolver(STIFF *stiff, double  y[], double tstart, double dtg, int numParts, cudaStream_t stream);
 
 void DummyKernel(void *cb);
 

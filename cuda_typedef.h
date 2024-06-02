@@ -294,4 +294,144 @@ typedef struct CudaStiffContextStructure {
     void (*derivs)(double, const double [], double [], double [], void *Data);
 } CudaSTIFF;
 
+typedef struct { 
+  double   zTime;
+
+  double   Rate_Phot_HI;
+  double   Rate_Phot_HeI;
+  double   Rate_Phot_HeII;
+  double   Rate_Phot_H2_cosmo; /* Dissociating radiation from the cosmic background for H2*/ 
+
+  double   Heat_Phot_HI;
+  double   Heat_Phot_HeI;
+  double   Heat_Phot_HeII;
+  double   Heat_Phot_H2; 
+} CudaUVSPECTRUM;
+
+typedef struct { 
+  double   Rate_Phot_HI;
+  double   Rate_Phot_HeI;
+  double   Rate_Phot_HeII;
+  double   Rate_Phot_H2_cosmo;  
+
+  double   Heat_Phot_HI;
+  double   Heat_Phot_HeI;
+  double   Heat_Phot_HeII;
+  double   Heat_Phot_H2;  
+ 
+  double   Cool_Coll_HI;
+  double   Cool_Coll_HeI;
+  double   Cool_Coll_HeII;
+  double   Cool_Diel_HeII;
+  double   Cool_Coll_H2;  
+ 
+  double   Cool_Comp;
+  double   Tcmb;
+  double   Cool_LowTFactor;
+
+} CudaRATES_NO_T;
+
+typedef struct { 
+  double   Rate_Coll_HI;
+  double   Rate_Coll_HeI;
+  double   Rate_Coll_HeII;
+  double   Rate_Coll_e_H2;  
+  double   Rate_Coll_HI_H2;  
+  double   Rate_Coll_H2_H2;  
+  double   Rate_Coll_Hm_e;           /*gas phase formation of H2 */
+  double   Rate_Coll_HI_e;           /*--------------------*/
+  double   Rate_Coll_HII_H2;          /*--------------------*/
+  double   Rate_Coll_Hm_HII;        /*-------------------- */
+  double   Rate_HI_e;          /*-------------------- */
+  double   Rate_HI_Hm;          /*gas phase formation of H2 */
+  double   Rate_Radr_HII;
+  double   Rate_Radr_HeII;
+  double   Rate_Radr_HeIII;
+  double   Rate_Diel_HeII;
+  double   Rate_Chtr_HeII;
+
+  double   Cool_Brem_1;
+  double   Cool_Brem_2;
+  double   Cool_Radr_HII;
+  double   Cool_Radr_HeII;
+  double   Cool_Radr_HeIII;
+  double   Cool_Line_HI;
+  double   Cool_Line_HeI;
+  double   Cool_Line_HeII;
+  double   Cool_Line_H2_H;   
+  double   Cool_Line_H2_H2; 
+  double   Cool_Line_H2_He; 
+  double   Cool_Line_H2_e; 
+  double   Cool_Line_H2_HII;  
+  double   Cool_LowT;
+} CudaRATES_T;
+
+typedef struct CudaCoolingPKDStruct { 
+  double     z; /* Redshift */
+  double     dTime;
+ /* Rates independent of Temperature */ 
+  CudaRATES_NO_T  R;
+ /* Table for Temperature dependent rates */ 
+  int        nTable;
+  double     TMin;
+  double     TMax;
+  double     TlnMin;
+  double     TlnMax;
+  double     rDeltaTln;
+  CudaRATES_T     *RT;
+  
+  int         bMetal; 
+  int         nzMetalTable;
+  int         nnHMetalTable;
+  int         nTMetalTable;  
+  double      MetalTMin; 
+  double      MetalTMax; 
+  double      MetalTlogMin;
+  double      MetalTlogMax;
+  double      rDeltaTlog;
+  double      MetalnHMin; 
+  double      MetalnHMax; 
+  double      MetalnHlogMin; 
+  double      MetalnHlogMax; 
+  double      rDeltanHlog;
+  double      MetalzMin; 
+  double      MetalzMax;  
+  double      rDeltaz;
+  float       ***MetalCoolln;
+  float       ***MetalHeatln;  
+  double      *Rate_DustForm_H2; 
+  
+  int        nTableRead; /* number of Tables read from files */
+
+  int        bUV;
+  int        nUV;
+  CudaUVSPECTRUM *UV;
+  int        bUVTableUsesTime;
+  int        bUVTableLinear;
+  int        bLowTCool;
+  int        bSelfShield;
+  
+  int        bShieldHI;
+  double     dClump; /* Subgrid clumping factor for determining rate of H2 formation on dust.  10 is a good value*/
+  double     dLymanWernerFrac; /*  Set to true to determine age of star particle from mass compared to formation mass when calculating LW radiation.  Useful in running ICs which already have stars*/
+  double     dGmPerCcUnit;
+  double     dComovingGmPerCcUnit;
+  double     dExpand; /*cosmological expansion factor*/
+  double     dErgPerGmUnit;
+  double     dSecUnit;
+  double     dErgPerGmPerSecUnit;
+  double     diErgPerGmUnit;
+  double     dKpcUnit;
+  double     dMsolUnit;
+  double     dMassFracHelium;
+
+/* Diagnostic */
+  int       its;
+#if defined(COOLDEBUG)
+  /*  MDL        mdl; *//* For diag/debug outputs */
+  /*struct particle *p;*/ /* particle pointer needed for SN feedback */
+  int        iOrder;
+#endif 
+} CudaCOOL;
+
 #endif /* CUDA_TYPEDEF_H_*/
