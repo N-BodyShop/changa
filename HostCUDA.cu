@@ -28,6 +28,12 @@
 #include "codes.h"
 #endif //GPU_LOCAL_TREE_WALK
 
+#ifdef COOLING_MOLECULARH
+#include "cooling_metal_H2.h"
+#include "stiff.h"
+#include "physconst.h"
+#endif
+
 #ifdef HAPI_TRACE
 #  define HAPI_TRACE_BEGIN()   double trace_start_time = CmiWallTimer()
 #  define HAPI_TRACE_END(ID)   traceUserBracketEvent(ID, trace_start_time, CmiWallTimer())
@@ -2204,15 +2210,15 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].dtGrav = 0.0;
 }
 
-void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  y[], double tstart, double dtg, int numParts, cudaStream_t stream) {
+void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, double *dtg, int numParts, cudaStream_t stream) {
 
     double *d_y;
     size_t ySize = numParts * 5 * sizeof(double); // TODO const defined in clIntegrateEnergy
-    cudaChk(cudaMalloc(&d_y), ySize);
-    cudaChk(cudaMemcpyAsync(d_y, y, ySize, cudaMemcpyHostToDevice), stream);
+    cudaChk(cudaMalloc(&d_y, ySize));
+    cudaChk(cudaMemcpyAsync(d_y, y, ySize, cudaMemcpyHostToDevice, stream));
 
-    StiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_CudaStiff, d_y, tstart, dtg, numParts);
-    cudaChk(cudaMemcpyAsync(y, d_y, ySize, cudaMemcpyDeviceToHost), stream);
+    CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_CudaStiff, d_y, tstart, dtg, numParts);
+    cudaChk(cudaMemcpyAsync(y, d_y, ySize, cudaMemcpyDeviceToHost, stream));
 
     cudaFree(d_CudaStiff); // Dont forget all of the pointers in d_CudaStiff
     cudaFree(d_y);
@@ -2220,160 +2226,204 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  y[], double tstart, doub
     cudaStreamSynchronize(stream);
 }
 
-#define COPY_FIELD(dest, src, member) dest.member = src.member
-#define COPY_NESTED_FIELD(dest, src, nest, member) dest.nest.member = src.nest.member
-void STIFFtoCudaSTIFF(STIFF *a, CudaSTIFF *b) {
-    COPY_FIELD(b, a, epsmin);
-    COPY_FIELD(b, a, sqreps);
-    COPY_FIELD(b, a, epscl);
-    COPY_FIELD(b, a, epsmax);
-    COPY_FIELD(b, a, dtmin);
-    COPY_FIELD(b, a, itermax);
-    COPY_FIELD(b, a, nv);
-    // Skip pointers, these need to be reninitalized on device
-}
+// Ignoring non-USETABLE functions
+// Need clRates_Table and clEdotInstant_Table
+#define CLRATES( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar) clRates_Table( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)
+#define CLEDOTINSTANT( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool ) clEdotInstant_Table( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool);
 
-void COOLtoCudaCOOL(CudaCOOL *a, COOL *b) {
-    COPY_FIELD(b, a, z);
-    COPY_FIELD(b, a, dTime);
-    
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Rate_Phot_HI);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Rate_Phot_HeI);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Rate_Phot_HeII);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Rate_Phot_H2_cosmo);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Heat_Phot_HI);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Heat_Phot_HeI);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Heat_Phot_HeII);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Heat_Phot_H2);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Coll_HI);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Coll_HeI);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Coll_HeII);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Diel_HeII);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Coll_H2);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_Comp);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Tcmb);
-    COPY_NESTED_FIELD(b, a, RATES_NO_T, Cool_LowTFactor);
+#define EPS 1e-5
+#define M_H      1.672e-24
 
-    COPY_FIELD(b, a, nTable);
-    COPY_FIELD(b, a, TMin);
-    COPY_FIELD(b, a, TMax);
-    COPY_FIELD(b, a, TlnMin);
-    COPY_FIELD(b, a, TlnMax);
-    COPY_FIELD(b, a, rDeltaTln);
-
-    COPY_FIELD(b, a, bMetal);
-    COPY_FIELD(b, a, nzMetalTable);
-    COPY_FIELD(b, a, nnHMetalTable);
-    COPY_FIELD(b, a, nTMetalTable);
-    COPY_FIELD(b, a, MetalTMin);
-    COPY_FIELD(b, a, MetalTMax);
-    COPY_FIELD(b, a, MetalnHMin);
-    COPY_FIELD(b, a, MetalnHMax);
-    COPY_FIELD(b, a, MetalnHlogMin);
-    COPY_FIELD(b, a, MetalnHlogMax);
-    COPY_FIELD(b, a, rDeltanHlog);
-    COPY_FIELD(b, a, MetalZMin);
-    COPY_FIELD(b, a, MetalZMax);
-    COPY_FIELD(b, a, rDeltaz);
-
-    // MetalCoolln
-    // MetalHeatln
-
-    // Rate_DustForm_H2 not used?
-
-    COPY_FIELD(b, a, nTableRead);
-    COPY_FIELD(b, a, bUV);
-    COPY_FIELD(b, a, nUV);
-
-    COPY_FIELD(b, a, bUVTableUsesTime);
-    COPY_FIELD(b, a, bUVTableLinear);
-    COPY_FIELD(b, a, bLowTCool);
-    COPY_FIELD(b, a, bSelfShield);
-    COPY_FIELD(b, a, bShieldHI);
-    COPY_FIELD(b, a, dClump);
-    COPY_FIELD(b, a, dLymanWernerFrac);
-    COPY_FIELD(b, a, dGmPerCcUnit);
-    COPY_FIELD(b, a, dComovingGmPerCcUnit);
-    COPY_FIELD(b, a, dExpand);
-    COPY_FIELD(b, a, dErgPerGmUnit);
-    COPY_FIELD(b, a, dSecUnit);
-    COPY_FIELD(b, a, dErgPerGmPerSecUnit);
-    COPY_FIELD(b, a, diErgPerGmUnit);
-    COPY_FIELD(b, a, dKpcUnit);
-    COPY_FIELD(b, a, dMsolUnit);
-    COPY_FIELD(b, a, dMassFracHelium);
-    COPY_FIELD(b, a, its);
-#if defined COOLDEBUG
-    COPY_FIELD(b, a, iOrder);
+#ifdef CUBICTABLEINTERP
+#define TABLEFACTOR 2
+#else 
+#define TABLEFACTOR 1
 #endif
+
+#ifdef CUBICTABLEINTERP
+#define TABLEINTERP( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname+wTln0d*RT0d->_rname+wTln1d*RT1d->_rname)
+#else
+#define TABLEINTERP( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname)
+#endif
+
+#define TABLEINTERPLIN( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname)
+
+#define CL_Rgascode         8.2494e7
+#define CL_Eerg_gm_degK     CL_Rgascode
+#define CL_ev_degK          1.0/1.1604e4
+#define CL_Eerg_gm_ev       CL_Eerg_gm_degK/CL_ev_degK
+#define CL_Eerg_gm_degK3_2  1.5*CL_Eerg_gm_degK /* 1.23741e8*/
+
+// These need to be copied to device memory
+__device__ double AP_Gamma_HI_factor[] = { 0.99805271764596307, 0.99877911567687988, 0.99589340865612034,
+			  0.99562060764857702, 0.99165170359332663, 0.9900889877822455,
+			  0.98483276828954668, 0.97387675312245325, 0.97885673164000397,
+			  0.98356305803821331, 0.96655786672182487, 0.9634906824933207,
+			  0.95031917373653985, 0.87967606627349137, 0.79917533618355074,
+			  0.61276011113763151, 0.16315185162187529, 0.02493663181368239,
+			  0.0044013580765645335, 0.00024172553511936628, 1.9576102058649783e-10,
+			  0.0, 0.0, 0.0, 0.0, 0.0 };
+
+__device__ double AP_Gamma_HeI_factor[] = { 0.99284882980782224, 0.9946618686265097, 0.98641914356740497,
+			   0.98867015777574848, 0.96519214493135597, 0.97188336387980656,
+			   0.97529866247535113 , 0.97412477991428936, 0.97904139838765991,
+			   0.98368372768570034, 0.96677432842215549, 0.96392622083382651,
+			   0.95145730833093178, 0.88213871255482879, 0.80512823597731886,
+			   0.62474472739578646, 0.17222786134467002, 0.025861959933038869,
+			   0.0045265030237581529, 0.00024724339438128221, 1.3040144591221284e-08,
+			   0.0, 0.0, 0.0, 0.0, 0.0};
+ 
+ 
+__device__ double AP_Gamma_HeII_factor[] = { 0.97990208047216765, 0.98606251822654412,
+			0.97657215632444849, 0.97274858503068629, 0.97416108746560681,
+			0.97716929017896703, 0.97743607605974214, 0.97555305775319012,
+			0.97874250764784809, 0.97849791914637996, 0.95135572977973504,
+			0.92948461312852582, 0.89242272355549912, 0.79325512242742746 ,
+			0.6683745597121028, 0.51605924897038324, 0.1840253816147828,
+			0.035905775349044489, 0.0045537756654992923, 0.00035933897136804514,
+			1.2294426136470751e-6, 0.0, 0.0, 0.0, 0.0, 0.0 };
+
+__device__ double AP_Gamma_H2_factor[] = {1.0, 1.0, 1.0,
+			  1.0, 1.0, 1.0,
+			  1.0, 1.0, 1.0,
+			  1.0, 1.0, 1.0,
+			  1.0, 1.0, 1.0,
+			  1.0, 1.0, 1.0,
+			  1.0, 1.0, 1.0,
+			  1.0, 1.0, 1.0, 1.0, 1.0}; 
+
+__device__ double cudaClCoolLineH2_HI( double T){ /* H2-H collisionally-induced cooling, Glover & Abel 08, Table 8 */
+  double a00 = -16.818342,
+    a10 = 37.383713,
+    a20 = 58.145166,
+    a30 = 48.656103,
+    a40 = 20.159831,
+    a50 = 3.8479610;
+  double a01 = -24.311209,
+    a11 = 3.5692468,
+    a21 = -11.332860,
+    a31 = -27.850082,
+    a41 = -21.328264,
+    a51 = -4.2519023;
+  double a02 = -24.311209,
+    a12 = 4.6450521,
+    a22 = -3.7209846,
+    a32 = 5.9369081,
+    a42 = -5.5108047,
+    a52 = 1.5538288;
+  double xint = 6000, slope = 2.10095, yint = 1.86368e-22;
+
+  if (T <= 100) return pow(10.0, a00 + 
+                                 a10*log10(T/1000.0) + 
+                                 a20*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a30*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a40*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a50*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0));
+  else if (T <= 1000) return pow(10.0, a01 + 
+                                 a11*log10(T/1000.0) + 
+                                 a21*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a31*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a41*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a51*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0));
+  else if (T <= xint) return pow(10.0, a02 + 
+                                 a12*log10(T/1000.0) + 
+                                 a22*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a32*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a42*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a52*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)) ;
+  else return pow(10.0,slope*(log10(T/1000.0) - log10(xint/1000.0)) + log10(yint));
 }
 
-void RATES_TtoCudaRATES_T(RATES_T *a, CudaRATES_T *b) {
-    COPY_FIELD(b, a, Rate_Coll_HI);
-    COPY_FIELD(b, a, Rate_Coll_HeI);
-    COPY_FIELD(b, a, Rate_Coll_HeII);
-    COPY_FIELD(b, a, Rate_Coll_e_H2);
-    COPY_FIELD(b, a, Rate_Coll_HI_H2);
-    COPY_FIELD(b, a, Rate_Coll_HI_H2);
-    COPY_FIELD(b, a, Rate_Coll_H2_H2);
-    COPY_FIELD(b, a, Rate_Coll_Hm_e);
-    COPY_FIELD(b, a, Rate_Coll_HI_e);
-    COPY_FIELD(b, a, Rate_Coll_HII_H2);
-    COPY_FIELD(b, a, Rate_Coll_Hm_HII);
-    COPY_FIELD(b, a, Rate_HI_e);
-    COPY_FIELD(b, a, Rate_HI_Hm);
-    COPY_FIELD(b, a, Rate_Radr_HII);
-    COPY_FIELD(b, a, Rate_Radr_HeII);
-    COPY_FIELD(b, a, Rate_Radr_HeIII);
-    COPY_FIELD(b, a, Rate_Diel_HeII);
-    COPY_FIELD(b, a, Rate_Chtr_HeII);
-    COPY_FIELD(b, a, Cool_Brem_1);
-    COPY_FIELD(b, a, Cool_Brem_2);
-    COPY_FIELD(b, a, Cool_Radr_HII);
-    COPY_FIELD(b, a, Cool_Radr_HeII);
-    COPY_FIELD(b, a, Cool_Radr_HeIII);
-    COPY_FIELD(b, a, Cool_Line_HI);
-    COPY_FIELD(b, a, Cool_Line_HeI);
-    COPY_FIELD(b, a, Cool_Line_HeII);
-    COPY_FIELD(b, a, Cool_Line_H2_H);
-    COPY_FIELD(b, a, Cool_Line_H2_H);
-    COPY_FIELD(b, a, Cool_Line_H2_H2);
-    COPY_FIELD(b, a, Cool_Line_H2_He);
-    COPY_FIELD(b, a, Cool_Line_H2_e);
-    COPY_FIELD(b, a, Cool_Line_H2_HII);
-    COPY_FIELD(b, a, Cool_LowT;
+__device__ double cudaCLCOOLLINEH2_H2( double T){  /* H2-H2 collisionally-induced cooling, Glover & Abel 08, Table 8*/
+  double a0 = -23.962112,
+    a1 = 2.09433740,
+    a2 = -0.77151436,
+    a3 = 0.43693353,
+    a4 = -0.14913216,
+    a5 = -0.033638326;
+ double xint = 6000, slope = 1.34460, yint = 2.19802e-23;
+  
+ if (T <= xint) return pow(10.0, a0 + 
+	     a1*log10(T/1000.0) + 
+	     a2*log10(T/1000.0)*log10(T/1000.0) + 
+	     a3*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+	     a4*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+	     a5*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0));
+ else return pow(10.0,slope*(log10(T/1000.0) - log10(xint/1000.0)) + log10(yint));
 }
 
-void UVSPECTRUMtoCudaUVSPECTRUM(UVSPECTRUM *a, CudaUVSPECTRUM *b) {
-    COPY_FIELD(b, a, zTime);
-    COPY_FIELD(b, a, Rate_Phot_HI);
-    COPY_FIELD(b, a, Rate_Phot_HeI);
-    COPY_FIELD(b, a, Rate_Phot_HeII);
-    COPY_FIELD(b, a, Rate_Phot_H2_cosmo);
-    COPY_FIELD(b, a, Heat_Phot_HI);
-    COPY_FIELD(b, a, Heat_Phot_HeI);
-    COPY_FIELD(b, a, Heat_Phot_HeII);
-    COPY_FIELD(b, a, Heat_Phot_H2);
+__device__ double cudaCLCOOLLINEH2_HE( double T){ /* H2-He collisionally-induced cooling, Glover & Abel 08, Table 8 */
+  double a0 = -23.689237,
+    a1 = 2.1892372,
+    a2 = -0.81520438,
+    a3 = 0.29036281,
+    a4 = -0.16596184,
+    a5 = 0.19191375;
+  double xint = 6000, slope = 1.48703, yint = 4.48145e-23;
+  
+  if (T <= xint) return pow(10.0, a0 + 
+	     a1*log10(T/1000.0) + 
+	     a2*log10(T/1000.0)*log10(T/1000.0) + 
+	     a3*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+	     a4*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+	     a5*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0));
+  else return pow(10.0,slope*(log10(T/1000.0) - log10(xint/1000.0)) + log10(yint));
 }
 
-void CudaSTIFFH2D(CudaSTIFF *h, CudaSTIFF *d, cudaStream_t stream) {
-    cudaChk(cudaMalloc(&d, sizeof(CudaSTIFF)));
-    cudaChk(cudaMemcpyAsync(d, h, sizeof(CudaSTIFF), cudaMemcpyHostToDevice, stream));
-
-    int nv = h->nv;
-    cudaChk(cudaMalloc(&(d->y0), sizeof(double)*nv));
-    cudaChk(cudaMalloc(&(d->y1), sizeof(double)*nv));
-    cudaChk(cudaMalloc(&(d->q), sizeof(double)*nv));
-    cudaChk(cudaMalloc(&(d->d), sizeof(double)*nv));
-    cudaChk(cudaMalloc(&(d->rtau), sizeof(double)*nv));
-    cudaChk(cudaMalloc(&(d->ys), sizeof(double)*nv));
-    cudaChk(cudaMalloc(&(d->qs), sizeof(double)*nv));
-    cudaChk(cudaMalloc(&(d->rtaus), sizeof(double)*nv));
-    cudaChk(cudaMalloc(&(d->scarray), sizeof(double)*nv));
-
-    // *data
-    // *Derivs
+__device__ double cudaClCoolLineH2_HII( double T){ /*H2-HII collisionally-induced cooling , Glover & Abel 08, Table 8 */
+  double a0 = -21.716699,
+    a1 = 1.3865783,
+    a2 = -0.37915285,
+    a3 = 0.11453688,
+    a4 = -0.23214154,
+    a5 = 0.058538864;
+  double xint = 10000, slope = 0.336011, yint = 1.70474e-21;
+  
+  if (T <= xint) return pow(10.0, a0 + 
+	     a1*log10(T/1000.0) + 
+	     a2*log10(T/1000.0)*log10(T/1000.0) + 
+	     a3*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+	     a4*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+	     a5*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0));
+  else return pow(10.0,slope*(log10(T/1000.0) - log10(xint/1000.0)) + log10(yint));
 }
+
+__device__ double cudaCLCOOLLINEH2_E( double T){  /*Cooling based on H2-e collisionally-induced dissociation, Glover & Abel 08, Table 8*/
+  double a00 = -34.286155,
+    a10 = -48.537163,
+    a20 = -77.121176,
+    a30 = -51.352459,
+    a40 = -15.169160,
+    a50 = -0.98120322;
+  double a01 = -22.190316,
+    a11 = 1.5728955,
+    a21 = -0.21335100,
+    a31 = 0.96149759,
+    a41 = -0.91023495,
+    a51 = 0.13749749;
+ double xint = 10000, slope = 1.07723, yint = 2.28029e-21;
+
+  if (T <= 200) return pow(10.0, a00 + 
+                                 a10*log10(T/1000.0) + 
+                                 a20*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a30*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a40*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a50*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0));
+  else if (T <= xint) return pow(10.0, a01 + 
+                                 a11*log10(T/1000.0) + 
+                                 a21*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a31*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a41*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0) + 
+                                 a51*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0)*log10(T/1000.0));
+  else return pow(10.0,slope*(log10(T/1000.0) - log10(xint/1000.0)) + log10(yint));
+}
+
+__device__ double cudaCLRATEDUSTFORMH2( double z, double clump ) {
+  double Rate_dust = 0;
+  /* clump = 10.0; Ranges from 2-10 to 30-100, Gendin et al 2008 CC*/ 
+  Rate_dust = 3.5e-17*z/ZSOLAR*clump; /*Formation rate coefficient of molecular hydrogen on dust, Gnedin et al 2008, Wolfire 2008, unit of cc per s, divide metallicity by solar metallicity (was 0.0177 in first iterations of code) CC*/  
+  return Rate_dust;
+ }
 
 __device__ double sign(double val) {
     return (val > 0) - (val < 0);
@@ -2383,10 +2433,407 @@ __device__ double sign(double x, double y) {
     return (y >= 0) ? fabs(x) : -fabs(x);
 }
 
-__global__ void StiffStep(CudaSTIFF *s, double y[], double tstart, double dtg, int nVars) {
+__device__ double cudaCLTEMPERATURE( double Y_Total, double E ) {
+  return E/(Y_Total*CL_Eerg_gm_degK3_2);
+}
+
+__device__ double cudaCLSELFSHIELD (double yH2, double h) {
+  double x, column_denH2, omega_H2 = 0.2; 
+      if (yH2 <= 0) return 1.0;
+      column_denH2 = h*yH2;
+      x = column_denH2/5e14;
+      return (1 - omega_H2)/(1 + x)/(1 + x) + omega_H2/sqrt(1 + x)*exp(-0.00085*sqrt(1 + x));
+}
+
+__device__ double cudaCLDUSTSHIELD (double yHI, double yH2, double z, double h) {
+  double column_denHI, column_denH2, sigmad = 2e-21; /*4e-21;*/
+      if (yHI < 0) column_denHI = 0;
+      else column_denHI = h*yHI;
+      if (yH2 < 0) column_denH2 = 0;
+      else column_denH2 = h*yH2;
+      return exp(-1.0*sigmad*z/ZSOLAR*(column_denHI + 2.0*column_denH2));
+}
+
+__device__ void clRateMetalTable(CudaCOOL *cl, CudaRATE *Rate, double T, double rho, double Y_H, double ZMetal)
+{
+  double tempT, tempnH,tempz, nH;
+  double Tlog, nHlog; 
+  double xTlog, wTlog0, wTlog1, xz, wz0, wz1, xnHlog, wnHlog0, wnHlog1; 
+  int    iTlog, iz, inHlog; 
+  double  Cool000, Cool010, Cool100, Cool110, Cool001, Cool011, Cool101, Cool111; 
+  double  Cool00, Cool01, Cool10, Cool11, Cool0, Cool1, Cool;
+  
+  double  Heat000, Heat010, Heat100, Heat110, Heat001, Heat011, Heat101, Heat111; 
+  double  Heat00, Heat01, Heat10, Heat11, Heat0, Heat1, Heat;
+
+  
+  if(!cl->bMetal) {
+    Rate->Cool_Metal = 0.0; 
+    Rate->Heat_Metal = 0.0; 
+    return; 
+  }
+ 
+  nH = rho*Y_H/M_H;
+  
+  tempT = T; 
+  tempnH = nH;
+  tempz = cl->z; 
+
+  if (T >= cl->MetalTMax) tempT = cl->MetalTMax*(1.0-EPS);
+  if (T < cl->MetalTMin) tempT=cl->MetalTMin;
+
+  if (nH >= cl->MetalnHMax) tempnH = cl->MetalnHMax*(1.0-EPS);
+  if (nH < cl->MetalnHMin) tempnH = cl->MetalnHMin; 
+ 
+  if (cl->z <= cl->MetalzMin) tempz = cl->MetalzMin+EPS;
+  /* if redshift is too high or no UV, use the no UV metal cooling table*/
+  if (cl->z > cl->MetalzMax || !cl->bUV) tempz = cl->MetalzMax;   
+
+  Tlog = log10(tempT); 
+  nHlog = log10(tempnH); 
+  
+  xz = cl->nzMetalTable -1 - (tempz - cl->MetalzMin)*cl->rDeltaz; 
+  iz = xz;   
+
+  xTlog = (Tlog - cl->MetalTlogMin)*cl->rDeltaTlog; 
+  assert(xTlog >= 0.0);
+  iTlog = xTlog; 
+
+  xnHlog = (nHlog - cl->MetalnHlogMin)*cl->rDeltanHlog; 
+  inHlog = xnHlog;
+  if (inHlog == cl->nnHMetalTable - 1) inHlog = cl->nnHMetalTable - 2; /*CC; To prevent running over the table.  Should not be used*/
+  
+  Cool000 = cl->MetalCoolln[iz][inHlog][iTlog];
+  Cool001 = cl->MetalCoolln[iz][inHlog][iTlog+1];
+  Cool010 = cl->MetalCoolln[iz][inHlog+1][iTlog];
+  Cool011 = cl->MetalCoolln[iz][inHlog+1][iTlog+1];
+  Cool100 = cl->MetalCoolln[iz+1][inHlog][iTlog];
+  Cool101 = cl->MetalCoolln[iz+1][inHlog][iTlog+1];
+  Cool110 = cl->MetalCoolln[iz+1][inHlog+1][iTlog];
+  Cool111 = cl->MetalCoolln[iz+1][inHlog+1][iTlog+1];
+
+  Heat000 = cl->MetalHeatln[iz][inHlog][iTlog];
+  Heat001 = cl->MetalHeatln[iz][inHlog][iTlog+1];
+  Heat010 = cl->MetalHeatln[iz][inHlog+1][iTlog];
+  Heat011 = cl->MetalHeatln[iz][inHlog+1][iTlog+1];
+  Heat100 = cl->MetalHeatln[iz+1][inHlog][iTlog];
+  Heat101 = cl->MetalHeatln[iz+1][inHlog][iTlog+1];
+  Heat110 = cl->MetalHeatln[iz+1][inHlog+1][iTlog];
+  Heat111 = cl->MetalHeatln[iz+1][inHlog+1][iTlog+1];
+
+  xz = xz - iz; 
+  wz1 = xz; 
+  wz0 = 1-xz; 
+  
+  Cool00 = wz0*Cool000 + wz1*Cool100;
+  Cool01 = wz0*Cool001 + wz1*Cool101; 
+  Cool10 = wz0*Cool010 + wz1*Cool110; 
+  Cool11 = wz0*Cool011 + wz1*Cool111;
+
+  Heat00 = wz0*Heat000 + wz1*Heat100;
+  Heat01 = wz0*Heat001 + wz1*Heat101; 
+  Heat10 = wz0*Heat010 + wz1*Heat110; 
+  Heat11 = wz0*Heat011 + wz1*Heat111;
+
+
+  xnHlog = xnHlog - inHlog; 
+  wnHlog1 = xnHlog; 
+  wnHlog0 = 1-xnHlog; 
+
+  Cool0 = wnHlog0*Cool00 + wnHlog1*Cool10; 
+  Cool1 = wnHlog0*Cool01 + wnHlog1*Cool11; 
+
+  
+  Heat0 = wnHlog0*Heat00 + wnHlog1*Heat10; 
+  Heat1 = wnHlog0*Heat01 + wnHlog1*Heat11; 
+  
+  xTlog = xTlog - iTlog; 
+  wTlog1 = xTlog; 
+  wTlog0 = 1 - xTlog; 
+  Cool = wTlog0*Cool0 + wTlog1*Cool1; 
+  Heat = wTlog0*Heat0 + wTlog1*Heat1; 
+    /* convert unit to erg/g/sec, time a factor of nH^2/nH, also scale with metalicity */ 
+  Rate->Cool_Metal = exp(Cool)*nH*Y_H/M_H * ZMetal/ZSOLAR; 
+  Rate->Heat_Metal = exp(Heat)*nH*Y_H/M_H * ZMetal/ZSOLAR;   
+
+}
+
+/* Returns Heating - Cooling excluding External Heating, units of ergs s^-1 g^-1 
+   Public interface CoolEdotInstantCode */
+__device__ double clEdotInstant_Table( CudaCOOL *cl, CudaPERBARYON *Y, CudaRATE *Rate, double rho, 
+			    double ZMetal, double *dEdotHeat, double *dEdotCool )
+{
+  double en_B = rho*CL_B_gm;
+  double xTln,wTln0,wTln1;/*,wTln0d,wTln1d;*/
+  CudaRATES_T *RT0,*RT1;/*,*RT0d,*RT1d;*/
+  int iTln;
+
+  double ne,LowTCool;
+  double s_dust, s_self, Rate_Phot_HI;
+  s_dust = cudaCLDUSTSHIELD(Y->HI*en_B, Y->H2*en_B, ZMetal, Rate->CorreLength);
+  s_self = cudaCLSELFSHIELD(Y->H2*en_B, Rate->CorreLength);
+  if (cl->bShieldHI) Rate_Phot_HI = Rate->Phot_HI*s_dust;
+  else Rate_Phot_HI = Rate->Phot_HI;
+
+  ne = Y->e*en_B;
+
+  xTln = (Rate->Tln-cl->TlnMin)*cl->rDeltaTln;
+  iTln = xTln;
+  RT0 = (cl->RT+iTln*TABLEFACTOR);
+  RT1 = RT0+TABLEFACTOR; 
+  xTln = xTln-iTln;
+#ifdef CUBICTABLEINTERP
+  RT0d = RT0+1;
+  RT1d = RT1+1;
+  {
+  double x2 = xTln*xTln;
+  wTln1 = x2*(3-2*xTln);
+  wTln0 = 1-wTln1;
+  wTln0d = xTln*(1+xTln*(xTln-2));
+  wTln1d = x2*(xTln-1);
+/*  wTln1 = xTln;
+  wTln0 = 1-xTln;
+  wTln0d = 0;
+  wTln1d = 0;*/
+  }
+#else  
+  wTln1 = xTln;
+  wTln0 = 1-xTln;
+#endif
+
+#define DTFRACLOWTCOOL 0.25
+  if (Rate->T > cl->R.Tcmb*(1+DTFRACLOWTCOOL))
+      LowTCool = TABLEINTERP( Cool_LowT )*cl->R.Cool_LowTFactor*en_B*ZMetal;
+  else if (Rate->T < cl->R.Tcmb*(1-DTFRACLOWTCOOL))
+      LowTCool = -TABLEINTERP( Cool_LowT )*cl->R.Cool_LowTFactor*en_B*ZMetal;
+  else {
+      double x = (Rate->T/cl->R.Tcmb-1)*(1./DTFRACLOWTCOOL);
+      LowTCool = -TABLEINTERP( Cool_LowT )*cl->R.Cool_LowTFactor*en_B*ZMetal
+	  *x*(3-3*fabs(x)+x*x);
+      }
+
+  *dEdotCool = 
+#ifndef NOCOMPTON
+      Y->e * cl->R.Cool_Comp * ( Rate->T - cl->R.Tcmb ) 
+#endif
+    + 
+    ne * (TABLEINTERP( Cool_Brem_1 ) * ( Y->HII + Y->HeII ) +
+	  TABLEINTERP( Cool_Brem_2 ) * Y->HeIII +
+	  
+	  cl->R.Cool_Diel_HeII * Y->HeII * Rate->Diel_HeII +
+
+	  TABLEINTERP( Cool_Line_HI ) * Y->HI +
+	  TABLEINTERP( Cool_Line_HeI ) * Y->HeI +
+	  TABLEINTERP( Cool_Line_HeII ) * Y->HeII +
+
+	  TABLEINTERP( Cool_Radr_HII ) * Y->HII * Rate->Radr_HII  +
+	  TABLEINTERP( Cool_Radr_HeII ) * Y->HeII * Rate->Radr_HeII +
+	  TABLEINTERP( Cool_Radr_HeIII ) * Y->HeIII * Rate->Radr_HeIII +
+
+	  cudaCLCOOLLINEH2_E(Rate->T) * Y->H2  * CL_B_gm /*Re-added CL_B_gm 9/16/10 */+
+	  cl->R.Cool_Coll_H2 * Y->H2 * Rate->Coll_e_H2 /* s_dust * s_self*/  /*shielding of collisions 11/18/10*/ +
+	  cl->R.Cool_Coll_HI * Y->HI * Rate->Coll_HI +
+	  cl->R.Cool_Coll_HeI * Y->HeI * Rate->Coll_HeI + 
+	  cl->R.Cool_Coll_HeII * Y->HeII * Rate->Coll_HeII )
+    +
+    cudaClCoolLineH2_HI(Rate->T) /* en_B * Y->H2 * Y->HI * CL_B_gm*/ /*Re-added CL_B_gm 9/16/10:
+ cudaClCoolLineH2_HI(Rate->T) [erg cm^3 s^-1 H2atom^-1 HIatom^-1] * en_B [atom/cm^3] * Y->H2 [H2atom atom^-1] * Y->HI [HIatom atom^-1] CL_B_gm [atom g^-1] => [ergs s^-1 g^-1]*/
+    +
+    cudaCLCOOLLINEH2_H2(Rate->T) /* en_B * Y->H2 * Y->H2 * CL_B_gm */
+    +
+    cudaCLCOOLLINEH2_HE(Rate->T) /* en_B * Y->H2 * Y->HeI * CL_B_gm */ 
+    +
+    cudaClCoolLineH2_HII(Rate->T) /* en_B * Y->H2 * Y->HII * CL_B_gm */
+    +
+    cl->R.Cool_Coll_H2 * Y->H2 * Rate->Coll_HI_H2 * Y->HI *en_B 
+    +
+    cl->R.Cool_Coll_H2 * Y->H2 * Rate->Coll_H2_H2 * Y->H2 *en_B 
+    +
+    cl->R.Cool_Coll_H2 * Y->H2 * Rate->Coll_HII_H2 * Y->HII *en_B 
+    + 
+      LowTCool
+#ifndef NOMETALCOOLING
+    +
+    Rate->Cool_Metal
+#endif
+    ;
+
+  *dEdotHeat =
+#ifndef NOMETALCOOLING
+      Rate->Heat_Metal
+    +
+#endif
+    Y->H2 * cl->R.Heat_Phot_H2 * Rate->Phot_H2*s_dust*s_self + /*photon heating and dissociation CC*/
+    Y->HI   * cl->R.Heat_Phot_HI * Rate_Phot_HI +
+    Y->HeI  * cl->R.Heat_Phot_HeI * Rate->Phot_HeI +
+    Y->HeII * cl->R.Heat_Phot_HeII * Rate->Phot_HeII;
+
+  return *dEdotHeat - *dEdotCool;
+}
+
+__device__ void clRates_Table( CudaCOOL *cl, CudaRATE *Rate, double T, double rho, double ZMetal, double columnL, double Rate_Phot_H2_stellar) {
+  double Tln;
+  double xTln,wTln0,wTln1;/*,wTln0d,wTln1d;*/
+  CudaRATES_T *RT0,*RT1;/*,*RT0d,*RT1d;*/
+  int iTln;
+
+  if (T >= cl->TMax) T=cl->TMax*(1.0 - EPS);   
+  if (T < cl->TMin) T=cl->TMin;
+  Tln = log(T);
+
+  Rate->T = T;
+  Rate->Tln = Tln; 
+
+  xTln = (Tln-cl->TlnMin)*cl->rDeltaTln;
+  iTln = xTln;
+  RT0 = (cl->RT+iTln*TABLEFACTOR);
+  RT1 = RT0+TABLEFACTOR; 
+  xTln = xTln-iTln;
+#ifdef CUBICTABLEINTERP
+  RT0d = RT0+1;
+  RT1d = RT1+1;
+  {
+  double x2 = xTln*xTln;
+  wTln1 = x2*(3-2*xTln);
+  wTln0 = 1-wTln1;
+  wTln0d = xTln*(1+xTln*(xTln-2));
+  wTln1d = x2*(xTln-1);
+  }
+#else  
+  wTln1 = xTln;
+  wTln0 = 1-xTln;
+#endif
+  Rate->Coll_HI = TABLEINTERP( Rate_Coll_HI );
+  Rate->Coll_HeI = TABLEINTERP( Rate_Coll_HeI );
+  Rate->Coll_HeII = TABLEINTERP( Rate_Coll_HeII );
+  Rate->Coll_e_H2 = TABLEINTERP( Rate_Coll_e_H2 );
+  Rate->Coll_HI_H2 = TABLEINTERP( Rate_Coll_HI_H2 );
+  Rate->Coll_H2_H2 = TABLEINTERP( Rate_Coll_H2_H2 );
+  Rate->Coll_HII_H2 = TABLEINTERPLIN(Rate_Coll_HII_H2);        
+  Rate->Coll_Hm_e = TABLEINTERPLIN(Rate_Coll_Hm_e);          /*gas phase form of H2 */
+  Rate->Coll_Hm_HII = TABLEINTERPLIN(Rate_Coll_Hm_HII);           /*gas phase form of H2 */
+  Rate->HI_e = TABLEINTERPLIN(Rate_HI_e);          /*gas phase form of H2 */
+  Rate->HI_Hm = TABLEINTERPLIN(Rate_HI_Hm);          /*gas phase form of H2 */
+  Rate->Radr_HII = TABLEINTERP( Rate_Radr_HII );
+  Rate->Radr_HeII = TABLEINTERP( Rate_Radr_HeII );
+  Rate->Diel_HeII = TABLEINTERP( Rate_Diel_HeII );
+  Rate->Chtr_HeII = TABLEINTERP( Rate_Chtr_HeII );
+  Rate->Totr_HeII = Rate->Radr_HeII + Rate->Diel_HeII + Rate->Chtr_HeII;
+  Rate->Radr_HeIII = TABLEINTERP( Rate_Radr_HeIII );
+  Rate->DustForm_H2 =  cudaCLRATEDUSTFORMH2( ZMetal, cl->dClump );
+
+  Rate->Phot_HI = cl->R.Rate_Phot_HI;
+  Rate->Phot_HeI = cl->R.Rate_Phot_HeI;
+  Rate->Phot_HeII = cl->R.Rate_Phot_HeII;
+
+  if (Rate_Phot_H2_stellar < 20) {
+    Rate_Phot_H2_stellar = 20;
+  }
+  Rate->Phot_H2 = cl->R.Rate_Phot_H2_cosmo + pow(10,Rate_Phot_H2_stellar - 59.626264)*cl->dMsolUnit*cl->dLymanWernerFrac/cl->dKpcUnit/cl->dKpcUnit/cl->dExpand/cl->dExpand;
+  Rate->CorreLength = columnL * cl->dKpcUnit*KPCCM * cl->dExpand; /* From system units to cm*/
+  Rate->LymanWernerCode = Rate_Phot_H2_stellar;
+  if (cl->bSelfShield) {
+      double logen_B;
+      logen_B = log10(rho*CL_B_gm);
+      if (logen_B > 2.2499) {
+	  Rate->Phot_HI = 0;
+	  Rate->Phot_HeI = 0;
+	  Rate->Phot_HeII = 0;
+	  Rate->Phot_H2 = 0;
+	  }
+      else if (logen_B > -10.25) {
+	  double x = (logen_B+10.25)*2.0;
+	  int ix;
+	  ix = floor(x);
+	  x -= ix;
+	  Rate->Phot_HI *= (AP_Gamma_HI_factor[ix]*(1-x)+AP_Gamma_HI_factor[ix+1]*x);
+	  Rate->Phot_HeI *= (AP_Gamma_HeI_factor[ix]*(1-x)+AP_Gamma_HeI_factor[ix+1]*x);
+	  Rate->Phot_HeII *= (AP_Gamma_HeII_factor[ix]*(1-x)+AP_Gamma_HeII_factor[ix+1]*x);
+	  Rate->Phot_H2 *= (AP_Gamma_H2_factor[ix]*(1-x)+AP_Gamma_H2_factor[ix+1]*x); /* Untested */
+	  }
+      }
+}
+
+__device__ void CudaclDerivs(double x, const double *y, double *dGain, double *dLoss,
+	     void *Data) {
+  CudaclDerivsData *d = (CudaclDerivsData *)Data;
+  double T,ne,nHI, nHII, internalheat = 0, externalheat = 0;
+  double internalcool = 0;
+  double en_B = d->rho*CL_B_gm;
+  double s_dust, s_self, nH2, nHminus, Rate_Phot_HI;
+  
+  d->E = y[0];
+  d->Y.HI = y[1];
+  d->Y.H2 = y[4];
+  d->Y.HII = d->Y_H - d->Y.HI - d->Y.H2*2.0; /*Don't forget about molec H CC*/
+  if(d->Y.HII < 0) d->Y.HII = 0;  
+ 
+  d->Y.HeI = y[2];
+  d->Y.HeII = y[3];
+  d->Y.HeIII = d->Y_He - d->Y.HeI - d->Y.HeII; 
+  if(d->Y.HeIII < 0) d->Y.HeIII = 0; 
+ 
+  d->Y.e = d->Y.HII + d->Y.HeII + 2*d->Y.HeIII;
+#ifdef Y_EMIN
+  if (d->Y.e < Y_EMIN) d->Y.e = Y_EMIN;
+#endif
+
+  d->Y.Total = d->Y.e + d->Y_H + d->Y_He + d->ZMetal/MU_METAL - d->Y.H2;  /* H total from cl now -- in future from particle */ 
+  T = cudaCLTEMPERATURE( d->Y.Total, d->E );
+  CLRATES( d->cl, &d->Rate, T, d->rho, d->ZMetal, d->columnL, d->dLymanWerner);
+  s_dust = cudaCLDUSTSHIELD(d->Y.HI*en_B, d->Y.H2*en_B, d->ZMetal, d->Rate.CorreLength); /* dust shielding*/
+  s_self = cudaCLSELFSHIELD(d->Y.H2*en_B, d->Rate.CorreLength); /* H2 self shielding*/
+  if (d->cl->bShieldHI) Rate_Phot_HI = d->Rate.Phot_HI*s_dust;/* If bShieldHI was set in parameter file, modify the photoionizing flux for HI by the dust shielding*/
+  else Rate_Phot_HI = d->Rate.Phot_HI;
+
+  externalheat = d->ExternalHeating;
+  if (d->bCool) {
+    clRateMetalTable(d->cl, &d->Rate, T, d->rho, d->Y_H, d->ZMetal);
+    CLEDOTINSTANT( d->cl, &d->Y, &d->Rate, d->rho, d->ZMetal, &internalheat, &internalcool );
+    
+    dGain[0] = internalheat;
+    dLoss[0] = internalcool;
+  }
+  if(externalheat > 0.0)
+      dGain[0] += externalheat;
+  else
+      dLoss[0] -= externalheat;
+
+  ne =  en_B*d->Y.e;
+  nHI = en_B*d->Y.HI;
+  nH2 = en_B*d->Y.H2;
+  nHII = en_B*d->Y.HII;
+  nHminus = d->Rate.HI_e* d->Y.HI*d->Y.e/(d->Rate.HI_Hm*d->Y.HI + d->Rate.Coll_Hm_HII*d->Y.HI + d->Rate.Coll_Hm_e*d->Y.e);
+
+  dGain[4] = d->Y.HI*nHminus*en_B*d->Rate.HI_Hm + /*gas phase formation of H2, adel 97 */
+            (d->Y.HI + 2.0*d->Y.H2)*d->Rate.DustForm_H2*nHI;
+  dLoss[4] = d->Y.H2*d->Rate.Phot_H2*s_dust*s_self +
+	     d->Y.H2*d->Rate.Coll_e_H2*ne +
+	     d->Y.H2*d->Rate.Coll_H2_H2*nH2 +
+	     d->Y.H2*d->Rate.Coll_HI_H2*nHI +
+             d->Y.H2*d->Rate.Coll_HII_H2*nHII;
+  dGain[1] = ne*d->Y.HII*d->Rate.Radr_HII +
+             2.0*dLoss[4]; /*Photo or collisionally dissociated H2*/
+  dLoss[1] = ne*d->Y.HI*d->Rate.Coll_HI + 
+             d->Y.HI*Rate_Phot_HI + /*Adding in molec H and shielding, should possibly add shielding for others*/
+             2.0*dGain[4]; /*Formation of H2*/
+  dGain[2] = ne*d->Y.HeII*d->Rate.Totr_HeII;
+  dLoss[2] = ne*d->Y.HeI*d->Rate.Coll_HeI + 
+             d->Y.HeI*d->Rate.Phot_HeI;
+  dGain[3] = ne*d->Y.HeIII*d->Rate.Radr_HeIII +
+             dLoss[2];
+  dLoss[3] = ne*d->Y.HeII*d->Rate.Coll_HeII + 
+             d->Y.HeII*d->Rate.Phot_HeII +
+             dGain[2];
+}
+
+__global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double *dtg_in, int nVars) {
     int id;
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
+
+    double dtg = dtg_in[id];
+    double *y = &y_in[id];
 
     double tn;			/* time within step */
     int i;

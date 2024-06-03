@@ -13,6 +13,10 @@
 #include "physconst.h"
 #include "formatted_string.h"
 
+#ifdef CUDA
+#include "CudaFunctions.h"
+#endif
+
 #include <float.h>
 
 ///
@@ -128,6 +132,188 @@ void Main::initCooling()
 #endif
     }
 
+#define COPY_FIELD(dest, src, member) dest->member = src->member
+#define COPY_NESTED_FIELD(dest, src, nest, member) dest->nest.member = src->nest.member
+void STIFFtoCudaSTIFF(STIFF *a, CudaSTIFF *b) {
+    COPY_FIELD(b, a, epsmin);
+    COPY_FIELD(b, a, sqreps);
+    COPY_FIELD(b, a, epscl);
+    COPY_FIELD(b, a, epsmax);
+    COPY_FIELD(b, a, dtmin);
+    COPY_FIELD(b, a, itermax);
+    COPY_FIELD(b, a, nv);
+}
+
+void clDerivsDatatoCudaclDerivsData(clDerivsData *a, CudaclDerivsData *b) {
+    COPY_NESTED_FIELD(b, a, Rate, T);
+    COPY_NESTED_FIELD(b, a, Rate, Tln);
+    COPY_NESTED_FIELD(b, a, Rate, Coll_HI);
+    COPY_NESTED_FIELD(b, a, Rate, Coll_HeI);
+    COPY_NESTED_FIELD(b, a, Rate, Coll_HeII);
+    COPY_NESTED_FIELD(b, a, Rate, Coll_e_H2);
+    COPY_NESTED_FIELD(b, a, Rate, Coll_HI_H2);
+    COPY_NESTED_FIELD(b, a, Rate, Coll_H2_H2);
+    COPY_NESTED_FIELD(b, a, Rate, Coll_Hm_e);
+    COPY_NESTED_FIELD(b, a, Rate, Coll_Hm_HII);
+    COPY_NESTED_FIELD(b, a, Rate, Coll_HI_e);
+    COPY_NESTED_FIELD(b, a, Rate, Coll_HII_H2);
+    COPY_NESTED_FIELD(b, a, Rate, HI_e);
+    COPY_NESTED_FIELD(b, a, Rate, HI_Hm);
+    COPY_NESTED_FIELD(b, a, Rate, Radr_HII);
+    COPY_NESTED_FIELD(b, a, Rate, Radr_HeII);
+    COPY_NESTED_FIELD(b, a, Rate, Diel_HeII);
+    COPY_NESTED_FIELD(b, a, Rate, Chtr_HeII);
+    COPY_NESTED_FIELD(b, a, Rate, Totr_HeII);
+    COPY_NESTED_FIELD(b, a, Rate, Radr_HeIII);
+    COPY_NESTED_FIELD(b, a, Rate, Cool_Metal);
+    COPY_NESTED_FIELD(b, a, Rate, Heat_Metal);
+    COPY_NESTED_FIELD(b, a, Rate, Phot_HI);
+    COPY_NESTED_FIELD(b, a, Rate, Phot_HeI);
+    COPY_NESTED_FIELD(b, a, Rate, Phot_HeII);
+    COPY_NESTED_FIELD(b, a, Rate, Phot_H2);
+    COPY_NESTED_FIELD(b, a, Rate, DustForm_H2);
+    COPY_NESTED_FIELD(b, a, Rate, CorreLength);
+    COPY_NESTED_FIELD(b, a, Rate, LymanWernerCode);
+
+    COPY_NESTED_FIELD(b, a, Y, e);
+    COPY_NESTED_FIELD(b, a, Y, Total);
+    COPY_NESTED_FIELD(b, a, Y, HI);
+    COPY_NESTED_FIELD(b, a, Y, HII);
+    COPY_NESTED_FIELD(b, a, Y, HeI);
+    COPY_NESTED_FIELD(b, a, Y, HeII);
+    COPY_NESTED_FIELD(b, a, Y, HeIII);
+    COPY_NESTED_FIELD(b, a, Y, H2);
+
+    COPY_FIELD(b, a, Y_H);
+    COPY_FIELD(b, a, Y_He);
+    COPY_FIELD(b, a, Y_eMax);
+    COPY_FIELD(b, a, Y_Total0);
+    COPY_FIELD(b, a, Y_Total1);
+    COPY_FIELD(b, a, dlnE);
+    COPY_FIELD(b, a, its);
+    COPY_FIELD(b, a, bCool);
+}
+
+void COOLtoCudaCOOL(COOL *a, CudaCOOL *b) {
+    COPY_FIELD(b, a, z);
+    COPY_FIELD(b, a, dTime);
+
+    COPY_NESTED_FIELD(b, a, R, Rate_Phot_HI);
+    COPY_NESTED_FIELD(b, a, R, Rate_Phot_HeI);
+    COPY_NESTED_FIELD(b, a, R, Rate_Phot_HeII);
+    COPY_NESTED_FIELD(b, a, R, Rate_Phot_H2_cosmo);
+    COPY_NESTED_FIELD(b, a, R, Heat_Phot_HI);
+    COPY_NESTED_FIELD(b, a, R, Heat_Phot_HeI);
+    COPY_NESTED_FIELD(b, a, R, Heat_Phot_HeII);
+    COPY_NESTED_FIELD(b, a, R, Heat_Phot_H2);
+    COPY_NESTED_FIELD(b, a, R, Cool_Coll_HI);
+    COPY_NESTED_FIELD(b, a, R, Cool_Coll_HeI);
+    COPY_NESTED_FIELD(b, a, R, Cool_Coll_HeII);
+    COPY_NESTED_FIELD(b, a, R, Cool_Diel_HeII);
+    COPY_NESTED_FIELD(b, a, R, Cool_Coll_H2);
+    COPY_NESTED_FIELD(b, a, R, Cool_Comp);
+    COPY_NESTED_FIELD(b, a, R, Tcmb);
+    COPY_NESTED_FIELD(b, a, R, Cool_LowTFactor);
+
+    COPY_FIELD(b, a, nTable);
+    COPY_FIELD(b, a, TMin);
+    COPY_FIELD(b, a, TMax);
+    COPY_FIELD(b, a, TlnMin);
+    COPY_FIELD(b, a, TlnMax);
+    COPY_FIELD(b, a, rDeltaTln);
+
+    COPY_FIELD(b, a, bMetal);
+    COPY_FIELD(b, a, nzMetalTable);
+    COPY_FIELD(b, a, nnHMetalTable);
+    COPY_FIELD(b, a, nTMetalTable);
+    COPY_FIELD(b, a, MetalTMin);
+    COPY_FIELD(b, a, MetalTMax);
+    COPY_FIELD(b, a, MetalnHMin);
+    COPY_FIELD(b, a, MetalnHMax);
+    COPY_FIELD(b, a, MetalnHlogMin);
+    COPY_FIELD(b, a, MetalnHlogMax);
+    COPY_FIELD(b, a, rDeltanHlog);
+    COPY_FIELD(b, a, MetalzMin);
+    COPY_FIELD(b, a, MetalzMax);
+    COPY_FIELD(b, a, rDeltaz);
+
+    // Rate_DustForm_H2 not used?
+
+    COPY_FIELD(b, a, nTableRead);
+    COPY_FIELD(b, a, bUV);
+    COPY_FIELD(b, a, nUV);
+
+    COPY_FIELD(b, a, bUVTableUsesTime);
+    COPY_FIELD(b, a, bUVTableLinear);
+    COPY_FIELD(b, a, bLowTCool);
+    COPY_FIELD(b, a, bSelfShield);
+    COPY_FIELD(b, a, bShieldHI);
+    COPY_FIELD(b, a, dClump);
+    COPY_FIELD(b, a, dLymanWernerFrac);
+    COPY_FIELD(b, a, dGmPerCcUnit);
+    COPY_FIELD(b, a, dComovingGmPerCcUnit);
+    COPY_FIELD(b, a, dExpand);
+    COPY_FIELD(b, a, dErgPerGmUnit);
+    COPY_FIELD(b, a, dSecUnit);
+    COPY_FIELD(b, a, dErgPerGmPerSecUnit);
+    COPY_FIELD(b, a, diErgPerGmUnit);
+    COPY_FIELD(b, a, dKpcUnit);
+    COPY_FIELD(b, a, dMsolUnit);
+    COPY_FIELD(b, a, dMassFracHelium);
+    COPY_FIELD(b, a, its);
+#if defined COOLDEBUG
+    COPY_FIELD(b, a, iOrder);
+#endif
+}
+
+void RATES_TtoCudaRATES_T(RATES_T *a, CudaRATES_T *b) {
+    COPY_FIELD(b, a, Rate_Coll_HI);
+    COPY_FIELD(b, a, Rate_Coll_HeI);
+    COPY_FIELD(b, a, Rate_Coll_HeII);
+    COPY_FIELD(b, a, Rate_Coll_e_H2);
+    COPY_FIELD(b, a, Rate_Coll_HI_H2);
+    COPY_FIELD(b, a, Rate_Coll_HI_H2);
+    COPY_FIELD(b, a, Rate_Coll_H2_H2);
+    COPY_FIELD(b, a, Rate_Coll_Hm_e);
+    COPY_FIELD(b, a, Rate_Coll_HI_e);
+    COPY_FIELD(b, a, Rate_Coll_HII_H2);
+    COPY_FIELD(b, a, Rate_Coll_Hm_HII);
+    COPY_FIELD(b, a, Rate_HI_e);
+    COPY_FIELD(b, a, Rate_HI_Hm);
+    COPY_FIELD(b, a, Rate_Radr_HII);
+    COPY_FIELD(b, a, Rate_Radr_HeII);
+    COPY_FIELD(b, a, Rate_Radr_HeIII);
+    COPY_FIELD(b, a, Rate_Diel_HeII);
+    COPY_FIELD(b, a, Rate_Chtr_HeII);
+    COPY_FIELD(b, a, Cool_Brem_1);
+    COPY_FIELD(b, a, Cool_Brem_2);
+    COPY_FIELD(b, a, Cool_Radr_HII);
+    COPY_FIELD(b, a, Cool_Radr_HeII);
+    COPY_FIELD(b, a, Cool_Radr_HeIII);
+    COPY_FIELD(b, a, Cool_Line_HI);
+    COPY_FIELD(b, a, Cool_Line_HeI);
+    COPY_FIELD(b, a, Cool_Line_HeII);
+    COPY_FIELD(b, a, Cool_Line_H2_H);
+    COPY_FIELD(b, a, Cool_Line_H2_H);
+    COPY_FIELD(b, a, Cool_Line_H2_H2);
+    COPY_FIELD(b, a, Cool_Line_H2_He);
+    COPY_FIELD(b, a, Cool_Line_H2_e);
+    COPY_FIELD(b, a, Cool_Line_H2_HII);
+    COPY_FIELD(b, a, Cool_LowT);
+}
+
+void UVSPECTRUMtoCudaUVSPECTRUM(UVSPECTRUM *a, CudaUVSPECTRUM *b) {
+    COPY_FIELD(b, a, zTime);
+    COPY_FIELD(b, a, Rate_Phot_HI);
+    COPY_FIELD(b, a, Rate_Phot_HeI);
+    COPY_FIELD(b, a, Rate_Phot_HeII);
+    COPY_FIELD(b, a, Rate_Phot_H2_cosmo);
+    COPY_FIELD(b, a, Heat_Phot_HI);
+    COPY_FIELD(b, a, Heat_Phot_HeI);
+    COPY_FIELD(b, a, Heat_Phot_HeII);
+    COPY_FIELD(b, a, Heat_Phot_H2);
+}
+
 /**
  * Initialized Cooling Read-only data on the DataManager, which
  * doesn't migrate.
@@ -143,38 +329,42 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     
     CoolInitRatesTable(Cool,inParam);
 #ifdef CUDA
-    // set up *d_CudaCool
     CudaCOOL CudaCool;
-    COOLtoCudaCOOL(&Cool, &CudaCool);
+    COOLtoCudaCOOL(Cool, &CudaCool);
 
-    // Pointers in CudaCool need to be set up before memcpy to device
     CudaRATES_T CudaRates_T;
-    RATES_TtoCudaRATES_T(&CudaRates_T, Cool.RATES_T);
-    cudaChk(cudaMalloc(&d_CudaRates_T), sizeof(CudaRATES_T));
-    cudaChk(cudaMemcpyAsync(CudaRates_T, d_CudaRates_T), sizeof(CudaRATES_T), cudaMemcpyDeviceToHost, stream[0]);
-    CudaCool.RATES_T = d_CudaRates_T;
+    RATES_TtoCudaRATES_T(Cool->RT, &CudaRates_T);
+    cudaMalloc(&d_CudaRates_T, sizeof(CudaRATES_T));
+    cudaMemcpyAsync(d_CudaRates_T, &CudaRates_T, sizeof(CudaRATES_T), cudaMemcpyDeviceToHost, streams[0]);
+    CudaCool.RT = d_CudaRates_T;
 
     CudaUVSPECTRUM CudaUvspectrum;
-    UVSPECTRUMtoCudaUVSPECTRUM(&CudaUvspectrum, Cool.UVSPECTRUM);
-    cudaChk(cudaMalloc(&d_CudaUvspectrum), sizeof(CudaUVSPECTRUM));
-    cudaChk(cudaMemcpyAsync(CudaUvspectrum, d_CudaUvspectrum), sizeof(CudaUvspectrum), cudaMemcpyDeviceToHost, stream[0]);
-    CudaCool.UVSPECTRUM = d_CudaUvspectrum;
+    UVSPECTRUMtoCudaUVSPECTRUM(Cool->UV, &CudaUvspectrum);
+    cudaMalloc(&d_CudaUvspectrum, sizeof(CudaUVSPECTRUM));
+    cudaMemcpyAsync(d_CudaUvspectrum, &CudaUvspectrum, sizeof(CudaUvspectrum), cudaMemcpyDeviceToHost, streams[0]);
+    CudaCool.UV = d_CudaUvspectrum;
 
-    // MetalCoolln
-    // MetalHeatln
-    // Both jagged arrays, have to do many cudaMallocs
-    int nz = CudaCool->nzMetalTable;
-    int nnH = CudaCool->nnHMetalTable;
-    int nt = CudaCool->nTMetalTable;
-    cudaChk(cudaMalloc(&d_MetalCoolln, nz*sizeof(float **)));
-    for (int i = 0; i < nz; i++ ) {
-
+    int nz = CudaCool.nzMetalTable;
+    int nnH = CudaCool.nnHMetalTable;
+    int nt = CudaCool.nTMetalTable;
+    size_t tableSize = nz*nnH*nt*sizeof(float);
+    cudaMalloc(&d_MetalCoolln, tableSize);
+    cudaMalloc(&d_MetalHeatln, tableSize);
+    for (int i = 0; i < nz; ++i) {
+	    for (int j = 0; j < nnH; ++j) {
+		    cudaMemcpy(d_MetalCoolln + (i*nnH*nt) + (j*nt), Cool->MetalCoolln[i][j], nt*sizeof(float), cudaMemcpyHostToDevice);
+		    cudaMemcpy(d_MetalHeatln + (i*nnH*nt) + (j*nt), Cool->MetalCoolln[i][j], nt*sizeof(float), cudaMemcpyHostToDevice);
+	    }
     }
 
-    cudaChk(cudaMalloc(&d_CudaCool), sizeof(CudaCOOL));
-    cudaChk(cudaMemcpyAsync(CudaCool, d_CudaCool), sizeof(CudaCOOL), cudaMemcpyDeviceToHost, stream[0]);
+    CudaCool.RT = d_CudaRates_T;
+    CudaCool.MetalCoolln = d_MetalCoolln;
+    CudaCool.MetalHeatln = d_MetalHeatln;
+    CudaCool.UV = d_CudaUvspectrum;
 
-    // TODO free device pointers later
+    cudaMalloc(&d_CudaCool, sizeof(CudaCOOL));
+    cudaMemcpyAsync(d_CudaCool, &CudaCool, sizeof(CudaCOOL), cudaMemcpyDeviceToHost, streams[0]);
+
 #endif // CUDA
 #endif //COOLING_NONE
     contribute(cb);
@@ -191,7 +381,34 @@ TreePiece::initCoolingData(const CkCallback& cb)
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     CoolData = CoolDerivsInit(dm->Cool);
 #ifdef CUDA
-    // set up d_CudaCoolData and d_CudaStiff
+    cudaMalloc(&d_CudaStiff, sizeof(CudaSTIFF));
+    cudaMalloc(&d_CudaCoolData, sizeof(CudaclDerivsData));
+
+    CudaclDerivsData CudaCoolData;
+    clDerivsDatatoCudaclDerivsData(CoolData, &CudaCoolData);
+
+    CudaCoolData.cl = dm->d_CudaCool;
+    CudaSTIFF CudaStiff;
+    STIFFtoCudaSTIFF(CoolData->IntegratorContext, &CudaStiff);
+    CudaStiff.Data = d_CudaCoolData;
+
+    cudaMalloc(&d_ymin, CudaStiff.nv*sizeof(*d_ymin));
+    // Do I need to init these values to 1e-300?
+    cudaMalloc(&d_y0, CudaStiff.nv*sizeof(*d_y0));
+    cudaMalloc(&d_y1, CudaStiff.nv*sizeof(*d_y1));
+    cudaMalloc(&d_q, CudaStiff.nv*sizeof(*d_q));
+    cudaMalloc(&d_d, CudaStiff.nv*sizeof(*d_d));
+    cudaMalloc(&d_rtau, CudaStiff.nv*sizeof(*d_rtau));
+    cudaMalloc(&d_ys, CudaStiff.nv*sizeof(*d_ys));
+    cudaMalloc(&d_qs, CudaStiff.nv*sizeof(*d_qs));
+    cudaMalloc(&d_rtaus, CudaStiff.nv*sizeof(*d_rtaus));
+    cudaMalloc(&d_scrarray, CudaStiff.nv*sizeof(*d_scrarray));
+    CudaStiff.derivs = &CudaclDerivs;
+
+    CudaCoolData.IntegratorContext = d_CudaStiff;
+
+    cudaMemcpyAsync(d_CudaStiff, &CudaStiff, sizeof(CudaSTIFF), cudaMemcpyDeviceToHost, stream);
+    cudaMemcpyAsync(d_CudaCoolData, &CudaCoolData, sizeof(CudaclDerivsData), cudaMemcpyDeviceToHost, stream);
 #endif // CUDA
 #endif // COOLING_NONE
     contribute(cb);
@@ -1047,16 +1264,11 @@ void TreePiece::updateuDot(int activeRung,
 	                                 ExternalHeating[i], fDensity[i],
 	  	                         fMetals[i], r[i], dtUse[i], columnL[i], y[i]);
             }
-#ifdef CUDA
-        TreePieceODESolver(dm->d_CudaStiff, y[i], t, dtUse[i], numSelParts, this->stream);
-
-	/*double t;
-        for(unsigned int i = 0; i < numSelParts; ++i) {
-            t = 0.0;
-            StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
-	}*/
-#else
 	double t;
+	t = 0.0;
+#ifdef CUDA
+        TreePieceODESolver(d_CudaStiff, y, t, dtUse, numSelParts, this->stream);
+#else
         for(unsigned int i = 0; i < numSelParts; ++i) {
             t = 0.0;
             StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);

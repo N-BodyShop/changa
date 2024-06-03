@@ -278,7 +278,6 @@ typedef struct {
   double NetMetalCool; 
 } COOL_ERGPERSPERGM;
 
-
 struct clDerivsDataStruct {
   STIFF *IntegratorContext;
   COOL *cl;

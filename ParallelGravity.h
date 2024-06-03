@@ -909,6 +909,19 @@ class TreePiece : public CBase_TreePiece {
         size_t sVarParts;
 	cudaStream_t stream;
 
+        CudaclDerivsData *d_CudaCoolData;
+        CudaSTIFF *d_CudaStiff;
+	double *d_ymin;
+	double *d_y0;
+	double *d_y1;
+	double *d_q;
+	double *d_d;
+	double *d_rtau;
+	double *d_ys;
+	double *d_qs;
+	double *d_rtaus;
+	double *d_scrarray;
+
         int getNumBuckets(){
         	return numBuckets;
         }
@@ -1572,8 +1585,23 @@ public:
 	  if(splitDims != NULL) delete[] splitDims;
 
 #ifndef COOLING_NONE
-	  if(bGasCooling)
+	  if(bGasCooling) {
 	      CoolDerivsFinalize(CoolData);
+#ifdef CUDA
+	      cudaFree(d_CudaCoolData);
+	      cudaFree(d_CudaStiff);
+	      cudaFree(d_ymin);
+	      cudaFree(d_y0);
+	      cudaFree(d_y1);
+	      cudaFree(d_q);
+	      cudaFree(d_d);
+	      cudaFree(d_rtau);
+	      cudaFree(d_ys);
+	      cudaFree(d_qs);
+	      cudaFree(d_rtaus);
+	      cudaFree(d_scrarray);
+#endif
+	  }
 #endif
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}

@@ -295,6 +295,12 @@ typedef struct CudaStiffContextStructure {
 } CudaSTIFF;
 
 typedef struct { 
+  double e,Total;
+  double HI,HII,HeI,HeII,HeIII;
+  double H2; 
+} CudaPERBARYON;
+
+typedef struct { 
   double   zTime;
 
   double   Rate_Phot_HI;
@@ -433,5 +439,51 @@ typedef struct CudaCoolingPKDStruct {
   int        iOrder;
 #endif 
 } CudaCOOL;
+
+typedef struct {
+  double   T, Tln;
+  double   Coll_HI;
+  double   Coll_HeI;
+  double   Coll_HeII;
+  double   Coll_e_H2;  
+  double   Coll_HI_H2;  
+  double   Coll_H2_H2; 
+  double   Coll_Hm_e;           /*gas phase formation of H2 */
+  double   Coll_Hm_HII;          /*------------------- */
+  double   Coll_HI_e;           /*------------------- */
+  double   Coll_HII_H2;          /*--------------------- */
+  double   HI_e;          /*---------------------- */
+  double   HI_Hm;          /*gas phase formation of H2 */
+  double   Radr_HII;
+  double   Radr_HeII;
+  double   Diel_HeII;
+  double   Chtr_HeII;
+  double   Totr_HeII;
+  double   Radr_HeIII; 
+  double   Cool_Metal;
+  double   Heat_Metal;
+
+  double   Phot_HI;
+  double   Phot_HeI;
+  double   Phot_HeII;
+  double   Phot_H2;  /*Photon dissociation of H2*/
+  double   DustForm_H2; /* Formation of H2 on dust */
+  double   CorreLength; /* The correlation length of subgrid turbulence, used when calculating shielding*/
+  double   LymanWernerCode;
+} CudaRATE;
+
+typedef struct {
+  CudaSTIFF *IntegratorContext;
+  CudaCOOL *cl;
+  double rho,ExternalHeating,E,ZMetal,dLymanWerner, columnL;
+/*  double Y_H, Y_He; */  /* will be needed -- also for temperature , Y_MetalIon, Y_eMetal */
+  CudaRATE Rate;
+  CudaPERBARYON Y;
+  double     Y_H, Y_He, Y_eMax;
+  double     Y_Total0, Y_Total1;
+  double     dlnE;
+  int        its;  /* Debug */
+  int        bCool;
+}CudaclDerivsData;
 
 #endif /* CUDA_TYPEDEF_H_*/

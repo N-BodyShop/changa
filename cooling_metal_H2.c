@@ -2684,7 +2684,6 @@ void clTempIteration( clDerivsData *d )
  clAbunds( d->cl, &d->Y, &d->Rate, d->rho, d->ZMetal);
 }
 
-// TODO this will also need to be a CUDA function
 void clDerivs(double x, const double *y, double *dGain, double *dLoss,
 	     void *Data) {
   clDerivsData *d = Data;

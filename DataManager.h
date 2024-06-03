@@ -172,7 +172,7 @@ public:
 	COOL *Cool;
 #ifdef CUDA
 	CudaCOOL *d_CudaCool;
-	CudaRATES_T *d_CudaRates_T
+	CudaRATES_T *d_CudaRates_T;
 	CudaUVSPECTRUM *d_CudaUvspectrum;
 	float ***d_MetalCoolln;
 	float ***d_MetalHeatln;
@@ -228,6 +228,11 @@ public:
 	    delete starLog;
 	    CmiDestroyLock(lockStarLog);
 #ifdef CUDA
+	    cudaFree(d_CudaRates_T);
+	    cudaFree(d_MetalCoolln);
+	    cudaFree(d_MetalHeatln);
+	    cudaFree(d_CudaUvspectrum);
+
             for (int i = 0; i < numStreams; i++) {
                 cudaStreamDestroy(streams[i]);
 	    }
