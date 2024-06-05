@@ -3749,25 +3749,26 @@ void TreePiece::finishBucket(int iBucket) {
       }
 
 #if defined CUDA
-      // in cuda version, must wait till particle accels.
-      // are copied back from gpu; can markwalkdone only
-      // after this, otherwise there is a race condition
-      // between the start of the next iteration, wherein
-      // the treepiece registers itself afresh with the 
-      // data manager. if during this time the particles
-      // haven't been copied (and updateParticles hasn't
-      // been called), the registeredTreePieces list will
-      // not be reset, so that the data manager gets 
-      // confused.
-      if (bUseGpu) {
-        dm->transferParticleVarsBack();
-        bUseGpu = 0;
-      } else {
+      if (bUseCpu)
+#endif
+      {
         continueWrapUp();
       }
-#else
-      // move on to markwalkdone in non-cuda version
-      continueWrapUp();
+#if defined CUDA
+      else {
+        // in cuda version, must wait till particle accels.
+        // are copied back from gpu; can markwalkdone only
+        // after this, otherwise there is a race condition
+        // between the start of the next iteration, wherein
+        // the treepiece registers itself afresh with the 
+        // data manager. if during this time the particles
+        // haven't been copied (and updateParticles hasn't
+        // been called), the registeredTreePieces list will
+        // not be reset, so that the data manager gets 
+        // confused.
+        dm->transferParticleVarsBack();
+        bUseCpu = 1;
+      }
 #endif
     }
   }
@@ -3886,9 +3887,9 @@ void TreePiece::doAllBuckets(){
 #endif
 
 #ifdef GPU_LOCAL_TREE_WALK
-  if (bUseGpu) {
+  if (!bUseCpu) {
     ListCompute *listcompute = (ListCompute *) sGravity;
-    listcompute->disableGpu();
+    listcompute->enableCpu();
     DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
     listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
@@ -4061,7 +4062,7 @@ void TreePiece::nextBucket(dummyMsg *msg){
   } else {
 
 #if INTERLIST_VER > 0 && defined CUDA
-    if (bUseGpu) {
+    if (!bUseCpu) {
       // The local walk might have some outstanding computation requests 
       // at this point. Flush these lists to GPU
       DoubleWalkState *ds = (DoubleWalkState *)sLocalGravityState;
@@ -4157,19 +4158,20 @@ void TreePiece::ewaldCPU(EwaldMsg *msg) {
 /// @param msg Indicates whether this function was called from EwaldInit
 void TreePiece::calculateEwald(EwaldMsg *msg) {
 #ifdef SPCUDA
-  if (bUseGpu) {
+  if (bUseCpu)
+#endif
+  {
+      ewaldCPU(msg);
+  }
+#ifdef SPCUDA
+  else {
     if(!msg->fromInit){
       thisProxy[thisIndex].EwaldGPU();
     }
     delete msg;
-  } else {
-      ewaldCPU(msg);
   }
-#else
-
-  ewaldCPU(msg);
-
 #endif
+
 }
 
 bool TreePiece::otherIdlePesAvail() {
@@ -4476,7 +4478,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
     sRemoteGravityState->currentBucket = 0;
 
 #if INTERLIST_VER > 0 && defined CUDA
-    if (bUseGpu) {
+    if (!bUseCpu) {
       // The remote walk might have some outstanding computation requests 
       // at this point. Flush these lists to GPU
       DoubleWalkState *ds = (DoubleWalkState *)sRemoteGravityState;
@@ -4513,7 +4515,7 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 #endif
 
 #ifdef CUDA
-      if (bUseGpu) {
+      if (!bUseCpu) {
         // The remote-resume walk might have some outstanding computation requests 
         // at this point. Flush these lists to GPU
         DoubleWalkState *ds = (DoubleWalkState *)sInterListStateRemoteResume;
@@ -4956,17 +4958,11 @@ void TreePiece::recvTotalMass(CkReductionMsg *msg){
 /// eventually call a remote walk (a walk on non-local nodes).  It
 /// then starts the Ewald initialization, and finally starts the local
 /// gravity walk.
-#ifdef CUDA
 void TreePiece::startGravity(int am, // the active mask for multistepping
 			       double myTheta, // opening criterion
-                               int bUseGpu_, // whether the gpu will be used
+                               int bUseCpu_, // whether the cpu or gpu will be used
 			       const CkCallback& cb) {
-  bUseGpu = bUseGpu_;
-#else
-void TreePiece::startGravity(int am, // the active mask for multistepping
-			       double myTheta, // opening criterion
-			       const CkCallback& cb) {
-#endif
+  bUseCpu = bUseCpu_;
 
   double starttime;
   LBTurnInstrumentOn();
@@ -5076,9 +5072,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
 #if INTERLIST_VER > 0
   compute = new ListCompute;
-#ifdef CUDA
-  if (!bUseGpu) ((ListCompute *)compute)->disableGpu();
-#endif
+  if (bUseCpu) ((ListCompute *)compute)->enableCpu();
   walk = new LocalTargetWalk;
 #else
   compute = new GravityCompute;
@@ -5129,7 +5123,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   numActiveBuckets = 0;
   calculateNumActiveParticles();
 
-  if (bUseGpu) {
+  if (!bUseCpu) {
 
       for(int i = 0; i < numBuckets; i++){
         if(bucketList[i]->rungs >= activeRung){
@@ -5252,7 +5246,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   // prefetch can occur concurrently with this, 
   // though calculateGravityLocal can only come
   // afterwards.
-  if (bUseGpu) {
+  if (!bUseCpu) {
       dm->serializeLocalTree();
   } else {
       thisProxy[thisIndex].commenceCalculateGravityLocal(0, 0, 0, 0, 0, 0, 0, 0);
@@ -5317,7 +5311,7 @@ void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments,
 					      intptr_t d_localVars,
 					      intptr_t streams, int numStreams,
                                               size_t sMoments, size_t sCompactParts, size_t sVarParts) {
-    if (bUseGpu) {
+    if (!bUseCpu) {
       this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
       this->d_localParts = (CompactPartData *)d_localParts;
       this->d_localVars = (VariablePartData *)d_localVars;
@@ -5346,7 +5340,7 @@ void TreePiece::startRemoteChunk() {
   traceUserEvent(prefetchDoneUE);
 
 #ifdef CUDA
-  if (bUseGpu) {
+  if (!bUseCpu) {
     // dm counts until all treepieces have acknowledged prefetch completion
     // it then flattens the tree on the processor, sends it to the device
     // and sends messages to each of the registered treepieces to continueStartRemoteChunk()
@@ -5364,7 +5358,7 @@ void TreePiece::startRemoteChunk() {
 /// prefetching for the next chunk.
 #ifdef CUDA
 void TreePiece::continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts){
-  if (bUseGpu) {
+  if (!bUseCpu) {
     this->d_remoteMoments = (CudaMultipoleMoments *)d_remoteMoments;
     this->d_remoteParts = (CompactPartData *)d_remoteParts;
   }
@@ -6306,7 +6300,7 @@ void TreePiece::freeWalkObjects(){
   if(sGravity){
       sGravity->reassoc(0,0,sRemote);
 #if INTERLIST_VER > 0 && defined CUDA
-      if (bUseGpu) {
+      if (!bUseCpu) {
         DoubleWalkState *state = (DoubleWalkState *) sRemoteGravityState;
         DoubleWalkState *rstate = (DoubleWalkState *) sInterListStateRemoteResume;
         delete state->particles;
@@ -6435,13 +6429,7 @@ void TreePiece::updateBucketState(int start, int end, int n, int chunk, State *s
    // either case.) therefore, some work requests must already
    // have been issued before it was invoked, so there will
    // be a finishBucket call afterwards to ensure progress.
-#ifdef CUDA
-    if (!bUseGpu) {
-        finishBucket(i);
-    }
-#else
-       finishBucket(i);
-#endif
+   if (bUseCpu) finishBucket(i);
     }
   }
   state->counterArrays[1][chunk] -= n;

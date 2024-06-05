@@ -908,7 +908,6 @@ class TreePiece : public CBase_TreePiece {
         size_t sCompactParts;
         size_t sVarParts;
 	cudaStream_t stream;
-        int bUseGpu;
 
         int getNumBuckets(){
         	return numBuckets;
@@ -1201,6 +1200,9 @@ private:
         /// The current active mask for force computation in multistepping
         int activeRung;
 
+	/// Whether the GPU or CPU is to be used on the current substep
+       int bUseCpu;
+
 	/// Periodic Boundary stuff
 	int bPeriodic;
 	int bComove;
@@ -1459,9 +1461,9 @@ public:
 #if INTERLIST_VER > 0
 	  sInterListWalk = NULL;
 #endif
+          bUseCpu = 1;
 #ifdef CUDA
           numActiveBuckets = -1;
-          bUseGpu = 0;
 #ifdef HAPI_TRACE
           localNodeInteractions = 0;
           localPartInteractions = 0;
@@ -1902,13 +1904,9 @@ public:
   /// @brief Start a tree based gravity computation.
   /// @param am the active rung for the computation
   /// @param theta the opening angle
-  /// @param bUseGpu_ whether the gpu is being used
+  /// @param bUseCpu_ whether the cpu or gpu is being used
   /// @param cb the callback to use after all the computation has finished
-#ifdef CUDA
-  void startGravity(int am, double myTheta, int bUseGpu_, const CkCallback& cb);
-#else
-  void startGravity(int am, double myTheta, const CkCallback& cb);
-#endif
+  void startGravity(int am, double myTheta, int bUseCpu_, const CkCallback& cb);
   /// Setup utility function for all the smooths.  Initializes caches.
   void setupSmooth();
   /// Start a tree based smooth computation.

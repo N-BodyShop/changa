@@ -1719,7 +1719,7 @@ void Main::buildTree(int iPhase)
 #ifdef CUDA
     // If we are about to use the GPU, tell the data manager
     // not to clean up its TreePiece list during combineLocalTrees
-    if (nActiveGrav > param.nGpuMinParts) {
+    if (nActiveGrav >= param.nGpuMinParts) {
         dMProxy.unmarkTreePiecesForCleanup(CkCallbackResumeThread());
     }
 #endif
@@ -1774,12 +1774,11 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
             else{
 #endif
-
+		 int bUseCpu = 1;
 #ifdef CUDA
-                treeProxy.startGravity(iActiveRung, theta, nActiveGrav > param.nGpuMinParts, cbGravity);
-#else
-                treeProxy.startGravity(iActiveRung, theta, cbGravity);
+                bUseCpu = nActiveGrav < param.nGpuMinParts;
 #endif
+                treeProxy.startGravity(iActiveRung, theta, bUseCpu, cbGravity);
 
 #ifdef PUSH_GRAVITY
             }
@@ -1794,11 +1793,11 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             else{
 #endif
 
+		 int bUseCpu = 1;
 #ifdef CUDA
-                treeProxy.startGravity(iActiveRung, theta, nActiveGrav > param.nGpuMinParts, CkCallbackResumeThread());
-#else
-                treeProxy.startGravity(iActiveRung, theta, CkCallbackResumeThread());
+                bUseCpu = nActiveGrav < param.nGpuMinParts;
 #endif
+                treeProxy.startGravity(iActiveRung, theta, bUseCpu, cbGravity);
 
 #ifdef PUSH_GRAVITY
             }

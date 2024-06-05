@@ -460,11 +460,7 @@ mainmodule ParallelGravity {
 
     entry void startORBTreeBuild(CkReductionMsg* m);
 
-#ifdef CUDA
-    entry void startGravity(int activeRung, double myTheta, int bUseGpu_, const CkCallback &cb);
-#else
-    entry void startGravity(int activeRung, double myTheta, const CkCallback &cb);
-#endif
+    entry void startGravity(int activeRung, double myTheta, int bUseCpu_, const CkCallback &cb);
 
 #ifdef PUSH_GRAVITY
     entry void startPushGravity(int am, double myTheta);
