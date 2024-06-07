@@ -2212,24 +2212,29 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
 
 void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, double *dtg, int numParts, cudaStream_t stream) {
 
+    double *d_dtg;
     double *d_y;
-    size_t ySize = numParts * 5 * sizeof(double); // TODO const defined in clIntegrateEnergy
+
+    size_t ySize = numParts*5*sizeof(double); // TODO const defined in clIntegrateEnergy
+    size_t dtgSize = numParts*sizeof(double);
     cudaChk(cudaMalloc(&d_y, ySize));
+    cudaChk(cudaMalloc(&d_dtg, dtgSize));
     cudaChk(cudaMemcpyAsync(d_y, y, ySize, cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(d_dtg, dtg, dtgSize, cudaMemcpyHostToDevice, stream));
 
-    CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_CudaStiff, d_y, tstart, dtg, numParts);
+    CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_CudaStiff, d_y, tstart, d_dtg, numParts);
     cudaChk(cudaMemcpyAsync(y, d_y, ySize, cudaMemcpyDeviceToHost, stream));
-
-    cudaFree(d_CudaStiff); // Dont forget all of the pointers in d_CudaStiff
-    cudaFree(d_y);
-
     cudaStreamSynchronize(stream);
+
+    cudaChk(cudaFree(d_dtg));
+    cudaChk(cudaFree(d_y));
+
 }
 
 // Ignoring non-USETABLE functions
 // Need clRates_Table and clEdotInstant_Table
-#define CLRATES( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar) clRates_Table( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)
-#define CLEDOTINSTANT( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool ) clEdotInstant_Table( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool);
+#define CLRATES( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar) cudaClRates_Table( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)
+#define CLEDOTINSTANT( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool ) cudaClEdotInstant_Table( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool);
 
 #define EPS 1e-5
 #define M_H      1.672e-24
@@ -2560,7 +2565,7 @@ __device__ void clRateMetalTable(CudaCOOL *cl, CudaRATE *Rate, double T, double 
 
 /* Returns Heating - Cooling excluding External Heating, units of ergs s^-1 g^-1 
    Public interface CoolEdotInstantCode */
-__device__ double clEdotInstant_Table( CudaCOOL *cl, CudaPERBARYON *Y, CudaRATE *Rate, double rho, 
+__device__ double cudaClEdotInstant_Table( CudaCOOL *cl, CudaPERBARYON *Y, CudaRATE *Rate, double rho, 
 			    double ZMetal, double *dEdotHeat, double *dEdotCool )
 {
   double en_B = rho*CL_B_gm;
@@ -2671,7 +2676,7 @@ __device__ double clEdotInstant_Table( CudaCOOL *cl, CudaPERBARYON *Y, CudaRATE 
   return *dEdotHeat - *dEdotCool;
 }
 
-__device__ void clRates_Table( CudaCOOL *cl, CudaRATE *Rate, double T, double rho, double ZMetal, double columnL, double Rate_Phot_H2_stellar) {
+__device__ void cudaClRates_Table( CudaCOOL *cl, CudaRATE *Rate, double T, double rho, double ZMetal, double columnL, double Rate_Phot_H2_stellar) {
   double Tln;
   double xTln,wTln0,wTln1;/*,wTln0d,wTln1d;*/
   CudaRATES_T *RT0,*RT1;/*,*RT0d,*RT1d;*/
@@ -2832,7 +2837,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double 
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
 
-    double dtg = dtg_in[id];
+    double dtg = dtg_in[id]; // TODO set these values at the end of the function again
     double *y = &y_in[id];
 
     double tn;			/* time within step */
@@ -2884,7 +2889,8 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double 
 	y[i] = max(y[i], ymin[i]);
 	}
     
-    s->derivs(tn + tstart, y, q, d, s->Data);
+    //s->derivs(tn + tstart, y, q, d, s->Data);
+    CudaclDerivs(tn + tstart, y, q, d, s->Data);
     gcount++;
     
     /*
@@ -2926,7 +2932,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double 
 	/*
 	 * find the predictor terms.
 	 */
-     restart:
+     restart: // TODO doesnt work in CUDA
 	for(i = 0; i < n; i++) {
 	    /*
 	     * prediction
@@ -2981,7 +2987,8 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double 
 	    /*
 	      evaluate the derivitives for the corrector.
 	    */
-	    s->derivs(tn + tstart, y, q, d, s->Data);
+	   // s->derivs(tn + tstart, y, q, d, s->Data);
+            CudaclDerivs(tn + tstart, y, q, d, s->Data);
 	    gcount++;
 	    eps = 1.0e-10;
 	    for(i = 0; i < n; i++) {
@@ -3091,7 +3098,8 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double 
 	  Successful step; get the source terms for the next step
 	  and continue back at line 100
 	*/
-	s->derivs(tn + tstart, y, q, d, s->Data);
+	//s->derivs(tn + tstart, y, q, d, s->Data);
+        CudaclDerivs(tn + tstart, y, q, d, s->Data);
 	gcount++;
 	}
     }

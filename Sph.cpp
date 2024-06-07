@@ -335,27 +335,37 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     CudaRATES_T CudaRates_T;
     RATES_TtoCudaRATES_T(Cool->RT, &CudaRates_T);
     cudaMalloc(&d_CudaRates_T, sizeof(CudaRATES_T));
-    cudaMemcpyAsync(d_CudaRates_T, &CudaRates_T, sizeof(CudaRATES_T), cudaMemcpyDeviceToHost, streams[0]);
+    cudaMemcpy(d_CudaRates_T, &CudaRates_T, sizeof(CudaRATES_T), cudaMemcpyHostToDevice);
     CudaCool.RT = d_CudaRates_T;
 
     CudaUVSPECTRUM CudaUvspectrum;
     UVSPECTRUMtoCudaUVSPECTRUM(Cool->UV, &CudaUvspectrum);
     cudaMalloc(&d_CudaUvspectrum, sizeof(CudaUVSPECTRUM));
-    cudaMemcpyAsync(d_CudaUvspectrum, &CudaUvspectrum, sizeof(CudaUvspectrum), cudaMemcpyDeviceToHost, streams[0]);
+    cudaMemcpy(d_CudaUvspectrum, &CudaUvspectrum, sizeof(CudaUvspectrum), cudaMemcpyHostToDevice);
     CudaCool.UV = d_CudaUvspectrum;
 
     int nz = CudaCool.nzMetalTable;
     int nnH = CudaCool.nnHMetalTable;
     int nt = CudaCool.nTMetalTable;
     size_t tableSize = nz*nnH*nt*sizeof(float);
+
+    float* coolBuf = (float*)malloc(tableSize);
+    float* heatBuf = (float*)malloc(tableSize);
+    for (int i = 0; i < nz; ++i) {
+	for (int j = 0; j < nnH; ++j) {
+            memcpy(&coolBuf[(i * nnH + j) * nt], Cool->MetalCoolln[i][j], nt * sizeof(float));
+            memcpy(&heatBuf[(i * nnH + j) * nt], Cool->MetalHeatln[i][j], nt * sizeof(float));
+	}
+    }
+
+    cudaError_t error;
     cudaMalloc(&d_MetalCoolln, tableSize);
     cudaMalloc(&d_MetalHeatln, tableSize);
-    for (int i = 0; i < nz; ++i) {
-	    for (int j = 0; j < nnH; ++j) {
-		    cudaMemcpy(d_MetalCoolln + (i*nnH*nt) + (j*nt), Cool->MetalCoolln[i][j], nt*sizeof(float), cudaMemcpyHostToDevice);
-		    cudaMemcpy(d_MetalHeatln + (i*nnH*nt) + (j*nt), Cool->MetalCoolln[i][j], nt*sizeof(float), cudaMemcpyHostToDevice);
-	    }
-    }
+    error = cudaMemcpy(d_MetalCoolln, coolBuf, tableSize, cudaMemcpyHostToDevice);
+    error = cudaMemcpy(d_MetalHeatln, heatBuf, tableSize, cudaMemcpyHostToDevice);
+    if (error != cudaSuccess) CkAbort("failed\n");
+    free(coolBuf);
+    free(heatBuf);
 
     CudaCool.RT = d_CudaRates_T;
     CudaCool.MetalCoolln = d_MetalCoolln;
@@ -363,7 +373,7 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     CudaCool.UV = d_CudaUvspectrum;
 
     cudaMalloc(&d_CudaCool, sizeof(CudaCOOL));
-    cudaMemcpyAsync(d_CudaCool, &CudaCool, sizeof(CudaCOOL), cudaMemcpyDeviceToHost, streams[0]);
+    cudaMemcpy(d_CudaCool, &CudaCool, sizeof(CudaCOOL), cudaMemcpyHostToDevice);
 
 #endif // CUDA
 #endif //COOLING_NONE
@@ -403,12 +413,22 @@ TreePiece::initCoolingData(const CkCallback& cb)
     cudaMalloc(&d_qs, CudaStiff.nv*sizeof(*d_qs));
     cudaMalloc(&d_rtaus, CudaStiff.nv*sizeof(*d_rtaus));
     cudaMalloc(&d_scrarray, CudaStiff.nv*sizeof(*d_scrarray));
+    CudaStiff.ymin = d_ymin;
+    CudaStiff.y0 = d_y0;
+    CudaStiff.y1 = d_y1;
+    CudaStiff.q = d_q;
+    CudaStiff.d = d_d;
+    CudaStiff.rtau = d_rtau;
+    CudaStiff.ys = d_ys;
+    CudaStiff.qs = d_qs;
+    CudaStiff.rtaus = d_rtaus;
+    CudaStiff.scrarray = d_scrarray;
     CudaStiff.derivs = &CudaclDerivs;
 
     CudaCoolData.IntegratorContext = d_CudaStiff;
 
-    cudaMemcpyAsync(d_CudaStiff, &CudaStiff, sizeof(CudaSTIFF), cudaMemcpyDeviceToHost, stream);
-    cudaMemcpyAsync(d_CudaCoolData, &CudaCoolData, sizeof(CudaclDerivsData), cudaMemcpyDeviceToHost, stream);
+    cudaMemcpy(d_CudaStiff, &CudaStiff, sizeof(CudaSTIFF), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CudaCoolData, &CudaCoolData, sizeof(CudaclDerivsData), cudaMemcpyHostToDevice);
 #endif // CUDA
 #endif // COOLING_NONE
     contribute(cb);
