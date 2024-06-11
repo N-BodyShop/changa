@@ -1569,7 +1569,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #endif
 
   if (bUseCpu)
-  { // This block executes if we are preparing do to gravity on the CPU
+  { // This block executes if we are doing gravity on the CPU
     for(int b = start; b < end; b++){
       if(tp->bucketList[b]->rungs >= activeRung){
 
