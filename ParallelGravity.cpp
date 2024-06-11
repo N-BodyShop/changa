@@ -759,7 +759,7 @@ Main::Main(CkArgMsg* m) {
                     sizeof(int),"str", "Number of CUDA streams (default: 100)");
         param.nGpuMinParts = 1000;
         prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
-                    sizeof(int),"str", "Min particles on rung to trigger GPU (default: 1000)");
+                    sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
 #endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
@@ -1762,10 +1762,10 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
         turnProjectionsOn(iActiveRung);
 #endif
 
-        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
 #ifdef CUDA
-        if (nActiveGrav > param.nGpuMinParts) CkPrintf(" on the GPU\n");
+        if (nActiveGrav > param.nGpuMinParts) CkPrintf("Gravity will be calculated on the GPU\n");
 #endif
+        CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
         *startTime = CkWallTimer();
         if(param.bConcurrentSph) {
 #ifdef PUSH_GRAVITY
