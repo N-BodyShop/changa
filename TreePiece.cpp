@@ -3748,9 +3748,7 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
       }
 
-#if defined CUDA
       if (bUseCpu)
-#endif
       {
         continueWrapUp();
       }
@@ -4153,9 +4151,7 @@ void TreePiece::ewaldCPU(EwaldMsg *msg) {
 /// @brief Start the ewald calculation on this TreePiece
 /// @param msg Indicates whether this function was called from EwaldInit
 void TreePiece::calculateEwald(EwaldMsg *msg) {
-#ifdef SPCUDA
   if (bUseCpu)
-#endif
   {
       ewaldCPU(msg);
   }
