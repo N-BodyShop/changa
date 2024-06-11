@@ -3888,7 +3888,6 @@ void TreePiece::doAllBuckets(){
 #ifdef GPU_LOCAL_TREE_WALK
   else {
     ListCompute *listcompute = (ListCompute *) sGravity;
-    listcompute->enableCpu();
     DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
     listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
