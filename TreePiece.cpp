@@ -3867,15 +3867,6 @@ void TreePiece::continueWrapUp(){
   }
 }
 
-/// Schedule a walk on the CPU
-void TreePiece::schedCpuWalk(){
-    dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-    *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
-    CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-
-    thisProxy[thisIndex].nextBucket(msg);
-}
-
 void TreePiece::doAllBuckets(){
 #if COSMO_DEBUG > 0
   auto file_name = make_formatted_string("tree.%d.%d",thisIndex,iterationNo);
@@ -3887,7 +3878,17 @@ void TreePiece::doAllBuckets(){
 #endif
 
 #ifdef GPU_LOCAL_TREE_WALK
-  if (!bUseCpu) {
+  if (bUseCpu)
+#endif
+  {
+    dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+    *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;
+    CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+
+    thisProxy[thisIndex].nextBucket(msg);
+  }
+#ifdef GPU_LOCAL_TREE_WALK
+  else {
     ListCompute *listcompute = (ListCompute *) sGravity;
     listcompute->enableCpu();
     DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
@@ -3907,13 +3908,8 @@ void TreePiece::doAllBuckets(){
     }
     listcompute->resetCudaNodeState(state);
     listcompute->resetCudaPartState(state);
-  } else {
-    schedCpuWalk();
   }
-
-#else
-  schedCpuWalk();
-#endif // GPU_LOCAL_TREE_WALK
+#endif
 }
 
 void TreePiece::nextBucket(dummyMsg *msg){
