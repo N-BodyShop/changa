@@ -1797,7 +1797,7 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
 #ifdef CUDA
                 bUseCpu = nActiveGrav < param.nGpuMinParts;
 #endif
-                treeProxy.startGravity(iActiveRung, bUseCpu, theta, cbGravity);
+                treeProxy.startGravity(iActiveRung, bUseCpu, theta, CkCallbackResumeThread());
 
 #ifdef PUSH_GRAVITY
             }
