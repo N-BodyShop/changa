@@ -1905,7 +1905,7 @@ public:
   /// @param theta the opening angle
   /// @param bUseCpu_ whether the cpu or gpu is being used
   /// @param cb the callback to use after all the computation has finished
-  void startGravity(int am, double myTheta, int bUseCpu_, const CkCallback& cb);
+  void startGravity(int am, int bUseCpu_, double myTheta, const CkCallback& cb);
   /// Setup utility function for all the smooths.  Initializes caches.
   void setupSmooth();
   /// Start a tree based smooth computation.

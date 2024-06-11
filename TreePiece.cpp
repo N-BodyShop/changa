@@ -4955,8 +4955,8 @@ void TreePiece::recvTotalMass(CkReductionMsg *msg){
 /// then starts the Ewald initialization, and finally starts the local
 /// gravity walk.
 void TreePiece::startGravity(int am, // the active mask for multistepping
-			       double myTheta, // opening criterion
                                int bUseCpu_, // whether the cpu or gpu will be used
+			       double myTheta, // opening criterion
 			       const CkCallback& cb) {
   bUseCpu = bUseCpu_;
 
