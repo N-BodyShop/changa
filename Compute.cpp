@@ -1571,7 +1571,7 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 #ifdef CUDA
   if (bUseCpu)
 #endif
-  { // This block executes if we are preparing to to gravity on the CPU
+  { // This block executes if we are preparing do to gravity on the CPU
     for(int b = start; b < end; b++){
       if(tp->bucketList[b]->rungs >= activeRung){
 

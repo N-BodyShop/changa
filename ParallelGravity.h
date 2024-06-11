@@ -1200,7 +1200,7 @@ private:
         /// The current active mask for force computation in multistepping
         int activeRung;
 
-	/// Whether the GPU or CPU is to be used on the current substep
+	/// Whether the GPU or CPU is to be used on the current gravity substep
        int bUseCpu;
 
 	/// Periodic Boundary stuff

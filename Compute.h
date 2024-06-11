@@ -183,6 +183,7 @@ class ListCompute : public Compute{
   State *getNewState();
   void freeState(State *state);
   void freeDoubleWalkState(DoubleWalkState *state);
+  /// Flag the cpu (instead of gpu) for usage for the next walk
   void enableCpu() {bUseCpu = 1;}
 
 #ifdef CUDA
@@ -199,7 +200,7 @@ class ListCompute : public Compute{
   void addNodeToInt(GenericTreeNode *node, int offsetID, DoubleWalkState *s);
 
   DoubleWalkState *allocDoubleWalkState();
-  // used to flag cpu for usage when compiling with CUDA enabled
+  /// used to flag cpu (instead of gpu) for usage when compiling with CUDA
   int bUseCpu;
 
 #if defined CHANGA_REFACTOR_PRINT_INTERACTIONS || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST || defined CUDA

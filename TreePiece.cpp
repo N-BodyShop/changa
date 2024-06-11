@@ -3867,7 +3867,7 @@ void TreePiece::continueWrapUp(){
   }
 }
 
-// Schedule a walk on the CPU
+/// Schedule a walk on the CPU
 void TreePiece::schedCpuWalk(){
     dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
     *((int *)CkPriorityPtr(msg)) = 2 * numTreePieces * numChunks + thisIndex + 1;

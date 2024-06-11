@@ -1774,7 +1774,7 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
             else{
 #endif
-		 int bUseCpu = 1;
+		int bUseCpu = 1;
 #ifdef CUDA
                 bUseCpu = nActiveGrav < param.nGpuMinParts;
 #endif
@@ -1793,7 +1793,7 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             else{
 #endif
 
-		 int bUseCpu = 1;
+		int bUseCpu = 1;
 #ifdef CUDA
                 bUseCpu = nActiveGrav < param.nGpuMinParts;
 #endif
