@@ -602,7 +602,7 @@ public:
 	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
         void doCollisions(double dTime, double dDelta);
 #ifdef COLLISION
-    void doCollisions(double dTime, double dDelta, int activeRung, double dCentMass);
+    void doCollisions(double dTime, double dDelta, int activeRung, int iStep, double dCentMass);
     void doNearCollisions(double dTime, double dDelta, int activeRung);
 #endif
 	void FormStars(double dTime, double dDelta);

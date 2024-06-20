@@ -58,6 +58,10 @@ void Collision::AddParams(PRM prm)
     prmAddParam(prm, "iCollModel", paramInt, &iCollModel,
         sizeof(int), "iCollModel", "<Collision model to use> = 0");
 
+    iMRCollMin = 0;
+    prmAddParam(prm, "iMRCollMin", paramInt, &iMRCollMin,
+        sizeof(int), "iMRCollMin", "<Earliest step to allow multi-rung collisions> = 0");
+
     dBallFac = 2.0;
     prmAddParam(prm, "dBallFac", paramDouble, &dBallFac,
         sizeof(double), "dBallFac", "<Scale factor for collision search radius> = 2.0");
@@ -190,7 +194,7 @@ void TreePiece::getNearCollPartners(const CkCallback& cb) {
  * @param activeRung The currently active rung
  * @param dCentMass The central mass if using a heliocentric potential (in simulation units)
  */
-void Main::doCollisions(double dTime, double dDelta, int activeRung, double dCentMass)
+void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, double dCentMass)
 {
     int bHasCollision;
     int nColl = 0;
@@ -246,8 +250,9 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, double dCen
                 if (c[0].iOrderCol != c[1].iOrder) {
                     CkAbort("Warning: Collider pair mismatch\n");
                     }
-                // Only resolve the collision if both particles are on the same rung
-                if (c[0].rung == c[1].rung){
+		// Only allow same-rung collisions until a minimum step number is reached
+		// Prevents runaway growth from starting at rung boundaries in a Keplerian disk
+		if ((c[0].rung == c[1].rung) || (iStep > param.collision.iMRCollMin)) {
                     nColl++;
                     CkReductionMsg *msgChk1;
                     treeProxy.resolveCollision(param.collision, c[0], c[1], dDelta,

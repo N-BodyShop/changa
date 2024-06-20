@@ -1766,7 +1766,7 @@ void Main::advanceBigCollStep(int iStep) {
 
               treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
               startTime = CkWallTimer();
-              doCollisions(dTime, param.dDelta, activeRung, param.externalForce.dCentMass);
+              doCollisions(dTime, param.dDelta, activeRung, iStep, param.externalForce.dCentMass);
               double tColl = CkWallTimer() - startTime;
               timings[activeRung].tColl += tColl;
               treeProxy.finishNodeCache(CkCallbackResumeThread());
@@ -2418,7 +2418,7 @@ void Main::advanceBigStep(int iStep) {
 
               treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
               double startTime = CkWallTimer();
-              doCollisions(dTime, param.dDelta, activeRung, param.externalForce.dCentMass);
+              doCollisions(dTime, param.dDelta, activeRung, iStep, param.externalForce.dCentMass);
               double tColl = CkWallTimer() - startTime;
               timings[activeRung].tColl += tColl;
               treeProxy.finishNodeCache(CkCallbackResumeThread());

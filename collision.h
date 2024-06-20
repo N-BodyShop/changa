@@ -61,6 +61,7 @@ public:
     int bLogOverlaps;     /* check for overlaps between particles */
     int bWall;            /* particles will bounce off a wall in the z plane */
     int iCollModel;       /* collision model to use, 0 = merge only, 1 = bounce only, 2 = merge/bounce, 3 = partial accretion */
+    int iMRCollMin;       /* ignore multi-rung collisions before this step number */
     double dBallFac;      /* scale factor for collision search radius */
     double dWallPos;      /* location of wall along z axis */
     double dEpsN, dEpsT;  /* normal and transverse coefficients of restitution */
@@ -101,6 +102,7 @@ inline void Collision::pup(PUP::er &p) {
     p | dCollStepFac;
     p | bWall;
     p | iCollModel;
+    p | iMRCollMin;
     p | dBallFac;
     p | dWallPos;
     p | dEpsN;
