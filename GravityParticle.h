@@ -597,7 +597,6 @@ class ExternalSmoothParticle {
   double dt;
   double dtNew;
 #endif
-  Vector3D<cosmoType> vPred;
 #ifdef COLLISION  
   double soft;
   Vector3D<double> w;

@@ -161,6 +161,9 @@ ARG_ENABLE([hexadecapole], [hexadecapole expansions in gravity], [HEXADECAPOLE],
 # physical softening in comoving coordinates
 ARG_ENABLE([changesoft], [physical softening], [FLAG_CHANGESOFT], [-DCHANGESOFT], [yes])
 
+# collision detection
+ARG_ENABLE([collision], [collision detection], [FLAG_COLLISION], [-DCOLLISION], [yes])
+
 # 128 bit keys:
 ARG_ENABLE([bigkeys], [128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [no])
 

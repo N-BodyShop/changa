@@ -47,6 +47,10 @@ void ExternalForce::AddParams(PRM prm)
     dJ6 = 0.0;
     prmAddParam(prm,"dJ6",paramDouble,&dJ6,
                 sizeof(double),"dJ6","<Oblateness coefficient J6 of central body> = 0.0");
+
+    bLogarithmicHalo = 0;
+    prmAddParam(prm,"bLogarithmicHalo",paramBool,&bLogarithmicHalo,
+                sizeof(int), "logarithmichalo","<Type of halo is logarithmic> = 0");
      
     bDoGasDrag = 0;
     prmAddParam(prm, "bDoGasDrag", paramBool, &bDoGasDrag,

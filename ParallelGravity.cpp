@@ -1672,7 +1672,7 @@ void Main::advanceBigCollStep(int iStep) {
     ckout << "Particles have been shuffled since last DD, re-sorting\n";
     treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                     CkCallbackResumeThread());
-    startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
+    sorter.startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
     }
      
   double startTime = CkWallTimer();
@@ -1760,7 +1760,7 @@ void Main::advanceBigCollStep(int iStep) {
                   // before the sort.
                   treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                         CkCallbackResumeThread());
-                  startSorting(dataManagerID, ddTolerance,
+                  sorter.startSorting(dataManagerID, ddTolerance,
                                           CkCallbackResumeThread(), true);
                   }
 
@@ -2160,181 +2160,7 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
             updateuDot(iActiveRung-1, duKick, dStartTime, 0, 0);
         }
     }
-#ifdef COLLISION
-
-///
-/// @brief Alternative version of 'advanceBigStep' which is used when
-//         collision stepping is enabled
-/// @param iStep The current step number.
-///
-/// This method also implements the "Kick Drift Kick" hierarchial
-/// timestepping algorithm. Particles can step on either the base
-/// rung or the collision rung. After the initial 'kick', the
-/// updated velocities are used to determine which particles need to
-/// be placed on the collision step rung. These particles are then
-/// unkicked and rekicked with the smaller timestep.
-///
-///
-void Main::advanceBigCollStep(int iStep)
-{
-    double startTime;
-    double duKick[MAXRUNG+1];
-    double dKickFac[MAXRUNG+1];
-    int activeRung = 0;
-    timings[activeRung].count++;
-    for (int i=0; i<=MAXRUNG; i++) {
-        duKick[i] = 0.;
-        dKickFac[i] = 0.5*RungToDt(param.dDelta, i);
-        }
-
-    CkReductionMsg *msgChk;
-
-    // Opening kick
-    startTime = CkWallTimer();
-    treeProxy.kick(activeRung, dKickFac, 0, 0, 0, duKick, CkCallbackResumeThread());
-    timings[activeRung].tKick += CkWallTimer() - startTime;
-
-    // Check for collision stepping
-    ckout << "Checking for near collisions ...";
-    if (bParticlesShuffled) {
-        ckout << "Particles have been shuffled since last DD, re-sorting\n";
-        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-        startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
-        }
-     
-    startTime = CkWallTimer();
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-    timings[activeRung].tTBuild += CkWallTimer() - startTime;
-
-    startTime = CkWallTimer();
-    doNearCollisions(dTime, param.dDelta, activeRung);
-    timings[activeRung].tColl += CkWallTimer() - startTime;
-    startTime = CkWallTimer();
-    treeProxy.finishNodeCache(CkCallbackResumeThread());
-    timings[activeRung].tCache += CkWallTimer() - startTime;
-
-    treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
-    int iNeedSubsteps = *(int *)msgChk->getData();
-
-    if (iNeedSubsteps > 0) {
-        ckout << " " << iNeedSubsteps <<  " particles are on a near collision course and will be stepped on rung "
-              << param.collision.iCollStepRung << " \n";
-        activeRung = param.collision.iCollStepRung;
-    } else ckout << "Not needed\n";
-
-    // Undo the opening kick
-    treeProxy.unKickCollStep(activeRung, 0.5*param.dDelta, CkCallbackResumeThread());
-
-    double dtSub = RungToDt(param.dDelta, activeRung);
-
-    int nSubsteps = pow(2, activeRung);
-    for (int iSub=1; iSub<=nSubsteps; iSub++) {
-        timings[activeRung].count++;
-        startTime = CkWallTimer();
-
-        // Opening kick
-        treeProxy.kick(activeRung, dKickFac, 0, 0, 0, duKick, CkCallbackResumeThread());
-        timings[activeRung].tKick += CkWallTimer() - startTime;
-            
-        // Collision detection + resolution
-        if (bParticlesShuffled) {
-            ckout << "Particles have been shuffled since last DD, re-sorting\n";
-            treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, CkCallbackResumeThread());
-            startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
-            }
-        startTime = CkWallTimer();
-        treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-        timings[activeRung].tTBuild += CkWallTimer() - startTime;
-
-        ckout << "Collision detection and resolution ... \n";
-        startTime = CkWallTimer();
-        doCollisions(dTime, param.dDelta, activeRung);
-        timings[activeRung].tColl += CkWallTimer() - startTime;
-
-        startTime = CkWallTimer();
-        treeProxy.finishNodeCache(CkCallbackResumeThread());
-        timings[activeRung].tCache += CkWallTimer() - startTime;
-
-        // Drift
-        startTime = CkWallTimer();
-        treeProxy.drift(dtSub, 0, 0, dtSub, dtSub, 0, 0, CkCallbackResumeThread());
-        timings[activeRung].tDrift += CkWallTimer() - startTime;
-        dTime += dtSub;
-
-        if (iSub == nSubsteps) activeRung = 0;
-
-	ckout << "\nStep: " << (iStep + ((double) iSub)/nSubsteps)
-              << " Time: " << dTime
-              << " Rung: " << activeRung << " ";
-            
-	countActive(activeRung);
-
-	// Domain decomposition
-	bool bDoDD = param.dFracNoDomainDecomp*nTotalParticles < nActiveGrav;
-        startTime = CkWallTimer();
-	if (bDoDD) startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), bDoDD);
-	else {
-        CkReductionMsg *isTPEmpty;
-        treeProxy.unshuffleParticlesWoDD(CkCallbackResumeThread((void*&)isTPEmpty));
-
-        if (*((int*)isTPEmpty->getData())) {
-            startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), bDoDD);
-            }
-        }
-        timings[activeRung].tDD += CkWallTimer() - startTime;
-
-         // Load balancing
-        ckout << "Load balancer ... \n";
-        startTime = CkWallTimer();
-        treeProxy.startlb(CkCallbackResumeThread(), activeRung);
-        timings[activeRung].tLoadB += CkWallTimer() - startTime;
-
-        // Tree build
-        ckout << "Building trees ... \n";
-        startTime = CkWallTimer();
-        treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-        timings[activeRung].tTBuild += CkWallTimer() - startTime;
-
-        // Gravity calculations
-        CkCallback cbGravity(CkCallback::resumeThread);
-        startTime = CkWallTimer();
-        if (param.bDoGravity) {
-            updateSoft();
-            ckout << "Calculating gravity (tree bucket, theta = " << theta << ") ... ";
-            treeProxy.startGravity(activeRung, theta, cbGravity);
-        }
-        else treeProxy.initAccel(activeRung, CkCallbackResumeThread());
-
-        if (param.bDoExternalGravity) {
-            CkReductionMsg *msgFrameAcc;
-            treeProxy.externalGravity(0, param.externalGravity,
-                                CkCallbackResumeThread((void*&)msgFrameAcc));
-            double *frameAcc = (double *)msgFrameAcc->getData();
-            Vector3D<double> frameAccVec(frameAcc[0], frameAcc[1], frameAcc[2]);
-            treeProxy.applyFrameAcc(0, frameAccVec, CkCallbackResumeThread());
-            delete msgFrameAcc;
-            }
-        timings[activeRung].tGrav += CkWallTimer() - startTime;
-
-        waitForGravity(cbGravity, startTime, activeRung);
-
-        // Closing kick
-        startTime = CkWallTimer();
-        treeProxy.kick(activeRung, dKickFac, 1, 0, 0, duKick, CkCallbackResumeThread());
-
-        startTime = CkWallTimer();
-        treeProxy.finishNodeCache(CkCallbackResumeThread());
-        timings[activeRung].tCache += CkWallTimer() - startTime;
-        }
-
-    treeProxy.resetRungs(CkCallbackResumeThread());
-    if (param.collision.bDelEjected) {
-        treeProxy.delEjected(param.collision.dDelDist, CkCallbackResumeThread());
-        addDelParticles();
-        }
-    }
-
-#endif
+}
 
 ///
 /// @brief Take one base timestep of the simulation.
@@ -2392,6 +2218,7 @@ void Main::advanceBigStep(int iStep) {
 	  }
 
       double dTimeSub = RungToDt(param.dDelta, driftRung);
+      double startTime;
       // Drift of smallest step
       for(int iSub = 0; iSub < driftSteps; iSub++) 
 	  {
@@ -2412,12 +2239,12 @@ void Main::advanceBigStep(int iStep) {
                   // before the sort.
                   treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                         CkCallbackResumeThread());
-                  startSorting(dataManagerID, ddTolerance,
+                  sorter.startSorting(dataManagerID, ddTolerance,
                                           CkCallbackResumeThread(), true);
                   }
 
               treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
-              double startTime = CkWallTimer();
+              startTime = CkWallTimer();
               doCollisions(dTime, param.dDelta, activeRung, iStep, param.externalForce.dCentMass);
               double tColl = CkWallTimer() - startTime;
               timings[activeRung].tColl += tColl;
@@ -3373,7 +3200,7 @@ Main::doSimulation()
 	  treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reordering ...";
           startTime = CkWallTimer();
-	  reOrder(nMaxOrder, CkCallbackResumeThread());
+	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
           if(param.iBinaryOut == 6) {
               // Set up N-Chilada directory structure
@@ -3408,7 +3235,7 @@ Main::doSimulation()
               treeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
 	  }
       else {
-	  reOrder(nMaxOrder, CkCallbackResumeThread());
+	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
 	  }
 
       writeOutput(0);
@@ -3539,7 +3366,7 @@ Main::doSimulation()
 	  treeProxy.finishNodeCache(CkCallbackResumeThread());
           ckout << "Reodering ...";
           startTime = CkWallTimer();
-	  reOrder(nMaxOrder, CkCallbackResumeThread());
+	  treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
 	  ckout << "Outputting densities ...";
 	  startTime = CkWallTimer();
@@ -3801,7 +3628,7 @@ void Main::writeOutput(int iStep)
 	startTime = CkWallTimer();
 	}
     
-    reOrder(nMaxOrder, CkCallbackResumeThread());
+    treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
     if(verbosity)
 	ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	      << endl;
@@ -4126,7 +3953,7 @@ void Main::writeOutput(int iStep)
 	    ckout << "Reodering ...";
 	    }
 	startTime = CkWallTimer();
-	reOrder(nMaxOrder, CkCallbackResumeThread());
+	treeProxy.reOrder(nMaxOrder, CkCallbackResumeThread());
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		  << endl;
@@ -4716,16 +4543,6 @@ void Main::turnProjectionsOff(){
   }
 }
 #endif
-
-void Main::startSorting(const CkGroupID& dataManagerID, const double toler, const CkCallback& cb, bool decompose) {
-    sorter.startSorting(dataManagerID, toler, cb, decompose);
-    bParticlesShuffled = 0;
-    }
-
-void Main::reOrder(int64_t& nMaxOrder, const CkCallback& cb) {
-    treeProxy.reOrder(nMaxOrder, cb);
-    bParticlesShuffled = 1;
-    }
 
 const char *typeString(NodeType type);
 

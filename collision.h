@@ -69,12 +69,13 @@ public:
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
-    int doCollision(GravityParticle* p, const ColliderInfo &c);
+    int doCollision(GravityParticle* p, const ColliderInfo &c, double dCentMass);
     void doMerger(GravityParticle* p, const ColliderInfo &c);
     void doBounce(GravityParticle* p, const ColliderInfo &c);
     int doMergeOrBounce(GravityParticle* p, const ColliderInfo &c);
     int doTakashi(GravityParticle* p, const ColliderInfo &c);
     void doPartialAcc(GravityParticle* p, const ColliderInfo &c);
+    int doTidalAcc(GravityParticle *p, const ColliderInfo &c, double dCentMass);
     GravityParticle* makeFragment();
     int checkMerger(const ColliderInfo &c1, const ColliderInfo &c2);
     double LastKickTime(int rung, double baseTime, double timeNow);

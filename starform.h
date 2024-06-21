@@ -91,10 +91,6 @@ class StarLogEvent
 #ifdef COOLING_MOLECULARH
  StarLogEvent() : iOrdGas(-1),	timeForm(0),rForm(0),vForm(0),
       massForm(0),rhoForm(0),TForm(0),H2FracForm(0){}
-#else
- StarLogEvent() : iOrdGas(-1),	timeForm(0),rForm(0),vForm(0),
-      massForm(0),rhoForm(0),TForm(0){}
-#endif
     StarLogEvent(GravityParticle *p, double dCosmoFac, double TempForm, double H2FractionForm) {
 #else
  StarLogEvent() : iOrdGas(-1),	timeForm(0),rForm(0),vForm(0),

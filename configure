@@ -4483,6 +4483,21 @@ fi
 
 
 
+# solid-body collision detection
+	# Check whether --enable-collision was given.
+if test "${enable_collision+set}" = set; then :
+  enableval=$enable_collision; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-collision': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=yes
+fi
+
+	if test x$val = xyes; then FLAG_COLLISION=-DCOLLISION; else FLAG_COLLISION=""; fi
+
+
+
 # 128 bit keys:
 	# Check whether --enable-bigkeys was given.
 if test "${enable_bigkeys+set}" = set; then :
@@ -6973,7 +6988,7 @@ echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
-echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER $FLAG_COLLISION
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
 

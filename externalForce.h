@@ -16,6 +16,7 @@ public:
     double dJ2;              ///< Oblateness coefficients of central body
     double dJ4;
     double dJ6;
+    int bLogarithmicHalo;    ///< Type of halo is logarithmic
     int bDoGasDrag;       /* Apply gas drag force to planetesimals */
     double dRadInfGas;       /* Inflation factor for radius of particles, used for gas drag calculations */
     double dSigma0;       /* Gas surface density at 1 AU */
