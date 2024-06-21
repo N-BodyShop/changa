@@ -621,8 +621,6 @@ public:
 	void liveVizImagePrep(liveVizRequestMsg *msg);
         void doSIDM(double dTime,double dDelta, int activeRung); /* SIDM */
         void restartNSIDM();
-    void startSorting(const CkGroupID& dataManagerID, const double toler, const CkCallback& cb, bool decompose);
-    void reOrder(int64_t& nMaxOrder, const CkCallback& cb);
 };
 
 /* IBM brain damage */

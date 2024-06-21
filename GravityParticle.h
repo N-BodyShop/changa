@@ -325,12 +325,14 @@ class ExternalSmoothParticle;
 class GravityParticle : public ExternalGravityParticle {
 public:
         Vector3D<cosmoType> velocity;
+	Vector3D<cosmoType> vPred;
 	Vector3D<cosmoType> treeAcceleration;
 	cosmoType potential;
         cosmoType dtGrav;       ///< timestep from gravity; N.B., this
                                 ///  is actually stored as (1/time^2)
                                 ///  since the gravity calculation
                                 ///  naturally gives us (G M/R^3).
+        cosmoType dtKep;
         cosmoType fBall;           ///< Neighbor search radius for smoothing
         cosmoType fDensity;
         int rung;  ///< the current rung (greater means faster)
@@ -373,7 +375,7 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
-          p | vPred;
+	  p | vPred;
           p | treeAcceleration;
           p | dtGrav;
           p | dtKep;
@@ -602,7 +604,7 @@ class ExternalSmoothParticle {
   double dtCol;
   int iOrderCol;
 #endif
-  Vector3D<double> vPred;
+  Vector3D<cosmoType> vPred;
   Vector3D<cosmoType> treeAcceleration;
   double mumax;
   double PdV;
@@ -660,7 +662,6 @@ class ExternalSmoothParticle {
 	  fDensity = p->fDensity;
 	  position = p->position;
 	  velocity = p->velocity;
-	  vPred = p->vPred;
 	  iOrder = p->iOrder;
 	  iType = p->iType;
 	  rung = p->rung;
@@ -672,6 +673,7 @@ class ExternalSmoothParticle {
       iOrderCol = p->iOrderCol;
 #endif
 	  if(TYPETest(p, TYPE_GAS)) {
+	      vPred = p->vPred;
 	      mumax = p->mumax();
               PdV = p->PdV();
               uDotPdV = p->uDotPdV();
@@ -735,7 +737,6 @@ class ExternalSmoothParticle {
       tmp->fDensity = fDensity;
       tmp->position = position;
       tmp->velocity = velocity;
-	  tmp->vPred = vPred;
       tmp->iOrder = iOrder;
       tmp->iType = iType;
       tmp->rung = rung;
@@ -747,6 +748,7 @@ class ExternalSmoothParticle {
       tmp->iOrderCol = iOrderCol;
 #endif
       if(TYPETest(tmp, TYPE_GAS)) {
+	  tmp->vPred = vPred;    
 	  tmp->mumax() = mumax;
           tmp->PdV() = PdV;
           tmp->uDotPdV() = uDotPdV;
