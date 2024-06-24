@@ -1845,7 +1845,6 @@ public:
     void placeOnCollRung(int iOrder, int collStepRung, const CkCallback& cb);
     void resetRungs(const CkCallback& cb);
     void getNeedCollStep(int collStepRung, const CkCallback& cb);
-    void makeFragments(Collision coll, const CkCallback& cb);
 #endif
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);

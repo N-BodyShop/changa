@@ -449,7 +449,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
                                  const ColliderInfo &c2, double baseStep,
                                  double timeNow, double dCentMass, const CkCallback& cb) {
     GravityParticle *p;
-    int iCollResult = -1;
+    int bBounce = 0;
     double eps = 1e-15; // Due to roundoff error, mass comparisons are approximate
     // Colliders need to be handled individually because only one
     // of the two could be on this tree piece
@@ -459,8 +459,8 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
     for (unsigned int i=1; i <= myNumParticles; i++) {
         p = &myParticles[i];
         if (p->iOrder == c1.iOrder) {
-            iCollResult = coll.doCollision(p, c2, dCentMass);
-            if (iCollResult == MERGE) {
+            bBounce = coll.doCollision(p, c2, dCentMass);
+            if (!bBounce == 0) {
 		if ((c1.mass > (c2.mass + eps*c2.mass)) || ((fabs(c1.mass - c2.mass)/c1.mass < eps) && (c1.iOrder < c2.iOrder))) {
                     CkPrintf("Merge %d into %d\n", c2.iOrder, p->iOrder);
                     coll.setMergerRung(p, c2, c1, baseStep, timeNow);
@@ -477,8 +477,8 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
     for (unsigned int i=1; i <= myNumParticles; i++) {
         p = &myParticles[i];
         if (p->iOrder == c2.iOrder) {
-            iCollResult = coll.doCollision(p, c1, dCentMass);
-            if (iCollResult == MERGE) {
+            bBounce = coll.doCollision(p, c1, dCentMass);
+            if (!bBounce) {
 		if ((c2.mass > (c1.mass + eps*c1.mass)) || ((fabs(c2.mass - c1.mass)/c1.mass < eps) && (c2.iOrder < c1.iOrder))) {
                     CkPrintf("Merge %d into %d\n", c1.iOrder, p->iOrder);
                     coll.setMergerRung(p, c1, c2, baseStep, timeNow);
@@ -492,7 +492,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
             }
         }
 
-    contribute(sizeof(int), &iCollResult, CkReduction::max_int, cb);
+    contribute(sizeof(int), &bBounce, CkReduction::max_int, cb);
     }
 
 /**
@@ -647,34 +647,28 @@ void Collision::doWallCollision(GravityParticle *p) {
 
 int Collision::doCollision(GravityParticle *p, const ColliderInfo &c, double dCentMass)
 {
-    int iCollType = -1;
+    int bBounce = 0;
 
     if (iCollModel == 0) {
         doMerger(p, c);
-        iCollType = MERGE;
+        bBounce = 0;
         }
     else if (iCollModel == 1) {
         doBounce(p, c);
-        iCollType = BOUNCE;
+        bBounce = 1;
         }
     else if (iCollModel == 2) {
-        iCollType = doMergeOrBounce(p, c);
+        bBounce = doMergeOrBounce(p, c);
         }
     else if (iCollModel == 3) {
-        doPartialAcc(p, c);
-        iCollType = FRAG;
-        }
-    else if (iCollModel == 4) {
-	iCollType = doTakashi(p, c);
+	bBounce = doTakashi(p, c);
 	}
     // Canup 95, surface escape velocity modified
     // by tidal force
-    else if (iCollModel == 5) {
-        iCollType = doTidalAcc(p, c, dCentMass);
-        if (iCollType == MERGE) doMerger(p, c);
-        else doBounce(p, c);
+    else if (iCollModel == 4) {
+        bBounce = doTidalAcc(p, c, dCentMass);
         }
-    return iCollType;
+    return bBounce;
     }
 
 void Collision::doMerger(GravityParticle *p, const ColliderInfo &c) {
@@ -716,14 +710,14 @@ int Collision::doMergeOrBounce(GravityParticle *p, const ColliderInfo &c) {
     double wMax = sqrt(Mtot/(radActual*radActual*radActual));
 
     double vRel = (p->velocity - c.velocity).length();
-    int iCollType = BOUNCE;
+    int bBounce = 1;
     if (vRel > (alpha*vEsc) || wNew.length() > wMax) doBounce(p, c);
     else {
         doMerger(p, c);
-        iCollType = MERGE;
+        bBounce = 0;
         }
 
-    return iCollType;
+    return bBounce;
     }
 
 int Collision::doTakashi(GravityParticle *p, const ColliderInfo &c) {
@@ -748,7 +742,7 @@ int Collision::doTakashi(GravityParticle *p, const ColliderInfo &c) {
     double wMax = sqrt(Mtot/(radNew*radNew*radNew));
 
 	
-    int iCollType = BOUNCE;
+    int bBounce = 1;
     if (vRel.length() > vCr || wNew.length() > wMax) {
        CkPrintf("Bounce\n");
        doBounce(p, c);
@@ -756,17 +750,12 @@ int Collision::doTakashi(GravityParticle *p, const ColliderInfo &c) {
     else {
 	CkPrintf("Merge\n");
         doMerger(p, c);
-        iCollType = MERGE;
+        bBounce = 0;
         }
     
-    return iCollType;
+    return bBounce;
     }
 
-
-void Collision::doPartialAcc(GravityParticle *p, const ColliderInfo &c) {
-    // Is it going to be a problem to do a bounce + mass transfer?
-    // Yes, might as well just follow the full recipie from L+S
-    }
 
 int Collision::doTidalAcc(GravityParticle *p, const ColliderInfo &c, double dCentMass) {
         // First, convert to Hill's coordinates
@@ -798,255 +787,15 @@ int Collision::doTidalAcc(GravityParticle *p, const ColliderInfo &c, double dCen
 
         // Merger criteria: Ej < 0 and mass center inside of rh
         //CkPrintf("Tidal collision: %g, %g, %g\n", Ej, (p->soft*2 + c.radius), rh);
+	int bBounce = 1;
         if (Ej < 0 && (p->soft*2 + c.radius) < rh) {
-            return MERGE;
+	    doMerger(p, c);
+	    bBounce = 0;
             }
-
-        return BOUNCE;
-         
-    }
-
-/*int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
-{
-    int iCollType = BOUNCE;
-    // Calculate the post collision spin and velocity of the particle
-    Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
-    double radNew;
-    if (bAllowMergers) {
-        // Determine the collision type
-        iCollType = MERGE;
-        mergeCalc(p->soft*2, p->mass, p->position, p->velocity, p->treeAcceleration,
-                  p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
-        double Mtot = p->mass + c.mass;
-        double vEsc = sqrt(2.*Mtot/(p->soft*2 + c.radius));
-        double wMax = sqrt(Mtot/(radNew*radNew*radNew));
-
-        double vRel = (p->velocity - c.velocity).length();
-        if (vRel > vEsc || wNew.length() > wMax) {
-            if (!bPerfectAcc) {
-                CkPrintf("Merger rejected\n");
-                iCollType = BOUNCE;
-                }
-            }
-    }
-
-    // If the particles are different sizes, p might not have its dtCol
-    // field set. Fix this before going any further.
-    p->dtCol = c.dtCol;
-
-    if (iCollType == MERGE) {
-        mergeCalc(p->soft*2., p->mass, p->position, p->velocity, p->treeAcceleration,
-                  p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
-        CkPrintf("Merger info:\niorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y\
-                  x2z xNewx xNewy xNewz v1x v1y v1z v2x v2y v2z vNewx vNewy vNewz\
-                   w1x w1y w1z w2x w2y w2z wNewx wNewy wNewz\n");
-        CkPrintf("%d %d %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\
-                  %g %g %g %g %g %g %g %g %g %g %g %g\n",
-                p->iOrder, c.iOrder, p->mass, c.mass, p->soft*2, c.radius,
-                p->position.x, p->position.y, p->position.z,
-                c.position.x, c.position.y, c.position.z,
-                posNew.x, posNew.y, posNew.z,
-                p->velocity.x, p->velocity.y, p->velocity.z,
-                c.velocity.x, c.velocity.x, c.velocity.z,
-                vNew.x, vNew.y, vNew.z,
-                p->w.x, p->w.y, p->w.z,
-                c.w.x, c.w.y, c.w.z,
-                wNew.x, wNew.y, wNew.z);
-        p->position = posNew;
-        p->treeAcceleration = aNew;
-        p->soft = radNew/2.;
-        p->mass += c.mass;
-                  
-        }
-    else {
-        bounceCalc(p->soft*2., p->mass, p->position, p->velocity, p->w, &vNew, &wNew, c);
-        }
-    p->velocity = vNew;
-    p->w = wNew;
-    p->dtKep = 0;
-
-    p->dtCol = DBL_MAX;
-
-    return iCollType;
-    }*/
-
-/// FRAGMENTATION CODE - STILL WORKING ON THIS
-/*
-int Collision::doCollision(GravityParticle *p, const ColliderInfo &c)
-{
-    // Calculate the post collision spin and velocity of the merged particle
-    Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
-    double radNew;
-    // Advance particle positions to moment of collision
-    pAdjust = c1.position + c1.velocity*c1.dtCol;
-    mergeCalc(c1.radius, c1.mass, pAdjust, c1.velocity, c1.acceleration,
-              c1.w, &posNew, &vNew, &wNew, &aNew, &radNew, c2);
-
-    double m = c2.mass;
-    double M = c1.mass;
-    double Mtot = M + m ;
-
-
-
-    double r = c.radius;
-    double R = p->soft*2;
-    Vector3D<double> vRel = (p->velocity - c.velocity);
-    double V_i = vRel.length();
-    Vector3D<double> pRel = (p->position - c.position);
-    double cos_theta = costheta(vRel, pRel);
-    double sintheta = sqrt(1 - pow(cos_theta,2));
-
-    double l = (R+r)*(1. - sintheta);
-    double alpha = (3.*r*(pow(l,2.)) - pow(l,3))/(4*pow(r,3));
-    double Mint = alpha * M;
-
-    //step 2 eq 53
-    double vEsc = sqrt(2.*Mint/(R + r));
-    double wMax = sqrt(Mtot/(radNew*radNew*radNew));
-
-
-    // step 3 eq 6
-    double b = sintheta;
-    double bcrit = R/R + r;
-    if (b > bcrit) {
-        CkPrintf ("grazing collision\n");
-        } else  {
-            CkPrintf ("nongrazing collision\n");
-        }
-
-    // step 4 a
-    double density = 5.028e-28;
-    double RC1 = Mtot/density;
-
-    //step 4b eq 28 and 30 
-    double cs = 1;
-    double dDenFac = 4./3.*M_PI;
-    double row1 = Mtot/(4./3.*dDenFac*pow(r,3));
-    double QsRD = (cs)*(4./5.)*dDenFac*row1 *(pow(RC1,2));
-    double Vsy = pow(32*dDenFac,0.5)/5.*pow(row1,0.5)*RC1;
-
-    //we defined alpha in line 700 upcoming is step c(idk what Mtarget is)
-    // step 4 c eq 12
-    double Mp = pow(4*r,3);
-    double Mtarget = M;
-    double mu = (M + m)/(M*m); 
-
-
-    // step 4d 
-    double Vs = QsRD*Vsy;
-
-    // step 4e for equation 15  i dont understand it's exponet and how to do square root ex on eq16
-    double Vbars = sqrt(1./alpha*pow(Vs,2));  
-    double mubar = 1; //set by user
-    double QsRDa = 1./ alpha * QsRD * pow(Vbars/Vs,2 - (3*mubar));
-    double Vsa = sqrt((2*(QsRDa)* Mtot)/mu);
-
-    //step 5 
-    // find qr
-
-    double Mlr = M;
-    double mtot = M + m;
-    double QR = ((QsRD - 1)*( Mlr/mtot - 0.5))/ - 0.5 ;
-
-    // finding Verosion = Vi = V_erosion changed name since we had defined it earlier..
-
-    double V_erosion = sqrt((mtot*QR)/(0.5*mu));
-    //step 6 (need to check code)
-    if (b > bcrit || vEsc < V_i < V_erosion) {
-            printf("Hit-and-run collision\n");
-    }
-
-    if (vRel.length() > vEsc || wNew.length() > wMax) {
-        if (!bPerfectAcc) {
-            CkPrintf("Merger rejected\n");
-            return 0;
-            }
-        }
-
-// step  7 eq 5 qnd 1
-    double QRn = (((Mlr/Mtot)-0.5)/-0.5)*(QsRDa - 1);
-    double Vsupercat = sqrt(QRn*2/mtot);
-    double mass_Mlr = QRn/QsRDa;
-    double beta = 2.85;
-    double Mslr = Mtot*((3 - beta)*(1 - (Mlr/Mtot))/(2*beta));
-        //equation 35
-
-    double C = beta*pow((3 - beta)*(Mtot - mass_Mlr)/4./3.*M_PI*row1*2*beta,beta/3.);
-
-
-    
-
-                double gammad= Mint/Mp;
-//equation23 step 4d
-                double QRDDS = pow(.25*pow(gammad+1,2)/gammad,2./((3*mubar)-1));
- 
-                double deltaV= 2e-3;
-                double A = -.3*Mlr/Mtot+.3;
-                double S = (pow(10,A))/ (log(10)*deltaV*((Mtot-Mlr)/Mtot));
-                Vector3D<double> Vlr = M*p->velocity + m*c.velocity;
-                double norm =((log10(Mslr*deltaV*S*log(10))-A)/-S)-(Vlr.length());
-
-                double speed_slr=((log10(Mslr*(deltaV/10)*S*log(10))-A)/-S)-norm;
-
-                // making u and v into a random number between 0-1 
-                double u = ((double) rand() / ((RAND_MAX)));
-                double v = ((double) rand() / ((RAND_MAX)));
-                double phi = acos((2*v)-1);
-                double theta = 2* M_PI * u ;
-                Vector3D<double> vn(sin(theta)* cos(phi), sin(theta)*sin(phi) , cos(theta)); 
-                Vector3D<double> x_hat = (1, 0, 0);
-                Vector3D<double> y_hat = (0, 1, 0);
-                Vector3D<double> z_hat = (0, 0, 1);
-
-                double psi = acos(costheta(-pRel, y_hat)); 
-                 theta = 0 ;
-                 phi = acos(costheta(-pRel, x_hat)); 
-
-                RotationMatrix<double> rot(psi,theta,phi);
-                Vector3D<double> vn_rotate =rot.rotate (vn);
-
-
-
-Vector3D<double> Vslr = vn_rotate * speed_slr;
-iCollType= FRAG;
-
-
-
-
-
-    // Mark the less massive particle to be consumed and deleted
-    if (c1.mass < c2.mass) return -1;
-    else return 1;
-    
-    }*/
         
-void TreePiece::makeFragments(Collision coll, const CkCallback& cb)
-{ 
-                GravityParticle *frag = coll.makeFragment();
-    newParticle (frag);
-    delete frag;
-    int counts[2] ;
-    counts[0] = 1; //number of particles formed
-    counts[1] = 0; //number of particles deleted
-
-    contribute(2*sizeof(int), counts, CkReduction::sum_int,cb);
+	return bBounce;
     }
-                GravityParticle* Collision:: makeFragment()
-{
-                GravityParticle *frag = new GravityParticle();
-                    frag->mass = 1e-50 ;
-                    frag->position.x = 1.5; 
-                    frag->position.y = 1.5;
-                    frag->position.z = 0;
-                    frag->velocity.x = 0; 
-                    frag->velocity.y = 0;
-                    frag->velocity.z = 0;
-                    frag->soft = .1/2;
-                TYPESet(frag, TYPE_DARK);
 
-                    CkPrintf("make fragment\n");
-                return frag ;
-                }
 /**
  * @brief Calculates the resulting velocity, spin and acceleration of a particle
  * as it merges with another particle.

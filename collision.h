@@ -3,14 +3,6 @@
 
 #include <float.h>
 
-enum CollTypes {
-    BOUNCE = 0,
-    MERGE = 1,
-    FRAG = 2,
-    EXPLODE = 3,
-    DISRUPT = 4
-};
-
 /// @brief Used to pass information about collision partners between processes
 class ColliderInfo {
 public:
@@ -60,7 +52,8 @@ public:
     double dCollStepFac;  /* Inflation factor for particle radius when searching for near-collisions*/
     int bLogOverlaps;     /* check for overlaps between particles */
     int bWall;            /* particles will bounce off a wall in the z plane */
-    int iCollModel;       /* collision model to use, 0 = merge only, 1 = bounce only, 2 = merge/bounce, 3 = partial accretion */
+    int iCollModel;       /* collision model to use, 0 = merge only, 1 = bounce only, 2 = merge/bounce v_esc, 
+			     3 = merge/bounce Takashi21, 4 = merge/bounce Canup95 */
     int iMRCollMin;       /* ignore multi-rung collisions before this step number */
     double dBallFac;      /* scale factor for collision search radius */
     double dWallPos;      /* location of wall along z axis */
@@ -74,7 +67,6 @@ public:
     void doBounce(GravityParticle* p, const ColliderInfo &c);
     int doMergeOrBounce(GravityParticle* p, const ColliderInfo &c);
     int doTakashi(GravityParticle* p, const ColliderInfo &c);
-    void doPartialAcc(GravityParticle* p, const ColliderInfo &c);
     int doTidalAcc(GravityParticle *p, const ColliderInfo &c, double dCentMass);
     GravityParticle* makeFragment();
     int checkMerger(const ColliderInfo &c1, const ColliderInfo &c2);
