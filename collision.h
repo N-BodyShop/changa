@@ -42,22 +42,21 @@ public:
 /// @brief Collision parameters and routines
 class Collision {
 public:
-    int nSmoothCollision; /* number of particles to search for collisions over */
-    int bDelEjected;      /* delete particles if they travel too far from the origin */
-    double dDelDist;      /* distance from origin before particles are deleted */
-    double dRadInf;       /* Inflation factor for particle radius, used for bounce vs merge check */
-    double dAlphaColl;    /* Multiplier for critical velocity */
-    int bCollStep;        /* timestepping set by near-collisions */
-    int iCollStepRung;    /* Rung to place nearly-colliding particles on*/
-    double dCollStepFac;  /* Inflation factor for particle radius when searching for near-collisions*/
-    int bLogOverlaps;     /* check for overlaps between particles */
+    double dBallFac;      /* scale factor for collision search radius */
+    double dRadInf;       /* inflation factor for particle radius, used for calculating v_crit */
+    double dAlphaColl;    /* multiplier for critical velocity when using Takashi collision model */
+    int bCollStep;        /* near-colliding particles placed on iCollStepRung */
+    int iCollStepRung;    /* rung to place nearly-colliding particles on*/
+    double dCollStepFac;  /* inflation factor for particle radius when searching for near-collisions*/
+    int bLogOverlaps;     /* check for overlaps between particles and print to a file */
     int bWall;            /* particles will bounce off a wall in the z plane */
+    double dWallPos;      /* location of wall along z axis */
     int iCollModel;       /* collision model to use, 0 = merge only, 1 = bounce only, 2 = merge/bounce v_esc, 
 			     3 = merge/bounce Takashi21, 4 = merge/bounce Canup95 */
     int iMRCollMin;       /* ignore multi-rung collisions before this step number */
-    double dBallFac;      /* scale factor for collision search radius */
-    double dWallPos;      /* location of wall along z axis */
     double dEpsN, dEpsT;  /* normal and transverse coefficients of restitution */
+    int bDelEjected;      /* delete particles if they travel too far from the origin */
+    double dDelDist;      /* max distance from origin before particles are deleted */
     int bSkipP0;          /* Don't do a collision check for the first particle */
 
     void AddParams(PRM prm);
@@ -88,7 +87,6 @@ public:
     };
 
 inline void Collision::pup(PUP::er &p) {
-    p | nSmoothCollision;
     p | bCollStep;
     p | bLogOverlaps;
     p | iCollStepRung;

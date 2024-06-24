@@ -31,11 +31,6 @@ void Collision::AddParams(PRM prm)
         sizeof(int), "bCollStep", "<Place particles on a near-collision trajectory\
                                     on a high rung> = 0");
 
-    nSmoothCollision = 64;
-    prmAddParam(prm, "nSmoothCollision", paramInt, &nSmoothCollision,
-        sizeof(int), "nSmoothCollision", "<number of particles to do collision\
-                                           search over> = 64");
-
     iCollStepRung = 7;
     prmAddParam(prm, "iCollStepRung", paramInt, &iCollStepRung,
         sizeof(int), "iCollStepRung", "<Rung to place nearly-colliding particles on> = 7");
@@ -96,19 +91,19 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
     if (param.iCollModel != 1)
         CkAbort("ChaNGa must be compiled without the CHANGESOFT flag to allow for particle radii to grow during mergers\n");
 #endif
-    if (param.iCollModel == 5 && ~param.externalForce.bCentralBody)
-        CkAbort("Cannot calculate tidal force without bCentralBody enabled\n");
-   if (param.iCollModel > 5)
+   if (param.iCollModel > 4)
        CkAbort("Invalid Collision Model number\n");
-    }
+   if (param.iCollModel == 4 && !param.externalForce.bCentralBody)
+       CkAbort("Cannot calculate tidal force without bCentralBody enabled\n");
+   }
 
 /**
  * @brief Remove particles that are too far from the origin
  *
  * Because we are not using gravitational softening when resolving collisions,
  * scattering events can occasionally be very strong and throw particles to
- * very large distances, which causes ChaNGa to hang. Since these particles
- * are usually no longer important, we just delete them once they get far enough
+ * large distances, which breaks domain decomposition. Since these particles
+ * are usually no longer important, we delete them once they get far enough
  * away.
  *
  * @param dDelDist Distance from the origin beyond which a particle is deleted
@@ -127,7 +122,8 @@ void TreePiece::delEjected(double dDelDist, const CkCallback& cb)
     }
 
 /**
- * @brief Predict near approaches between particles
+ * @brief Predict near approaches between particles for use with collision
+ * stepping
  *
  * A near-collision search is done using SmoothParams, where the 'rung' 
  * field of all particles which will undergo a near collision in the next
@@ -139,17 +135,20 @@ void TreePiece::delEjected(double dDelDist, const CkCallback& cb)
  */
 void Main::doNearCollisions(double dTime, double dDelta, int activeRung)
 {
+    // Set the dtCol fields for all particles using the near collision
+    // cross section
     CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta,
        param.collision.bWall, param.collision.dWallPos,
        param.collision.iCollModel, 1, param.collision);
     treeProxy.startReSmooth(&pCS, CkCallbackResumeThread());
 
-    // Need to ensure that both near-colliding particles end up on the collision rung
+    // Make sure both near-colliders in each pair know about the event
     CkReductionMsg *msgChk;
     treeProxy.getNearCollPartners(CkCallbackResumeThread((void*&)msgChk));
     int numIords = msgChk->getSize()/sizeof(int);
     int *data = (int *)msgChk->getData();
 
+    // Finally, place the particles on the collision rung
     for (int i=0; i < numIords; i++) {
         treeProxy.placeOnCollRung(data[i], param.collision.iCollStepRung, CkCallbackResumeThread());
         }
@@ -202,18 +201,17 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
     do {
         bHasCollision = 0;
 
-        // Use the smooth framework to search for imminent collisions
+        // Use the fixed ball neighbor search to find imminent collisions
         // This sets the 'dtCol' and 'iOrderCol' fields for the particles
         CollisionSmoothParams pCS(TYPE_DARK, activeRung, dTime, dDelta, 
            param.collision.bWall, param.collision.dWallPos,
            param.collision.iCollModel, 0, param.collision);
         treeProxy.startReSmooth(&pCS, CkCallbackResumeThread());
 
-	// Go through every tree piece and print out iOrder and iOrderCol
-        // for every particle that has iOrderCol set
+	// Log the iOrder and iOrderCol of every particle that has an overlap
 	if (param.collision.bLogOverlaps) {
             treeProxy.logOverlaps(CkCallbackResumeThread());
-	    break;
+	    CkAbort("All overlaps have been written to logfile. Stopping here.\n");
 	    }
 
         // Once 'dtCol' and 'iOrderCol' are set, we need to determine which
@@ -222,8 +220,8 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
         treeProxy.getCollInfo(CkCallbackResumeThread((void*&)msgChk));
         ColliderInfo *c = (ColliderInfo *)msgChk->getData();
 
-        // If only one particle detected the imminent collision (due to different search
-        // radii or velocities), we need to go back and ask for the second collider
+	// Since particles can have different search radii, we need to find each collider
+	// on the TreePieces separately
         if (c[0].dtCol <= dDelta && c[1].dtCol > dDelta) {
             treeProxy.getCollInfo(c[0].iOrderCol, CkCallbackResumeThread((void*&)msgChk));
             c[1] = *(ColliderInfo *)msgChk->getData();
@@ -251,7 +249,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
                     CkAbort("Warning: Collider pair mismatch\n");
                     }
 		// Only allow same-rung collisions until a minimum step number is reached
-		// Prevents runaway growth from starting at rung boundaries in a Keplerian disk
+		// Prevents runaway growth from triggering at rung boundaries in a Keplerian disk
 		if ((c[0].rung == c[1].rung) || (iStep > param.collision.iMRCollMin)) {
                     nColl++;
                     CkReductionMsg *msgChk1;
@@ -265,21 +263,20 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
                     delete msgChk1;
                     }
                 // Otherwise, force both particles onto the smaller rung
-                // Collision should get detected again
+                // Collision will get detected again on the next pass thru the loop
                 else {
                     CkPrintf("%d and %d colliding on rungs %d and %d, skipping collision and forcing lower rung\n", c[0].iOrder, c[1].iOrder, c[0].rung, c[1].rung);
                     treeProxy.sameHigherRung(c[0].iOrder, c[0].rung, c[1].iOrder, c[1].rung, CkCallbackResumeThread());
                     }
                 }
             }
-        delete msgChk;
+            delete msgChk;
 
-        // Velocities and positions may have changed, keep looking for collisions
+	// Resolving a collision alters particle positions + velocities
+	// We might have created another imminent collision, so go back and check
         } while (bHasCollision);
 
         // Clean up any merged particles
-        //if (nColl) addDelParticles();
-        // externalForce deletes particles that get too close to star, need to call addDelparticles for that too
         addDelParticles();
     }
 
@@ -316,6 +313,9 @@ Main::logCollision(double dTime, ColliderInfo *c, int collType, const char *achC
               c[1].w[0], c[1].w[1], c[1].w[2]);
     }
 
+/**
+ * @brief Record iOrders of all overlapping particles to logfile
+ */
 void TreePiece::logOverlaps(const CkCallback& cb)
 {
     FILE *fpLog = fopen("overlap.log", "a");
@@ -417,7 +417,7 @@ void TreePiece::getCollInfo(int iOrder, const CkCallback& cb)
  * @brief Resolves a collision between a particle and a wall, if the particle
  * resides on this tree piece.
  *
- * @param coll A reference to the collision class that handles collision physics
+ * @param coll A reference to the class that handles collision physics
  * @param c1 Information about the particle that is undergoing a collision
  */
 void TreePiece::resolveWallCollision(Collision coll, const ColliderInfo &c1, 
@@ -437,10 +437,15 @@ void TreePiece::resolveWallCollision(Collision coll, const ColliderInfo &c1,
 /**
  * @brief Resolves a collision between two particles, if either of them resides
  * on this tree piece.
+ * 
+ * Contribute a bool to the main thread which indicates whether the collision
+ * resulted in a bounce, or a merger.
+ * To be consistent with genga, in the event of a merger the less massive
+ * particle is deleted. For equal masses, the higher iOrder is deleted
  *
  * @param coll The collision class object that handles collision physics
  * @param c1 Information about the first particle that is undergoing a collision
- * @param c2 Information about the first particle that is undergoing a collision
+ * @param c2 Information about the second particle that is undergoing a collision
  * @param bMerge Whether the collision should result in a merger
  * @param baseStep The size of the current step on this rung
  * @param timeNow The current simulation time
@@ -448,11 +453,10 @@ void TreePiece::resolveWallCollision(Collision coll, const ColliderInfo &c1,
 void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
                                  const ColliderInfo &c2, double baseStep,
                                  double timeNow, double dCentMass, const CkCallback& cb) {
-    GravityParticle *p;
     int bBounce = 0;
     double eps = 1e-15; // Due to roundoff error, mass comparisons are approximate
-    // Colliders need to be handled individually because only one
-    // of the two could be on this tree piece
+    GravityParticle *p;
+
     // To be consistent with genga, in the event of a merger,
     // the less massive particle is deleted
     // If both have the same mass, the higher iorder is deleted
@@ -514,6 +518,12 @@ void TreePiece::unKickCollStep(int iKickRung, double dDeltaBase, const CkCallbac
     contribute(cb);
     }
 
+/**
+ * @brief Find a particle and place on the specified rung
+ *
+ * @param iOrder The iOrder of the particle to search for
+ * @param collStepRung The rung to place the particle onto
+ */
 void TreePiece::placeOnCollRung(int iOrder, int collStepRung, const CkCallback& cb) {
     for (unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle*p = &myParticles[i];
@@ -522,6 +532,12 @@ void TreePiece::placeOnCollRung(int iOrder, int collStepRung, const CkCallback& 
     contribute(cb);
     }
 
+/*
+ * @brief Place two colliding particles on the same rung, whichever is highest
+ *
+ * @param iord1, iord2 The iOrders of the colliding particles
+ * @param rung1, rung2 The current rungs of the colliding particles
+ */
 void TreePiece::sameHigherRung(int iord1, int rung1, int iord2, int rung2, const CkCallback& cb) {
     for (unsigned int i = 1; i <= myNumParticles; ++i) {
         GravityParticle *p = &myParticles[i];
@@ -548,7 +564,7 @@ void TreePiece::sameHigherRung(int iord1, int rung1, int iord2, int rung2, const
 /**
  * @brief Place all particles back on rung 0
  *
- * This function is used at the end a collision stepping big step
+ * This function is used after a step is taken with collision stepping
  */
 void TreePiece::resetRungs(const CkCallback& cb)
 {
@@ -597,8 +613,8 @@ double Collision::LastKickTime(int rung, double baseTime, double timeNow)
     }
 
 /**
- * @brief Correct the velocity of a particle resulting from a merger if the two
- * particles that merged were on different rungs.
+ * @brief Correct the velocity of a post-merger particle if the two colliders
+ * were on different rungs.
  *
  * @param p A reference to the particle resulting from the merger
  * @param c Information about the less massive particle in the merger
@@ -612,6 +628,7 @@ void Collision::setMergerRung(GravityParticle *p, const ColliderInfo &c, const C
     double m1 = c.mass;
     double m2 = cMerge.mass;
     double m = m1 + m2;
+    // TODO remove this function and its invocations
     // Since the lower rung particle gets forced onto the higher rung before this point
     // We should never reach this part of the code any more
     if (c.rung != cMerge.rung) {
@@ -637,7 +654,6 @@ void Collision::setMergerRung(GravityParticle *p, const ColliderInfo &c, const C
  * @param p A reference to the particle that is undergoing a collision
  */
 void Collision::doWallCollision(GravityParticle *p) {
-    // TODO: update spin field
     p->velocity[2] *= -dEpsN;
 
     Vector3D<double> vPerp = (0., 0., p->velocity[2]);
@@ -645,6 +661,16 @@ void Collision::doWallCollision(GravityParticle *p) {
     p->velocity -= vParallel*(1.-dEpsT);
     }
 
+/**
+ * @brief Call the proper routine to handle a collision, based on which collision
+ * model we are using.
+ *
+ * @param p The particle whose properties are to be updated
+ * @param c Info about the other collider
+ * @param dCentMass Mass of the central body
+ *
+ * Returns whether the collision resulted in a bounce or a merge.
+ */
 int Collision::doCollision(GravityParticle *p, const ColliderInfo &c, double dCentMass)
 {
     int bBounce = 0;
@@ -660,6 +686,8 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c, double dCe
     else if (iCollModel == 2) {
         bBounce = doMergeOrBounce(p, c);
         }
+    // Takashi 21, surface escape velocity modified by semianalytic factor
+    // measured in high-res collision sims
     else if (iCollModel == 3) {
 	bBounce = doTakashi(p, c);
 	}
@@ -698,7 +726,6 @@ void Collision::doBounce(GravityParticle *p, const ColliderInfo &c) {
     }
 
 int Collision::doMergeOrBounce(GravityParticle *p, const ColliderInfo &c) {
-    double alpha = 1;
     double radNew;
     Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
     mergeCalc(p->soft*2, p->mass, p->position, p->velocity, p->treeAcceleration,
@@ -711,7 +738,7 @@ int Collision::doMergeOrBounce(GravityParticle *p, const ColliderInfo &c) {
 
     double vRel = (p->velocity - c.velocity).length();
     int bBounce = 1;
-    if (vRel > (alpha*vEsc) || wNew.length() > wMax) doBounce(p, c);
+    if (vRel > vEsc || wNew.length() > wMax) doBounce(p, c);
     else {
         doMerger(p, c);
         bBounce = 0;
