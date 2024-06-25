@@ -287,6 +287,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
 void
 Main::logCollision(double dTime, ColliderInfo *c, int collType, const char *achCollLogFileName)
 {
+    // TODO would be nice to write this data to a file, but this causes way too much I/O
     /*static int first = 1;
     FILE *fpLog = fopen(achCollLogFileName, "a");
     if(first && (!bIsRestarting || dTimeOld == 0.0)) {
@@ -467,7 +468,6 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
             if (!bBounce == 0) {
 		if ((c1.mass > (c2.mass + eps*c2.mass)) || ((fabs(c1.mass - c2.mass)/c1.mass < eps) && (c1.iOrder < c2.iOrder))) {
                     CkPrintf("Merge %d into %d\n", c2.iOrder, p->iOrder);
-                    coll.setMergerRung(p, c2, c1, baseStep, timeNow);
                 }
                 else {
                     CkPrintf("Delete %d\n", p->iOrder);
@@ -485,7 +485,6 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
             if (!bBounce) {
 		if ((c2.mass > (c1.mass + eps*c1.mass)) || ((fabs(c2.mass - c1.mass)/c1.mass < eps) && (c2.iOrder < c1.iOrder))) {
                     CkPrintf("Merge %d into %d\n", c1.iOrder, p->iOrder);
-                    coll.setMergerRung(p, c1, c2, baseStep, timeNow);
                 }
                 else {
                     CkPrintf("Delete %d\n", p->iOrder);
@@ -611,41 +610,6 @@ double Collision::LastKickTime(int rung, double baseTime, double timeNow)
     int nRungSteps = (int)(timeNow/rungTime);
     return timeNow - (rungTime*nRungSteps);
     }
-
-/**
- * @brief Correct the velocity of a post-merger particle if the two colliders
- * were on different rungs.
- *
- * @param p A reference to the particle resulting from the merger
- * @param c Information about the less massive particle in the merger
- * @param cMerge Information about the more massive particle
- * @param baseStep The timestep size on the lowest rung
- * @param timeNow The current time in the simulation
- */
-void Collision::setMergerRung(GravityParticle *p, const ColliderInfo &c, const ColliderInfo &cMerge,
-                              double baseStep, double timeNow)
-{
-    double m1 = c.mass;
-    double m2 = cMerge.mass;
-    double m = m1 + m2;
-    // TODO remove this function and its invocations
-    // Since the lower rung particle gets forced onto the higher rung before this point
-    // We should never reach this part of the code any more
-    if (c.rung != cMerge.rung) {
-        CkPrintf("Multi-rung merger %d %d, %d %d\n", c.iOrder, c.rung, cMerge.iOrder, cMerge.rung);
-        double lastkick1 = LastKickTime(c.rung, baseStep, timeNow);
-        double lastkick2 = LastKickTime(cMerge.rung, baseStep, timeNow);
-        p->rung = c.rung;
-        if (lastkick1 > lastkick2) {
-            p->velocity += (m1/m)*c.acceleration*(lastkick1-lastkick2);
-            }
-        else {
-            p->velocity += (m1/m)*cMerge.acceleration*(lastkick2-lastkick1);
-            }
-        }
-    }
-
-
 
 /**
  * @brief Update the velocity of a particle after it undergoes a collision
