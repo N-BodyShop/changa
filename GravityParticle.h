@@ -332,7 +332,7 @@ public:
                                 ///  is actually stored as (1/time^2)
                                 ///  since the gravity calculation
                                 ///  naturally gives us (G M/R^3).
-        cosmoType dtKep;
+        cosmoType dtKep;        ///  dtGrav at pericenter
         cosmoType fBall;           ///< Neighbor search radius for smoothing
         cosmoType fDensity;
         int rung;  ///< the current rung (greater means faster)

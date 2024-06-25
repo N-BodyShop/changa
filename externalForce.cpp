@@ -291,11 +291,10 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p, int bKepS
         double rPeri = sma*(1 - ecc_val);
         double arPeri = -dCentMass/pow(rPeri, 2);
         
-        // Only allow dtKep to be set on the first timestep
+        // Only allow dtKep to be set if its uninitalized
         if (p->dtKep == 0) {
           p->dtKep = fabs(arPeri/rPeri);
           }
-        //if (p->rung > 10) CkPrintf("Large rung rperi: %g\n", rPeri);
 
         if (rPeri < dCentRad) { 
             CkPrintf("Particle %d will collide with star, deleting\n", p->iOrder);
@@ -331,6 +330,9 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p, int bKepS
     return pFrameAcc;
     }
 
+/*
+ * @brief Set the dtKep field of all particles back to zero
+ */
 void TreePiece::resetDtKep(const CkCallback& cb)
 {
     for (unsigned int i = 1; i<= myNumParticles; ++i) {

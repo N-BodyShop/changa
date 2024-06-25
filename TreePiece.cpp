@@ -1677,7 +1677,6 @@ void TreePiece::initAccel(int iKickRung, const CkCallback& cb)
 	    myParticles[i].treeAcceleration = 0;
 	    myParticles[i].potential = 0;
 	    myParticles[i].dtGrav = 0;
-        //myParticles[i].dtKep = 0;
 	    }
 	}
 
@@ -3641,7 +3640,6 @@ void TreePiece::initBuckets() {
         myParticles[i].treeAcceleration = 0;
         myParticles[i].potential = 0;
 	myParticles[i].dtGrav = 0;
-    //myParticles[i].dtKep = 0;
 	// node->boundingBox.grow(myParticles[i].position);
         if(bComove && !bPeriodic) {
             /*
