@@ -699,6 +699,13 @@ int Collision::doCollision(GravityParticle *p, const ColliderInfo &c, double dCe
     return bBounce;
     }
 
+/*
+ * @brief Update the state of a particle as it undergoes a merger with another
+ * body
+ *
+ * @param p The particle whose properties are being updated
+ * @param c The particle with which it collided
+ */
 void Collision::doMerger(GravityParticle *p, const ColliderInfo &c) {
     Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
     double radNew;
@@ -715,6 +722,13 @@ void Collision::doMerger(GravityParticle *p, const ColliderInfo &c) {
     p->dtCol = DBL_MAX;
     }
 
+/*
+ * @brief Update the state of a particle as it undergoes a bounce off another
+ * body
+ *
+ * @param p The particle whose properties are being updated
+ * @param c The particle with which it collided
+ */
 void Collision::doBounce(GravityParticle *p, const ColliderInfo &c) {
     Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
     bounceCalc(p->soft*2., p->mass, p->position, p->velocity, p->w, &vNew, &wNew, c);
@@ -725,12 +739,22 @@ void Collision::doBounce(GravityParticle *p, const ColliderInfo &c) {
     p->dtCol = DBL_MAX;
     }
 
+/*
+ * @brief Either merge or bounce a particle during a collision, depending on
+ * its collision velocity and post-merger spin
+ *
+ * Note that a full merge calculation must be done to determine post-merger
+ * spin
+ *
+ * @param p The particle whose properties are being updated
+ * @param c The particle with which it collided
+ */
 int Collision::doMergeOrBounce(GravityParticle *p, const ColliderInfo &c) {
     double radNew;
     Vector3D<double> posNew, vNew, wNew, aNew, pAdjust;
     mergeCalc(p->soft*2, p->mass, p->position, p->velocity, p->treeAcceleration,
               p->w, &posNew, &vNew, &wNew, &aNew, &radNew, c);
-    // Use the actual radius of the body here, not the inflated collision cross section
+    // Use the non-inflated radius of the body when determining outcome
     double radActual = radNew/dRadInf;
     double Mtot = p->mass + c.mass;
     double vEsc = sqrt(2.*Mtot/((p->soft*2 + c.radius)/dRadInf));
@@ -784,6 +808,16 @@ int Collision::doTakashi(GravityParticle *p, const ColliderInfo &c) {
     }
 
 
+/*
+ * @brief Bounce or merge two particles based on their Jacobi energy in a
+ * tidal potential
+ *
+ * See Canup 1995 for details
+ *
+ * @param p The particle whose properties are being updated
+ * @param c The particle with which it collided
+ * @param dCentMass Mass of the body at the center of potential well
+ */
 int Collision::doTidalAcc(GravityParticle *p, const ColliderInfo &c, double dCentMass) {
         // First, convert to Hill's coordinates
         double m1 = p->mass;
@@ -813,7 +847,6 @@ int Collision::doTidalAcc(GravityParticle *p, const ColliderInfo &c, double dCen
                      - ((m1 + m2)/r.length()) + (4.5*rh*rh*omegaSq);
 
         // Merger criteria: Ej < 0 and mass center inside of rh
-        //CkPrintf("Tidal collision: %g, %g, %g\n", Ej, (p->soft*2 + c.radius), rh);
 	int bBounce = 1;
         if (Ej < 0 && (p->soft*2 + c.radius) < rh) {
 	    doMerger(p, c);
@@ -824,11 +857,11 @@ int Collision::doTidalAcc(GravityParticle *p, const ColliderInfo &c, double dCen
     }
 
 /**
- * @brief Calculates the resulting velocity, spin and acceleration of a particle
- * as it merges with another particle.
+ * @brief Calculates the resulting position, velocity, spin and acceleration of
+ * a particle as it merges with another particle.
  *
- * This function writes the new velocity, spin and acceleration to the location 
- * specified by velNew and wNew.
+ * This function writes the new position, velocity, spin and acceleration to the
+ * location specified by velNew and wNew.
  * 
  * @param r The radius of the particle
  * @param m The mass of the particle
@@ -951,8 +984,8 @@ void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
 {
     double v = p->velocity.length();
     double dTimeSub = RungToDt(dDelta, p->rung);
-    // Different particles can have different fBall sizes. This can potentially
-    // cause problems where only 1 of 2 colliding particles detects the collision.
+    // Because speed and radius varies between particles, its not always
+    // guaranteed that both colliders will detect an imminent collision. Beware!
     p->fBall = (coll.dBallFac*dTimeSub*v) + (4*p->soft);
     }
 
@@ -993,10 +1026,13 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     GravityParticle *q;
     int i;    
     double rq, sr, D, dt, rdotv, vRel2, dx2, dt1, dt2;
+    Vector3D<double> dx, vRel;
+
     double dTimeSub = RungToDt(dDelta, p->rung);
     dt = DBL_MAX;
     p->dtCol = DBL_MAX;
     p->iOrderCol = -1;
+
     if (TYPETest(p, TYPE_DELETED)) return;
     if (coll.bSkipP0) {
         if (p->iOrder == 0) return;
@@ -1013,52 +1049,36 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     for (i = 0; i < nSmooth; i++) {
         q = nList[i].p;
 
-        // Skip self interactions
+        // Skip self-interactions and deleted particles
         if (p->iOrder == q->iOrder) continue;
-        // Ignore deleted particles
         if (TYPETest(q, TYPE_DELETED)) continue;
 
-        Vector3D<double> dx = p->position - q->position;
-        Vector3D<double> vRel = p->velocity - q->velocity;
-        dx2 = dx.lengthSquared();
+	dx2 = dx.lengthSquared();
         vRel2 = vRel.lengthSquared();
+	sr = (p->soft*2) + (q->soft*2);
 
-       // Near-collision search
-       if (bNearCollSearch) {
-           if (p->iOrderCol == -1) {
-               rdotv = dot(dx, vRel);
-               sr = (p->soft*2) + (q->soft*2);
-               D = sqrt(1 - ((dx2 - (sr*sr))/(rdotv*rdotv))*vRel2);
-               dt1 = -rdotv/vRel2*(1 + D);
-               dt2 = -rdotv/vRel2*(1 - D);
-               if (dt1 > 0 && dt1 < dt2) dt = dt1;
-               else if (dt2 > 0 && dt2 < dt1) dt = dt2;
-
-               if (dt < dTimeSub && dt < p->dtCol) {
-                   p->rung = coll.iCollStepRung;
-                   p->iOrderCol = q->iOrder;
-                   }
-               }
-       } else if (coll.bLogOverlaps) {
+	if (coll.bLogOverlaps) {
             if (dx.length() < (p->soft*2 + q->soft*2)) {
                 q->dtCol = -1;
                 q->iOrderCol = p->iOrder;
 	        }
-       } else {
-           // Collider search
-           rdotv = dot(dx, vRel);
-           vRel2 = vRel.lengthSquared();
-           sr = (p->soft*2) + (q->soft*2);
-           D = sqrt(1 - ((dx2 - (sr*sr))/(rdotv*rdotv))*vRel2);
-           dt1 = -rdotv/vRel2*(1 + D);
-           dt2 = -rdotv/vRel2*(1 - D);
-           if (dt1 > 0 && dt1 < dt2) dt = dt1;
-           else if (dt2 > 0 && dt2 < dt1) dt = dt2;
+	    } 
+	else {
+            // See Richardson 1994 eq 14
+            rdotv = dot(dx, vRel);
+            D = sqrt(1. - ((dx2 - (sr*sr))/(rdotv*rdotv))*vRel2);
+            dt1 = -rdotv/vRel2*(1. + D);
+            dt2 = -rdotv/vRel2*(1. - D);
+            if (dt1 > 0 && dt1 < dt2) dt = dt1;
+            else if (dt2 > 0 && dt2 < dt1) dt = dt2;
 
-           if (dt < dTimeSub && dt < p->dtCol) {
-               p->dtCol = dt;
-               p->iOrderCol = q->iOrder;
-               }
-           }
+	    if (dt < dTimeSub && dt < p->dtCol) {
+		p->iOrderCol = q->iOrder;
+                if (bNearCollSearch && p->iOrderCol == -1) {
+                    p->rung = coll.iCollStepRung;
+		    }
+	        }
+	    else p->dtCol = dt;
+	    }
         }
     }
