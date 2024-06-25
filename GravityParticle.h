@@ -69,8 +69,6 @@ class extraSPHData
     double _fMFracIron;		/* Iron mass fraction  */
     double _fESNrate;		/* SN energy rate  */
     double _fTimeCoolIsOffUntil;/* time cooling is turned back on */
-    Vector3D<cosmoType> _vPred;	/* Predicted velocities for velocity
-				   dependent forces */
     double _uPred;		/* Predicted internal energy */
     double _divv;		/* Diverence of the velocity */
     Vector3D<double> _curlv;	/* Curl of the velocity */
@@ -133,7 +131,6 @@ class extraSPHData
     inline double& fMFracIron() {return _fMFracIron;}
     inline double& fESNrate() {return _fESNrate;}
     inline double& fTimeCoolIsOffUntil() {return _fTimeCoolIsOffUntil;}
-    inline Vector3D<cosmoType>& vPred() {return _vPred;}
     inline double& uPred() {return _uPred;}
     inline double& divv() {return _divv;}
     inline Vector3D<double>& curlv() {return _curlv;}
