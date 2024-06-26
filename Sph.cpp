@@ -540,7 +540,12 @@ DataManager::CoolingSetTime(double z, // redshift
 {
 #ifndef COOLING_NONE
     CoolSetTime( Cool, dTime, z  );
+#ifdef CUDA
+    // Cool was already copied to GPU memory
+    // Update the fields device memory with a single kernel thread
+    CudaCoolSetTime(d_CudaCool, dTime, z, streams[0]);
 #endif
+#endif // COOLING_NONE
 
     contribute(cb);
     }
@@ -1288,6 +1293,10 @@ void TreePiece::updateuDot(int activeRung,
 	t = 0.0;
 #ifdef CUDA
         TreePieceODESolver(d_CudaStiff, y, t, dtUse, numSelParts, this->stream);
+        /*for(unsigned int i = 0; i < numSelParts; ++i) {
+            t = 0.0;
+            StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
+	}*/
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {
             t = 0.0;

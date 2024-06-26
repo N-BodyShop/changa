@@ -111,6 +111,7 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 				  cudaStream_t stream,
                                   void *callback);
 
+void CudaCoolSetTime( CudaCOOL *cl, double dTime, double z, cudaStream_t stream );
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb);
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);

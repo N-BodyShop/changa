@@ -2212,22 +2212,35 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
 
 void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, double *dtg, int numParts, cudaStream_t stream) {
 
-    double *d_dtg;
-    double *d_y;
-
-    size_t ySize = numParts*5*sizeof(double); // TODO const defined in clIntegrateEnergy
-    size_t dtgSize = numParts*sizeof(double);
+    double *d_y, *d_dtg;
+    size_t ySize = numParts * 5 * sizeof(double); // TODO const defined in clIntegrateEnergy
+    size_t dtgSize = numParts * sizeof(double);
     cudaChk(cudaMalloc(&d_y, ySize));
     cudaChk(cudaMalloc(&d_dtg, dtgSize));
-    cudaChk(cudaMemcpyAsync(d_y, y, ySize, cudaMemcpyHostToDevice, stream));
+
+    //  Copy y and dtg from host to device
+    // Flatten the 2D array y to a contiguous memory block
+    double *flat_y = (double *)malloc(ySize);
+    for (int i = 0; i < numParts; ++i) {
+        memcpy(flat_y + i * 5, y[i], 5 * sizeof(double));
+    }
+    cudaChk(cudaMemcpyAsync(d_y, flat_y, ySize, cudaMemcpyHostToDevice, stream));
     cudaChk(cudaMemcpyAsync(d_dtg, dtg, dtgSize, cudaMemcpyHostToDevice, stream));
 
     CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_CudaStiff, d_y, tstart, d_dtg, numParts);
-    cudaChk(cudaMemcpyAsync(y, d_y, ySize, cudaMemcpyDeviceToHost, stream));
+    cudaChk(cudaMemcpyAsync(flat_y, d_y, ySize, cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
 
-    cudaChk(cudaFree(d_dtg));
-    cudaChk(cudaFree(d_y));
+    // Copy data back to the original 2D array y
+    for (int i = 0; i < numParts; ++i) {
+        memcpy(y[i], flat_y + i * 5, 5 * sizeof(double));
+    }
+
+    cudaFree(d_CudaStiff); // Dont forget all of the pointers in d_CudaStiff
+    cudaFree(d_y);
+    cudaFree(d_dtg);
+
+    free(flat_y);
 
 }
 
@@ -2430,12 +2443,19 @@ __device__ double cudaCLRATEDUSTFORMH2( double z, double clump ) {
   return Rate_dust;
  }
 
-__device__ double sign(double val) {
+/*__device__ double sign(double val) {
     return (val > 0) - (val < 0);
-}
+}*/
 
-__device__ double sign(double x, double y) {
+/*__device__ double sign(double x, double y) {
     return (y >= 0) ? fabs(x) : -fabs(x);
+}*/
+
+__device__ double sign(double a, double b)
+{
+    double aabs = fabs(a);
+    if(b >= 0.0) return aabs;
+    else return -aabs;
 }
 
 __device__ double cudaCLTEMPERATURE( double Y_Total, double E ) {
@@ -2458,6 +2478,134 @@ __device__ double cudaCLDUSTSHIELD (double yHI, double yH2, double z, double h) 
       else column_denH2 = h*yH2;
       return exp(-1.0*sigmad*z/ZSOLAR*(column_denHI + 2.0*column_denH2));
 }
+
+#define CL_Ccomp0 0.565e-9
+#define CL_Tcmb0  2.735
+#define CL_Ccomp  (CL_Ccomp0*CL_Tcmb0)
+
+void CudaCoolSetTime( CudaCOOL *cl, double dTime, double z, cudaStream_t stream ) {
+    clRatesRedshift<<<1, 1, 0, stream>>>( cl, z, dTime );
+}
+
+__device__ void clSetAbundanceTotals(CudaCOOL *cl, double ZMetal, double *pY_H, double *pY_He, double *pY_eMax) {
+    double Y_H, Y_He;
+    
+    if (ZMetal <= 0.1) {
+        Y_He = (0.236 + 2.1*ZMetal)/4.0;
+	}
+    else {
+        Y_He = (-0.446*(ZMetal - 0.1)/0.9 + 0.446)/4.0;
+	}
+    Y_H = 1.0 - Y_He*4.0 - ZMetal; 
+
+    *pY_H = Y_H;
+    *pY_He = Y_He;
+    *pY_eMax = Y_H+ Y_He*2; /* Ignoring any electrons from metals */
+
+}
+
+__global__ void clRatesRedshift( CudaCOOL *cl, double zIn, double dTimeIn ) {
+  int i;
+  double xx;
+  double zTime;
+  CudaUVSPECTRUM *UV,*UV0;
+  double Y_H, Y_He, Y_eMax;
+  double ten = 10.0,output, expon;
+
+  /* printf("Redshift: %f \n", zIn); */ 
+  /* cl->z = 0.0; */ 
+  cl->z = zIn; 
+  cl->dTime = dTimeIn;
+  cl->dComovingGmPerCcUnit = cl->dGmPerCcUnit*pow(1.+zIn,3.);
+  cl->dExpand = 1.0/(1.0+zIn);
+
+  cl->R.Cool_Comp = pow((1+zIn)*CL_Ccomp,4.0)*CL_B_gm; 
+  cl->R.Tcmb = CL_Tcmb0*(1+zIn);
+  clSetAbundanceTotals(cl,0.0,&Y_H,&Y_He,&Y_eMax); /* Hack to estimate Y_H */
+  cl->R.Cool_LowTFactor = (cl->bLowTCool ? CL_B_gm*Y_H*Y_H/0.001 : 0 );
+
+  /* Photo-Ionization rates */
+
+  UV = cl->UV;
+
+  if (cl->bUV) {
+	  assert( UV != NULL );
+	  if (cl->bUVTableUsesTime) {
+		  /*
+		   ** Table in order of increasing time
+		   */
+		  zTime = dTimeIn;
+		  for ( i=0; i < cl->nUV && zTime >= UV->zTime ; i++,UV++ );
+		  }
+	  else {
+		  /*
+		   ** Table in order of high to low redshift 
+		   */
+		  zTime = zIn;
+		  for ( i=0; i < cl->nUV && zTime <= UV->zTime ; i++,UV++ );
+		  }
+	  }
+
+  if (!cl->bUV || i==0) {
+	  cl->R.Rate_Phot_HI = CL_RT_MIN;
+	  cl->R.Rate_Phot_HeI = CL_RT_MIN;
+	  cl->R.Rate_Phot_HeII = CL_RT_MIN;
+	  cl->R.Rate_Phot_H2_cosmo = CL_RT_MIN; 
+	  
+	  cl->R.Heat_Phot_HI = 0.0;
+	  cl->R.Heat_Phot_HeI = 0.0;
+	  cl->R.Heat_Phot_HeII = 0.0;
+	  cl->R.Heat_Phot_H2 = 0.0; 
+	  return;
+	  }
+  
+  UV0=UV-1;  
+  if (i == cl->nUV ) {
+	  cl->R.Rate_Phot_HI = UV0->Rate_Phot_HI;
+	  cl->R.Rate_Phot_HeI = UV0->Rate_Phot_HeI;
+	  cl->R.Rate_Phot_HeII = UV0->Rate_Phot_HeII;
+	  expon = 0.90632725*zTime - 0.16790918*zTime*zTime + 0.010241484*zTime*zTime*zTime - 12.518825;
+	  output = pow(ten,expon); /*haardt_madau gal+quasar, z = 0*/ 
+	  cl->R.Rate_Phot_H2_cosmo = output;
+	  cl->R.Heat_Phot_HI = UV0->Heat_Phot_HI*CL_B_gm;
+	  cl->R.Heat_Phot_HeI = UV0->Heat_Phot_HeI*CL_B_gm;
+	  cl->R.Heat_Phot_HeII = UV0->Heat_Phot_HeII*CL_B_gm;
+	  cl->R.Heat_Phot_H2 = 6.4e-13*CL_B_gm;
+	  }
+  else {
+	  if (cl->bUVTableLinear) { /* use Linear interpolation */	
+		  xx = (zTime - UV0->zTime)/(UV->zTime - UV0->zTime);
+		  cl->R.Rate_Phot_HI = UV0->Rate_Phot_HI*(1-xx)+UV->Rate_Phot_HI*xx;
+		  cl->R.Rate_Phot_HeI = UV0->Rate_Phot_HeI*(1-xx)+UV->Rate_Phot_HeI*xx;
+		  cl->R.Rate_Phot_HeII = UV0->Rate_Phot_HeII*(1-xx)+UV->Rate_Phot_HeII*xx;
+		  expon = 0.90632725*zTime - 0.16790918*zTime*zTime + 0.010241484*zTime*zTime*zTime - 12.518825;
+		  cl->R.Rate_Phot_H2_cosmo = pow(ten,expon); /*haardt_madau gal+quasar, z = 0*/ 
+		  cl->R.Heat_Phot_HI = (UV0->Heat_Phot_HI*(1-xx)+UV->Heat_Phot_HI*xx)*CL_B_gm;
+		  cl->R.Heat_Phot_HeI = (UV0->Heat_Phot_HeI*(1-xx)+UV->Heat_Phot_HeI*xx)*CL_B_gm;
+		  cl->R.Heat_Phot_HeII = (UV0->Heat_Phot_HeII*(1-xx)+UV->Heat_Phot_HeII*xx)*CL_B_gm;
+		  cl->R.Heat_Phot_H2 = 6.4e-13*CL_B_gm;
+		  }
+	  else { /* use Log interpolation with 1+zTime */
+		  xx = log((1+zTime)/(1+UV0->zTime))/log((1+UV->zTime)/(1+UV0->zTime));
+		  cl->R.Rate_Phot_HI = pow(UV0->Rate_Phot_HI,1-xx)*pow(UV->Rate_Phot_HI,xx);
+		  cl->R.Rate_Phot_HeI = pow(UV0->Rate_Phot_HeI,1-xx)*pow(UV->Rate_Phot_HeI,xx);
+		  cl->R.Rate_Phot_HeII = pow(UV0->Rate_Phot_HeII,1-xx)*pow(UV->Rate_Phot_HeII,xx);
+		  expon = 0.90632725*zTime - 0.16790918*zTime*zTime + 0.010241484*zTime*zTime*zTime - 12.518825;
+		  cl->R.Rate_Phot_H2_cosmo = pow(ten,expon);  /*haardt_madau gal+quasar, z = 0*/ 
+		  
+		  cl->R.Heat_Phot_HI = pow(UV0->Heat_Phot_HI,1-xx)*pow(UV->Heat_Phot_HI,xx)*CL_B_gm;
+		  cl->R.Heat_Phot_HeI = pow(UV0->Heat_Phot_HeI,1-xx)*pow(UV->Heat_Phot_HeI,xx)*CL_B_gm;
+		  cl->R.Heat_Phot_HeII = pow(UV0->Heat_Phot_HeII,1-xx)*pow(UV->Heat_Phot_HeII,xx)*CL_B_gm;
+		  cl->R.Heat_Phot_H2 = 6.4e-13*CL_B_gm;
+		  }
+	  }
+  if (cl->R.Rate_Phot_HI < CL_RT_MIN) cl->R.Rate_Phot_HI = CL_RT_MIN;
+  if (cl->R.Rate_Phot_HeI < CL_RT_MIN) cl->R.Rate_Phot_HeI = CL_RT_MIN;
+  if (cl->R.Rate_Phot_HeII < CL_RT_MIN) cl->R.Rate_Phot_HeII = CL_RT_MIN;
+  if (cl->R.Rate_Phot_H2_cosmo < CL_RT_MIN) cl->R.Rate_Phot_H2_cosmo = CL_RT_MIN; 
+
+  return;
+  }
 
 __device__ void clRateMetalTable(CudaCOOL *cl, CudaRATE *Rate, double T, double rho, double Y_H, double ZMetal)
 {
@@ -2832,13 +2980,13 @@ __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *d
              dGain[2];
 }
 
-__global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double *dtg_in, int nVars) {
+__global__ void CudaStiffStep(CudaSTIFF *s, double *_y, double tstart, double *_dtg, int nVars) {
     int id;
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
 
-    double dtg = dtg_in[id]; // TODO set these values at the end of the function again
-    double *y = &y_in[id];
+    double dtg = _dtg[id]; 
+    double *y = &_y[id * 5];
 
     double tn;			/* time within step */
     int i;
@@ -2915,6 +3063,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double 
 	   destruction when calculating step size */
 	if (y[i] == ymin[i]) temp = 0.0;
 	scrtch = max(scr1,max(temp,scrtch));
+	// this should be a small number, not infinity
 	}
     dt = min(sqreps/scrtch,dtg);
     while(1) {
@@ -2932,7 +3081,9 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double 
 	/*
 	 * find the predictor terms.
 	 */
-     restart: // TODO doesnt work in CUDA
+     int bLoop = 1;
+     while (bLoop) {
+     //restart: // doesnt work in CUDA
 	for(i = 0; i < n; i++) {
 	    /*
 	     * prediction
@@ -3054,7 +3205,13 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double 
 	    c
 	    c Valid step. Return if dtg has been reached.
 	    */
-	    if(dtg <= tn*tfd) return;
+	    //printf("%g %g\n", dtg, tn*tfd);
+	    if(dtg <= tn*tfd) {
+		// Why does uncommenting these lines cause a hang??
+                //_dtg[id] = dtg;
+                //_y[id] = *y;
+	        return;
+	    }
 	    }
 	else {
 	    /*
@@ -3076,6 +3233,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double 
 	/*
 	  begin new step if previous step converged.
 	*/
+	bLoop = 0;
 	if(eps > epsmax) {
 	    /*    & .or. stab. gt. 1 */
 	    rcount++;
@@ -3092,8 +3250,10 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double 
 	     * Unsuccessful steps return to line 101 so that the initial
 	     * source terms do not get recalculated.
 	    */
-	    goto restart;
+	    //goto restart;
+	    bLoop = 1;
 	    }
+     }
 	/*
 	  Successful step; get the source terms for the next step
 	  and continue back at line 100
@@ -3102,4 +3262,10 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *y_in, double tstart, double 
         CudaclDerivs(tn + tstart, y, q, d, s->Data);
 	gcount++;
 	}
+
+    _dtg[id] = dtg;
+    // Copy the modified row back to _y
+    for (int i = 0; i < 5; ++i) {
+        _y[id * 5 + i] = y[i];
+        }
     }
