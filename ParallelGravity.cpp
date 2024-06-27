@@ -3120,6 +3120,10 @@ Main::doSimulation()
 	}
     if(iStep%param.iLogInterval == 0) {
 	calcEnergy(dTime, stepTime, achLogFileName.c_str());
+#ifdef COLLISION
+	string achCollFileName = string(param.achOutName) + ".coll";
+	writeCollLog(achCollFileName.c_str());
+#endif
     }
     iStop = CheckForStop();
     /*
@@ -3499,6 +3503,26 @@ Main::writeTimings(int iStep)
                         tTotal.tKick, tTotal.tDrift,
                         tTotal.tCache, tTotal.tColl);
     fclose(fpTime);
+}
+///
+/// @brief Write collision events in buffer to log file and clear the buffer
+///
+
+void Main::writeCollLog(const char *achLogFileName)
+{
+    static int first = 1;
+    FILE *fpLog = fopen(achLogFileName, "a");
+    if(first && (!bIsRestarting || dTimeOld == 0.0)) {
+	fprintf(fpLog, "time collType iorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y x2z v1x v1y v1z v2x v2y v2z w1x w1y w1z w2x w2y w2z\n");
+	first = 0;
+    }
+
+    for (size_t i = 0; i < param.collision.collBuffer.size(); ++i) {
+        fprintf(fpLog, "%s", param.collision.collBuffer[i].c_str());
+    }
+    param.collision.collBuffer.clear();
+
+    fclose(fpLog);
 }
 
 ///

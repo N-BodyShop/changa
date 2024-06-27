@@ -576,7 +576,8 @@ public:
 	void countActive(int activeRung);
         void emergencyAdjust(int iRung);
 	void starCenterOfMass();
-	void logCollision(double, ColliderInfo*, int, const char *);
+	void logCollision(double, ColliderInfo*, int);
+        void writeCollLog(const char *);
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();

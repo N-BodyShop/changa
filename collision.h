@@ -58,6 +58,8 @@ public:
     int bDelEjected;      /* delete particles if they travel too far from the origin */
     double dDelDist;      /* max distance from origin before particles are deleted */
     int bSkipP0;          /* Don't do a collision check for the first particle */
+    /// Buffer to write collision events to log file
+    std::vector<std::string> collBuffer;
 
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);

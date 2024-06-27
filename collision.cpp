@@ -255,11 +255,8 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
                     CkReductionMsg *msgChk1;
                     treeProxy.resolveCollision(param.collision, c[0], c[1], dDelta,
                                            dTime, dCentMass, CkCallbackResumeThread((void*&)msgChk1));
-                    string achCollLogFileName = string(param.achOutName) + ".coll";
                     int *collType = (int *)msgChk1->getData();
-		    // Only log mergers, bounces cause way too much file IO
-		    if (*collType == 1)
-                        logCollision(dTime, c, *collType, achCollLogFileName.c_str());
+                    logCollision(dTime, c, *collType);
                     delete msgChk1;
                     }
                 // Otherwise, force both particles onto the smaller rung
@@ -285,34 +282,19 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
 ///
 
 void
-Main::logCollision(double dTime, ColliderInfo *c, int collType, const char *achCollLogFileName)
+Main::logCollision(double dTime, ColliderInfo *c, int collType)
 {
-    // TODO would be nice to write this data to a file, but this causes way too much I/O
-    /*static int first = 1;
-    FILE *fpLog = fopen(achCollLogFileName, "a");
-    if(first && (!bIsRestarting || dTimeOld == 0.0)) {
-        fprintf(fpLog, "time collType iorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y x2z v1x v1y v1z v2x v2y v2z w1x w1y w1z w2x w2y w2z\n");
-        first = 0;
-        }
-    fprintf(fpLog, "%g %d %d %d %.15g %.15g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
-                   dTime, collType, c[0].iOrder, c[1].iOrder, c[0].mass, c[1].mass, c[0].radius, c[1].radius,
-                   c[0].position[0], c[0].position[1], c[0].position[2],
-                   c[1].position[0], c[1].position[1], c[1].position[2],
-                   c[0].velocity[0], c[0].velocity[1], c[0].velocity[2],
-                   c[1].velocity[0], c[1].velocity[1], c[1].velocity[2],
-                   c[0].w[0], c[0].w[1], c[0].w[2],
-                   c[1].w[0], c[1].w[1], c[1].w[2]);
-                   
-    fclose(fpLog);*/
-    CkPrintf("collision: %g %d %d %d %.15g %.15g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g %g\n",
-               dTime, collType, c[0].iOrder, c[1].iOrder, c[0].mass, c[1].mass, c[0].radius, c[1].radius,
-              c[0].position[0], c[0].position[1], c[0].position[2],
-              c[1].position[0], c[1].position[1], c[1].position[2],
-              c[0].velocity[0], c[0].velocity[1], c[0].velocity[2],
-              c[1].velocity[0], c[1].velocity[1], c[1].velocity[2],
-              c[0].w[0], c[0].w[1], c[0].w[2],
-              c[1].w[0], c[1].w[1], c[1].w[2]);
-    }
+    std::ostringstream logEntry;
+    logEntry << dTime << " " << collType << " " << c[0].iOrder << " " << c[1].iOrder << " "
+             << c[0].mass << " " << c[1].mass << " " << c[0].radius << " " << c[1].radius << " "
+             << c[0].position[0] << " " << c[0].position[1] << " " << c[0].position[2] << " "
+             << c[1].position[0] << " " << c[1].position[1] << " " << c[1].position[2] << " "
+             << c[0].velocity[0] << " " << c[0].velocity[1] << " " << c[0].velocity[2] << " "
+             << c[1].velocity[0] << " " << c[1].velocity[1] << " " << c[1].velocity[2] << " "
+             << c[0].w[0] << " " << c[0].w[1] << " " << c[0].w[2] << " "
+             << c[1].w[0] << " " << c[1].w[1] << " " << c[1].w[2] << "\n";
+    param.collision.collBuffer.push_back(logEntry.str());
+}
 
 /**
  * @brief Record iOrders of all overlapping particles to logfile
