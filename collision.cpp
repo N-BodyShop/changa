@@ -465,7 +465,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
         p = &myParticles[i];
         if (p->iOrder == c1.iOrder) {
             bBounce = coll.doCollision(p, c2, dCentMass);
-            if (!bBounce == 0) {
+            if (!bBounce) {
 		if ((c1.mass > (c2.mass + eps*c2.mass)) || ((fabs(c1.mass - c2.mass)/c1.mass < eps) && (c1.iOrder < c2.iOrder))) {
                     CkPrintf("Merge %d into %d\n", c2.iOrder, p->iOrder);
                 }
@@ -1023,19 +1023,21 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         if (p->iOrder == q->iOrder) continue;
         if (TYPETest(q, TYPE_DELETED)) continue;
 
-	dx2 = dx.lengthSquared();
-        vRel2 = vRel.lengthSquared();
 	sr = (p->soft*2) + (q->soft*2);
+        dx = p->position - q->position;
+        vRel = p->velocity - q->velocity;
 
 	if (coll.bLogOverlaps) {
-            if (dx.length() < (p->soft*2 + q->soft*2)) {
+            if (dx.length() < sr) {
                 q->dtCol = -1;
                 q->iOrderCol = p->iOrder;
 	        }
 	    } 
 	else {
             // See Richardson 1994 eq 14
-            rdotv = dot(dx, vRel);
+	    rdotv = dot(dx, vRel);
+      	    dx2 = dx.lengthSquared();
+            vRel2 = vRel.lengthSquared();
             D = sqrt(1. - ((dx2 - (sr*sr))/(rdotv*rdotv))*vRel2);
             dt1 = -rdotv/vRel2*(1. + D);
             dt2 = -rdotv/vRel2*(1. - D);
@@ -1044,11 +1046,9 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 	    if (dt < dTimeSub && dt < p->dtCol) {
 		p->iOrderCol = q->iOrder;
-                if (bNearCollSearch && p->iOrderCol == -1) {
-                    p->rung = coll.iCollStepRung;
-		    }
+                if (bNearCollSearch && p->iOrderCol == -1) p->rung = coll.iCollStepRung;
+        	else p->dtCol = dt;
 	        }
-	    else p->dtCol = dt;
 	    }
         }
     }
