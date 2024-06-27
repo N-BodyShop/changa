@@ -427,8 +427,10 @@ TreePiece::initCoolingData(const CkCallback& cb)
 
     CudaCoolData.IntegratorContext = d_CudaStiff;
 
-    cudaMemcpy(d_CudaStiff, &CudaStiff, sizeof(CudaSTIFF), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CudaCoolData, &CudaCoolData, sizeof(CudaclDerivsData), cudaMemcpyHostToDevice);
+    cudaMemcpyAsync(d_CudaStiff, &CudaStiff, sizeof(CudaSTIFF), cudaMemcpyHostToDevice, this->stream);
+    cudaMemcpyAsync(d_CudaCoolData, &CudaCoolData, sizeof(CudaclDerivsData), cudaMemcpyHostToDevice, this->stream);
+
+    cudaStreamSynchronize(this->stream);
 #endif // CUDA
 #endif // COOLING_NONE
     contribute(cb);
@@ -543,7 +545,7 @@ DataManager::CoolingSetTime(double z, // redshift
 #ifdef CUDA
     // Cool was already copied to GPU memory
     // Update the fields device memory with a single kernel thread
-    CudaCoolSetTime(d_CudaCool, dTime, z, streams[0]);
+    CudaCoolSetTime(d_CudaCool, dTime, z, this->streams[0]);
 #endif
 #endif // COOLING_NONE
 
@@ -1163,14 +1165,18 @@ void TreePiece::updateuDot(int activeRung,
     double PoverRhoGas;
     double PoverRhoJeans;
     double cGas;
-    double ExternalHeating[numSelParts];
-    double dtUse[numSelParts];
-    double fDensity[numSelParts];
-    double E[numSelParts];
-    double fMetals[numSelParts];
-    double r[numSelParts][3];
-    double columnL[numSelParts];
-    COOLPARTICLE cp[numSelParts];
+
+    // There is a lot of data here
+    // std::vector prevents the data from going onto function stack frame
+    std::vector<double> ExternalHeating(numSelParts);
+    std::vector<double> dtUse(numSelParts);
+    std::vector<double> fDensity(numSelParts);
+    std::vector<double> E(numSelParts);
+    std::vector<double> fMetals(numSelParts);
+    std::vector<std::vector<double>> r(numSelParts, std::vector<double>(3));
+    std::vector<double> columnL(numSelParts);
+    std::vector<COOLPARTICLE> cp(numSelParts);
+
     int pIdx;
 
     pIdx = 0;
@@ -1200,7 +1206,7 @@ void TreePiece::updateuDot(int activeRung,
         ExternalHeating[pIdx] = p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
 	    if ( bCool ) {
 		cp[pIdx] = p->CoolParticle();
-		p->position.array_form(r[pIdx]);
+		p->position.array_form(r[pIdx].data());
         CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
         CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #ifdef SUPERBUBBLE
@@ -1274,43 +1280,57 @@ void TreePiece::updateuDot(int activeRung,
 		    }
                 columnL[pIdx] = sqrt(0.25)*p->fBall;
                 }
+            pIdx++;
             }
-        pIdx++;
         }
 
     if (bCool) {
-	PERBARYON Y[numSelParts];
-	double *Ecgs = new double[numSelParts];
-	double **y = new double*[numSelParts];
+	std::vector<PERBARYON> Y(numSelParts);
+	std::vector<double> Ecgs(numSelParts);
+
+	// Cooling functions can only accept C-style arrays
+        double **y = new double*[numSelParts];
+        for (int i = 0; i < numSelParts; ++i) {
+  	    y[i] = new double[5];
+        }
+
         for(unsigned int i = 0; i < numSelParts; ++i) {
-	    y[i] = new double[5]; // TODO this const is defined in clIntegrateEnergy
 	    Ecgs[i] = 0.0;
             CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &Y[i], &Ecgs[i], &cp[i], &E[i],
 	                                 ExternalHeating[i], fDensity[i],
-	  	                         fMetals[i], r[i], dtUse[i], columnL[i], y[i]);
+	  	                         fMetals[i], r[i].data(), dtUse[i], columnL[i], y[i]);
             }
 	double t;
 	t = 0.0;
 #ifdef CUDA
-        TreePieceODESolver(d_CudaStiff, y, t, dtUse, numSelParts, this->stream);
-        /*for(unsigned int i = 0; i < numSelParts; ++i) {
-            t = 0.0;
-            StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
-	}*/
+	// Still hanging somewhere
+        TreePieceODESolver(d_CudaStiff, y, t, &dtUse, numSelParts, this->stream);
+	// This gets called multiple times per step, so we are freeing twice
+	// TODO clean this stuff up until simulation ends
+        /*cudaFree(d_ymin);
+        cudaFree(d_y0);
+        cudaFree(d_y1);
+        cudaFree(d_q);
+        cudaFree(d_d);
+        cudaFree(d_rtau);
+        cudaFree(d_ys);
+        cudaFree(d_qs);
+        cudaFree(d_rtaus);
+        cudaFree(d_scrarray);
+        cudaFree(d_CudaStiff);*/
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {
-            t = 0.0;
-            StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
+           t = 0.0;
+           StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
 	}
 #endif
 
         for(unsigned int i = 0; i < numSelParts; ++i) {
             CoolIntegrateEnergyCodeFinish(dm->Cool, CoolData, &Y[i], &Ecgs[i], &cp[i], &E[i],
 	                                  ExternalHeating[i], fDensity[i],
-	  	                          fMetals[i], r[i], dtUse[i], columnL[i], y[i]);
+	  	                          fMetals[i], r[i].data(), dtUse[i], columnL[i], y[i]);
 	    delete[] y[i];
             }
-	delete[] Ecgs;
 	delete[] y;
         }
 
@@ -1329,9 +1349,8 @@ void TreePiece::updateuDot(int activeRung,
                     p->uDot() = ExternalHeating[pIdx];
                     }
                 CkAssert(isfinite(p->uDot()));
-
+            pIdx++; 
             }
-        pIdx++; 
         }
 
 #endif

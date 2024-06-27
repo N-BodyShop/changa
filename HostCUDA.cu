@@ -2210,7 +2210,7 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].dtGrav = 0.0;
 }
 
-void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, double *dtg, int numParts, cudaStream_t stream) {
+void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, std::vector<double> *dtg, int numParts, cudaStream_t stream) {
 
     double *d_y, *d_dtg;
     size_t ySize = numParts * 5 * sizeof(double); // TODO const defined in clIntegrateEnergy
@@ -2218,14 +2218,15 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, doub
     cudaChk(cudaMalloc(&d_y, ySize));
     cudaChk(cudaMalloc(&d_dtg, dtgSize));
 
-    //  Copy y and dtg from host to device
+    // Copy y and dtg from host to device
     // Flatten the 2D array y to a contiguous memory block
+    // Use C-style malloc because we cant cuda memcpy an std::vector of vectors
     double *flat_y = (double *)malloc(ySize);
     for (int i = 0; i < numParts; ++i) {
         memcpy(flat_y + i * 5, y[i], 5 * sizeof(double));
     }
     cudaChk(cudaMemcpyAsync(d_y, flat_y, ySize, cudaMemcpyHostToDevice, stream));
-    cudaChk(cudaMemcpyAsync(d_dtg, dtg, dtgSize, cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(d_dtg, dtg->data(), dtgSize, cudaMemcpyHostToDevice, stream));
 
     CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_CudaStiff, d_y, tstart, d_dtg, numParts);
     cudaChk(cudaMemcpyAsync(flat_y, d_y, ySize, cudaMemcpyDeviceToHost, stream));
@@ -2236,12 +2237,9 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, doub
         memcpy(y[i], flat_y + i * 5, 5 * sizeof(double));
     }
 
-    cudaFree(d_CudaStiff); // Dont forget all of the pointers in d_CudaStiff
     cudaFree(d_y);
     cudaFree(d_dtg);
-
     free(flat_y);
-
 }
 
 // Ignoring non-USETABLE functions
@@ -3206,10 +3204,12 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *_y, double tstart, double *_
 	    c Valid step. Return if dtg has been reached.
 	    */
 	    //printf("%g %g\n", dtg, tn*tfd);
+	    //if(1==1){
 	    if(dtg <= tn*tfd) {
-		// Why does uncommenting these lines cause a hang??
-                //_dtg[id] = dtg;
-                //_y[id] = *y;
+                _dtg[id] = dtg;
+                for (int i = 0; i < 5; ++i) {
+                    _y[id * 5 + i] = y[i];
+                }
 	        return;
 	    }
 	    }
@@ -3263,8 +3263,8 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *_y, double tstart, double *_
 	gcount++;
 	}
 
+    // Copy back the modified data
     _dtg[id] = dtg;
-    // Copy the modified row back to _y
     for (int i = 0; i < 5; ++i) {
         _y[id * 5 + i] = y[i];
         }
