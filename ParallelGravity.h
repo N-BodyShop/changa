@@ -74,6 +74,7 @@ enum LBStrategy{
   MultistepNode_notopo,
   Orb3d_notopo,
   MultistepOrb,
+  Multistep_SFC,
   HierarchOrb
 };
 PUPbytes(LBStrategy);
