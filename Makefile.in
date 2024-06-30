@@ -111,7 +111,7 @@ cache_lib_path      := @CHARM_PATH@/tmp/libs/ck-libs/cache
 threadsafe_ht_path  := $(cache_lib_path)/threadsafe_hashtable
 
 # ------- Modules to build ----------------------------------------------------
-changa_modules := $(strip MultistepLB MultistepLB_notopo \
+changa_modules := $(strip MultistepLB MultistepLB_SFC MultistepLB_notopo \
                     MultistepNodeLB_notopo Orb3dLB Orb3dLB_notopo HierarchOrbLB)
 
 charm_modules := $(strip CkCache CkIO CkMulticast RefineLB \
