@@ -906,7 +906,11 @@ void TreePiece::updateuDot(int activeRung,
         PoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
         PoverRho = PoverRhoGas;
         if(PoverRho < PoverRhoJeans) PoverRho = PoverRhoJeans;
-        ExternalHeating = p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
+        double duDotPdV = p->uDotPdV();
+        if(PoverRho != 0.0)
+            duDotPdV *= (PoverRhoGas/PoverRho);  // scale out Jeans
+                                                 // Pressure Floor
+        ExternalHeating = duDotPdV + p->uDotAV() + p->uDotDiff() + p->fESNrate();
 	    if ( bCool ) {
 		COOLPARTICLE cp = p->CoolParticle();
 		double r[3];  // For conversion to C
@@ -925,8 +929,8 @@ void TreePiece::updateuDot(int activeRung,
         /*
          * If we have mass in the hot phase, we need to cool it appropriately.
          */
-        if (p->massHot() > 0) { 
-            ExternalHeating = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
+        if (p->massHot() > 0) {
+            ExternalHeating = (duDotPdV + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
             if (p->uHot() > 0) {
                 /* The hot phase needs a minimum energy to prevent the
                  * inferred density to become very large */
@@ -970,16 +974,17 @@ void TreePiece::updateuDot(int activeRung,
              * inferred density to become very large */
             if(p->u() < U_FLOOR(dm->Cool))
                 p->u() = U_FLOOR(dm->Cool);
-            ExternalHeating = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
+            ExternalHeating = (duDotPdV + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
         }
         else { /* We have a single phase particle, treat it normally*/
             p->uHotDot() = 0;
-            ExternalHeating =  p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
+            ExternalHeating =  duDotPdV + p->uDotAV() + p->uDotDiff() + p->fESNrate();
         }
         CkAssert(p->u() > 0.0);
         fDensity = p->fDensity*PoverRho/(gammam1*p->u());
         if (p->fDensityU() < p->fDensity) fDensity = p->fDensityU()*PoverRho/(gammam1*p->u());
-        assert(fDensity > 0);
+        if(fDensity == 0.0) fDensity = p->fDensity;
+        CkAssert(fDensity > 0);
         cp = p->CoolParticle();
 #endif
 		E = p->u();
