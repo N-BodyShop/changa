@@ -757,6 +757,9 @@ Main::Main(CkArgMsg* m) {
         numStreams = 100;
         prmAddParam(prm, "nStreams", paramInt, &numStreams,
                     sizeof(int),"str", "Number of CUDA streams (default: 100)");
+        param.nGpuMinParts = 1000;
+        prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
+                    sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
 #endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
@@ -1713,6 +1716,13 @@ Main::loadBalance(int iPhase)
 /// @param iPhase Active rung (or phase).
 void Main::buildTree(int iPhase)
 {
+#ifdef CUDA
+    // If we are about to use the GPU, tell the data manager
+    // not to clean up its TreePiece list during combineLocalTrees
+    if (nActiveGrav >= param.nGpuMinParts) {
+        dMProxy.unmarkTreePiecesForCleanup(CkCallbackResumeThread());
+    }
+#endif
 #ifdef PUSH_GRAVITY
     bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
     if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
@@ -1752,6 +1762,9 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
         turnProjectionsOn(iActiveRung);
 #endif
 
+#ifdef CUDA
+        if (nActiveGrav > param.nGpuMinParts) CkPrintf("Gravity will be calculated on the GPU\n");
+#endif
         CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
         *startTime = CkWallTimer();
         if(param.bConcurrentSph) {
@@ -1761,7 +1774,12 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
             else{
 #endif
-                treeProxy.startGravity(iActiveRung, theta, cbGravity);
+		int bUseCpu = 1;
+#ifdef CUDA
+                bUseCpu = nActiveGrav < param.nGpuMinParts;
+#endif
+                treeProxy.startGravity(iActiveRung, bUseCpu, theta, cbGravity);
+
 #ifdef PUSH_GRAVITY
             }
 #endif
@@ -1774,7 +1792,13 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
             else{
 #endif
-                treeProxy.startGravity(iActiveRung, theta, CkCallbackResumeThread());
+
+		int bUseCpu = 1;
+#ifdef CUDA
+                bUseCpu = nActiveGrav < param.nGpuMinParts;
+#endif
+                treeProxy.startGravity(iActiveRung, bUseCpu, theta, CkCallbackResumeThread());
+
 #ifdef PUSH_GRAVITY
             }
 #endif
@@ -1795,7 +1819,9 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        if (nActiveGrav > param.nGpuMinParts) {
+          dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        }
 #endif
         }
 }
@@ -2718,15 +2744,6 @@ Main::initialForces()
   if(verbosity)
       memoryStats();
   
-#ifdef CUDA
-  ckout << "Init. Accel. ...";
-  double dInitAccelTime = CkWallTimer();
-  treeProxy.initAccel(0, CkCallbackResumeThread());
-  ckout << " took " << (CkWallTimer() - dInitAccelTime) << " seconds."
-        << endl;
-#endif
-
-      
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
   double gravStartTime;
@@ -3649,7 +3666,9 @@ void Main::writeOutput(int iStep)
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        if (nActiveGrav > param.nGpuMinParts) {
+          dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        }
 #endif
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -3690,7 +3709,9 @@ void Main::writeOutput(int iStep)
 #ifdef CUDA
             // We didn't do gravity where the registered TreePieces on the
             // DataManager normally get cleared.  Clear them here instead.
-            dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+            if (nActiveGrav > param.nGpuMinParts) {
+              dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+            }
 #endif
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."

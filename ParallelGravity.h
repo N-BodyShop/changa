@@ -1213,6 +1213,9 @@ private:
         /// The current active mask for force computation in multistepping
         int activeRung;
 
+	/// Whether the GPU or CPU is to be used on the current gravity substep
+       int bUseCpu;
+
 	/// Periodic Boundary stuff
 	int bPeriodic;
 	int bComove;
@@ -1470,6 +1473,7 @@ public:
 #if INTERLIST_VER > 0
 	  sInterListWalk = NULL;
 #endif
+          bUseCpu = 1;
 #ifdef CUDA
           numActiveBuckets = -1;
 #ifdef HAPI_TRACE
@@ -1611,6 +1615,7 @@ public:
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
+       void ewaldCPU(EwaldMsg *msg);
 	void calculateEwald(EwaldMsg *m);
   void calculateEwaldUsingCkLoop(int yield_num);
   void callBucketEwald(int id);
@@ -1926,8 +1931,9 @@ public:
   /// @brief Start a tree based gravity computation.
   /// @param am the active rung for the computation
   /// @param theta the opening angle
+  /// @param bUseCpu_ whether the cpu or gpu is being used
   /// @param cb the callback to use after all the computation has finished
-  void startGravity(int am, double myTheta, const CkCallback& cb);
+  void startGravity(int am, int bUseCpu_, double myTheta, const CkCallback& cb);
   /// Setup utility function for all the smooths.  Initializes caches.
   void setupSmooth();
   /// Start a tree based smooth computation.

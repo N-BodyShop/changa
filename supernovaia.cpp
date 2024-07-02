@@ -79,18 +79,19 @@ double SN::NSNIa (double dMassT1, double dMassT2) const
 int
 main(int argc, char **argv)
 {
-    Chabrier chimf; // Chabrier has power law index of -1.3 which
+    // Chabrier chimf; // Chabrier has power law index of -1.3 which
 		    // matches s = -2.35 in Greggio & Renzini, 1983
     // Kroupa93 chimf; // Kroupa is what RVN use.
-    // Kroupa01 chimf;
+    Kroupa01 chimf;
     // MillerScalo chimf;
     SN sn;
     sn.imf = &chimf;
     Padova pdva;
+    Rand rndGen;
     double z = 0.02;		// metalicity: use value to compare
 				// with Greggio & Renzini, 1983
 
-    double nsamp = 100;
+    double nsamp = 1000;
     double tfac = log(14.0e9/1e6)/nsamp;  /// equal log interavals from 1Myr
 				    /// to 14Gyr
     
@@ -109,19 +110,23 @@ main(int argc, char **argv)
 	double dMFeII = 0.0;
 	double dMOxIa = 0.0;
 	double dMFeIa = 0.0;
+        double dESNII = 0.0;
+        double dESNIa = 0.0;
 	
 	deltat = 1e6;
 	for (int i = 0; i < 10000; i++) {
 	    t = i*deltat;
-	    sn.CalcSNIIFeedback(&sfEvent, t, deltat, &fbEffectsII);
+            sn.CalcSNIIFeedback(&sfEvent, t, deltat, &fbEffectsII, rndGen);
 	    dMOxII += fbEffectsII.dMassLoss*fbEffectsII.dMOxygen;
 	    dMFeII += fbEffectsII.dMassLoss*fbEffectsII.dMIron;
+            dESNII += fbEffectsII.dMassLoss*fbEffectsII.dEnergy;
 	    sn.CalcSNIaFeedback(&sfEvent, t, deltat, &fbEffectsIa);
 	    dMOxIa += fbEffectsIa.dMassLoss*fbEffectsIa.dMOxygen;
 	    dMFeIa += fbEffectsIa.dMassLoss*fbEffectsIa.dMIron;
+            dESNIa += fbEffectsIa.dMassLoss*fbEffectsIa.dEnergy;
 	    }
-	printf("# Total II Ox: %g, Fe: %g\n", dMOxII, dMFeII);
-	printf("# Total Ia Ox: %g, Fe: %g\n", dMOxIa, dMFeIa);
+        printf("# Total II Ox: %g, Fe: %g, E: %g\n", dMOxII, dMFeII, dESNII);
+        printf("# Total Ia Ox: %g, Fe: %g, E: %g\n", dMOxIa, dMFeIa, dESNIa);
 	}
     
     for(int i = 0; i < nsamp; i++) {
@@ -146,7 +151,7 @@ main(int argc, char **argv)
 	    }
 	else dNSNII = 0.0;
 	
-	sn.CalcSNIIFeedback(&sfEvent, t, deltat, &fbEffectsII);
+        sn.CalcSNIIFeedback(&sfEvent, t, deltat, &fbEffectsII, rndGen);
 	sn.CalcSNIaFeedback(&sfEvent, t, deltat, &fbEffectsIa);
 	
 	if (dMaxMass > dMinMass)

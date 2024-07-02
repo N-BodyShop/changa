@@ -77,6 +77,9 @@ protected:
 	/// A list of roots of the TreePieces in this node
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
+       /// Signal whether registeredTreePieces needs to be cleaned
+       /// when combining local trees
+       bool cleanupTreePieces;
 #ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
         /// @brief counter for the number of tree nodes that are
@@ -264,6 +267,7 @@ public:
         std::map<NodeKey, int> &getCachedPartsOnGpuTable(){
           return cachedPartsOnGpu;
         }
+        void unmarkTreePiecesForCleanup(const CkCallback& cb);
 #endif
 	// Functions used to create a tree inside the DataManager comprising
 	// all the trees in the TreePieces in the local node
@@ -325,6 +329,15 @@ inline static void setBIconfig()
 class ProjectionsControl : public CBase_ProjectionsControl { 
   public: 
   ProjectionsControl() {
+#ifdef CUDA
+    // GPUs are assigned to nodes in a round-robin fashion. This allows the user to define
+    // one virtual node per device and utilize multiple GPUs on a single node
+    // Beacuse devices are assigned per-PE, this is a convenient place to call setDevice
+    // Note that this code has nothing to do with initalizing projections
+    int numGpus;
+    cudaGetDeviceCount(&numGpus);
+    cudaSetDevice(CmiMyNode() % numGpus);
+#endif
     setBIconfig();
     LBTurnCommOff();
 #ifndef LB_MANAGER_VERSION
