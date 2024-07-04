@@ -661,9 +661,9 @@ void SinkFormSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 			dx = nnList[i].dx.x;
 			dy = nnList[i].dx.y;
 			dz = nnList[i].dx.z;
-			dvx = ((-p->vPred[0] + q1->vPred[0])*vFac - dx*H)*rs1; /* NB: dx = px - qx */
-			dvy = ((-p->vPred[1] + q1->vPred[1])*vFac - dy*H)*rs1;
-			dvz = ((-p->vPred[2] + q1->vPred[2])*vFac - dz*H)*rs1;
+			dvx = ((-p->vPred()[0] + q1->vPred()[0])*vFac - dx*H)*rs1; /* NB: dx = px - qx */
+			dvy = ((-p->vPred()[1] + q1->vPred()[1])*vFac - dy*H)*rs1;
+			dvz = ((-p->vPred()[2] + q1->vPred()[2])*vFac - dz*H)*rs1;
 			dvdx[0][0] += dvx*dx;
 			dvdx[0][1] += dvx*dy;
 			dvdx[0][2] += dvx*dz;
@@ -1045,9 +1045,9 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	if(s.bBHMindv == 1){
 	  dvmin = FLT_MAX;
 	  for (i=0;i<nSmooth;++i) {
-	    dvx = (-p->velocity[0] + nnList[i].p->vPred[0])/aFac - aDot*nnList[i].dx.x;
-	    dvy = (-p->velocity[1] + nnList[i].p->vPred[1])/aFac - aDot*nnList[i].dx.y;
-	    dvz = (-p->velocity[2] + nnList[i].p->vPred[2])/aFac - aDot*nnList[i].dx.z;
+	    dvx = (-p->velocity[0] + nnList[i].p->vPred()[0])/aFac - aDot*nnList[i].dx.x;
+	    dvy = (-p->velocity[1] + nnList[i].p->vPred()[1])/aFac - aDot*nnList[i].dx.y;
+	    dvz = (-p->velocity[2] + nnList[i].p->vPred()[2])/aFac - aDot*nnList[i].dx.z;
 	    dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
 	    if (dvcosmo < dvmin) {
 	      dvmin=dvcosmo;
@@ -1070,9 +1070,9 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 	    if(s.bBHMindv == 1) weight = rs*pow(q->c()*q->c()+(dvmin*dvmin),-1.5)/dCosmoDenFac;
 	    else {
-	      dvx = (-p->velocity[0]+q->vPred[0])/aFac - aDot*nnList[i].dx.x;
-	      dvy = (-p->velocity[1]+q->vPred[1])/aFac - aDot*nnList[i].dx.y;
-	      dvz = (-p->velocity[2]+q->vPred[2])/aFac - aDot*nnList[i].dx.z;
+	      dvx = (-p->velocity[0]+q->vPred()[0])/aFac - aDot*nnList[i].dx.x;
+	      dvy = (-p->velocity[1]+q->vPred()[1])/aFac - aDot*nnList[i].dx.y;
+	      dvz = (-p->velocity[2]+q->vPred()[2])/aFac - aDot*nnList[i].dx.z;
 	      dvcosmo = sqrt(dvx*dvx+dvy*dvy+dvz*dvz);
 	      weight = rs*pow(q->c()*q->c()+dvcosmo*dvcosmo,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */
 	    /* cosmo factors put in 7/7/09  JMB */
@@ -1149,9 +1149,9 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 
 		if(s.bBHMindv == 1) weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+(dvmin*dvmin),-1.5)/dCosmoDenFac;
 		else {
-		  dvx = (-p->velocity[0]+nnList[i].p->vPred[0])/aFac - nnList[i].dx.x*aDot;
-		  dvy = (-p->velocity[1]+nnList[i].p->vPred[1])/aFac - nnList[i].dx.y*aDot;
-		  dvz = (-p->velocity[2]+nnList[i].p->vPred[2])/aFac - nnList[i].dx.z*aDot;
+		  dvx = (-p->velocity[0]+nnList[i].p->vPred()[0])/aFac - nnList[i].dx.x*aDot;
+		  dvy = (-p->velocity[1]+nnList[i].p->vPred()[1])/aFac - nnList[i].dx.y*aDot;
+		  dvz = (-p->velocity[2]+nnList[i].p->vPred()[2])/aFac - nnList[i].dx.z*aDot;
 		  dvcosmo = sqrt(dvx*dvx+dvy*dvy+dvz*dvz);
 		  weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()+dvcosmo*dvcosmo,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */
 	    /* cosmo factors put in 7/7/09  JMB */
@@ -1412,9 +1412,9 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 	  if(s.bBHMindv == 1){
 	    dvmin = FLT_MAX;
 	    for (i=0;i<nSmooth;++i) {
-	      dvx = (-p->velocity[0] + nnList[i].p->vPred[0])-aDot*nnList[i].dx.x;
-	      dvy = (-p->velocity[1] + nnList[i].p->vPred[1])-aDot*nnList[i].dx.y;
-	      dvz = (-p->velocity[2] + nnList[i].p->vPred[2])-aDot*nnList[i].dx.z;
+	      dvx = (-p->velocity[0] + nnList[i].p->vPred()[0])-aDot*nnList[i].dx.x;
+	      dvy = (-p->velocity[1] + nnList[i].p->vPred()[1])-aDot*nnList[i].dx.y;
+	      dvz = (-p->velocity[2] + nnList[i].p->vPred()[2])-aDot*nnList[i].dx.z;
 	      dvcosmo = sqrt(dvx*dvx + dvy*dvy + dvz*dvz);
 	      if (dvcosmo < dvmin) {
 		dvmin=dvcosmo;
@@ -1445,9 +1445,9 @@ void BHAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		  weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()
 				  +(dvmin*dvmin),-1.5)/dCosmoDenFac;
 	      else {
-		dvx = (-p->velocity[0]+nnList[i].p->vPred[0])-aDot*nnList[i].dx.x;
-		dvy = (-p->velocity[1]+nnList[i].p->vPred[1])-aDot*nnList[i].dx.y;
-		dvz = (-p->velocity[2]+nnList[i].p->vPred[2])-aDot*nnList[i].dx.z;
+		dvx = (-p->velocity[0]+nnList[i].p->vPred()[0])-aDot*nnList[i].dx.x;
+		dvy = (-p->velocity[1]+nnList[i].p->vPred()[1])-aDot*nnList[i].dx.y;
+		dvz = (-p->velocity[2]+nnList[i].p->vPred()[2])-aDot*nnList[i].dx.z;
 		dvcosmo = sqrt(dvx*dvx+dvy*dvy+dvz*dvz);
 		weight = rs*pow(nnList[i].p->c()*nnList[i].p->c()
 				+dvcosmo*dvcosmo,-1.5)/dCosmoDenFac; /* weight particles by mdot quantities */
@@ -1989,9 +1989,9 @@ void SinkAccreteSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p->v[0] = q->v[0];
 	    p->v[1] = q->v[1];
 	    p->v[2] = q->v[2];
-	    p->vPred[0] = q->vPred[0];
-	    p->vPred[1] = q->vPred[1];
-	    p->vPred[2] = q->vPred[2];
+	    p->vPred()[0] = q->vPred()[0];
+	    p->vPred()[1] = q->vPred()[1];
+	    p->vPred()[2] = q->vPred()[2];
 	    p->a[0] = q->a[0];
 	    p->a[1] = q->a[1];
 	    p->a[2] = q->a[2];
@@ -2262,13 +2262,13 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		sinth2 = sin(th2);
 		for (j=0;j<3;j++) {
 		    q->r[j] = p->r[j]+r2*costh2*q->rSinking0Unit[j]+r2*sinth2*q->vSinkingTang0Unit[j];
-		    q->vPred[j] = p->v[j]+q->vSinkingTang0Mag*sqr02*
+		    q->vPred()[j] = p->v[j]+q->vSinkingTang0Mag*sqr02*
 			(-sinth2*q->rSinking0Unit[j]+costh2*q->vSinkingTang0Unit[j])
 			+q->vSinkingr0*(costh2*q->rSinking0Unit[j]+sinth2*q->vSinkingTang0Unit[j]);
 		    }
 		bRVAUpdate(q) = 1; /* Indicator for r,v,a update */
 #ifdef SINKDBG
-		if (q->iOrder == 160460) printf("SINKINGFORCESHARE %ld  %g %g %g  %g %g %g  %g %g %g (%g)\n",q->iOrder,smf->dTime,r2,sqrt(pow(q->r[0]-p->r[0],2.)+pow(q->r[1]-p->r[1],2.)+pow(q->r[2]-p->r[2],2.)), q->r[0]-p->r[0],q->r[1]-p->r[1],q->r[2]-p->r[2],q->vPred[0]-p->v[0],q->vPred[1]-p->v[1],q->vPred[2]-p->v[2],(q->vPred[0]-p->v[0])*(q->r[0]-p->r[0])+(q->vPred[1]-p->v[1])*(q->r[1]-p->r[1])+(q->vPred[2]-p->v[2])*(q->r[2]-p->r[2]));
+		if (q->iOrder == 160460) printf("SINKINGFORCESHARE %ld  %g %g %g  %g %g %g  %g %g %g (%g)\n",q->iOrder,smf->dTime,r2,sqrt(pow(q->r[0]-p->r[0],2.)+pow(q->r[1]-p->r[1],2.)+pow(q->r[2]-p->r[2],2.)), q->r[0]-p->r[0],q->r[1]-p->r[1],q->r[2]-p->r[2],q->vPred()[0]-p->v[0],q->vPred()[1]-p->v[1],q->vPred()[2]-p->v[2],(q->vPred()[0]-p->v[0])*(q->r[0]-p->r[0])+(q->vPred()[1]-p->v[1])*(q->r[1]-p->r[1])+(q->vPred()[2]-p->v[2])*(q->r[2]-p->r[2]));
 #endif
 		TYPEReset(q,TYPE_NEWSINKING);
 		}

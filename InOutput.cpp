@@ -49,7 +49,7 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     double gamma = GAMMA_NONCOOL;
     double gammam1 = gamma - 1.0;
     p.c() = sqrt(gamma*gammam1*p.uPred());
-    p.vPred = gp.vel;
+    p.vPred() = gp.vel;
     p.fBallMax() = FLT_MAX;     // N.B. don't use DOUBLE_MAX here:
                                 // fBallMax*fBallMax should not overflow.
     p.fESNrate() = 0.0;
@@ -88,7 +88,7 @@ void load_tipsy_dark(Tipsy::TipsyReader &r, GravityParticle &p)
 	p.velocity = dp.vel;
         p.dtKep = 0;
 	p.soft = dp.eps;
-    p.vPred = dp.vel;
+    p.vPred() = dp.vel;
 #ifdef CHANGESOFT
 	p.fSoft0 = dp.eps;
 #endif

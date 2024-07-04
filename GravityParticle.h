@@ -38,6 +38,7 @@ class ExternalGravityParticle {
   Vector3D<cosmoType> position;
 #ifdef COLLISION  
   Vector3D<cosmoType> _vPred;
+  cosmoType dtKep;
   Vector3D<double> w;
   double dtCol; 
   int iOrderCol;
@@ -52,6 +53,7 @@ class ExternalGravityParticle {
     p | soft;
 #ifdef COLLISION
     p | _vPred;
+    p | dtKep;
     p | w;
     p | dtCol;
     p | iOrderCol;
@@ -342,7 +344,6 @@ public:
                                 ///  is actually stored as (1/time^2)
                                 ///  since the gravity calculation
                                 ///  naturally gives us (G M/R^3).
-        cosmoType dtKep;        ///  dtGrav at pericenter
         cosmoType fBall;           ///< Neighbor search radius for smoothing
         cosmoType fDensity;
         int rung;  ///< the current rung (greater means faster)
@@ -387,7 +388,6 @@ public:
           p | velocity;
           p | treeAcceleration;
           p | dtGrav;
-          p | dtKep;
           p | fDensity;
           p | fBall;
           p | iOrder;

@@ -43,11 +43,11 @@
 #include "feedback.h"
 #include "SIDM.h"
 #include "externalForce.h"
-#include "collision.h"
 #include "formatted_string.h"
-#include "collision.h"
-
 #include "PETreeMerger.h"
+#ifdef COLLISION
+#include "collision.h"
+#endif
 
 #ifdef CUDA
 // for default per-list parameters

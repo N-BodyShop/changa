@@ -117,7 +117,7 @@ void TreePiece::velScale(double dScale, const CkCallback& cb)
 	{
 	    myParticles[i+1].velocity *= dScale;
 	    if(TYPETest(&myParticles[i+1], TYPE_GAS) || TYPETest(&myParticles[i+1], TYPE_DARK))
-		myParticles[i+1].vPred *= dScale;
+		myParticles[i+1].vPred() *= dScale;
 	    }
     contribute(cb);
     }
@@ -1456,17 +1456,17 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
       if(p->rung >= iKickRung) {
       if(bNeedVPred && TYPETest(p, TYPE_DARK)) {
 	      if(bClosing) { // update predicted quantities to end of step
-		  p->vPred = p->velocity
+		  p->vPred() = p->velocity
 		      + dDelta[p->rung]*p->treeAcceleration;
           } else {
-              p->vPred = p->velocity;
+              p->vPred() = p->velocity;
               }
           }
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
-		  p->vPred = p->velocity
+		  p->vPred() = p->velocity
 		      + dDelta[p->rung]*p->treeAcceleration;
-		  glassDamping(p->vPred, dDelta[p->rung], dGlassDamper);
+		  glassDamping(p->vPred(), dDelta[p->rung], dGlassDamper);
 		  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 		      p->u() = p->u() + p->uDot()*duDelta[p->rung];
@@ -1605,7 +1605,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		  }
 	      else {	// predicted quantities are at the beginning
 			// of step
-		  p->vPred = p->velocity;
+		  p->vPred() = p->velocity;
 		  if(!bGasIsothermal) {
 		      p->uPred() = p->u();
 #ifndef COOLING_NONE
@@ -1959,7 +1959,7 @@ void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
             /* UnKick -- revert to predicted values -- low order, non
                symplectic :( */  
 
-            p->velocity = p->vPred;
+            p->velocity = p->vPred();
 #ifndef COOLING_NONE
             p->u() = p->uPred();
 #ifdef SUPERBUBBLE
@@ -2039,11 +2039,11 @@ void TreePiece::drift(double dDelta,  // time step in x containing
       }
       boundingBox.grow(p->position);
       if (bNeedVpred && TYPETest(p, TYPE_DARK)) {
-          p->vPred += dvDelta*p->treeAcceleration;
+          p->vPred() += dvDelta*p->treeAcceleration;
       }
       else if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
-	  p->vPred += dvDelta*p->treeAcceleration;
-	  glassDamping(p->vPred, dvDelta, dGlassDamper);
+	  p->vPred() += dvDelta*p->treeAcceleration;
+	  glassDamping(p->vPred(), dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {
 #ifndef COOLING_NONE
 	      p->uPred() += p->uDot()*duDelta;
