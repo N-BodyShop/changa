@@ -403,8 +403,8 @@ typedef struct CudaCoolingPKDStruct {
   double      MetalzMin; 
   double      MetalzMax;  
   double      rDeltaz;
-  float       ***MetalCoolln;
-  float       ***MetalHeatln;  
+  float       *MetalCoolln;
+  float       *MetalHeatln;  
   double      *Rate_DustForm_H2; 
   
   int        nTableRead; /* number of Tables read from files */

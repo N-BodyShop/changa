@@ -2212,34 +2212,43 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
 
 void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, std::vector<double> *dtg, int numParts, cudaStream_t stream) {
 
+    if (numParts == 0) return;
+
     double *d_y, *d_dtg;
     size_t ySize = numParts * 5 * sizeof(double); // TODO const defined in clIntegrateEnergy
-    size_t dtgSize = numParts * sizeof(double);
+    size_t dtgSize = dtg->size() * sizeof(double);
+
     cudaChk(cudaMalloc(&d_y, ySize));
     cudaChk(cudaMalloc(&d_dtg, dtgSize));
+    size_t free, total;
 
-    // Copy y and dtg from host to device
-    // Flatten the 2D array y to a contiguous memory block
-    // Use C-style malloc because we cant cuda memcpy an std::vector of vectors
-    double *flat_y = (double *)malloc(ySize);
+    double *y_host, *dtg_host, *y_host_out;
+    allocatePinnedHostMemory((void **)&y_host, ySize);
+    allocatePinnedHostMemory((void **)&y_host_out, ySize);
+    allocatePinnedHostMemory((void **)&dtg_host, dtgSize);
     for (int i = 0; i < numParts; ++i) {
-        memcpy(flat_y + i * 5, y[i], 5 * sizeof(double));
+        memcpy(y_host + i * 5, y[i], 5 * sizeof(double));
     }
-    cudaChk(cudaMemcpyAsync(d_y, flat_y, ySize, cudaMemcpyHostToDevice, stream));
-    cudaChk(cudaMemcpyAsync(d_dtg, dtg->data(), dtgSize, cudaMemcpyHostToDevice, stream));
+    memcpy(dtg_host, dtg->data(), dtgSize);
+
+    cudaChk(cudaMemcpyAsync(d_y, y_host, ySize, cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(d_dtg, dtg_host, dtgSize, cudaMemcpyHostToDevice, stream));
 
     CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_CudaStiff, d_y, tstart, d_dtg, numParts);
-    cudaChk(cudaMemcpyAsync(flat_y, d_y, ySize, cudaMemcpyDeviceToHost, stream));
+    // Put these in pinned host memory
+    cudaChk(cudaMemcpyAsync(y_host_out, d_y, ySize, cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
 
     // Copy data back to the original 2D array y
     for (int i = 0; i < numParts; ++i) {
-        memcpy(y[i], flat_y + i * 5, 5 * sizeof(double));
+        memcpy(y[i], y_host_out + i * 5, 5 * sizeof(double));
     }
 
     cudaFree(d_y);
     cudaFree(d_dtg);
-    free(flat_y);
+    freePinnedHostMemory(y_host);
+    freePinnedHostMemory(y_host_out);
+    freePinnedHostMemory(dtg_host);
 }
 
 // Ignoring non-USETABLE functions
@@ -2654,6 +2663,7 @@ __device__ void clRateMetalTable(CudaCOOL *cl, CudaRATE *Rate, double T, double 
   inHlog = xnHlog;
   if (inHlog == cl->nnHMetalTable - 1) inHlog = cl->nnHMetalTable - 2; /*CC; To prevent running over the table.  Should not be used*/
   
+  /*
   Cool000 = cl->MetalCoolln[iz][inHlog][iTlog];
   Cool001 = cl->MetalCoolln[iz][inHlog][iTlog+1];
   Cool010 = cl->MetalCoolln[iz][inHlog+1][iTlog];
@@ -2671,6 +2681,27 @@ __device__ void clRateMetalTable(CudaCOOL *cl, CudaRATE *Rate, double T, double 
   Heat101 = cl->MetalHeatln[iz+1][inHlog][iTlog+1];
   Heat110 = cl->MetalHeatln[iz+1][inHlog+1][iTlog];
   Heat111 = cl->MetalHeatln[iz+1][inHlog+1][iTlog+1];
+  */
+  int nnH = cl->nnHMetalTable;
+  int nt = cl->nTMetalTable;
+  Cool000 = cl->MetalCoolln[(iz * nnH * nt) + (inHlog * nt) + iTlog];
+  Cool001 = cl->MetalCoolln[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Cool010 = cl->MetalCoolln[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Cool011 = cl->MetalCoolln[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+  Cool100 = cl->MetalCoolln[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
+  Cool101 = cl->MetalCoolln[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Cool110 = cl->MetalCoolln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Cool111 = cl->MetalCoolln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+
+  Heat000 = cl->MetalHeatln[(iz * nnH * nt) + (inHlog * nt) + iTlog];
+  Heat001 = cl->MetalHeatln[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Heat010 = cl->MetalHeatln[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Heat011 = cl->MetalHeatln[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+  Heat100 = cl->MetalHeatln[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
+  Heat101 = cl->MetalHeatln[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Heat110 = cl->MetalHeatln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Heat111 = cl->MetalHeatln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+
 
   xz = xz - iz; 
   wz1 = xz; 
@@ -3206,7 +3237,6 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *_y, double tstart, double *_
 	    //printf("%g %g\n", dtg, tn*tfd);
 	    //if(1==1){
 	    if(dtg <= tn*tfd) {
-                _dtg[id] = dtg;
                 for (int i = 0; i < 5; ++i) {
                     _y[id * 5 + i] = y[i];
                 }
@@ -3264,7 +3294,6 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *_y, double tstart, double *_
 	}
 
     // Copy back the modified data
-    _dtg[id] = dtg;
     for (int i = 0; i < 5; ++i) {
         _y[id * 5 + i] = y[i];
         }

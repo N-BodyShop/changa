@@ -358,12 +358,10 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 	}
     }
 
-    cudaError_t error;
     cudaMalloc(&d_MetalCoolln, tableSize);
     cudaMalloc(&d_MetalHeatln, tableSize);
-    error = cudaMemcpy(d_MetalCoolln, coolBuf, tableSize, cudaMemcpyHostToDevice);
-    error = cudaMemcpy(d_MetalHeatln, heatBuf, tableSize, cudaMemcpyHostToDevice);
-    if (error != cudaSuccess) CkAbort("failed\n");
+    cudaMemcpy(d_MetalCoolln, coolBuf, tableSize, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_MetalHeatln, heatBuf, tableSize, cudaMemcpyHostToDevice);
     free(coolBuf);
     free(heatBuf);
 
@@ -427,10 +425,9 @@ TreePiece::initCoolingData(const CkCallback& cb)
 
     CudaCoolData.IntegratorContext = d_CudaStiff;
 
-    cudaMemcpyAsync(d_CudaStiff, &CudaStiff, sizeof(CudaSTIFF), cudaMemcpyHostToDevice, this->stream);
-    cudaMemcpyAsync(d_CudaCoolData, &CudaCoolData, sizeof(CudaclDerivsData), cudaMemcpyHostToDevice, this->stream);
+    cudaMemcpy(d_CudaStiff, &CudaStiff, sizeof(CudaSTIFF), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CudaCoolData, &CudaCoolData, sizeof(CudaclDerivsData), cudaMemcpyHostToDevice);
 
-    cudaStreamSynchronize(this->stream);
 #endif // CUDA
 #endif // COOLING_NONE
     contribute(cb);
@@ -1160,6 +1157,8 @@ void TreePiece::updateuDot(int activeRung,
         }
     }
 
+    //CkPrintf("Rung %d, %d particles to update\n", activeRung, numSelParts);
+
     double dt; // time in seconds
     double PoverRho;
     double PoverRhoGas;
@@ -1168,6 +1167,8 @@ void TreePiece::updateuDot(int activeRung,
 
     // There is a lot of data here
     // std::vector prevents the data from going onto function stack frame
+    std::vector<GravityParticle *> pPtr(numSelParts);
+
     std::vector<double> ExternalHeating(numSelParts);
     std::vector<double> dtUse(numSelParts);
     std::vector<double> fDensity(numSelParts);
@@ -1184,6 +1185,7 @@ void TreePiece::updateuDot(int activeRung,
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)
 	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
+	    pPtr[pIdx] = p;
 	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
         fDensity[pIdx] = p->fDensity;
         fMetals[pIdx] = p->fMetals();
@@ -1304,6 +1306,7 @@ void TreePiece::updateuDot(int activeRung,
 	t = 0.0;
 #ifdef CUDA
 	// Still hanging somewhere
+	//CkPrintf("%d\n", dtUse.size());
         TreePieceODESolver(d_CudaStiff, y, t, &dtUse, numSelParts, this->stream);
 	// This gets called multiple times per step, so we are freeing twice
 	// TODO clean this stuff up until simulation ends
@@ -1318,6 +1321,13 @@ void TreePiece::updateuDot(int activeRung,
         cudaFree(d_rtaus);
         cudaFree(d_scrarray);
         cudaFree(d_CudaStiff);*/
+        /*for(unsigned int i = 0; i < numSelParts; ++i) {
+           t = 0.0;
+           StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
+	}*/
+        /*for(unsigned int i = 0; i < numSelParts; ++i) {
+	    CkPrintf("%g %g\n", y[i][0], dtUse[i]);
+	}*/
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
@@ -1325,6 +1335,7 @@ void TreePiece::updateuDot(int activeRung,
 	}
 #endif
 
+	//CkPrintf("TP finished ODE solver\n");
         for(unsigned int i = 0; i < numSelParts; ++i) {
             CoolIntegrateEnergyCodeFinish(dm->Cool, CoolData, &Y[i], &Ecgs[i], &cp[i], &E[i],
 	                                  ExternalHeating[i], fDensity[i],
@@ -1334,7 +1345,28 @@ void TreePiece::updateuDot(int activeRung,
 	delete[] y;
         }
 
-    pIdx = 0;
+    for(unsigned int i = 0; i < numSelParts; ++i) {
+	GravityParticle *p = pPtr[i];
+        if (bCool) {
+            CkAssert(E[i] > 0.0);
+            if(dtUse[i] > 0 || ExternalHeating[i]*duDelta[p->rung] + p->u() < 0)
+                // linear interpolation over interval
+                p->uDot() = (E[i] - p->u())/duDelta[p->rung];
+		//CkPrintf("%g %g %g\n", E[i], p->u(), duDelta[p->rung]);
+                if (bUpdateState) p->CoolParticle() = cp[i];
+            } else {
+                p->uDot() = ExternalHeating[i];
+                }
+            CkAssert(isfinite(p->uDot()));
+        }
+
+    /*pIdx = 0;
+    // Fields we need to save beforehand
+    // p->rung
+    // p->u()
+    // p->CoolParticle() (pointer)
+    // p->uDot() (pointer)
+    // just save ptr to GravityParticle?
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)
@@ -1343,7 +1375,10 @@ void TreePiece::updateuDot(int activeRung,
                     CkAssert(E[pIdx] > 0.0);
 		    if(dtUse[pIdx] > 0 || ExternalHeating[pIdx]*duDelta[p->rung] + p->u() < 0)
 		        // linear interpolation over interval
+			// Comparing with old implementation, everything matches but the new uDot values
+			// Is it possible that E[pIdx] and p->u() arent the same particle?
 		        p->uDot() = (E[pIdx] - p->u())/duDelta[p->rung];
+		        CkPrintf("%g %g\n", p->u(), duDelta[p->rung]);
 		    	if (bUpdateState) p->CoolParticle() = cp[pIdx];
                 } else {
                     p->uDot() = ExternalHeating[pIdx];
@@ -1351,7 +1386,7 @@ void TreePiece::updateuDot(int activeRung,
                 CkAssert(isfinite(p->uDot()));
             pIdx++; 
             }
-        }
+        }*/
 
 #endif
     // Use shadow array to avoid reduction conflict
