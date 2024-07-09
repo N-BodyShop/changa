@@ -2220,7 +2220,6 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, std:
 
     cudaChk(cudaMalloc(&d_y, ySize));
     cudaChk(cudaMalloc(&d_dtg, dtgSize));
-    size_t free, total;
 
     double *y_host, *dtg_host, *y_host_out;
     allocatePinnedHostMemory((void **)&y_host, ySize);
@@ -2231,6 +2230,7 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, std:
     }
     memcpy(dtg_host, dtg->data(), dtgSize);
 
+    cudaStreamSynchronize(stream);
     cudaChk(cudaMemcpyAsync(d_y, y_host, ySize, cudaMemcpyHostToDevice, stream));
     cudaChk(cudaMemcpyAsync(d_dtg, dtg_host, dtgSize, cudaMemcpyHostToDevice, stream));
 
@@ -2985,6 +2985,8 @@ __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *d
   nHI = en_B*d->Y.HI;
   nH2 = en_B*d->Y.H2;
   nHII = en_B*d->Y.HII;
+  // TODO division by zero here
+  // Something unitalized?
   nHminus = d->Rate.HI_e* d->Y.HI*d->Y.e/(d->Rate.HI_Hm*d->Y.HI + d->Rate.Coll_Hm_HII*d->Y.HI + d->Rate.Coll_Hm_e*d->Y.e);
 
   dGain[4] = d->Y.HI*nHminus*en_B*d->Rate.HI_Hm + /*gas phase formation of H2, adel 97 */
@@ -3023,16 +3025,18 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *_y, double tstart, double *_
      * Local copies of Stiff context
      */
     int n = s->nv;
-    double *y0 = s->y0;
-    double *ymin = s->ymin;
-    double *q = s->q;
-    double *d = s->d;
-    double *rtau = s->rtau;
-    double *ys = s->ys;
-    double *qs = s->qs;
-    double *rtaus = s->rtaus;
-    double *scrarray = s->scrarray;
-    double *y1 = s->y1;
+
+    double *y0 = &s->y0[id * s->nv];
+    double *ymin = &s->ymin[id * s->nv];
+    double *q = &s->q[id * s->nv];
+    double *d = &s->d[id * s->nv];
+    double *rtau = &s->rtau[id * s->nv];
+    double *ys = &s->ys[id * s->nv];
+    double *qs = &s->qs[id * s->nv];
+    double *rtaus = &s->rtaus[id * s->nv];
+    double *scrarray = &s->scrarray[id * s->nv];
+    double *y1 = &s->y1[id * s->nv];
+
     double epsmin = s->epsmin;
     double sqreps = s->sqreps;
     double epscl = s->epscl;
@@ -3067,7 +3071,12 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *_y, double tstart, double *_
 	}
     
     //s->derivs(tn + tstart, y, q, d, s->Data);
-    CudaclDerivs(tn + tstart, y, q, d, s->Data);
+    // There seems to be a race condition with q
+    // TODO d[1] is NAN
+    // TODO q is zero if not stepping with debugger (race condition?)
+    printf("q: %g\n", q[0]);
+    CudaclDerivs(tn + tstart, y, q, d, &((CudaclDerivsData*)s->Data)[id]);
+    printf("q: %g\n", q[0]);
     gcount++;
     
     /*
@@ -3168,7 +3177,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *_y, double tstart, double *_
 	      evaluate the derivitives for the corrector.
 	    */
 	   // s->derivs(tn + tstart, y, q, d, s->Data);
-            CudaclDerivs(tn + tstart, y, q, d, s->Data);
+            CudaclDerivs(tn + tstart, y, q, d, &((CudaclDerivsData*)s->Data)[id]);
 	    gcount++;
 	    eps = 1.0e-10;
 	    for(i = 0; i < n; i++) {
@@ -3289,7 +3298,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *_y, double tstart, double *_
 	  and continue back at line 100
 	*/
 	//s->derivs(tn + tstart, y, q, d, s->Data);
-        CudaclDerivs(tn + tstart, y, q, d, s->Data);
+        CudaclDerivs(tn + tstart, y, q, d, &((CudaclDerivsData*)s->Data)[id]);
 	gcount++;
 	}
 

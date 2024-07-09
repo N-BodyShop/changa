@@ -1591,20 +1591,6 @@ public:
 #ifndef COOLING_NONE
 	  if(bGasCooling) {
 	      CoolDerivsFinalize(CoolData);
-#ifdef CUDA
-	      cudaFree(d_CudaCoolData);
-	      cudaFree(d_CudaStiff);
-	      cudaFree(d_ymin);
-	      cudaFree(d_y0);
-	      cudaFree(d_y1);
-	      cudaFree(d_q);
-	      cudaFree(d_d);
-	      cudaFree(d_rtau);
-	      cudaFree(d_ys);
-	      cudaFree(d_qs);
-	      cudaFree(d_rtaus);
-	      cudaFree(d_scrarray);
-#endif
 	  }
 #endif
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;

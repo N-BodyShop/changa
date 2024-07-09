@@ -338,33 +338,48 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     cudaMemcpy(d_CudaRates_T, &CudaRates_T, sizeof(CudaRATES_T), cudaMemcpyHostToDevice);
     CudaCool.RT = d_CudaRates_T;
 
-    CudaUVSPECTRUM CudaUvspectrum;
-    UVSPECTRUMtoCudaUVSPECTRUM(Cool->UV, &CudaUvspectrum);
-    cudaMalloc(&d_CudaUvspectrum, sizeof(CudaUVSPECTRUM));
-    cudaMemcpy(d_CudaUvspectrum, &CudaUvspectrum, sizeof(CudaUvspectrum), cudaMemcpyHostToDevice);
-    CudaCool.UV = d_CudaUvspectrum;
-
     int nz = CudaCool.nzMetalTable;
     int nnH = CudaCool.nnHMetalTable;
     int nt = CudaCool.nTMetalTable;
+    int nUV = CudaCool.nUV;
+
+    CudaUVSPECTRUM CudaUvspectrum[nUV];
+    for (int i = 0; i < nUV; ++i) UVSPECTRUMtoCudaUVSPECTRUM(&Cool->UV[i], &CudaUvspectrum[i]);
+
+    int i, l;
+    for(i=nz-2, l=0; i>=0; i--,l++){
+	CudaUvspectrum[l].zTime = Cool->UV[l].zTime;
+	CudaUvspectrum[l].Rate_Phot_HI = Cool->UV[l].Rate_Phot_HI;
+	CudaUvspectrum[l].Rate_Phot_HeI = Cool->UV[l].Rate_Phot_HeI;
+	CudaUvspectrum[l].Rate_Phot_HeII = Cool->UV[l].Rate_Phot_HeII;
+
+	CudaUvspectrum[l].Heat_Phot_HI = Cool->UV[l].Heat_Phot_HI;
+	CudaUvspectrum[l].Heat_Phot_HeI = Cool->UV[l].Heat_Phot_HeI;
+	CudaUvspectrum[l].Heat_Phot_HeII = Cool->UV[l].Heat_Phot_HeII;
+    }
+
     size_t tableSize = nz*nnH*nt*sizeof(float);
 
     float* coolBuf = (float*)malloc(tableSize);
     float* heatBuf = (float*)malloc(tableSize);
-    for (int i = 0; i < nz; ++i) {
+
+    for (i = 0; i < nz; ++i) {
 	for (int j = 0; j < nnH; ++j) {
             memcpy(&coolBuf[(i * nnH + j) * nt], Cool->MetalCoolln[i][j], nt * sizeof(float));
             memcpy(&heatBuf[(i * nnH + j) * nt], Cool->MetalHeatln[i][j], nt * sizeof(float));
 	}
     }
 
+    cudaMalloc(&d_CudaUvspectrum, sizeof(CudaUVSPECTRUM)*nUV);
     cudaMalloc(&d_MetalCoolln, tableSize);
     cudaMalloc(&d_MetalHeatln, tableSize);
+    cudaMemcpy(d_CudaUvspectrum, &CudaUvspectrum, sizeof(CudaUVSPECTRUM)*nUV, cudaMemcpyHostToDevice);
     cudaMemcpy(d_MetalCoolln, coolBuf, tableSize, cudaMemcpyHostToDevice);
     cudaMemcpy(d_MetalHeatln, heatBuf, tableSize, cudaMemcpyHostToDevice);
     free(coolBuf);
     free(heatBuf);
 
+    CudaCool.UV = d_CudaUvspectrum;
     CudaCool.RT = d_CudaRates_T;
     CudaCool.MetalCoolln = d_MetalCoolln;
     CudaCool.MetalHeatln = d_MetalHeatln;
@@ -388,47 +403,6 @@ TreePiece::initCoolingData(const CkCallback& cb)
     bGasCooling = 1;
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
     CoolData = CoolDerivsInit(dm->Cool);
-#ifdef CUDA
-    cudaMalloc(&d_CudaStiff, sizeof(CudaSTIFF));
-    cudaMalloc(&d_CudaCoolData, sizeof(CudaclDerivsData));
-
-    CudaclDerivsData CudaCoolData;
-    clDerivsDatatoCudaclDerivsData(CoolData, &CudaCoolData);
-
-    CudaCoolData.cl = dm->d_CudaCool;
-    CudaSTIFF CudaStiff;
-    STIFFtoCudaSTIFF(CoolData->IntegratorContext, &CudaStiff);
-    CudaStiff.Data = d_CudaCoolData;
-
-    cudaMalloc(&d_ymin, CudaStiff.nv*sizeof(*d_ymin));
-    // Do I need to init these values to 1e-300?
-    cudaMalloc(&d_y0, CudaStiff.nv*sizeof(*d_y0));
-    cudaMalloc(&d_y1, CudaStiff.nv*sizeof(*d_y1));
-    cudaMalloc(&d_q, CudaStiff.nv*sizeof(*d_q));
-    cudaMalloc(&d_d, CudaStiff.nv*sizeof(*d_d));
-    cudaMalloc(&d_rtau, CudaStiff.nv*sizeof(*d_rtau));
-    cudaMalloc(&d_ys, CudaStiff.nv*sizeof(*d_ys));
-    cudaMalloc(&d_qs, CudaStiff.nv*sizeof(*d_qs));
-    cudaMalloc(&d_rtaus, CudaStiff.nv*sizeof(*d_rtaus));
-    cudaMalloc(&d_scrarray, CudaStiff.nv*sizeof(*d_scrarray));
-    CudaStiff.ymin = d_ymin;
-    CudaStiff.y0 = d_y0;
-    CudaStiff.y1 = d_y1;
-    CudaStiff.q = d_q;
-    CudaStiff.d = d_d;
-    CudaStiff.rtau = d_rtau;
-    CudaStiff.ys = d_ys;
-    CudaStiff.qs = d_qs;
-    CudaStiff.rtaus = d_rtaus;
-    CudaStiff.scrarray = d_scrarray;
-    CudaStiff.derivs = &CudaclDerivs;
-
-    CudaCoolData.IntegratorContext = d_CudaStiff;
-
-    cudaMemcpy(d_CudaStiff, &CudaStiff, sizeof(CudaSTIFF), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CudaCoolData, &CudaCoolData, sizeof(CudaclDerivsData), cudaMemcpyHostToDevice);
-
-#endif // CUDA
 #endif // COOLING_NONE
     contribute(cb);
     }
@@ -1157,6 +1131,56 @@ void TreePiece::updateuDot(int activeRung,
         }
     }
 
+// If working on the GPU, need to allocate enough space for
+// the integrator context. This depends on the number of 
+// threads that will be launched
+#ifdef CUDA
+    cudaMalloc(&d_CudaStiff, sizeof(CudaSTIFF));
+
+    cudaMalloc(&d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData));
+    std::vector<CudaclDerivsData> h_CudaCoolData(numSelParts);
+    for (int i = 0; i < numSelParts; i++) {
+        clDerivsDatatoCudaclDerivsData(CoolData, &h_CudaCoolData[i]);
+        h_CudaCoolData[i].cl = dm->d_CudaCool;
+        h_CudaCoolData[i].IntegratorContext = d_CudaStiff;
+    }
+
+    CudaSTIFF CudaStiff;
+    STIFFtoCudaSTIFF(CoolData->IntegratorContext, &CudaStiff);
+    CudaStiff.Data = d_CudaCoolData;
+
+    // Each CUDA thread needs its own version of these variables
+    // Allocate enough space for all the threads
+    // Careful, this could easily fill up GPU memory
+    cudaMalloc(&d_ymin, numSelParts*CudaStiff.nv*sizeof(*d_ymin));
+    cudaMalloc(&d_y0, numSelParts*CudaStiff.nv*sizeof(*d_y0));
+    cudaMalloc(&d_q, numSelParts*CudaStiff.nv*sizeof(*d_q));
+    cudaMalloc(&d_d, numSelParts*CudaStiff.nv*sizeof(*d_d));
+    cudaMalloc(&d_rtau, numSelParts*CudaStiff.nv*sizeof(*d_rtau));
+    cudaMalloc(&d_ys, numSelParts*CudaStiff.nv*sizeof(*d_ys));
+    cudaMalloc(&d_qs, numSelParts*CudaStiff.nv*sizeof(*d_qs));
+    cudaMalloc(&d_rtaus, numSelParts*CudaStiff.nv*sizeof(*d_rtaus));
+    cudaMalloc(&d_scrarray, numSelParts*CudaStiff.nv*sizeof(*d_scrarray));
+    cudaMalloc(&d_y1, numSelParts*CudaStiff.nv*sizeof(*d_y1));
+
+    CudaStiff.ymin = d_ymin;
+    CudaStiff.y0 = d_y0;
+    CudaStiff.q = d_q;
+    CudaStiff.d = d_d;
+    CudaStiff.rtau = d_rtau;
+    CudaStiff.ys = d_ys;
+    CudaStiff.qs = d_qs;
+    CudaStiff.rtaus = d_rtaus;
+    CudaStiff.scrarray = d_scrarray;
+    CudaStiff.y1 = d_y1;
+    CudaStiff.Data = d_CudaCoolData;
+    CudaStiff.derivs = &CudaclDerivs;
+
+    cudaMemcpy(d_CudaStiff, &CudaStiff, sizeof(CudaSTIFF), cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CudaCoolData, h_CudaCoolData.data(), numSelParts*sizeof(CudaclDerivsData), cudaMemcpyHostToDevice);
+
+#endif // CUDA
+
     //CkPrintf("Rung %d, %d particles to update\n", activeRung, numSelParts);
 
     double dt; // time in seconds
@@ -1305,12 +1329,32 @@ void TreePiece::updateuDot(int activeRung,
 	double t;
 	t = 0.0;
 #ifdef CUDA
-	// Still hanging somewhere
-	//CkPrintf("%d\n", dtUse.size());
+        for(unsigned int i = 0; i < numSelParts; ++i) {
+           t = 0.0;
+           StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
+	}
+        for(unsigned int i = 0; i < numSelParts; ++i) {
+	    CkPrintf("%g\n", y[i][0]);
+	    delete[] y[i];
+	}
+	CkPrintf("************* re running with gpu ******************\n");
+	
+	// Cooling functions can only accept C-style arrays
+        //double **y = new double*[numSelParts];
+        for (int i = 0; i < numSelParts; ++i) {
+  	    y[i] = new double[5];
+        }
+        for(unsigned int i = 0; i < numSelParts; ++i) {
+	    Ecgs[i] = 0.0;
+            CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &Y[i], &Ecgs[i], &cp[i], &E[i],
+	                                 ExternalHeating[i], fDensity[i],
+	  	                         fMetals[i], r[i].data(), dtUse[i], columnL[i], y[i]);
+            }
+
         TreePieceODESolver(d_CudaStiff, y, t, &dtUse, numSelParts, this->stream);
-	// This gets called multiple times per step, so we are freeing twice
-	// TODO clean this stuff up until simulation ends
-        /*cudaFree(d_ymin);
+	cudaFree(d_CudaStiff);
+	cudaFree(d_CudaCoolData);
+        cudaFree(d_ymin);
         cudaFree(d_y0);
         cudaFree(d_y1);
         cudaFree(d_q);
@@ -1320,14 +1364,7 @@ void TreePiece::updateuDot(int activeRung,
         cudaFree(d_qs);
         cudaFree(d_rtaus);
         cudaFree(d_scrarray);
-        cudaFree(d_CudaStiff);*/
-        /*for(unsigned int i = 0; i < numSelParts; ++i) {
-           t = 0.0;
-           StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
-	}*/
-        /*for(unsigned int i = 0; i < numSelParts; ++i) {
-	    CkPrintf("%g %g\n", y[i][0], dtUse[i]);
-	}*/
+        for(unsigned int i = 0; i < numSelParts; ++i) CkPrintf("%g\n", y[i][0]);
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
