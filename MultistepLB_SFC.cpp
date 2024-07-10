@@ -90,6 +90,11 @@ void MultistepLB_SFC::work(BaseLB::LDStats* stats)
         LDObjData &odata = stats->objData[i];
         TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
 
+        if(udata->myNumParticles == 0){ // ignore pieces with no particles
+            stats->objData[i].migratable = 0;
+            stats->n_migrateobjs--;
+            continue;
+        }
         if(udata->numActiveParticles == 0){
             numInactiveObjects++;
         }
@@ -306,6 +311,5 @@ void MultistepLB_SFC::sfcPartition(int nProcs, vector<SFCObject> & tp,
 void MultistepLB_SFC::pup(PUP::er &p){
     CBase_MultistepLB_SFC::pup(p);
 }
-            
+
 #include "MultistepLB_SFC.def.h"
-            

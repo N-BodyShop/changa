@@ -37,7 +37,7 @@ public:
         init();
     }
 
-    class SFCObject 
+    class SFCObject
     {
     public:
         /// index into LB stats->objData
@@ -49,7 +49,7 @@ public:
         double load;
 
         SFCObject() : lbindex(-1), load(0) {}
-        SFCObject(int _lbindex, double _load) : 
+        SFCObject(int _lbindex, double _load) :
             lbindex(_lbindex),
             load(_load)
         {

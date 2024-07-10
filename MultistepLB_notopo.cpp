@@ -114,6 +114,11 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
     LDObjData &odata = stats->objData[i];
     TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
 
+    if(udata->myNumParticles == 0){ // ignore pieces with no particles
+        stats->objData[i].migratable = 0;
+        stats->n_migrateobjs--;
+        continue;
+    }
     if(udata->numActiveParticles == 0){
       numInactiveObjects++;
     }
@@ -250,25 +255,24 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count){
       }
 }
 
-void Orb_PrintLBStats(BaseLB::LDStats *stats, int numobjs) 
+void Orb_PrintLBStats(BaseLB::LDStats *stats, int numobjs)
 {
-    double *predLoad = new double[stats->nprocs()];
-    int *predCount = new int[stats->nprocs()];
-    for(int i = 0; i < stats->nprocs(); i++){
-        predLoad[i] = 0.0;
-        predCount[i] = 0;
-    }
-
+    std::vector<double> predLoad(stats->nprocs(), 0.0);
+    std::vector<int> predCount(stats->nprocs(), 0);
     double maxObjLoad = 0.0;
 
     int migr = 0;
     for(int i = 0; i < numobjs; i++){
+        LDObjData &odata = stats->objData[i];
+        TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
+        if(udata->myNumParticles == 0) // ignore empty TreePieces
+            continue;
         if(stats->to_proc[i] != stats->from_proc[i])
             migr++;
         double ld = stats->objData[i].wallTime;
         int proc = stats->to_proc[i];
-        predLoad[proc] += ld; 
-        predCount[proc] ++; 
+        predLoad[proc] += ld;
+        predCount[proc] ++;
         if(ld > maxObjLoad)
             maxObjLoad = ld;
     }
@@ -301,8 +305,8 @@ void Orb_PrintLBStats(BaseLB::LDStats *stats, int numobjs)
         double pred = predLoad[i];
         double npiece = predCount[i];
 
-        avgWall += wallTime; 
-        avgIdle += idleTime; 
+        avgWall += wallTime;
+        avgIdle += idleTime;
         avgBg += bgTime;
         avgPred += pred;
         avgPiece += npiece;
@@ -353,9 +357,6 @@ void Orb_PrintLBStats(BaseLB::LDStats *stats, int numobjs)
     }
     CkPrintf("100: %.3f\n", objectWallTimes.back());
 #endif
-
-    delete[] predLoad;
-    delete[] predCount;
 
     CkPrintf("LB stats: maxObjLoad %f\n", maxObjLoad);
     CkPrintf("LB stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
