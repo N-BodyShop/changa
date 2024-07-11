@@ -389,7 +389,6 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     CudaCool.UV = d_CudaUvspectrum;
     CudaCool.MetalCoolln = d_MetalCoolln;
     CudaCool.MetalHeatln = d_MetalHeatln;
-    CudaCool.UV = d_CudaUvspectrum;
 
     cudaMalloc(&d_CudaCool, sizeof(CudaCOOL));
     cudaMemcpy(d_CudaCool, &CudaCool, sizeof(CudaCOOL), cudaMemcpyHostToDevice);
@@ -1140,7 +1139,7 @@ void TreePiece::updateuDot(int activeRung,
         }
     }
 
-    //CkPrintf("Rung %d, %d particles to update\n", activeRung, numSelParts);
+    CkPrintf("Rung %d, %d particles to update\n", activeRung, numSelParts);
 
     double dt; // time in seconds
     double PoverRho;
@@ -1149,7 +1148,7 @@ void TreePiece::updateuDot(int activeRung,
     double cGas;
 
     // There is a lot of data here
-    // std::vector prevents the data from going onto function stack frame
+    // std::vectors preventsthe data from going onto function stack frame
     std::vector<GravityParticle *> pPtr(numSelParts);
 
     std::vector<double> ExternalHeating(numSelParts);
@@ -1275,6 +1274,7 @@ void TreePiece::updateuDot(int activeRung,
 	std::vector<double> Ecgs(numSelParts);
 
 	// Cooling functions can only accept C-style arrays
+	// so we dont use std::vectors here
         double **y = new double*[numSelParts];
         for (int i = 0; i < numSelParts; ++i) {
   	    y[i] = new double[5];
@@ -1290,10 +1290,11 @@ void TreePiece::updateuDot(int activeRung,
 	double t;
 	t = 0.0;
 	
-// If working on the GPU, need to allocate enough space for
-// the integrator context. This depends on the number of 
-// threads that will be launched
 #ifdef CUDA
+	// When running on the GPU, each thread needs its own:
+	//   Integrator context
+	//   Derivative data
+	//   y variables for chemeq
         cudaMalloc(&d_CudaStiff, sizeof(CudaSTIFF)*numSelParts);
 
 	int nv = CoolData->IntegratorContext->nv;
@@ -1340,34 +1341,20 @@ void TreePiece::updateuDot(int activeRung,
 
             STIFFtoCudaSTIFF(CoolDataArr[i]->IntegratorContext, &CudaStiff[i]);
         }
-	// TODO CPU and GPU densities for CoolData aren't matching
-        cudaMemcpy(d_CudaCoolData, h_CudaCoolData.data(), numSelParts*sizeof(CudaclDerivsData), cudaMemcpyHostToDevice);
 
+        cudaMemcpy(d_CudaCoolData, h_CudaCoolData.data(), numSelParts*sizeof(CudaclDerivsData), cudaMemcpyHostToDevice);
         cudaMemcpy(d_CudaStiff, CudaStiff.data(), sizeof(CudaSTIFF)*numSelParts, cudaMemcpyHostToDevice);
 
+	// For testing purposes, run calculation in serial on CPU
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
            //StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
 	}
-        /*for(unsigned int i = 0; i < numSelParts; ++i) {
-	    CkPrintf("%g\n", y[i][0]);
-	    delete[] y[i];
-	}*/
-	CkPrintf("************* re running with gpu ******************\n");
-	
-	// Cooling functions can only accept C-style arrays
-        //double **y = new double*[numSelParts];
-        /*for (int i = 0; i < numSelParts; ++i) {
-  	    y[i] = new double[5];
-        }*/
-        /*for(unsigned int i = 0; i < numSelParts; ++i) {
-	    Ecgs[i] = 0.0;
-            CoolIntegrateEnergyCodeStart(dm->Cool, CoolDataArr[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
-	                                 ExternalHeating[i], fDensity[i],
-	  	                         fMetals[i], r[i].data(), dtUse[i], columnL[i], y[i]);
-            }*/
 
+	// There is a bug where the heating rates blow up after the first updateudot
+	// if only running 1 tree piece
         TreePieceODESolver(d_CudaStiff, y, t, &dtUse, numSelParts, this->stream);
+
 	cudaFree(d_CudaStiff);
 	cudaFree(d_CudaCoolData);
         cudaFree(d_ymin);
@@ -1380,7 +1367,6 @@ void TreePiece::updateuDot(int activeRung,
         cudaFree(d_qs);
         cudaFree(d_rtaus);
         cudaFree(d_scrarray);
-        //for(unsigned int i = 0; i < numSelParts; ++i) CkPrintf("%g\n", y[i][0]);
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
@@ -1388,9 +1374,7 @@ void TreePiece::updateuDot(int activeRung,
 	}
 #endif
 
-	//CkPrintf("TP finished ODE solver\n");
         for(unsigned int i = 0; i < numSelParts; ++i) {
-	    // TODO need cooldata from GPU?
             CoolIntegrateEnergyCodeFinish(dm->Cool, CoolDataArr[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
 	                                  ExternalHeating[i], fDensity[i],
 	  	                          fMetals[i], r[i].data(), dtUse[i], columnL[i], y[i]);
@@ -1406,41 +1390,13 @@ void TreePiece::updateuDot(int activeRung,
             if(dtUse[i] > 0 || ExternalHeating[i]*duDelta[p->rung] + p->u() < 0)
                 // linear interpolation over interval
                 p->uDot() = (E[i] - p->u())/duDelta[p->rung];
-		//CkPrintf("%g %g %g\n", E[i], p->u(), duDelta[p->rung]);
+		CkPrintf("%g\n", p->uDot());
                 if (bUpdateState) p->CoolParticle() = cp[i];
             } else {
                 p->uDot() = ExternalHeating[i];
                 }
             CkAssert(isfinite(p->uDot()));
         }
-
-    /*pIdx = 0;
-    // Fields we need to save beforehand
-    // p->rung
-    // p->u()
-    // p->CoolParticle() (pointer)
-    // p->uDot() (pointer)
-    // just save ptr to GravityParticle?
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
-	GravityParticle *p = &myParticles[i];
-	if (TYPETest(p, TYPE_GAS)
-	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
-                if (bCool) {
-                    CkAssert(E[pIdx] > 0.0);
-		    if(dtUse[pIdx] > 0 || ExternalHeating[pIdx]*duDelta[p->rung] + p->u() < 0)
-		        // linear interpolation over interval
-			// Comparing with old implementation, everything matches but the new uDot values
-			// Is it possible that E[pIdx] and p->u() arent the same particle?
-		        p->uDot() = (E[pIdx] - p->u())/duDelta[p->rung];
-		        CkPrintf("%g %g\n", p->u(), duDelta[p->rung]);
-		    	if (bUpdateState) p->CoolParticle() = cp[pIdx];
-                } else {
-                    p->uDot() = ExternalHeating[pIdx];
-                    }
-                CkAssert(isfinite(p->uDot()));
-            pIdx++; 
-            }
-        }*/
 
 #endif
     // Use shadow array to avoid reduction conflict
