@@ -2251,34 +2251,6 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, std:
     freePinnedHostMemory(dtg_host);
 }
 
-// Ignoring non-USETABLE functions
-// Need clRates_Table and clEdotInstant_Table
-#define CLRATES( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar) cudaClRates_Table( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)
-#define CLEDOTINSTANT( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool ) cudaClEdotInstant_Table( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool);
-
-#define EPS 1e-5
-#define M_H      1.672e-24
-
-#ifdef CUBICTABLEINTERP
-#define TABLEFACTOR 2
-#else 
-#define TABLEFACTOR 1
-#endif
-
-#ifdef CUBICTABLEINTERP
-#define TABLEINTERP( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname+wTln0d*RT0d->_rname+wTln1d*RT1d->_rname)
-#else
-#define TABLEINTERP( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname)
-#endif
-
-#define TABLEINTERPLIN( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname)
-
-#define CL_Rgascode         8.2494e7
-#define CL_Eerg_gm_degK     CL_Rgascode
-#define CL_ev_degK          1.0/1.1604e4
-#define CL_Eerg_gm_ev       CL_Eerg_gm_degK/CL_ev_degK
-#define CL_Eerg_gm_degK3_2  1.5*CL_Eerg_gm_degK /* 1.23741e8*/
-
 // These need to be copied to device memory
 __device__ double AP_Gamma_HI_factor[] = { 0.99805271764596307, 0.99877911567687988, 0.99589340865612034,
 			  0.99562060764857702, 0.99165170359332663, 0.9900889877822455,
@@ -2566,7 +2538,7 @@ __global__ void clRatesRedshift( CudaCOOL *cl, double zIn, double dTimeIn ) {
 	  return;
 	  }
   
-  UV0=UV-1;  
+  UV0=UV-1;
   if (i == cl->nUV ) {
 	  cl->R.Rate_Phot_HI = UV0->Rate_Phot_HI;
 	  cl->R.Rate_Phot_HeI = UV0->Rate_Phot_HeI;
@@ -2613,132 +2585,6 @@ __global__ void clRatesRedshift( CudaCOOL *cl, double zIn, double dTimeIn ) {
 
   return;
   }
-
-__device__ void clRateMetalTable(CudaCOOL *cl, CudaRATE *Rate, double T, double rho, double Y_H, double ZMetal)
-{
-  double tempT, tempnH,tempz, nH;
-  double Tlog, nHlog; 
-  double xTlog, wTlog0, wTlog1, xz, wz0, wz1, xnHlog, wnHlog0, wnHlog1; 
-  int    iTlog, iz, inHlog; 
-  double  Cool000, Cool010, Cool100, Cool110, Cool001, Cool011, Cool101, Cool111; 
-  double  Cool00, Cool01, Cool10, Cool11, Cool0, Cool1, Cool;
-  
-  double  Heat000, Heat010, Heat100, Heat110, Heat001, Heat011, Heat101, Heat111; 
-  double  Heat00, Heat01, Heat10, Heat11, Heat0, Heat1, Heat;
-
-  
-  if(!cl->bMetal) {
-    Rate->Cool_Metal = 0.0; 
-    Rate->Heat_Metal = 0.0; 
-    return; 
-  }
- 
-  nH = rho*Y_H/M_H;
-  
-  tempT = T; 
-  tempnH = nH;
-  tempz = cl->z; 
-
-  if (T >= cl->MetalTMax) tempT = cl->MetalTMax*(1.0-EPS);
-  if (T < cl->MetalTMin) tempT=cl->MetalTMin;
-
-  if (nH >= cl->MetalnHMax) tempnH = cl->MetalnHMax*(1.0-EPS);
-  if (nH < cl->MetalnHMin) tempnH = cl->MetalnHMin; 
- 
-  if (cl->z <= cl->MetalzMin) tempz = cl->MetalzMin+EPS;
-  /* if redshift is too high or no UV, use the no UV metal cooling table*/
-  if (cl->z > cl->MetalzMax || !cl->bUV) tempz = cl->MetalzMax;   
-
-  Tlog = log10(tempT); 
-  nHlog = log10(tempnH); 
-  
-  xz = cl->nzMetalTable -1 - (tempz - cl->MetalzMin)*cl->rDeltaz; 
-  iz = xz;   
-
-  xTlog = (Tlog - cl->MetalTlogMin)*cl->rDeltaTlog; 
-  assert(xTlog >= 0.0);
-  iTlog = xTlog; 
-
-  xnHlog = (nHlog - cl->MetalnHlogMin)*cl->rDeltanHlog; 
-  inHlog = xnHlog;
-  if (inHlog == cl->nnHMetalTable - 1) inHlog = cl->nnHMetalTable - 2; /*CC; To prevent running over the table.  Should not be used*/
-  
-  /*
-  Cool000 = cl->MetalCoolln[iz][inHlog][iTlog];
-  Cool001 = cl->MetalCoolln[iz][inHlog][iTlog+1];
-  Cool010 = cl->MetalCoolln[iz][inHlog+1][iTlog];
-  Cool011 = cl->MetalCoolln[iz][inHlog+1][iTlog+1];
-  Cool100 = cl->MetalCoolln[iz+1][inHlog][iTlog];
-  Cool101 = cl->MetalCoolln[iz+1][inHlog][iTlog+1];
-  Cool110 = cl->MetalCoolln[iz+1][inHlog+1][iTlog];
-  Cool111 = cl->MetalCoolln[iz+1][inHlog+1][iTlog+1];
-
-  Heat000 = cl->MetalHeatln[iz][inHlog][iTlog];
-  Heat001 = cl->MetalHeatln[iz][inHlog][iTlog+1];
-  Heat010 = cl->MetalHeatln[iz][inHlog+1][iTlog];
-  Heat011 = cl->MetalHeatln[iz][inHlog+1][iTlog+1];
-  Heat100 = cl->MetalHeatln[iz+1][inHlog][iTlog];
-  Heat101 = cl->MetalHeatln[iz+1][inHlog][iTlog+1];
-  Heat110 = cl->MetalHeatln[iz+1][inHlog+1][iTlog];
-  Heat111 = cl->MetalHeatln[iz+1][inHlog+1][iTlog+1];
-  */
-  int nnH = cl->nnHMetalTable;
-  int nt = cl->nTMetalTable;
-  Cool000 = cl->MetalCoolln[(iz * nnH * nt) + (inHlog * nt) + iTlog];
-  Cool001 = cl->MetalCoolln[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
-  Cool010 = cl->MetalCoolln[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
-  Cool011 = cl->MetalCoolln[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
-  Cool100 = cl->MetalCoolln[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
-  Cool101 = cl->MetalCoolln[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
-  Cool110 = cl->MetalCoolln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
-  Cool111 = cl->MetalCoolln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
-
-  Heat000 = cl->MetalHeatln[(iz * nnH * nt) + (inHlog * nt) + iTlog];
-  Heat001 = cl->MetalHeatln[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
-  Heat010 = cl->MetalHeatln[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
-  Heat011 = cl->MetalHeatln[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
-  Heat100 = cl->MetalHeatln[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
-  Heat101 = cl->MetalHeatln[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
-  Heat110 = cl->MetalHeatln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
-  Heat111 = cl->MetalHeatln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
-
-
-  xz = xz - iz; 
-  wz1 = xz; 
-  wz0 = 1-xz; 
-  
-  Cool00 = wz0*Cool000 + wz1*Cool100;
-  Cool01 = wz0*Cool001 + wz1*Cool101; 
-  Cool10 = wz0*Cool010 + wz1*Cool110; 
-  Cool11 = wz0*Cool011 + wz1*Cool111;
-
-  Heat00 = wz0*Heat000 + wz1*Heat100;
-  Heat01 = wz0*Heat001 + wz1*Heat101; 
-  Heat10 = wz0*Heat010 + wz1*Heat110; 
-  Heat11 = wz0*Heat011 + wz1*Heat111;
-
-
-  xnHlog = xnHlog - inHlog; 
-  wnHlog1 = xnHlog; 
-  wnHlog0 = 1-xnHlog; 
-
-  Cool0 = wnHlog0*Cool00 + wnHlog1*Cool10; 
-  Cool1 = wnHlog0*Cool01 + wnHlog1*Cool11; 
-
-  
-  Heat0 = wnHlog0*Heat00 + wnHlog1*Heat10; 
-  Heat1 = wnHlog0*Heat01 + wnHlog1*Heat11; 
-  
-  xTlog = xTlog - iTlog; 
-  wTlog1 = xTlog; 
-  wTlog0 = 1 - xTlog; 
-  Cool = wTlog0*Cool0 + wTlog1*Cool1; 
-  Heat = wTlog0*Heat0 + wTlog1*Heat1; 
-    /* convert unit to erg/g/sec, time a factor of nH^2/nH, also scale with metalicity */ 
-  Rate->Cool_Metal = exp(Cool)*nH*Y_H/M_H * ZMetal/ZSOLAR; 
-  Rate->Heat_Metal = exp(Heat)*nH*Y_H/M_H * ZMetal/ZSOLAR;   
-
-}
 
 /* Returns Heating - Cooling excluding External Heating, units of ergs s^-1 g^-1 
    Public interface CoolEdotInstantCode */
@@ -2936,6 +2782,112 @@ __device__ void cudaClRates_Table( CudaCOOL *cl, CudaRATE *Rate, double T, doubl
       }
 }
 
+__device__ void cudaClRateMetalTable(CudaCOOL *cl, CudaRATE *Rate, double T, double rho, double Y_H, double ZMetal)
+{
+  double tempT, tempnH,tempz, nH;
+  double Tlog, nHlog; 
+  double xTlog, wTlog0, wTlog1, xz, wz0, wz1, xnHlog, wnHlog0, wnHlog1; 
+  int    iTlog, iz, inHlog; 
+  double Cool000, Cool010, Cool100, Cool110, Cool001, Cool011, Cool101, Cool111; 
+  double  Cool00, Cool01, Cool10, Cool11, Cool0, Cool1, Cool;
+  
+  double  Heat000, Heat010, Heat100, Heat110, Heat001, Heat011, Heat101, Heat111; 
+  double  Heat00, Heat01, Heat10, Heat11, Heat0, Heat1, Heat;
+
+  
+  if(!cl->bMetal) {
+    Rate->Cool_Metal = 0.0; 
+    Rate->Heat_Metal = 0.0; 
+    return; 
+  }
+ 
+  nH = rho*Y_H/M_H;
+  
+  tempT = T; 
+  tempnH = nH;
+  tempz = cl->z; 
+
+  if (T >= cl->MetalTMax) tempT = cl->MetalTMax*(1.0-EPS);
+  if (T < cl->MetalTMin) tempT=cl->MetalTMin;
+
+  if (nH >= cl->MetalnHMax) tempnH = cl->MetalnHMax*(1.0-EPS);
+  if (nH < cl->MetalnHMin) tempnH = cl->MetalnHMin; 
+ 
+  if (cl->z <= cl->MetalzMin) tempz = cl->MetalzMin+EPS;
+  /* if redshift is too high or no UV, use the no UV metal cooling table*/
+  if (cl->z > cl->MetalzMax || !cl->bUV) tempz = cl->MetalzMax;   
+
+  Tlog = log10(tempT); 
+  nHlog = log10(tempnH); 
+  
+  xz = cl->nzMetalTable -1 - (tempz - cl->MetalzMin)*cl->rDeltaz; 
+  iz = xz;   
+
+  xTlog = (Tlog - cl->MetalTlogMin)*cl->rDeltaTlog; 
+  assert(xTlog >= 0.0);
+  iTlog = xTlog; 
+
+  xnHlog = (nHlog - cl->MetalnHlogMin)*cl->rDeltanHlog; 
+  inHlog = xnHlog;
+  if (inHlog == cl->nnHMetalTable - 1) inHlog = cl->nnHMetalTable - 2; /*CC; To prevent running over the table.  Should not be used*/
+  
+  int nnH = cl->nnHMetalTable;
+  int nt = cl->nTMetalTable;
+  Cool000 = cl->MetalCoolln[(iz * nnH * nt) + (inHlog * nt) + iTlog];
+  Cool001 = cl->MetalCoolln[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Cool010 = cl->MetalCoolln[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Cool011 = cl->MetalCoolln[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+  Cool100 = cl->MetalCoolln[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
+  Cool101 = cl->MetalCoolln[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Cool110 = cl->MetalCoolln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Cool111 = cl->MetalCoolln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+  
+  Heat000 = cl->MetalHeatln[(iz * nnH * nt) + (inHlog * nt) + iTlog];
+  Heat001 = cl->MetalHeatln[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Heat010 = cl->MetalHeatln[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Heat011 = cl->MetalHeatln[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+  Heat100 = cl->MetalHeatln[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
+  Heat101 = cl->MetalHeatln[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Heat110 = cl->MetalHeatln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Heat111 = cl->MetalHeatln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+
+  xz = xz - iz; 
+  wz1 = xz; 
+  wz0 = 1-xz; 
+  
+  Cool00 = wz0*Cool000 + wz1*Cool100;
+  Cool01 = wz0*Cool001 + wz1*Cool101; 
+  Cool10 = wz0*Cool010 + wz1*Cool110; 
+  Cool11 = wz0*Cool011 + wz1*Cool111;
+
+  Heat00 = wz0*Heat000 + wz1*Heat100;
+  Heat01 = wz0*Heat001 + wz1*Heat101; 
+  Heat10 = wz0*Heat010 + wz1*Heat110; 
+  Heat11 = wz0*Heat011 + wz1*Heat111;
+
+
+  xnHlog = xnHlog - inHlog; 
+  wnHlog1 = xnHlog; 
+  wnHlog0 = 1-xnHlog; 
+
+  Cool0 = wnHlog0*Cool00 + wnHlog1*Cool10; 
+  Cool1 = wnHlog0*Cool01 + wnHlog1*Cool11; 
+
+  
+  Heat0 = wnHlog0*Heat00 + wnHlog1*Heat10; 
+  Heat1 = wnHlog0*Heat01 + wnHlog1*Heat11; 
+  
+  xTlog = xTlog - iTlog; 
+  wTlog1 = xTlog; 
+  wTlog0 = 1 - xTlog; 
+  Cool = wTlog0*Cool0 + wTlog1*Cool1; 
+  Heat = wTlog0*Heat0 + wTlog1*Heat1; 
+    /* convert unit to erg/g/sec, time a factor of nH^2/nH, also scale with metalicity */ 
+  Rate->Cool_Metal = exp(Cool)*nH*Y_H/M_H * ZMetal/ZSOLAR; 
+  Rate->Heat_Metal = exp(Heat)*nH*Y_H/M_H * ZMetal/ZSOLAR;   
+
+}
+
 __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *dLoss,
 	     void *Data) {
   CudaclDerivsData *d = (CudaclDerivsData *)Data;
@@ -2970,7 +2922,7 @@ __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *d
 
   externalheat = d->ExternalHeating;
   if (d->bCool) {
-    clRateMetalTable(d->cl, &d->Rate, T, d->rho, d->Y_H, d->ZMetal);
+    cudaClRateMetalTable(d->cl, &d->Rate, T, d->rho, d->Y_H, d->ZMetal);
     CLEDOTINSTANT( d->cl, &d->Y, &d->Rate, d->rho, d->ZMetal, &internalheat, &internalcool );
     
     dGain[0] = internalheat;
@@ -2985,8 +2937,6 @@ __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *d
   nHI = en_B*d->Y.HI;
   nH2 = en_B*d->Y.H2;
   nHII = en_B*d->Y.HII;
-  // TODO division by zero here
-  // Something unitalized?
   nHminus = d->Rate.HI_e* d->Y.HI*d->Y.e/(d->Rate.HI_Hm*d->Y.HI + d->Rate.Coll_Hm_HII*d->Y.HI + d->Rate.Coll_Hm_e*d->Y.e);
 
   dGain[4] = d->Y.HI*nHminus*en_B*d->Rate.HI_Hm + /*gas phase formation of H2, adel 97 */
@@ -2998,7 +2948,7 @@ __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *d
              d->Y.H2*d->Rate.Coll_HII_H2*nHII;
   dGain[1] = ne*d->Y.HII*d->Rate.Radr_HII +
              2.0*dLoss[4]; /*Photo or collisionally dissociated H2*/
-  dLoss[1] = ne*d->Y.HI*d->Rate.Coll_HI + 
+  dLoss[1] = ne*d->Y.HI*d->Rate.Coll_HI +
              d->Y.HI*Rate_Phot_HI + /*Adding in molec H and shielding, should possibly add shielding for others*/
              2.0*dGain[4]; /*Formation of H2*/
   dGain[2] = ne*d->Y.HeII*d->Rate.Totr_HeII;
@@ -3011,20 +2961,23 @@ __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *d
              dGain[2];
 }
 
-__global__ void CudaStiffStep(CudaSTIFF *s, double *_y, double tstart, double *_dtg, int nVars) {
+__global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *_dtg, int nVars) {
     int id;
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
 
     double dtg = _dtg[id]; 
-    double *y = &_y[id * 5];
 
     double tn;			/* time within step */
     int i;
+
+    CudaSTIFF *s = &s0[id];
+
     /*
      * Local copies of Stiff context
      */
     int n = s->nv;
+    double *y = &_y[id * s->nv];
 
     double *y0 = &s->y0[id * s->nv];
     double *ymin = &s->ymin[id * s->nv];
@@ -3071,12 +3024,8 @@ __global__ void CudaStiffStep(CudaSTIFF *s, double *_y, double tstart, double *_
 	}
     
     //s->derivs(tn + tstart, y, q, d, s->Data);
-    // There seems to be a race condition with q
-    // TODO d[1] is NAN
-    // TODO q is zero if not stepping with debugger (race condition?)
-    printf("q: %g\n", q[0]);
     CudaclDerivs(tn + tstart, y, q, d, &((CudaclDerivsData*)s->Data)[id]);
-    printf("q: %g\n", q[0]);
+    //printf("q: %g\n", q[0]);
     gcount++;
     
     /*

@@ -43,7 +43,7 @@
 
 #define TESTRATE 1e-3
 /* #define CUBICTABLEINTERP   */
-/* #define USETABLE */
+#define USETABLE
 
 #ifdef USETABLE
 #define CLRATES( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar) clRates_Table( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)

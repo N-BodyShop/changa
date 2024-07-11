@@ -228,6 +228,9 @@ void COOLtoCudaCOOL(COOL *a, CudaCOOL *b) {
     COPY_FIELD(b, a, nTMetalTable);
     COPY_FIELD(b, a, MetalTMin);
     COPY_FIELD(b, a, MetalTMax);
+    COPY_FIELD(b, a, MetalTlogMin);
+    COPY_FIELD(b, a, MetalTlogMax);
+    COPY_FIELD(b, a, rDeltaTlog);
     COPY_FIELD(b, a, MetalnHMin);
     COPY_FIELD(b, a, MetalnHMax);
     COPY_FIELD(b, a, MetalnHlogMin);
@@ -323,6 +326,7 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		       COOLPARAM inParam, const CkCallback& cb)
 {
+    int i, j, k, l;
 #ifndef COOLING_NONE
     clInitConstants(Cool, dGmPerCcUnit, dComovingGmPerCcUnit, dErgPerGmUnit,
 		    dSecUnit, dKpcUnit, inParam);
@@ -332,10 +336,17 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     CudaCOOL CudaCool;
     COOLtoCudaCOOL(Cool, &CudaCool);
 
-    CudaRATES_T CudaRates_T;
-    RATES_TtoCudaRATES_T(Cool->RT, &CudaRates_T);
-    cudaMalloc(&d_CudaRates_T, sizeof(CudaRATES_T));
-    cudaMemcpy(d_CudaRates_T, &CudaRates_T, sizeof(CudaRATES_T), cudaMemcpyHostToDevice);
+    CudaRATES_T *CudaRates_T;
+    CudaRates_T = (CudaRATES_T *) malloc( CudaCool.nTable * sizeof(CudaRATES_T) * TABLEFACTOR );
+    for (j = 0; j < CudaCool.nTable; j++ ) {
+	i = j*TABLEFACTOR;
+#ifdef CUBICTABLEINTERP
+	i++;
+#endif
+	RATES_TtoCudaRATES_T(&Cool->RT[i], &CudaRates_T[i]);
+    }
+    cudaMalloc(&d_CudaRates_T, CudaCool.nTable * sizeof(CudaRATES_T) * TABLEFACTOR);
+    cudaMemcpy(d_CudaRates_T, CudaRates_T, CudaCool.nTable * sizeof(CudaRATES_T) * TABLEFACTOR, cudaMemcpyHostToDevice);
     CudaCool.RT = d_CudaRates_T;
 
     int nz = CudaCool.nzMetalTable;
@@ -344,9 +355,8 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     int nUV = CudaCool.nUV;
 
     CudaUVSPECTRUM CudaUvspectrum[nUV];
-    for (int i = 0; i < nUV; ++i) UVSPECTRUMtoCudaUVSPECTRUM(&Cool->UV[i], &CudaUvspectrum[i]);
+    for (i = 0; i < nUV; ++i) UVSPECTRUMtoCudaUVSPECTRUM(&Cool->UV[i], &CudaUvspectrum[i]);
 
-    int i, l;
     for(i=nz-2, l=0; i>=0; i--,l++){
 	CudaUvspectrum[l].zTime = Cool->UV[l].zTime;
 	CudaUvspectrum[l].Rate_Phot_HI = Cool->UV[l].Rate_Phot_HI;
@@ -364,7 +374,7 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     float* heatBuf = (float*)malloc(tableSize);
 
     for (i = 0; i < nz; ++i) {
-	for (int j = 0; j < nnH; ++j) {
+	for (j = 0; j < nnH; ++j) {
             memcpy(&coolBuf[(i * nnH + j) * nt], Cool->MetalCoolln[i][j], nt * sizeof(float));
             memcpy(&heatBuf[(i * nnH + j) * nt], Cool->MetalHeatln[i][j], nt * sizeof(float));
 	}
@@ -373,14 +383,10 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     cudaMalloc(&d_CudaUvspectrum, sizeof(CudaUVSPECTRUM)*nUV);
     cudaMalloc(&d_MetalCoolln, tableSize);
     cudaMalloc(&d_MetalHeatln, tableSize);
-    cudaMemcpy(d_CudaUvspectrum, &CudaUvspectrum, sizeof(CudaUVSPECTRUM)*nUV, cudaMemcpyHostToDevice);
+    cudaMemcpy(d_CudaUvspectrum, CudaUvspectrum, sizeof(CudaUVSPECTRUM)*nUV, cudaMemcpyHostToDevice);
     cudaMemcpy(d_MetalCoolln, coolBuf, tableSize, cudaMemcpyHostToDevice);
     cudaMemcpy(d_MetalHeatln, heatBuf, tableSize, cudaMemcpyHostToDevice);
-    free(coolBuf);
-    free(heatBuf);
-
     CudaCool.UV = d_CudaUvspectrum;
-    CudaCool.RT = d_CudaRates_T;
     CudaCool.MetalCoolln = d_MetalCoolln;
     CudaCool.MetalHeatln = d_MetalHeatln;
     CudaCool.UV = d_CudaUvspectrum;
@@ -388,6 +394,9 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     cudaMalloc(&d_CudaCool, sizeof(CudaCOOL));
     cudaMemcpy(d_CudaCool, &CudaCool, sizeof(CudaCOOL), cudaMemcpyHostToDevice);
 
+    free(coolBuf);
+    free(heatBuf);
+    free(CudaRates_T);
 #endif // CUDA
 #endif //COOLING_NONE
     contribute(cb);
@@ -1131,56 +1140,6 @@ void TreePiece::updateuDot(int activeRung,
         }
     }
 
-// If working on the GPU, need to allocate enough space for
-// the integrator context. This depends on the number of 
-// threads that will be launched
-#ifdef CUDA
-    cudaMalloc(&d_CudaStiff, sizeof(CudaSTIFF));
-
-    cudaMalloc(&d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData));
-    std::vector<CudaclDerivsData> h_CudaCoolData(numSelParts);
-    for (int i = 0; i < numSelParts; i++) {
-        clDerivsDatatoCudaclDerivsData(CoolData, &h_CudaCoolData[i]);
-        h_CudaCoolData[i].cl = dm->d_CudaCool;
-        h_CudaCoolData[i].IntegratorContext = d_CudaStiff;
-    }
-
-    CudaSTIFF CudaStiff;
-    STIFFtoCudaSTIFF(CoolData->IntegratorContext, &CudaStiff);
-    CudaStiff.Data = d_CudaCoolData;
-
-    // Each CUDA thread needs its own version of these variables
-    // Allocate enough space for all the threads
-    // Careful, this could easily fill up GPU memory
-    cudaMalloc(&d_ymin, numSelParts*CudaStiff.nv*sizeof(*d_ymin));
-    cudaMalloc(&d_y0, numSelParts*CudaStiff.nv*sizeof(*d_y0));
-    cudaMalloc(&d_q, numSelParts*CudaStiff.nv*sizeof(*d_q));
-    cudaMalloc(&d_d, numSelParts*CudaStiff.nv*sizeof(*d_d));
-    cudaMalloc(&d_rtau, numSelParts*CudaStiff.nv*sizeof(*d_rtau));
-    cudaMalloc(&d_ys, numSelParts*CudaStiff.nv*sizeof(*d_ys));
-    cudaMalloc(&d_qs, numSelParts*CudaStiff.nv*sizeof(*d_qs));
-    cudaMalloc(&d_rtaus, numSelParts*CudaStiff.nv*sizeof(*d_rtaus));
-    cudaMalloc(&d_scrarray, numSelParts*CudaStiff.nv*sizeof(*d_scrarray));
-    cudaMalloc(&d_y1, numSelParts*CudaStiff.nv*sizeof(*d_y1));
-
-    CudaStiff.ymin = d_ymin;
-    CudaStiff.y0 = d_y0;
-    CudaStiff.q = d_q;
-    CudaStiff.d = d_d;
-    CudaStiff.rtau = d_rtau;
-    CudaStiff.ys = d_ys;
-    CudaStiff.qs = d_qs;
-    CudaStiff.rtaus = d_rtaus;
-    CudaStiff.scrarray = d_scrarray;
-    CudaStiff.y1 = d_y1;
-    CudaStiff.Data = d_CudaCoolData;
-    CudaStiff.derivs = &CudaclDerivs;
-
-    cudaMemcpy(d_CudaStiff, &CudaStiff, sizeof(CudaSTIFF), cudaMemcpyHostToDevice);
-    cudaMemcpy(d_CudaCoolData, h_CudaCoolData.data(), numSelParts*sizeof(CudaclDerivsData), cudaMemcpyHostToDevice);
-
-#endif // CUDA
-
     //CkPrintf("Rung %d, %d particles to update\n", activeRung, numSelParts);
 
     double dt; // time in seconds
@@ -1201,6 +1160,7 @@ void TreePiece::updateuDot(int activeRung,
     std::vector<std::vector<double>> r(numSelParts, std::vector<double>(3));
     std::vector<double> columnL(numSelParts);
     std::vector<COOLPARTICLE> cp(numSelParts);
+    std::vector<clDerivsData*> CoolDataArr(numSelParts);
 
     int pIdx;
 
@@ -1322,34 +1282,90 @@ void TreePiece::updateuDot(int activeRung,
 
         for(unsigned int i = 0; i < numSelParts; ++i) {
 	    Ecgs[i] = 0.0;
-            CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &Y[i], &Ecgs[i], &cp[i], &E[i],
+            CoolDataArr[i] = CoolDerivsInit(dm->Cool);
+            CoolIntegrateEnergyCodeStart(dm->Cool, CoolDataArr[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
 	                                 ExternalHeating[i], fDensity[i],
 	  	                         fMetals[i], r[i].data(), dtUse[i], columnL[i], y[i]);
             }
 	double t;
 	t = 0.0;
+	
+// If working on the GPU, need to allocate enough space for
+// the integrator context. This depends on the number of 
+// threads that will be launched
 #ifdef CUDA
+        cudaMalloc(&d_CudaStiff, sizeof(CudaSTIFF)*numSelParts);
+
+	int nv = CoolData->IntegratorContext->nv;
+        cudaMalloc(&d_ymin, numSelParts*nv*sizeof(*d_ymin));
+        cudaMalloc(&d_y0, numSelParts*nv*sizeof(*d_y0));
+        cudaMalloc(&d_q, numSelParts*nv*sizeof(*d_q));
+        cudaMalloc(&d_d, numSelParts*nv*sizeof(*d_d));
+        cudaMalloc(&d_rtau, numSelParts*nv*sizeof(*d_rtau));
+        cudaMalloc(&d_ys, numSelParts*nv*sizeof(*d_ys));
+        cudaMalloc(&d_qs, numSelParts*nv*sizeof(*d_qs));
+        cudaMalloc(&d_rtaus, numSelParts*nv*sizeof(*d_rtaus));
+        cudaMalloc(&d_scrarray, numSelParts*nv*sizeof(*d_scrarray));
+        cudaMalloc(&d_y1, numSelParts*nv*sizeof(*d_y1));
+
+        cudaMalloc(&d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData));
+        std::vector<CudaclDerivsData> h_CudaCoolData(numSelParts);
+	std::vector<CudaSTIFF> CudaStiff(numSelParts);
+        for (int i = 0; i < numSelParts; i++) {
+            clDerivsDatatoCudaclDerivsData(CoolData, &h_CudaCoolData[i]);
+            h_CudaCoolData[i].cl = dm->d_CudaCool;
+            h_CudaCoolData[i].IntegratorContext = &d_CudaStiff[i];
+
+	    h_CudaCoolData[i].rho = CodeDensityToComovingGmPerCc(dm->Cool, fDensity[i]);
+	    h_CudaCoolData[i].ExternalHeating =  CoolCodeWorkToErgPerGmPerSec(dm->Cool, ExternalHeating[i]);
+	    h_CudaCoolData[i].ZMetal = fMetals[i];
+	    h_CudaCoolData[i].dLymanWerner = cp[i].dLymanWerner;
+	    h_CudaCoolData[i].columnL = columnL[i];
+
+	    clSetAbundanceTotals(dm->Cool, fMetals[i], &h_CudaCoolData[i].Y_H,
+			                               &h_CudaCoolData[i].Y_He,
+						       &h_CudaCoolData[i].Y_eMax);
+            CudaStiff[i].ymin = d_ymin;
+            CudaStiff[i].y0 = d_y0;
+            CudaStiff[i].q = d_q;
+            CudaStiff[i].d = d_d;
+            CudaStiff[i].rtau = d_rtau;
+            CudaStiff[i].ys = d_ys;
+            CudaStiff[i].qs = d_qs;
+            CudaStiff[i].rtaus = d_rtaus;
+            CudaStiff[i].scrarray = d_scrarray;
+            CudaStiff[i].y1 = d_y1;
+            CudaStiff[i].Data = d_CudaCoolData;
+            CudaStiff[i].derivs = CudaclDerivs;
+
+            STIFFtoCudaSTIFF(CoolDataArr[i]->IntegratorContext, &CudaStiff[i]);
+        }
+	// TODO CPU and GPU densities for CoolData aren't matching
+        cudaMemcpy(d_CudaCoolData, h_CudaCoolData.data(), numSelParts*sizeof(CudaclDerivsData), cudaMemcpyHostToDevice);
+
+        cudaMemcpy(d_CudaStiff, CudaStiff.data(), sizeof(CudaSTIFF)*numSelParts, cudaMemcpyHostToDevice);
+
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
-           StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
+           //StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
 	}
-        for(unsigned int i = 0; i < numSelParts; ++i) {
+        /*for(unsigned int i = 0; i < numSelParts; ++i) {
 	    CkPrintf("%g\n", y[i][0]);
 	    delete[] y[i];
-	}
+	}*/
 	CkPrintf("************* re running with gpu ******************\n");
 	
 	// Cooling functions can only accept C-style arrays
         //double **y = new double*[numSelParts];
-        for (int i = 0; i < numSelParts; ++i) {
+        /*for (int i = 0; i < numSelParts; ++i) {
   	    y[i] = new double[5];
-        }
-        for(unsigned int i = 0; i < numSelParts; ++i) {
+        }*/
+        /*for(unsigned int i = 0; i < numSelParts; ++i) {
 	    Ecgs[i] = 0.0;
-            CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &Y[i], &Ecgs[i], &cp[i], &E[i],
+            CoolIntegrateEnergyCodeStart(dm->Cool, CoolDataArr[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
 	                                 ExternalHeating[i], fDensity[i],
 	  	                         fMetals[i], r[i].data(), dtUse[i], columnL[i], y[i]);
-            }
+            }*/
 
         TreePieceODESolver(d_CudaStiff, y, t, &dtUse, numSelParts, this->stream);
 	cudaFree(d_CudaStiff);
@@ -1364,17 +1380,18 @@ void TreePiece::updateuDot(int activeRung,
         cudaFree(d_qs);
         cudaFree(d_rtaus);
         cudaFree(d_scrarray);
-        for(unsigned int i = 0; i < numSelParts; ++i) CkPrintf("%g\n", y[i][0]);
+        //for(unsigned int i = 0; i < numSelParts; ++i) CkPrintf("%g\n", y[i][0]);
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
-           StiffStep( CoolData->IntegratorContext, y[i], t, dtUse[i]);
+           StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
 	}
 #endif
 
 	//CkPrintf("TP finished ODE solver\n");
         for(unsigned int i = 0; i < numSelParts; ++i) {
-            CoolIntegrateEnergyCodeFinish(dm->Cool, CoolData, &Y[i], &Ecgs[i], &cp[i], &E[i],
+	    // TODO need cooldata from GPU?
+            CoolIntegrateEnergyCodeFinish(dm->Cool, CoolDataArr[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
 	                                  ExternalHeating[i], fDensity[i],
 	  	                          fMetals[i], r[i].data(), dtUse[i], columnL[i], y[i]);
 	    delete[] y[i];

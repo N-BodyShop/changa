@@ -26,6 +26,35 @@
 #define NUM_INIT_MOMENT_INTERACTIONS_PER_BUCKET 100
 #define NUM_INIT_PARTICLE_INTERACTIONS_PER_BUCKET 100
 
+
+// Usetable fns only
+#define CLRATES( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar) cudaClRates_Table( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)
+#define CLEDOTINSTANT( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool ) cudaClEdotInstant_Table( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool)
+
+
+#define EPS 1e-5
+#define M_H      1.672e-24
+
+#ifdef CUBICTABLEINTERP
+#define TABLEFACTOR 2
+#else 
+#define TABLEFACTOR 1
+#endif
+
+#ifdef CUBICTABLEINTERP
+#define TABLEINTERP( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname+wTln0d*RT0d->_rname+wTln1d*RT1d->_rname)
+#else
+#define TABLEINTERP( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname)
+#endif
+
+#define TABLEINTERPLIN( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname)
+
+#define CL_Rgascode         8.2494e7
+#define CL_Eerg_gm_degK     CL_Rgascode
+#define CL_ev_degK          1.0/1.1604e4
+#define CL_Eerg_gm_ev       CL_Eerg_gm_degK/CL_ev_degK
+#define CL_Eerg_gm_degK3_2  1.5*CL_Eerg_gm_degK /* 1.23741e8*/
+
 /** @brief Data and parameters for requesting gravity calculations on
  * the GPU. */
 typedef struct _CudaRequest{
