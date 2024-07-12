@@ -72,32 +72,8 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
   if(_lb_args.debug() >= 2 && step() > 0) {
       // Write out "particle file" of measured load balance information
       auto achFileName = make_formatted_string("lb_a.%d.sim", step()-1);
-      FILE *fp = fopen(achFileName.c_str(), "w");
-      CkAssert(fp != NULL);
-
-      int num_migratables = num_objs;
-      for(int i = 0; i < num_objs; i++) {
-        if (!stats->objData[i].migratable) {
-          num_migratables--;
-        }
-      }
-
-      fprintf(fp, "%d %d 0\n", num_migratables, num_migratables);
-      for(int i = 0; i < num_objs; i++) {
-        if (!stats->objData[i].migratable) continue;
-
-      LDObjData &odata = stats->objData[i];
-      TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
-	  fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
-		  stats->objData[i].wallTime,
-		  udata->vec.x,
-		  udata->vec.y,
-		  udata->vec.z,
-		  stats->from_proc[i],
-		  udata->tp);
-	  }
-      fclose(fp);
-      }
+      write_LB_particles(stats, achFileName.c_str(), true);
+  }
 
   int numActiveObjects = 0;
   int numInactiveObjects = 0;
@@ -226,33 +202,8 @@ void MultistepLB_notopo::work2(BaseLB::LDStats *stats, int count){
   if(_lb_args.debug() >= 2) {
       // Write out "particle file" of load balance information
       auto achFileName = make_formatted_string("lb.%d.sim", step());
-      FILE *fp = fopen(achFileName.c_str(), "w");
-      CkAssert(fp != NULL);
-
-      int num_migratables = numobjs;
-      for(int i = 0; i < numobjs; i++) {
-        if (!stats->objData[i].migratable) {
-          num_migratables--;
-        }
-      }
-      fprintf(fp, "%d %d 0\n", num_migratables, num_migratables);
-
-      for(int i = 0; i < numobjs; i++) {
-        if(!stats->objData[i].migratable) continue;
-
-    LDObjData &odata = stats->objData[i];
-    TaggedVector3D* udata =
-      (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
-	  fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
-		  stats->objData[i].wallTime,
-		  udata->vec.x,
-		  udata->vec.y,
-		  udata->vec.z,
-		  stats->to_proc[i],
-		  udata->tp);
-	  }
-      fclose(fp);
-      }
+      write_LB_particles(stats, achFileName.c_str(), false);
+  }
 }
 
 void Orb_PrintLBStats(BaseLB::LDStats *stats, int numobjs)
@@ -365,6 +316,44 @@ void Orb_PrintLBStats(BaseLB::LDStats *stats, int numobjs)
     CkPrintf("LB stats: minPiece %f maxPiece %f avgPiece %f maxPiece/avgPiece %f\n", minPiece, maxPiece, avgPiece, maxPiece/avgPiece);
     CkPrintf("LB stats: minBg %f maxBg %f avgBg %f maxBg/avgBg %f\n", minBg, maxBg, avgBg, maxBg/avgBg);
     CkPrintf("LB stats: orb migrated %d objects\n", migr);
+}
+
+/// @brief  Write out TreePieces as "particles" into a simple file
+/// that can be converted into a tipsy file for visualization and
+/// analysis.
+/// @param stats LB structure
+/// @param achFileName file to write.
+/// @param bFrom use "from" processor if true, otherwise, use "to" processor
+void write_LB_particles(BaseLB::LDStats* stats, const char *achFileName, bool bFrom)
+{
+    const auto num_objs = stats->objData.size();
+    FILE *fp = fopen(achFileName, "w");
+    CkAssert(fp != NULL);
+
+    int num_migratables = num_objs;
+    for(int i = 0; i < num_objs; i++) {
+        if (!stats->objData[i].migratable) {
+            num_migratables--;
+        }
+    }
+
+    fprintf(fp, "%d %d 0\n", num_migratables, num_migratables);
+    for(int i = 0; i < num_objs; i++) {
+        if (!stats->objData[i].migratable) continue;
+
+        LDObjData &odata = stats->objData[i];
+        TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
+        int proc;
+        if(bFrom) 
+            proc = stats->from_proc[i];
+        else
+            proc = stats->to_proc[i];
+        fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
+                stats->objData[i].wallTime,
+                udata->vec.x, udata->vec.y, udata->vec.z,
+                proc, udata->tp);
+    }
+    fclose(fp);
 }
 
 void MultistepLB_notopo::pup(PUP::er &p){
