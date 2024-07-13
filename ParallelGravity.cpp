@@ -34,6 +34,7 @@
 #include "Sorter.h"
 #include "ParallelGravity.h"
 #include "DataManager.h"
+#include "TreePieceReplica.h"
 #include "IntraNodeLBManager.h"
 #include "TipsyFile.h"
 #include "param.h"
@@ -77,6 +78,7 @@ CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 CProxy_CkCacheManager<KeyType> cacheNode;
 /// @brief Proxy for the DataManager
 CProxy_DataManager dMProxy;
+CProxy_TreePieceReplica tpReplicaProxy;
 /// @brief Proxy for Managing IntraNode load balancing with ckloop.
 CProxy_IntraNodeLBManager nodeLBMgrProxy;
 
@@ -1387,6 +1389,8 @@ Main::Main(CkArgMsg* m) {
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
 	dataManagerID = dataManager;
         dMProxy = dataManager;
+	CProxy_TreePieceReplica tpReplica = CProxy_TreePieceReplica::ckNew();
+	tpReplicaProxy = tpReplica;
   nodeLBMgrProxy = CProxy_IntraNodeLBManager::ckNew(1,pieces.ckLocMgr()->getGroupID());
 
 	streamingProxy = pieces;
@@ -2100,6 +2104,9 @@ void Main::advanceBigStep(int iStep) {
     /******** Tree Build *******/
     buildTree(activeRung);
 
+		tpReplicaProxy.clearTable(CkCallbackResumeThread());
+		treeProxy.replicateTreePieces(CkCallbackResumeThread());
+
     CkCallback cbGravity(CkCallback::resumeThread);
 
 #ifdef COOLING_MOLECULARH
@@ -2741,6 +2748,9 @@ Main::initialForces()
   /******** Tree Build *******/
   buildTree(0);
 
+	tpReplicaProxy.clearTable(CkCallbackResumeThread());
+	treeProxy.replicateTreePieces(CkCallbackResumeThread());
+	
   if(verbosity)
       memoryStats();
   
