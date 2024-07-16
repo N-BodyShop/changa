@@ -6519,7 +6519,7 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
         foundLB = Orb3d;
         break;
       }
-      else if(ms_sfcname == string(lbs[i]->lbName())){ 
+      else if(ms_sfcname == string(lbs[i]->lbName())){
           foundLB = Multistep_SFC;
           break;
       }

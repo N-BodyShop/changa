@@ -8,6 +8,7 @@
 #include "CentralLB.h"
 
 void Orb_PrintLBStats(BaseLB::LDStats *stats, int numobjs);
+void write_LB_particles(BaseLB::LDStats* stats, const char *achFileName, bool bFrom);
 
 /// @brief Multistep load balancer using Space Filling Curve
 ///
@@ -37,7 +38,7 @@ public:
         init();
     }
 
-    class SFCObject 
+    class SFCObject
     {
     public:
         /// index into LB stats->objData
@@ -49,7 +50,7 @@ public:
         double load;
 
         SFCObject() : lbindex(-1), load(0) {}
-        SFCObject(int _lbindex, double _load) : 
+        SFCObject(int _lbindex, double _load) :
             lbindex(_lbindex),
             load(_load)
         {
@@ -62,7 +63,6 @@ public:
     void work(BaseLB::LDStats* stats);
     void work2(BaseLB::LDStats* stats);
     void sfcPrepare(std::vector<SFCObject> &tp_array,
-                    OrientedBox<float> &boundingBox,
                     int nObjs, BaseLB::LDStats * stats,
                     bool node_partition=false);
     void sfcPartition(int nProcs, std::vector<SFCObject> & tp,

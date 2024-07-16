@@ -17,6 +17,7 @@
 // #define  ORB3DLB_NOTOPO_DEBUG(X) CkPrintf X
 
 void Orb_PrintLBStats(BaseLB::LDStats *stats, int numobjs);
+void write_LB_particles(BaseLB::LDStats* stats, const char *achFileName, bool bFrom);
 
 /// @brief Hold information about Pe load and number of objects.
 class PeInfo {
