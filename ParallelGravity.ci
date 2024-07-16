@@ -31,7 +31,6 @@ mainmodule ParallelGravity {
   readonly DomainsDec domainDecomposition;
   readonly double dExtraStore;
   readonly double dMaxBalance;
-  readonly double dFracLoadBalance;
   readonly double dGlassDamper;
   readonly int bUseCkLoopPar;
   readonly int peanoKey;
@@ -514,13 +513,8 @@ mainmodule ParallelGravity {
     entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
 
     // jetley
-    entry void startlb(const CkCallback &cb, int activeRung);
+    entry void startlb(const CkCallback &cb, int activeRung, bool bDoLB);
     entry void ResumeFromSync();
-    entry [reductiontarget] void getParticleInfoForLB(int64_t active_part,
-        int64_t total_part);
-    //jetley
-    // entry void receiveProxy(CkGroupID);
-    entry void doAtSync();
 
     entry void outputASCII(CkReference<OutputParams>, int bParaWrite,
 			   const CkCallback& cb);

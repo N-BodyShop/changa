@@ -5413,9 +5413,11 @@ void TreePiece::setTreePieceLoad(int activeRung) {
     setObjTime(dLoadExp);
 }
 
-  // jetley - contribute your centroid. AtSync is now called by the load balancer (broadcast) when it has
-  // all centroids.
-void TreePiece::startlb(const CkCallback &cb, int activeRung){
+/// @brief Save piece loads and call AtSync() if we should load balance.
+/// @param cb Callback for ResumeFromSync().
+/// @param activeRung Rung we are load balancing for.
+/// @param bDoLB Whether we should call AtSync()
+void TreePiece::startlb(const CkCallback &cb, int activeRung, bool bDoLB){
 
   if(verbosity > 1)
      CkPrintf("[%d] actual load: %g\n", thisIndex, getObjTime());  
@@ -5424,34 +5426,9 @@ void TreePiece::startlb(const CkCallback &cb, int activeRung){
   iActiveRungLB = activeRung;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
-  
-  unsigned int i;
 
-  if(activeRung == 0){
-    numActiveParticles = myNumParticles;
-  }
-  else if(activeRung == PHASE_FEEDBACK) {
-      numActiveParticles = myNumSPH + myNumStar;
-      }
-  else{
-    for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
-      if(myParticles[i].rung >= activeRung)
-        numActiveParticles++;
-  }
-
-  int64_t active_tp[2];
-  active_tp[0] = numActiveParticles;
-  active_tp[1] = myNumParticles;
-
-  contribute(2*sizeof(int64_t), &active_tp, CkReduction::sum_long,
-      CkCallback(CkReductionTarget(TreePiece,getParticleInfoForLB),thisProxy));
-}
-
-// This is called by startlb to check whether to call the load balancer
-void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
-  bool doLB = ((float)active_part/total_part > dFracLoadBalance) ? true : false;
-  // Don't do LB
-  if (!doLB) {
+  // Don't do LB; just save and reset loads.
+  if (!bDoLB) {
     setTreePieceLoad(iActiveRungLB);
     iPrevRungLB = iActiveRungLB;
     setObjTime(0.0);
@@ -5474,11 +5451,8 @@ void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
           *(TaggedVector3D *) data = tv;
           }
       }
-  thisProxy[thisIndex].doAtSync();
   iPrevRungLB = iActiveRungLB;
-}
 
-void TreePiece::doAtSync(){
   if(verbosity > 1)
       CkPrintf("[%d] TreePiece %d calling AtSync() at %g\n",CkMyPe(),thisIndex, CkWallTimer());
   AtSync();
@@ -6577,10 +6551,9 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
           *(TaggedVector3D *)data = tv;
           }
       }
-  thisProxy[thisIndex].doAtSync();
-
   // this will be called in resumeFromSync()
   callback = cb;
+  AtSync();
 }
 
 // Choose a piece from among the owners from which to
