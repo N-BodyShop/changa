@@ -234,7 +234,8 @@ void MultistepLB_SFC::sfcPartition(int nProcs, vector<SFCObject> & tp,
 
     double loadPrev = 0.0; // load on all lower processors
     int iCurrPiece = 0;    // Piece under consideration
-    for (int iProc = 0; iProc < nProcs; iProc++) {
+    const int nPieces = tp.size();
+    for (int iProc = 0; iProc < nProcs && iCurrPiece < nPieces; iProc++) {
         if (!stats->procs[iProc].available)
             continue;
         // always assign one piece to a processor
@@ -248,8 +249,11 @@ void MultistepLB_SFC::sfcPartition(int nProcs, vector<SFCObject> & tp,
 
         while ((nCurrPiece < maxPieceProc)
                && fabs(tp[iCurrPiece].load + loadPrev + loadCurr - loadTarget)
-               < dLoadError) {  // add pieces to this processor to get
-                                // the closest to the target load
+               < dLoadError
+               && iCurrPiece < nPieces) { // add pieces to this
+                                          // processor to get the
+                                          // closest to the target
+                                          // load
             oSFC = tp[iCurrPiece];
             loadCurr += oSFC.load;
             (*mapping)[oSFC.lbindex] = iProc;
