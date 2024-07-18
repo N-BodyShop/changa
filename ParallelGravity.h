@@ -791,8 +791,6 @@ class TreePiece : public CBase_TreePiece {
    std::vector<double> savedPhaseLoad;
    std::vector<unsigned int> savedPhaseParticle;
 private:
-   /// number of active particles on the last active rung for load balancing
-   unsigned int nPrevActiveParts;
    /// temporary accumulator for phase load information during domain decomposition
    std::vector<double> savedPhaseLoadTmp;
    /// temporary accumulator for phase particle counts during domain decomposition
