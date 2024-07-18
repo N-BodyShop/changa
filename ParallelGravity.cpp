@@ -1695,24 +1695,24 @@ Main::loadBalance(int iPhase)
     }
     else {
         double startTime = CkWallTimer();
-        if(iPhase == PHASE_FEEDBACK) {
-            CkPrintf("Load balancer for star formation/feedback... ");
-        }
-        else {
-            CkPrintf("Load balancer ... ");
-        }
 
         bool bDoLB = true;
         if(iPhase != -1) {
             int64_t nActivePart;
-            if(iPhase = PHASE_FEEDBACK) nActivePart = nTotalSPH + nTotalStar;
+            if(iPhase == PHASE_FEEDBACK) {
+                CkPrintf("Load balancer for star formation/feedback... ");
+                nActivePart = nTotalSPH + nTotalStar;
+            }
             else {
+                CkPrintf("Load balancer ... ");
                 nActivePart = nActiveGrav;
                 if(nActiveSPH > nActivePart) nActivePart = nActiveSPH;
                 }
             bDoLB = ((float)nActivePart/nTotalParticles > param.dFracLoadBalance) ?
                 true : false;
         }
+        else
+            CkPrintf("Load balancer ... ");
         treeProxy.startlb(CkCallbackResumeThread(), iPhase, bDoLB);
         double tLB = CkWallTimer()-startTime;
         timings[iPhase].tLoadB += tLB;

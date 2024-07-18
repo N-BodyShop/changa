@@ -1885,14 +1885,24 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
   int64_t nActive[2];
 
   nActive[0] = nActive[1] = 0;
-  for(unsigned int i = 1; i <= myNumParticles; ++i) {
-      if(myParticles[i].rung >= activeRung) {
-	  nActive[0]++;
-	  if(TYPETest(&myParticles[i], TYPE_GAS)) {
-	      nActive[1]++;
-	      }
-	  }
+  if(activeRung == 0){
+      nActive[0] = myNumParticles;
+      nActive[1] = myNumSPH;
+  }
+  else if(activeRung == PHASE_FEEDBACK) {
+      nActive[0] = myNumSPH + myNumStar;
+  }
+  else{
+      for(unsigned int i = 1; i <= myNumParticles; ++i) {
+          if(myParticles[i].rung >= activeRung) {
+              nActive[0]++;
+              if(TYPETest(&myParticles[i], TYPE_GAS)) {
+                  nActive[1]++;
+              }
+          }
       }
+  }
+  numActiveParticles = nActive[0];
   contribute(2*sizeof(int64_t), nActive, CkReduction::sum_long, cb);
 }
 
@@ -5434,6 +5444,23 @@ void TreePiece::startlb(const CkCallback &cb, int activeRung, bool bDoLB){
     setObjTime(0.0);
     contribute(callback);
     return;
+  }
+
+  // We need to recount the number of active particles since DD has
+  // moved particles around
+  if(activeRung == 0){ // Everybody is active; no need to count
+      numActiveParticles = myNumParticles;
+  }
+  else if(activeRung == PHASE_FEEDBACK) { // Also no need to recount
+      numActiveParticles = myNumSPH + myNumStar;
+  }
+  else{
+      numActiveParticles = 0;
+      for(unsigned int i = 1; i <= myNumParticles; ++i) {
+          if(myParticles[i].rung >= activeRung) {
+              numActiveParticles++;
+          }
+      }
   }
 
   LDObjHandle myHandle = myRec->getLdHandle();
