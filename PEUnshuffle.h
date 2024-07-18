@@ -5,7 +5,7 @@
 
 /// @brief Group to perform unshuffle across an entire PE in order to
 /// reduce the number of messages used.
-class PEUnshuffle : public CBase_PEUnshuffle 
+class PEUnshuffle : public CBase_PEUnshuffle
 {
     /// TreePieces on this PE
     CkVec<TreePiece*> vtpLocal;
@@ -18,5 +18,6 @@ class PEUnshuffle : public CBase_PEUnshuffle
     void pup(PUP::er &p) { CBase_PEUnshuffle::pup(p); }
 
     void sendParticlesDuringDD(TreePiece *treePiece);
+    void ioShuffle(TreePiece *treePiece, int64_t *startParticle);
 };
 #endif
