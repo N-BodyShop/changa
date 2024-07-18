@@ -189,7 +189,9 @@ void Main::FormStars(double dTime, double dDelta)
 #ifdef CUDA
     // We didn't do gravity where the registered TreePieces on the
     // DataManager normally get cleared.  Clear them here instead.
-    dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+    if (nActiveGrav > param.nGpuMinParts) {
+        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+    }
 #endif
 
     addDelParticles();
@@ -510,7 +512,7 @@ void StarLog::logMetaData(std::ofstream &osfLog)
     osfLog << "# rhoForm f" << sizeof(double) << endl;
     osfLog << "# TForm f" << sizeof(double) << endl;
 #ifdef COOLING_MOLECULARH 
-    osfLog <<" #  H2FracForm f" << sizeof(double) << endl;
+    osfLog << "# H2FracForm f" << sizeof(double) << endl;
 #endif
     osfLog << "# end starlog data\n";
 }

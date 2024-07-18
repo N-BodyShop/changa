@@ -26,85 +26,23 @@
 #define NUM_INIT_MOMENT_INTERACTIONS_PER_BUCKET 100
 #define NUM_INIT_PARTICLE_INTERACTIONS_PER_BUCKET 100
 
-/* defines for Hybrid API buffer indices */
-#define LOCAL_MOMENTS        0
-#define LOCAL_PARTICLE_CORES  1
-#define LOCAL_PARTICLE_VARS      2
-#define REMOTE_MOMENTS 3 
-#define REMOTE_PARTICLE_CORES 4
-
-#define LOCAL_MOMENTS_IDX        0
-#define LOCAL_PARTICLE_CORES_IDX  1
-#define LOCAL_PARTICLE_VARS_IDX      2
-#define REMOTE_MOMENTS_IDX 0
-#define REMOTE_PARTICLE_CORES_IDX 1
-
-#define ILPART 0
-#define PART_BUCKET_MARKERS 1
-#define PART_BUCKET_START_MARKERS 2
-#define PART_BUCKET_SIZES 3
-#define ILCELL 0
-#define NODE_BUCKET_MARKERS 1
-#define NODE_BUCKET_START_MARKERS 2
-#define NODE_BUCKET_SIZES 3
-
-#define ILPART_IDX 0
-#define PART_BUCKET_MARKERS_IDX 1
-#define PART_BUCKET_START_MARKERS_IDX 2
-#define PART_BUCKET_SIZES_IDX 3
-#define ILCELL_IDX 0
-#define NODE_BUCKET_MARKERS_IDX 1
-#define NODE_BUCKET_START_MARKERS_IDX 2
-#define NODE_BUCKET_SIZES_IDX 3
-
-#define MISSED_MOMENTS 4
-#define MISSED_PARTS 4
-
-#define MISSED_MOMENTS_IDX 4
-#define MISSED_PARTS_IDX 4
-
-// node moments, particle cores, particle vars
-#define DM_TRANSFER_LOCAL_NBUFFERS 3
-#define DM_TRANSFER_REMOTE_CHUNK_NBUFFERS 2
-
-// interaction list
-// list markers
-// bucket starts
-// bucket sizes
-#define TP_GRAVITY_LOCAL_NBUFFERS 4
-#define TP_GRAVITY_LOCAL_NBUFFERS_SMALLPHASE 5
-
-#define TP_NODE_GRAVITY_REMOTE_NBUFFERS 4
-#define TP_PART_GRAVITY_REMOTE_NBUFFERS 4
-
-#define TP_NODE_GRAVITY_REMOTE_RESUME_NBUFFERS 5
-#define TP_PART_GRAVITY_REMOTE_RESUME_NBUFFERS 5
-
-#define MAX_NBUFFERS 5
-
-// tp_gravity_local uses arrays of particles and nodes already allocated on the gpu
-// tp_gravity_remote uses arrays of nodes already on the gpu + particles from an array it supplies
-// tp_gravity_remote_resume uses an array each of nodes and particles it supplies
-enum kernels {
-  DM_TRANSFER_LOCAL=0,
-  DM_TRANSFER_REMOTE_CHUNK,
-  DM_TRANSFER_BACK,
-  DM_TRANSFER_FREE_LOCAL,
-  DM_TRANSFER_FREE_REMOTE_CHUNK,
-  TP_GRAVITY_LOCAL,
-  TP_GRAVITY_REMOTE,
-  TP_GRAVITY_REMOTE_RESUME,
-  TP_PART_GRAVITY_LOCAL,
-  TP_PART_GRAVITY_LOCAL_SMALLPHASE,
-  TP_PART_GRAVITY_REMOTE,
-  TP_PART_GRAVITY_REMOTE_RESUME,
-  EWALD_KERNEL
-};
-
-
 /** @brief Data and parameters for requesting gravity calculations on
  * the GPU. */
 typedef struct _CudaRequest{
+        /// CUDA stream to handle memory operations and kernel launches for this request
+        /// Allocation and deallocation of the stream is handled by the DataManager
+	cudaStream_t stream;
+
+	/// for accessing device memory
+	CudaMultipoleMoments *d_localMoments;
+	CudaMultipoleMoments *d_remoteMoments;
+	CompactPartData *d_localParts;
+	CompactPartData *d_remoteParts;
+	VariablePartData *d_localVars;
+	size_t sMoments;
+	size_t sCompactParts;
+	size_t sVarParts;
+
         /// can either be a ILCell* or an ILPart*
 	void *list;
 	int *bucketMarkers;     /**< index in the cell or particle
@@ -138,10 +76,6 @@ typedef struct _CudaRequest{
         bool node;
         /// is this a remote or local computation?
         bool remote;
-#ifdef HAPI_INSTRUMENT_WRS
-        int tpIndex;
-        char phase;
-#endif
 #ifdef GPU_LOCAL_TREE_WALK
   int firstParticle;
   int lastParticle;
@@ -154,63 +88,30 @@ typedef struct _CudaRequest{
 #endif //GPU_LOCAL_TREE_WALK
 }CudaRequest;
 
-/** @brief Parameters for the GPU gravity calculations */
-typedef struct _ParameterStruct{
-  int numInteractions;          /**< Size of the interaction list  */
-  int numBucketsPlusOne;        /**< Number of buckets affected (+1
-                                 * for fencepost)  */
-  cudatype fperiod;             /**< Period of the volume  */
-#ifdef GPU_LOCAL_TREE_WALK
-  int firstParticle;
-  int lastParticle;
-  int rootIdx;
-  cudatype theta;
-  cudatype thetaMono;
-  int nReplicas;
-  cudatype fperiodY;  // Support periodic boundary condition in more dimensions
-  cudatype fperiodZ;  // Support periodic boundary condition in more dimensions
-#endif //GPU_LOCAL_TREE_WALK
-}ParameterStruct;
+/// Device memory pointers used by most functions in HostCUDA
+typedef struct _CudaDevPtr{
+    void *d_list;
+    int *d_bucketMarkers;
+    int *d_bucketStarts;
+    int *d_bucketSizes;
+}CudaDevPtr;
 
 void allocatePinnedHostMemory(void **, size_t);
 void freePinnedHostMemory(void *);
 
-#ifdef HAPI_INSTRUMENT_WRS
-void DataManagerTransferLocalTree(void *moments, size_t sMoments,
-                        void *compactParts, size_t sCompactParts,
-                        void *varParts, size_t sVarParts,
-                        int mype, char phase, void *wrCallback);
-void DataManagerTransferRemoteChunk(void *moments, size_t sMoments, 
-                                    void *compactParts, size_t sCompactParts,
-                                    void *varParts, size_t sVarParts,
-                                    mype, char phase, void *wrCallback);
-void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart, int pe, char phase);
-void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart, int pe, char phase);
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb, bool, bool, bool, bool, int pe, char phase);
-#else
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
                                   void *varParts, size_t sVarParts,
-                                  int mype, void *wrCallback);
+				  void **d_localMoments, void **d_compactParts, void **d_varParts,
+				  cudaStream_t stream, int numParticles,
+                                  void *callback);
 void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
-                                  void *wrCallback);
-void FreeDataManagerLocalTreeMemory(bool freemom, bool freepart);
-void FreeDataManagerRemoteChunkMemory(int , void *, bool freemom, bool freepart);
-/** @brief Transfer forces from the GPU back to the host.
- *  @param hostBuffer Buffer to store results.
- *  @param size hostBuffer size.
- *  @param cb Callback when transfer is done.
- *  @param freemom Boolean: free device buffer with local moment data.
- *  @param freepart Boolean: free device buffer with local particle data.
- *  @param freeRemoteMom Boolean: free device buffer with remote
- *  moment data.
- *  @param freeRemotePart Boolean: free device buffer with remote
- *  particle data.
- */
-void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *cb,
-    bool freemom, bool freepart, bool freeRemoteMom, bool freeRemotePart);
-#endif
+				  void **d_remoteMoments, void **d_remoteParts,
+				  cudaStream_t stream,
+                                  void *callback);
+
+void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb);
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
 void TreePieceCellListDataTransferRemote(CudaRequest *data);

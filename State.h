@@ -145,11 +145,6 @@ class DoubleWalkState : public State {
   GenericList<ILCell> nodeLists;
   GenericList<ILPart> particleLists;
 
-#ifdef HAPI_INSTRUMENT_WRS
-  double nodeListTime;
-  double partListTime;
-#endif
-
   CkVec<CudaMultipoleMoments> *nodes;
   CkVec<CompactPartData> *particles;
 
@@ -180,15 +175,6 @@ class DoubleWalkState : public State {
   bool partOffloadReady(){
     return particleLists.totalNumInteractions >= partThreshold;
   }
-
-#ifdef HAPI_INSTRUMENT_WRS
-  void updateNodeThreshold(int t){
-    nodeThreshold = t;
-  }
-  void updatePartThreshold(int t){
-    partThreshold = t;
-  }
-#endif
 
 #endif
 

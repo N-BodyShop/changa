@@ -1,7 +1,8 @@
 1) YOU WILL NEED TO MODIFY THE FILE 'mf.sh' TO RUN THIS TEST
    - Replace 'skiddir' with the path to your working version of skid
    - Replace 'sodir' with the path to your working version of SO
-SKID and SO can be downloaded from ftp://ftp-hpcc.astro.washington.edu/pub/hpcc.
+SKID and SO can be downloaded from https://github.com/N-BodyShop/skid and
+https://github.com/N-BodyShop/so.
 
 2) THIS TEST CALLS ON AN IDL PROGRAM TO RUN
 

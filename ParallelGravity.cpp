@@ -116,6 +116,10 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 /// @brief Number of pieces into which to divide the tree.
 unsigned int numTreePieces;
+#ifdef CUDA
+    /// @brief Number of CUDA streams to use
+    unsigned int numStreams;
+#endif
 /// @brief Number of particles per TreePiece.  Used to determine the
 /// number of TreePieces.
 unsigned int particlesPerChare;
@@ -148,6 +152,9 @@ cosmoType thetaMono;               ///< Criterion of excepting monopole
 
 /// @brief Boundary evaluation user event (for Projections tracing).
 int boundaryEvaluationUE;
+int START_REG;
+int START_IB;
+int START_PW;
 /// @brief Weight balancing during Oct decomposition user event (for Projections tracing).
 int weightBalanceUE;
 int networkProgressUE;
@@ -231,6 +238,9 @@ Main::Main(CkArgMsg* m) {
 	// Floating point exceptions.
 	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
 
+        START_REG = traceRegisterUserEvent("Register");
+        START_IB = traceRegisterUserEvent("Init Buckets");
+        START_PW = traceRegisterUserEvent("Prefetch Walk");
         boundaryEvaluationUE = traceRegisterUserEvent("Evaluating Boudaries");
         weightBalanceUE = traceRegisterUserEvent("Weight Balancer");
         networkProgressUE = traceRegisterUserEvent("CmiNetworkProgress");
@@ -239,13 +249,21 @@ Main::Main(CkArgMsg* m) {
 #ifdef HAPI_TRACE
         traceRegisterUserEvent("Tree Serialization", CUDA_SER_TREE);
         traceRegisterUserEvent("List Serialization", CUDA_SER_LIST);
+	traceRegisterUserEvent("Ser Local Walk", SER_LOCAL_WALK);
+	traceRegisterUserEvent("Ser Local Gather", SER_LOCAL_GATHER);
+	traceRegisterUserEvent("Ser Local Trans", SER_LOCAL_TRANSFORM);
+	traceRegisterUserEvent("Ser Local Memcpy", SER_LOCAL_MEMCPY);
 
-        traceRegisterUserEvent("Local Node", CUDA_LOCAL_NODE_KERNEL);
-        traceRegisterUserEvent("Remote Node", CUDA_REMOTE_NODE_KERNEL);
-        traceRegisterUserEvent("Remote Resume Node", CUDA_REMOTE_RESUME_NODE_KERNEL);
-        traceRegisterUserEvent("Local Particle", CUDA_LOCAL_PART_KERNEL);
-        traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
-        traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
+        traceRegisterUserEvent("Xfer Local", CUDA_XFER_LOCAL);
+        traceRegisterUserEvent("Xfer Remote", CUDA_XFER_REMOTE);
+        traceRegisterUserEvent("Grav Local", CUDA_GRAV_LOCAL);
+        traceRegisterUserEvent("Grav Remote", CUDA_GRAV_REMOTE);
+        traceRegisterUserEvent("Remote Resume", CUDA_REMOTE_RESUME);
+        traceRegisterUserEvent("Part Gravity Local", CUDA_PART_GRAV_LOCAL);
+        traceRegisterUserEvent("Part Gravity Local Small", CUDA_PART_GRAV_LOCAL_SMALL);
+        traceRegisterUserEvent("Part Gravity Remote", CUDA_PART_GRAV_REMOTE);
+        traceRegisterUserEvent("Xfer Back", CUDA_XFER_BACK);
+        traceRegisterUserEvent("Ewald", CUDA_EWALD);
 #endif
 
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
@@ -738,6 +756,14 @@ Main::Main(CkArgMsg* m) {
 	numTreePieces = 8 * CkNumPes();
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
 		    sizeof(int),"p", "Number of TreePieces (default: 8*procs)");
+#ifdef CUDA
+        numStreams = 100;
+        prmAddParam(prm, "nStreams", paramInt, &numStreams,
+                    sizeof(int),"str", "Number of CUDA streams (default: 100)");
+        param.nGpuMinParts = 1000;
+        prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
+                    sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
+#endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
             sizeof(int),"ppc", "Average number of particles per TreePiece");
@@ -1694,6 +1720,13 @@ Main::loadBalance(int iPhase)
 /// @param iPhase Active rung (or phase).
 void Main::buildTree(int iPhase)
 {
+#ifdef CUDA
+    // If we are about to use the GPU, tell the data manager
+    // not to clean up its TreePiece list during combineLocalTrees
+    if (nActiveGrav >= param.nGpuMinParts) {
+        dMProxy.unmarkTreePiecesForCleanup(CkCallbackResumeThread());
+    }
+#endif
 #ifdef PUSH_GRAVITY
     bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
     if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
@@ -1733,6 +1766,9 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
         turnProjectionsOn(iActiveRung);
 #endif
 
+#ifdef CUDA
+        if (nActiveGrav > param.nGpuMinParts) CkPrintf("Gravity will be calculated on the GPU\n");
+#endif
         CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
         *startTime = CkWallTimer();
         if(param.bConcurrentSph) {
@@ -1742,14 +1778,14 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
             else{
 #endif
-                treeProxy.startGravity(iActiveRung, theta, cbGravity);
+		int bUseCpu = 1;
+#ifdef CUDA
+                bUseCpu = nActiveGrav < param.nGpuMinParts;
+#endif
+                treeProxy.startGravity(iActiveRung, bUseCpu, theta, cbGravity);
+
 #ifdef PUSH_GRAVITY
             }
-#endif
-
-#ifdef HAPI_INSTRUMENT_WRS
-            // XXX this is probably broken (cbGravity gets called too soon.)
-            dMProxy.clearInstrument(cbGravity);
 #endif
         }
         else {
@@ -1760,14 +1796,17 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
             else{
 #endif
-                treeProxy.startGravity(iActiveRung, theta, CkCallbackResumeThread());
+
+		int bUseCpu = 1;
+#ifdef CUDA
+                bUseCpu = nActiveGrav < param.nGpuMinParts;
+#endif
+                treeProxy.startGravity(iActiveRung, bUseCpu, theta, CkCallbackResumeThread());
+
 #ifdef PUSH_GRAVITY
             }
 #endif
 
-#ifdef HAPI_INSTRUMENT_WRS
-            dMProxy.clearInstrument(CkCallbackResumeThread());
-#endif
             double tGrav = CkWallTimer() - *startTime;
             timings[iActiveRung].tGrav += tGrav;
             CkPrintf("took %g seconds\n", tGrav);
@@ -1784,7 +1823,9 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        if (nActiveGrav > param.nGpuMinParts) {
+          dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        }
 #endif
         }
 }
@@ -2166,6 +2207,9 @@ void Main::advanceBigStep(int iStep) {
 void Main::setupICs() {
   double startTime;
 
+#ifdef CUDA
+  dMProxy.createStreams(numStreams, CkCallbackResumeThread());
+#endif
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,
@@ -2704,15 +2748,6 @@ Main::initialForces()
   if(verbosity)
       memoryStats();
   
-#ifdef CUDA
-  ckout << "Init. Accel. ...";
-  double dInitAccelTime = CkWallTimer();
-  treeProxy.initAccel(0, CkCallbackResumeThread());
-  ckout << " took " << (CkWallTimer() - dInitAccelTime) << " seconds."
-        << endl;
-#endif
-
-      
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
   double gravStartTime;
@@ -3635,7 +3670,9 @@ void Main::writeOutput(int iStep)
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        if (nActiveGrav > param.nGpuMinParts) {
+          dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        }
 #endif
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -3676,7 +3713,9 @@ void Main::writeOutput(int iStep)
 #ifdef CUDA
             // We didn't do gravity where the registered TreePieces on the
             // DataManager normally get cleared.  Clear them here instead.
-            dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+            if (nActiveGrav > param.nGpuMinParts) {
+              dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+            }
 #endif
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."

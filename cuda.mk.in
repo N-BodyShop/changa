@@ -19,9 +19,6 @@
 # for performance monitoring via projections/stats
 # -DCUDA_STATS
 # -DHAPI_TRACE
-# -DHAPI_INSTRUMENT_WRS: to instrument time taken for each phase of a request. 
-#                        prints average transfer, kernel and cleanup times for
-#                        various kinds of request.
 ###############################################################################
 
 # Turn on if outer variable is set. Otherwise, allow user to set explicitly.
