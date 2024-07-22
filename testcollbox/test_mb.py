@@ -3,8 +3,7 @@ import pynbody as pb
 from scipy.stats import maxwell
 from scipy.stats import kstest
 
-#snap = pb.load('uniform_box.000128')
-snap = pb.load('uniform_box.ic')
+snap = pb.load('uniform_box.000128')
 speeds = np.linalg.norm(snap['vel'], axis=1)
 
 xvals = np.linspace(0, np.max(speeds))
