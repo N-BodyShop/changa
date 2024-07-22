@@ -457,7 +457,6 @@ mainmodule ParallelGravity {
     	       		const CkCallback& cb);
     entry void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
 #ifdef COLLISION
-    entry void resetDtKep(const CkCallback& cb);
     entry void delEjected(double dDelDist, const CkCallback& cb);
     entry void getNearCollPartners(const CkCallback& cb);
     entry void logOverlaps(const CkCallback& cb);

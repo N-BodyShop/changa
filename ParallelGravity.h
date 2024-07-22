@@ -1843,7 +1843,6 @@ public:
                       const CkCallback& cb);
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
 #ifdef COLLISION
-    void resetDtKep(const CkCallback& cb);
     void delEjected(double dDelDist, const CkCallback& cb);
     void getNearCollPartners(const CkCallback& cb);
     void getCollInfo(const CkCallback& cb);

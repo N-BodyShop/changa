@@ -293,6 +293,7 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p, int bKepS
         double arPeri = -dCentMass/pow(rPeri, 2);
         
         // Only allow dtKep to be set if its uninitalized
+	// This should only happen at the beginning of a simulation
         if (p->dtKep == 0) {
           p->dtKep = fabs(arPeri/rPeri);
           }
@@ -331,20 +332,6 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p, int bKepS
         }
     return pFrameAcc;
     }
-
-#ifdef COLLISION
-/*
- * @brief Set the dtKep field of all particles back to zero
- */
-void TreePiece::resetDtKep(const CkCallback& cb)
-{
-    for (unsigned int i = 1; i<= myNumParticles; ++i) {
-      GravityParticle *q = &myParticles[i];
-      q->dtKep = 0;
-    }
-    contribute(cb);
-}
-#endif
 
 /*
  * @brief For use when transforming into an accelerating frame of reference. Given

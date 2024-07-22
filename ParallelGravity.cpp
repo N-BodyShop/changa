@@ -2928,9 +2928,6 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	    CkExit();
 	}
 	
-#ifdef COLLISION
-        treeProxy.resetDtKep(CkCallbackResumeThread());
-#endif
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
         if (bUseCkLoopPar) {
             CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
