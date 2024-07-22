@@ -3466,7 +3466,7 @@ Main::writeTimings(int iStep)
     CkAssert(fpTime != NULL);
     
     fprintf(fpTime, "# Timings for step %d\n", iStep);
-    fprintf(fpTime, "# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache    Collsion\n");
+    fprintf(fpTime, "# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache    Collision\n");
     for(int i = 0; i < timings.size(); i++) {
         if(timings[i].count) {
             if(i == PHASE_FEEDBACK) {
