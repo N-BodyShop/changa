@@ -377,7 +377,6 @@ void TreePiece::getCollInfo(const CkCallback& cb)
  */
 void TreePiece::getCollInfo(int iOrder, const CkCallback& cb)
 {
-    double dtMin = DBL_MAX;
     ColliderInfo ci;
     ci.iOrder = -1;
     for (unsigned int i=1; i <= myNumParticles; i++) {
@@ -604,7 +603,7 @@ double Collision::LastKickTime(int rung, double baseTime, double timeNow)
 void Collision::doWallCollision(GravityParticle *p) {
     p->velocity[2] *= -dEpsN;
 
-    Vector3D<double> vPerp = (0., 0., p->velocity[2]);
+    Vector3D<double> vPerp = (0., 0., p->velocity.z);
     Vector3D<double> vParallel = p->velocity - vPerp;
     p->velocity -= vParallel*(1.-dEpsT);
     }
@@ -844,9 +843,10 @@ void Collision::mergeCalc(double r, double m, Vector3D<double> pos,
 
     double dDenFac = 4./3.*M_PI;
     double rho1 = m1/(dDenFac*pow(r1, 3.));
-    double rho2 = m2/(dDenFac*pow(r2, 3.));
 
-    *radNew = pow(M/(dDenFac*rho1), 1./3.); // Conserves density
+    // Conserves density
+    // All particles must have the same density!
+    *radNew = pow(M/(dDenFac*rho1), 1./3.);
 
     double i1 = 0.4*m1*r1*r1;
     double i2 = 0.4*m2*r2*r2;
@@ -979,11 +979,11 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 {
     GravityParticle *q;
     int i;    
-    double rq, sr, D, dt, rdotv, vRel2, dx2, dt1, dt2;
+    double sr, D, rdotv, vRel2, dx2, dt1, dt2;
     Vector3D<double> dx, vRel;
 
     double dTimeSub = RungToDt(dDelta, p->rung);
-    dt = DBL_MAX;
+    double dt = DBL_MAX;
     p->dtCol = DBL_MAX;
     p->iOrderCol = -1;
 
