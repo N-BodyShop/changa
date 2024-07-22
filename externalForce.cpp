@@ -280,6 +280,7 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p, int bKepS
         if(idt2 > p->dtGrav)
             p->dtGrav = idt2;
 
+#ifdef COLLISION
         double mu = p->mass + dCentMass;
         Vector3D<double> h = cross(p->position, p->vPred());
         Vector3D<double> tmp = cross(p->vPred(), h);
@@ -300,6 +301,7 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p, int bKepS
             CkPrintf("Particle %d will collide with star, deleting\n", p->iOrder);
             deleteParticle(p);
             }
+#endif
 
         }
         
@@ -330,6 +332,7 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p, int bKepS
     return pFrameAcc;
     }
 
+#ifdef COLLISION
 /*
  * @brief Set the dtKep field of all particles back to zero
  */
@@ -341,6 +344,7 @@ void TreePiece::resetDtKep(const CkCallback& cb)
     }
     contribute(cb);
 }
+#endif
 
 /*
  * @brief For use when transforming into an accelerating frame of reference. Given

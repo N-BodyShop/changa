@@ -1718,6 +1718,7 @@ void TreePiece::distribLymanWerner(const CkCallback& cb)
  * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
+#ifdef COLLISION
 void TreePiece::adjust(int iKickRung, int bCollStep, int bEpsAccStep,
                int bGravStep, int bKepStep, int bSphStep,
                int bViscosityLimitdt, double dEta, double dEtaCourant,
@@ -1726,7 +1727,20 @@ void TreePiece::adjust(int iKickRung, int bCollStep, int bEpsAccStep,
 		       double dCosmoFac, double dhMinOverSoft,
                        double dResolveJeans,
 		       int bDoGas,
-		       const CkCallback& cb) {
+		       const CkCallback& cb)
+#else
+void TreePiece::adjust(int iKickRung, int bEpsAccStep,
+               int bGravStep, int bSphStep,
+               int bViscosityLimitdt, double dEta, double dEtaCourant,
+               double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+		       double dDelta, double dAccFac,
+		       double dCosmoFac, double dhMinOverSoft,
+                       double dResolveJeans,
+		       int bDoGas,
+		       const CkCallback& cb)
+#endif
+{
+
   int iCurrMaxRung = 0;
   int nMaxRung = 0;  // number of particles in maximum rung
   int iCurrMaxRungGas = 0;
@@ -1768,11 +1782,13 @@ void TreePiece::adjust(int iKickRung, int bCollStep, int bEpsAccStep,
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
 	  }
+#ifdef COLLISION
       if(bKepStep) {
-      double dt = dEta/sqrt(dAccFac*p->dtKep);
+          double dt = dEta/sqrt(dAccFac*p->dtKep);
       if(dt < dTIdeal)
           dTIdeal = dt;
       }
+#endif
       if(bSphStep && TYPETest(p, TYPE_GAS)) {
 	  double dt;
 	  double ph = 0.5*p->fBall;
@@ -1847,7 +1863,10 @@ void TreePiece::adjust(int iKickRung, int bCollStep, int bEpsAccStep,
           dTEdot = dt;
 #endif
 	  }
+
+#ifdef COLLISION
       if (bCollStep) dTIdeal = RungToDt(dDelta, p->rung);
+#endif
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
       if(iNewRung > 29) {

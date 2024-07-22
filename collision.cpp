@@ -1,3 +1,5 @@
+#ifdef COLLISION
+
 /*
  * Collision detection and response module
  */
@@ -1034,3 +1036,5 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    }
         }
     }
+
+#endif

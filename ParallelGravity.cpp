@@ -2928,7 +2928,9 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	    CkExit();
 	}
 	
+#ifdef COLLISION
         treeProxy.resetDtKep(CkCallbackResumeThread());
+#endif
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
         if (bUseCkLoopPar) {
             CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
@@ -3510,6 +3512,7 @@ Main::writeTimings(int iStep)
 
 void Main::writeCollLog(const char *achLogFileName)
 {
+#ifdef COLLISION
     static int first = 1;
     FILE *fpLog = fopen(achLogFileName, "a");
     if(first && (!bIsRestarting || dTimeOld == 0.0)) {
@@ -3523,6 +3526,7 @@ void Main::writeCollLog(const char *achLogFileName)
     param.collision.collBuffer.clear();
 
     fclose(fpLog);
+#endif
 }
 
 ///
@@ -4047,6 +4051,7 @@ int Main::adjust(int iKickRung)
         param.dMetalDiffusionCoeff : param.dThermalDiffusionCoeff);
     double startTime = CkWallTimer();
     
+#ifdef COLLISION
     treeProxy.adjust(iKickRung, param.collision.bCollStep, param.bEpsAccStep,
              param.bGravStep, param.bKepStep, param.bSphStep, param.bViscosityLimitdt,
 		     param.dEta, param.dEtaCourant, param.dEtauDot,
@@ -4057,6 +4062,18 @@ int Main::adjust(int iKickRung)
                      param.dResolveJeans/a,
 		     param.bDoGas,
 		     CkCallbackResumeThread((void*&)msg));
+#else
+    treeProxy.adjust(iKickRung, param.bEpsAccStep,
+             param.bGravStep, param.bSphStep, param.bViscosityLimitdt,
+		     param.dEta, param.dEtaCourant, param.dEtauDot,
+                     dDiffCoeff, param.dEtaDiffusion,
+                     param.dDelta, 1.0/(a*a*a), a,
+		     0.0,  /* set to dhMinOverSoft if we implement
+			      Gasoline's LowerSoundSpeed. */
+                     param.dResolveJeans/a,
+		     param.bDoGas,
+		     CkCallbackResumeThread((void*&)msg));
+#endif
 
     int iCurrMaxRung = ((int64_t *)msg->getData())[0];
     int64_t nMaxRung = ((int64_t *)msg->getData())[1];

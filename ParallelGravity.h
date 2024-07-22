@@ -1713,8 +1713,6 @@ public:
   void evaluateParticleCounts(ORBSplittersMsg *splittersMsg);
   /*****************************/
 
-  void resetDtKep(const CkCallback& cb);
-
   void kick(int iKickRung, double dDelta[MAXRUNG+1], int bClosing,
 	    int bNeedVPred, int bGasIsothermal, double dMaxEnergy, double duDelta[MAXRUNG+1],
         double gammam1, double dThermalCondSatCoeff,
@@ -1758,6 +1756,7 @@ public:
  * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
+#ifdef COLLISION
   void adjust(int iKickRung, int bCollStep, int bEpsAccStep,
           int bGravStep, int bKepStep, int bSphStep,
           int bViscosityLimitdt, double dEta, double dEtaCourant,
@@ -1767,6 +1766,17 @@ public:
                   double dResolveJeans,
 	      int bDoGas,
 	      const CkCallback& cb);
+#else
+  void adjust(int iKickRung, int bEpsAccStep,
+          int bGravStep, int bSphStep,
+          int bViscosityLimitdt, double dEta, double dEtaCourant,
+          double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+          double dDelta, double dAccFac,
+          double dCosmoFac, double dhMinOverSoft,
+                  double dResolveJeans,
+	      int bDoGas,
+	      const CkCallback& cb);
+#endif
   /**
    * @brief Truncate the highest rung
    * @param iCurrMaxRung new maximum rung.
@@ -1833,6 +1843,7 @@ public:
                       const CkCallback& cb);
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
 #ifdef COLLISION
+    void resetDtKep(const CkCallback& cb);
     void delEjected(double dDelDist, const CkCallback& cb);
     void getNearCollPartners(const CkCallback& cb);
     void getCollInfo(const CkCallback& cb);
