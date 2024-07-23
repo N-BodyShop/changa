@@ -294,6 +294,8 @@ public:
     virtual Vector3D<double> vValue(GravityParticle *p)
                 {return p->w;}
     virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual void setVValue(GravityParticle *p, Vector3D<double> val)
+        {p->position = val;}
     virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
     SpinOutputParams() {}
