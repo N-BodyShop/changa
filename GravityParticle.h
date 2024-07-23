@@ -753,7 +753,6 @@ class ExternalSmoothParticle {
       tmp->treeAcceleration = treeAcceleration;
 #ifdef COLLISION
       tmp->soft = soft;
-      tmp->w = w;
       tmp->dtCol = dtCol;
       tmp->iOrderCol = iOrderCol;
 #endif
