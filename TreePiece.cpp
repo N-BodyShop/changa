@@ -1454,7 +1454,9 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
       if(p->rung >= iKickRung) {
-      if(bNeedVPred && TYPETest(p, TYPE_DARK)) {
+
+#ifdef COLLISION
+      if(TYPETest(p, TYPE_DARK)) {
 	      if(bClosing) { // update predicted quantities to end of step
 		  p->vPred() = p->velocity
 		      + dDelta[p->rung]*p->treeAcceleration;
@@ -1462,6 +1464,8 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               p->vPred() = p->velocity;
               }
           }
+#endif
+
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
 		  p->vPred() = p->velocity
@@ -2057,10 +2061,14 @@ void TreePiece::drift(double dDelta,  // time step in x containing
         }
       }
       boundingBox.grow(p->position);
-      if (bNeedVpred && TYPETest(p, TYPE_DARK)) {
+
+#ifdef COLLISION
+      if (TYPETest(p, TYPE_DARK)) {
           p->vPred() += dvDelta*p->treeAcceleration;
       }
-      else if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
+#endif
+
+    if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
 	  p->vPred() += dvDelta*p->treeAcceleration;
 	  glassDamping(p->vPred(), dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {

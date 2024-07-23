@@ -4,7 +4,6 @@ iOutInterval    = 128
 iLogInterval	= 1
 
 bDoDensity      = 0
-bDoDark         = 1
 bDoGravity      = 0
 bCollision      = 1
 # bounces only

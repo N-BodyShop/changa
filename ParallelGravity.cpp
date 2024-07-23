@@ -637,10 +637,6 @@ Main::Main(CkArgMsg* m) {
 
        param.externalForce.AddParams(prm);
 
-	   param.bDoDark = 0;
-	   prmAddParam(prm, "bDoDark", paramBool, &param.bDoDark,
-		    sizeof(int),"dark", "Enable Dark Matter Calculation");
-
 #ifdef COLLISION
        param.bCollision = 0;
        prmAddParam(prm, "bCollision", paramBool, &param.bCollision,
@@ -1782,7 +1778,7 @@ void Main::advanceBigCollStep(int iStep) {
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
 	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
 	      bool bBuildTree = (iSub + 1 == driftSteps);
-	      treeProxy.drift(dDriftFac, (param.bDoGas || param.bDoDark), param.bGasIsothermal,
+	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
 			      dKickFac, dTimeSub, nGrowMassDrift, bBuildTree,
                               param.dMaxEnergy,
 			      CkCallbackResumeThread());
@@ -2142,7 +2138,7 @@ void Main::kick(bool bClosing, int iActiveRung, int nextMaxRung,
 
     double a = csmTime2Exp(param.csm,dTime);
     double startTime = CkWallTimer();
-    treeProxy.kick(iActiveRung, dKickFac, bClosing, (param.bDoGas || param.bDoDark),
+    treeProxy.kick(iActiveRung, dKickFac, bClosing, param.bDoGas,
                    param.bGasIsothermal, param.dMaxEnergy, duKick,
                    (param.dConstGamma-1), param.dThermalCondSatCoeff/a,
                    param.feedback->dMultiPhaseMaxTime,
