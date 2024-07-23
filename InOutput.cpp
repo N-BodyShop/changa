@@ -86,17 +86,15 @@ void load_tipsy_dark(Tipsy::TipsyReader &r, GravityParticle &p)
 	p.mass = dp.mass;
 	p.position = dp.pos;
 	p.velocity = dp.vel;
-#ifdef COLLISION
-        p.dtKep = 0;
-#endif
 	p.soft = dp.eps;
-    p.vPred() = dp.vel;
 #ifdef CHANGESOFT
 	p.fSoft0 = dp.eps;
 #endif
 	p.fDensity = 0.0;
 	p.iType = TYPE_DARK;
 #ifdef COLLISION
+    p.dtKep = 0;
+    p.vPred() = dp.vel;
     p.dtCol = DBL_MAX;
     p.iOrderCol = -1;
     p.w = Vector3D<double>(0.);
