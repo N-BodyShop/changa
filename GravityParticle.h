@@ -36,28 +36,12 @@ class ExternalGravityParticle {
   cosmoType mass;
   cosmoType soft;
   Vector3D<cosmoType> position;
-#ifdef COLLISION  
-  Vector3D<cosmoType> _vPred;
-  cosmoType dtKep;
-  Vector3D<double> w;
-  double dtCol; 
-  int iOrderCol;
-  // For consistency with non-collision version
-  inline Vector3D<cosmoType>& vPred() {return _vPred;}
-#endif
 
 #ifdef __CHARMC__
   void pup(PUP::er &p) {
     p | position;
     p | mass;
     p | soft;
-#ifdef COLLISION
-    p | _vPred;
-    p | dtKep;
-    p | w;
-    p | dtCol;
-    p | iOrderCol;
-#endif
   }
 #endif
 };
@@ -336,9 +320,23 @@ class ExternalSmoothParticle;
 /// Other classes of particles require this plus an "extra data" class.
 
 class GravityParticle : public ExternalGravityParticle {
+#ifdef COLLISION
+private:
+	// Necessary for gas drag forces on solid bodies
+	Vector3D<cosmoType> _vPred;
+#endif
+
 public:
         Vector3D<cosmoType> velocity;
 	Vector3D<cosmoType> treeAcceleration;
+#ifdef COLLISION
+	cosmoType dtCol;
+	int iOrderCol;
+	Vector3D<cosmoType> w;
+	cosmoType dtKep;
+	// For consistency with non-collision version
+	inline Vector3D<cosmoType>& vPred() {return _vPred;}
+#endif
 	cosmoType potential;
         cosmoType dtGrav;       ///< timestep from gravity; N.B., this
                                 ///  is actually stored as (1/time^2)
@@ -387,6 +385,13 @@ public:
           p | key;
           p | velocity;
           p | treeAcceleration;
+#ifdef COLLISION
+          p | dtCol;
+          p | iOrderCol;
+          p | _vPred;
+          p | dtKep;
+          p | w;
+#endif
           p | dtGrav;
           p | fDensity;
           p | fBall;
@@ -541,11 +546,6 @@ public:
           mass = p.mass;
           soft = p.soft;
           position = p.position;
-#ifdef COLLISION
-          w = p.w;
-          dtCol = p.dtCol;
-          iOrderCol = p.iOrderCol;
-#endif
 	  return *this;
         }
 };
@@ -679,7 +679,6 @@ class ExternalSmoothParticle {
 	  treeAcceleration = p->treeAcceleration;
 #ifdef COLLISION  
       soft = p->soft;
-      w = p->w;
       dtCol = p->dtCol;
       iOrderCol = p->iOrderCol;
 #endif
@@ -832,7 +831,6 @@ class ExternalSmoothParticle {
     p | dtNew;
 #endif
     p | treeAcceleration;
-    p | vPred;
     p | mumax;
     p | PdV;
     p | uDotPdV;
