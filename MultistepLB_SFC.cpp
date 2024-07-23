@@ -129,6 +129,12 @@ void MultistepLB_SFC::work2(BaseLB::LDStats *stats){
 
     int numProcessed = 0;
 
+    double dBgLoad = 0.0;
+    for(int i = 0; i < stats->nprocs(); i++){
+        dBgLoad += stats->procs[i].bg_walltime;
+    }
+    dBgLoad /= numobjs;
+
     dTotalLoad = 0.0;
     for(int i = 0; i < numobjs; i++){
         if(!stats->objData[i].migratable) continue;
@@ -140,7 +146,8 @@ void MultistepLB_SFC::work2(BaseLB::LDStats *stats){
             load = udata->myNumParticles;
         }
         else{
-            load = stats->objData[i].wallTime;
+            // give each piece a portion of the background load
+            load = stats->objData[i].wallTime + dBgLoad;
         }
 
         tp_array[numProcessed] = SFCObject(i, load);
@@ -148,6 +155,11 @@ void MultistepLB_SFC::work2(BaseLB::LDStats *stats){
         numProcessed++;
         dTotalLoad += load;
     }
+
+    if(verbosity > 0)
+        CkPrintf("Avg active load %g; Avg bg load %g\n", dTotalLoad/numobjs,
+                 dBgLoad);
+
     CkAssert(numProcessed==nmig);
 
     sfcPrepare(tp_array, nmig, stats);

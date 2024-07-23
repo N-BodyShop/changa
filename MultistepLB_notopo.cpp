@@ -45,7 +45,7 @@ bool MultistepLB_notopo::QueryBalanceNow(int step){
 }
 
 // helper functions for multistepping
-#ifdef MCLBMS
+#ifdef MCLBMSV
 
 void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveObjs){
   int objsPerProc = 8;
@@ -54,9 +54,7 @@ void MultistepLB_notopo::makeActiveProcessorList(BaseLB::LDStats *stats, int num
   procsNeeded = expandFactor*numActiveObjs/objsPerProc > stats->nprocs() ? stats->nprocs() : expandFactor*numActiveObjs/objsPerProc;
 
   /* currently, only the first procsNeeded procs are used - could do something more sophisticated here in the future - FIXME */
-#ifdef MCLBMSV
   CkPrintf("Processors 0 to %d active\n", procsNeeded-1);
-#endif
 }
 #endif
 
@@ -129,10 +127,9 @@ void MultistepLB_notopo::work(BaseLB::LDStats* stats)
 
   // select processors
 #ifdef MCLBMSV
-  //printData(*stats, phase, NULL);
   CkPrintf("making active processor list\n");
-#endif
   makeActiveProcessorList(stats, numActiveObjects);
+#endif
   count = stats->nprocs();
 
   // let the strategy take over on this modified instrumented data and processor information
