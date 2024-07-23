@@ -99,7 +99,7 @@ void load_tipsy_dark(Tipsy::TipsyReader &r, GravityParticle &p)
 #ifdef COLLISION
     p.dtCol = DBL_MAX;
     p.iOrderCol = -1;
-    p.w = (0.);
+    p.w = Vector3D<double>(0.);
 #endif
 }
 
@@ -119,7 +119,7 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
 #ifdef COLLISION
     p.dtCol = DBL_MAX;
     p.iOrderCol = -1;
-    p.w = (0.);
+    p.w = Vector3D<double>(0.);
 #endif
     p.fDensity = 0.0;
     p.iType = TYPE_STAR;
