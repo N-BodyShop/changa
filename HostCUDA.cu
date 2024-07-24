@@ -2210,13 +2210,13 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].dtGrav = 0.0;
 }
 
-void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, std::vector<double> *dtg, int numParts, cudaStream_t stream) {
+void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, std::vector<double> dtg, int numParts, cudaStream_t stream) {
 
     if (numParts == 0) return;
 
     double *d_y, *d_dtg;
     size_t ySize = numParts * 5 * sizeof(double); // TODO const defined in clIntegrateEnergy
-    size_t dtgSize = dtg->size() * sizeof(double);
+    size_t dtgSize = dtg.size() * sizeof(double);
 
     cudaChk(cudaMalloc(&d_y, ySize));
     cudaChk(cudaMalloc(&d_dtg, dtgSize));
@@ -2228,7 +2228,7 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, std:
     for (int i = 0; i < numParts; ++i) {
         memcpy(y_host + i * 5, y[i], 5 * sizeof(double));
     }
-    memcpy(dtg_host, dtg->data(), dtgSize);
+    memcpy(dtg_host, dtg.data(), dtgSize);
 
     cudaStreamSynchronize(stream);
     cudaChk(cudaMemcpyAsync(d_y, y_host, ySize, cudaMemcpyHostToDevice, stream));
