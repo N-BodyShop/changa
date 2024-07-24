@@ -611,7 +611,6 @@ class ExternalSmoothParticle {
 #endif
 #ifdef COLLISION  
   double soft;
-  Vector3D<double> w;
   double dtCol;
   int iOrderCol;
 #endif
@@ -757,7 +756,7 @@ class ExternalSmoothParticle {
       tmp->iOrderCol = iOrderCol;
 #endif
       if(TYPETest(tmp, TYPE_GAS)) {
-	  tmp->vPred() = vPred;    
+	  tmp->vPred() = vPred;
 	  tmp->mumax() = mumax;
           tmp->PdV() = PdV;
           tmp->uDotPdV() = uDotPdV;
@@ -878,7 +877,6 @@ class ExternalSmoothParticle {
     p | iBucketOff;
 #ifdef COLLISION
     p | soft;
-    p | w;
     p | dtCol;
     p | iOrderCol;
 #endif
