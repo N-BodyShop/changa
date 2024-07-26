@@ -14,6 +14,7 @@
 #include "Reductions.h"
 // jetley
 #include "MultistepLB.h"
+#include "MultistepLB_SFC.h"
 #include "MultistepLB_notopo.h"
 #include "MultistepNodeLB_notopo.h"
 #include "Orb3dLB.h"
@@ -6525,6 +6526,7 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
 
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
+  string ms_sfcname("MultistepLB_SFC");
   string ms_notoponame("MultistepLB_notopo");
   string msnode_notoponame("MultistepNodeLB_notopo");
   string orb3d_notoponame("Orb3dLB_notopo");
@@ -6542,6 +6544,10 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
       else if(orb3dname == string(lbs[i]->lbName())){ 
         foundLB = Orb3d;
         break;
+      }
+      else if(ms_sfcname == string(lbs[i]->lbName())){
+          foundLB = Multistep_SFC;
+          break;
       }
      else if(ms_notoponame == string(lbs[i]->lbName())){ 
         foundLB = Multistep_notopo;
