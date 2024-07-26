@@ -1348,6 +1348,9 @@ void TreePiece::updateuDot(int activeRung,
 
 	int nv = CoolDataArr[0]->IntegratorContext->nv;
         cudaMalloc(&d_ymin, numSelParts*nv*sizeof(*d_ymin));
+        std::vector<double> h_ymin(nv*numSelParts, 1e-300);
+        cudaMemcpy(d_ymin, h_ymin.data(), nv*numSelParts*sizeof(double), cudaMemcpyHostToDevice);
+
         cudaMalloc(&d_y0, numSelParts*nv*sizeof(*d_y0));
         cudaMalloc(&d_q, numSelParts*nv*sizeof(*d_q));
         cudaMalloc(&d_d, numSelParts*nv*sizeof(*d_d));
