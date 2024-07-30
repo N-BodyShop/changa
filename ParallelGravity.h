@@ -1588,11 +1588,6 @@ public:
 	  if(boxes!= NULL ) delete[] boxes;
 	  if(splitDims != NULL) delete[] splitDims;
 
-#ifndef COOLING_NONE
-	  if(bGasCooling) {
-	      CoolDerivsFinalize(CoolData);
-	  }
-#endif
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
 

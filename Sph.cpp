@@ -1435,6 +1435,7 @@ void TreePiece::updateuDot(int activeRung,
 	                                  ExternalHeating[i], fDensity[i],
 	  	                          fMetals[i], r[i].data(), dtUse[i], columnL[i], y[i]);
 	    delete[] y[i];
+            StiffFinalize(CoolDataArr[i]->IntegratorContext);
             }
 	delete[] y;
         }
