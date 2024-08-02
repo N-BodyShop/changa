@@ -150,6 +150,22 @@ protected:
         size_t sCompactParts;
         size_t sVarParts;
 
+#ifndef COOLING_NONE
+  // Pointers to cooling data on GPU
+  CudaclDerivsData *d_CudaCoolData;
+  CudaSTIFF *d_CudaStiff;
+	double *d_ymin;
+	double *d_y0;
+	double *d_y1;
+	double *d_q;
+	double *d_d;
+	double *d_rtau;
+	double *d_ys;
+	double *d_qs;
+	double *d_rtaus;
+	double *d_scrarray;
+#endif // COOLING_NONE
+
 	int numStreams;
 	cudaStream_t *streams;
 

@@ -15,6 +15,15 @@
 
 #ifdef CUDA
 #include "CudaFunctions.h"
+#define cudaChk(code) cudaErrorDie(code, #code, __FILE__, __LINE__)
+inline void cudaErrorDie(cudaError_t retCode, const char* code,
+                                              const char* file, int line) {
+  if (retCode != cudaSuccess) {
+    fprintf(stderr, "Fatal CUDA Error %s at %s:%d.\nReturn value %d from '%s'.",
+        cudaGetErrorString(retCode), file, line, retCode, code);
+    abort();
+  }
+}
 #endif
 
 #include <float.h>
@@ -446,6 +455,23 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     free(coolBuf);
     free(heatBuf);
     free(CudaRates_T);
+
+    // Integrator context and derivative data
+    // Need to track for every gas particle in sim
+    int nv = 5; //CoolData->IntegratorContext->nv; // TODO set this based on cooling code params
+    int numParts = 512000; // TODO reallocate if we end up with more gas particles later
+    cudaChk(cudaMalloc(&d_CudaStiff, sizeof(CudaSTIFF)*numParts));
+    cudaChk(cudaMalloc(&d_ymin, numParts*nv*sizeof(*d_ymin)));
+    cudaChk(cudaMalloc(&d_y0, numParts*nv*sizeof(*d_y0)));
+    cudaChk(cudaMalloc(&d_q, numParts*nv*sizeof(*d_q)));
+    cudaChk(cudaMalloc(&d_d, numParts*nv*sizeof(*d_d)));
+    cudaChk(cudaMalloc(&d_rtau, numParts*nv*sizeof(*d_rtau)));
+    cudaChk(cudaMalloc(&d_ys, numParts*nv*sizeof(*d_ys)));
+    cudaChk(cudaMalloc(&d_qs, numParts*nv*sizeof(*d_qs)));
+    cudaChk(cudaMalloc(&d_rtaus, numParts*nv*sizeof(*d_rtaus)));
+    cudaChk(cudaMalloc(&d_scrarray, numParts*nv*sizeof(*d_scrarray)));
+    cudaChk(cudaMalloc(&d_y1, numParts*nv*sizeof(*d_y1)));
+    cudaChk(cudaMalloc(&d_CudaCoolData, numParts*sizeof(CudaclDerivsData)));
 #endif // CUDA
 #endif //COOLING_NONE
     contribute(cb);
@@ -1178,6 +1204,25 @@ void TreePiece::updateuDot(int activeRung,
 {
 #ifndef COOLING_NONE
 
+    int nv = 5; // TODO this should be read from somewhere else
+    int numParts = 512000/128; // This needs to be per tree piece (set -p 128 or this will break!)
+    int offset = numParts*thisIndex;
+
+    d_CudaCoolData = &dm->d_CudaCoolData[offset];
+    d_CudaStiff = &dm->d_CudaStiff[offset];
+
+    offset *= nv;
+    d_ymin = &dm->d_ymin[offset];
+    d_y0 = &dm->d_y0[offset];
+    d_y1 = &dm->d_y1[offset];
+    d_q = &dm->d_q[offset];
+    d_d = &dm->d_d[offset];
+    d_rtau = &dm->d_rtau[offset];
+    d_ys = &dm->d_ys[offset];
+    d_qs = &dm->d_qs[offset];
+    d_rtaus = &dm->d_rtaus[offset];
+    d_scrarray = &dm->d_scrarray[offset];
+
     // Count the number of particles to update
     int numSelParts = 0;
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
@@ -1189,6 +1234,12 @@ void TreePiece::updateuDot(int activeRung,
     }
 
     CkPrintf("Rung %d, %d particles to update\n", activeRung, numSelParts);
+    if (numSelParts > numParts) CkAbort("TreePiece %d is trying to copy too many particles. Increase the amount of allocated GPU memory\n");
+
+    if (numSelParts == 0) {
+        smoothProxy[thisIndex].ckLocal()->contribute(cb);
+        return;
+    }
 
     double dt; // time in seconds
     double PoverRho;
@@ -1344,24 +1395,22 @@ void TreePiece::updateuDot(int activeRung,
 	//   Integrator context
 	//   Derivative data
 	//   y variables for chemeq
-        cudaMalloc(&d_CudaStiff, sizeof(CudaSTIFF)*numSelParts);
 
-	int nv = CoolDataArr[0]->IntegratorContext->nv;
-        cudaMalloc(&d_ymin, numSelParts*nv*sizeof(*d_ymin));
+        // Memory operations here are the bottleneck
+        // Possible optimizations:
+        // Use pinned host memory
+        // Malloc for all particles at beginning of sim, assuming we never need > N_0
+        // Some memcpys could be replaced with kernel operations
+        //    - Init y_min
+        //    - CoolData
+        //    - Integrator context setup (this is probably the hardest)
+        // Frees at end of sim
+
+        int nv = CoolDataArr[0]->IntegratorContext->nv;
         std::vector<double> h_ymin(nv*numSelParts, 1e-300);
-        cudaMemcpy(d_ymin, h_ymin.data(), nv*numSelParts*sizeof(double), cudaMemcpyHostToDevice);
+        CkPrintf("%d %d",thisIndex, nv*numSelParts*sizeof(double));
+        cudaChk(cudaMemcpy(d_ymin, h_ymin.data(), nv*numSelParts*sizeof(double), cudaMemcpyHostToDevice));
 
-        cudaMalloc(&d_y0, numSelParts*nv*sizeof(*d_y0));
-        cudaMalloc(&d_q, numSelParts*nv*sizeof(*d_q));
-        cudaMalloc(&d_d, numSelParts*nv*sizeof(*d_d));
-        cudaMalloc(&d_rtau, numSelParts*nv*sizeof(*d_rtau));
-        cudaMalloc(&d_ys, numSelParts*nv*sizeof(*d_ys));
-        cudaMalloc(&d_qs, numSelParts*nv*sizeof(*d_qs));
-        cudaMalloc(&d_rtaus, numSelParts*nv*sizeof(*d_rtaus));
-        cudaMalloc(&d_scrarray, numSelParts*nv*sizeof(*d_scrarray));
-        cudaMalloc(&d_y1, numSelParts*nv*sizeof(*d_y1));
-
-        cudaMalloc(&d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData));
         std::vector<CudaclDerivsData> h_CudaCoolData(numSelParts);
 	std::vector<CudaSTIFF> CudaStiff(numSelParts);
         for (int i = 0; i < numSelParts; i++) {
@@ -1394,8 +1443,8 @@ void TreePiece::updateuDot(int activeRung,
             STIFFtoCudaSTIFF(CoolDataArr[i]->IntegratorContext, &CudaStiff[i]);
         }
 
-        cudaMemcpy(d_CudaCoolData, h_CudaCoolData.data(), numSelParts*sizeof(CudaclDerivsData), cudaMemcpyHostToDevice);
-        cudaMemcpy(d_CudaStiff, CudaStiff.data(), sizeof(CudaSTIFF)*numSelParts, cudaMemcpyHostToDevice);
+        cudaChk(cudaMemcpy(d_CudaCoolData, h_CudaCoolData.data(), numSelParts*sizeof(CudaclDerivsData), cudaMemcpyHostToDevice));
+        cudaChk(cudaMemcpy(d_CudaStiff, CudaStiff.data(), sizeof(CudaSTIFF)*numSelParts, cudaMemcpyHostToDevice));
 
 	// For testing purposes, run calculation in serial on CPU
         for(unsigned int i = 0; i < numSelParts; ++i) {
@@ -1406,23 +1455,11 @@ void TreePiece::updateuDot(int activeRung,
 	// if only running 1 tree piece
         t = 0.0;
         TreePieceODESolver(d_CudaStiff, y, t, dtUse, numSelParts, this->stream);
-        cudaMemcpy(h_CudaCoolData.data(), d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData), cudaMemcpyDeviceToHost);
+        cudaChk(cudaMemcpy(h_CudaCoolData.data(), d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData), cudaMemcpyDeviceToHost));
         for (int i = 0; i < numSelParts; i++) {
            CudaclDerivsDatatoclDerivsData(&h_CudaCoolData[i], CoolDataArr[i]);
 	}
 
-	cudaFree(d_CudaStiff);
-	cudaFree(d_CudaCoolData);
-        cudaFree(d_ymin);
-        cudaFree(d_y0);
-        cudaFree(d_y1);
-        cudaFree(d_q);
-        cudaFree(d_d);
-        cudaFree(d_rtau);
-        cudaFree(d_ys);
-        cudaFree(d_qs);
-        cudaFree(d_rtaus);
-        cudaFree(d_scrarray);
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
@@ -1447,7 +1484,7 @@ void TreePiece::updateuDot(int activeRung,
             if(dtUse[i] > 0 || ExternalHeating[i]*duDelta[p->rung] + p->u() < 0)
                 // linear interpolation over interval
                 p->uDot() = (E[i] - p->u())/duDelta[p->rung];
-		CkPrintf("%g\n", p->uDot());
+		//CkPrintf("%g\n", p->uDot());
                 if (bUpdateState) p->CoolParticle() = cp[i];
             } else {
                 p->uDot() = ExternalHeating[i];
