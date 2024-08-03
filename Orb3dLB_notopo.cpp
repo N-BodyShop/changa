@@ -24,7 +24,15 @@ void Orb3dLB_notopo::init() {
 
 using namespace std;
 
+#if CHARM_VERSION > 61002
+static void lbinit()
+{
+    LBRegisterBalancer<Orb3dLB_notopo>("Orb3dLB_notopo",
+      "3D ORB mapping of treepiece space onto processors without topology information");
+}
+#else
 CreateLBFunc_Def(Orb3dLB_notopo, "3d ORB mapping of tree piece space onto 3d processor mesh");
+#endif
 
 Orb3dLB_notopo::Orb3dLB_notopo(const CkLBOptions &opt): CBase_Orb3dLB_notopo(opt)
 {
@@ -117,33 +125,10 @@ void Orb3dLB_notopo::work(BaseLB::LDStats* stats)
       CkMyPe(), mcount, gstarttime, CkWallTimer() - gstarttime);
   
   if(_lb_args.debug() >= 2) {
-	// Write out "particle file" of load balance information
-	auto achFileName = make_formatted_string("lb.%d.sim", step());
-	FILE *fp = fopen(achFileName.c_str(), "w");
-	CkAssert(fp != NULL);
-
-  int num_migratables = numobjs;
-  for(int i = 0; i < numobjs; i++) {
-    if (!stats->objData[i].migratable) {
-      num_migratables--;
-    }
+      // Write out "particle file" of load balance information
+      auto achFileName = make_formatted_string("lb.%d.sim", step());
+      write_LB_particles(stats, achFileName.c_str(), false);
   }
-	fprintf(fp, "%d %d 0\n", num_migratables, num_migratables);
-
-    for(int i = 0; i < numobjs; i++) {
-      if (!stats->objData[i].migratable) continue;
-
-	    CkAssert(tps[i].lbindex < numobjs);
-	    CkAssert(tps[i].lbindex >= 0);
-	    fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d 0.0\n",
-		stats->objData[tps[i].lbindex].wallTime,
-		tps[i].centroid.x,
-		tps[i].centroid.y,
-		tps[i].centroid.z,
-		stats->to_proc[tps[i].lbindex]);
-	    }
-	fclose(fp);
-	}
 
   if(doSimulateLB){
     CkExit();

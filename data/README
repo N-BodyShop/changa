@@ -4,6 +4,19 @@ Examples include opacity tables or tables of UV background radiation.
 
 Detail file descriptions:
 
+cooltable_xdr: this is a Cloudy-produced cooling table used by
+               cooling_metal.c and cooling_metal_H2.c.  It is a 3D table
+               in redshift, density and temperature.  Redshift ranges from
+               0 to 9, density ranges from 1e-9 to 1e3 protons/cc, temperature
+               ranges 100K to 1e9K.
+
+cooltable_xdr_extended: this is a Cloudy-produced cooling table used by
+               cooling_metal.c and cooling_metal_H2.c that covers a more
+               extended range of parameters than cooltable_xdr.  It is a 3D
+               table in redshift, density and temperature.  Redshift ranges
+               from 0 to 15, density ranges from 1e-9 to 1e4 protons/cc,
+               temperature ranges 10K to 1e9K.
+
 rosseland.abpoll.p3p5.amax1.dat: Rosseland mean opacity table from D'Alessio
                                  et al, 2001, as described in Boley et al, 2010.
                                  This assumes a 1 micron maximum grain size

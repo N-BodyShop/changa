@@ -31,6 +31,9 @@ typedef struct parameters {
     double dEta;
     int nTruncateRung;
     int iMaxRung;
+#ifdef CUDA
+    int nGpuMinParts;
+#endif
     int bCannonical;
     int bKDK;
     int bDtAdjust;
@@ -117,7 +120,7 @@ typedef struct parameters {
     double dEvapCoeffCode;
     int bDoExternalGravity;
     ExternalGravity externalGravity;
-    int iRandomSeed;
+    int iRandomSeed;            /* Seed for random numbers */
     
     Sinks sinks;
 
@@ -177,6 +180,9 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bGravStep;
     p|param.dEta;
     p|param.nTruncateRung;
+#ifdef CUDA
+    p|param.nGpuMinParts;
+#endif
     p|param.iMaxRung;
     p|param.bCannonical;
     p|param.bKDK;

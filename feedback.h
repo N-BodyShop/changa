@@ -5,6 +5,7 @@
 #include "supernova.h"
 #include "imf.h"
 #include "starlifetime.h"
+#include "rand.h"
 #include "lymanwerner.h"
 #define NFEEDBACKS 5
 
@@ -69,7 +70,6 @@ class Fdbk : public PUP::able {
     double CalcLWFeedback(SFEvent *sfEvent, double dTime, double dDelta, LWDATA *LWData) const;
 #endif /*COOLING_MOLECULARH*/
 
-    int iRandomSeed;		/* seed for stochastic quantized feedback */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dErgUnit;		/* system energy in ergs */
@@ -104,7 +104,7 @@ class Fdbk : public PUP::able {
     void CheckParams(PRM prm, struct parameters &param);
     void NullFeedback() { imf = new Kroupa01(); } /* Place holder */
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
-		    FBEffects *fbTotals, LWDATA *LWData) const;
+                    FBEffects *fbTotals, LWDATA *LWData, Rand& rndGen) const;
     double NSNIa (double dMassT1, double dMassT2);
     Fdbk() { }
 

@@ -23,9 +23,6 @@
 
 #include "MultistepLB.decl.h"
 
-void CreateMultistepLB();
-BaseLB * AllocateMultistepLB();
-
 //**************************************
 
 class MultistepLB : public CBase_MultistepLB {

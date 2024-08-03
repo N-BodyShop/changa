@@ -113,6 +113,10 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 /// @brief Number of pieces into which to divide the tree.
 unsigned int numTreePieces;
+#ifdef CUDA
+    /// @brief Number of CUDA streams to use
+    unsigned int numStreams;
+#endif
 /// @brief Number of particles per TreePiece.  Used to determine the
 /// number of TreePieces.
 unsigned int particlesPerChare;
@@ -145,6 +149,9 @@ cosmoType thetaMono;               ///< Criterion of excepting monopole
 
 /// @brief Boundary evaluation user event (for Projections tracing).
 int boundaryEvaluationUE;
+int START_REG;
+int START_IB;
+int START_PW;
 /// @brief Weight balancing during Oct decomposition user event (for Projections tracing).
 int weightBalanceUE;
 int networkProgressUE;
@@ -228,6 +235,9 @@ Main::Main(CkArgMsg* m) {
 	// Floating point exceptions.
 	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
 
+        START_REG = traceRegisterUserEvent("Register");
+        START_IB = traceRegisterUserEvent("Init Buckets");
+        START_PW = traceRegisterUserEvent("Prefetch Walk");
         boundaryEvaluationUE = traceRegisterUserEvent("Evaluating Boudaries");
         weightBalanceUE = traceRegisterUserEvent("Weight Balancer");
         networkProgressUE = traceRegisterUserEvent("CmiNetworkProgress");
@@ -236,13 +246,21 @@ Main::Main(CkArgMsg* m) {
 #ifdef HAPI_TRACE
         traceRegisterUserEvent("Tree Serialization", CUDA_SER_TREE);
         traceRegisterUserEvent("List Serialization", CUDA_SER_LIST);
+	traceRegisterUserEvent("Ser Local Walk", SER_LOCAL_WALK);
+	traceRegisterUserEvent("Ser Local Gather", SER_LOCAL_GATHER);
+	traceRegisterUserEvent("Ser Local Trans", SER_LOCAL_TRANSFORM);
+	traceRegisterUserEvent("Ser Local Memcpy", SER_LOCAL_MEMCPY);
 
-        traceRegisterUserEvent("Local Node", CUDA_LOCAL_NODE_KERNEL);
-        traceRegisterUserEvent("Remote Node", CUDA_REMOTE_NODE_KERNEL);
-        traceRegisterUserEvent("Remote Resume Node", CUDA_REMOTE_RESUME_NODE_KERNEL);
-        traceRegisterUserEvent("Local Particle", CUDA_LOCAL_PART_KERNEL);
-        traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
-        traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
+        traceRegisterUserEvent("Xfer Local", CUDA_XFER_LOCAL);
+        traceRegisterUserEvent("Xfer Remote", CUDA_XFER_REMOTE);
+        traceRegisterUserEvent("Grav Local", CUDA_GRAV_LOCAL);
+        traceRegisterUserEvent("Grav Remote", CUDA_GRAV_REMOTE);
+        traceRegisterUserEvent("Remote Resume", CUDA_REMOTE_RESUME);
+        traceRegisterUserEvent("Part Gravity Local", CUDA_PART_GRAV_LOCAL);
+        traceRegisterUserEvent("Part Gravity Local Small", CUDA_PART_GRAV_LOCAL_SMALL);
+        traceRegisterUserEvent("Part Gravity Remote", CUDA_PART_GRAV_REMOTE);
+        traceRegisterUserEvent("Xfer Back", CUDA_XFER_BACK);
+        traceRegisterUserEvent("Ewald", CUDA_EWALD);
 #endif
 
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
@@ -631,7 +649,7 @@ Main::Main(CkArgMsg* m) {
 
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
-		    sizeof(int), "iRand", "<Feedback random Seed> = 1");
+		    sizeof(int), "iRand", "<Random Seed> = 1");
 	
 	param.sinks.AddParams(prm, param);
 
@@ -735,6 +753,14 @@ Main::Main(CkArgMsg* m) {
 	numTreePieces = 8 * CkNumPes();
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
 		    sizeof(int),"p", "Number of TreePieces (default: 8*procs)");
+#ifdef CUDA
+        numStreams = 100;
+        prmAddParam(prm, "nStreams", paramInt, &numStreams,
+                    sizeof(int),"str", "Number of CUDA streams (default: 100)");
+        param.nGpuMinParts = 1000;
+        prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
+                    sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
+#endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
             sizeof(int),"ppc", "Average number of particles per TreePiece");
@@ -1145,6 +1171,10 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "Enabling SPH" << endl;
 	    param.bDoGas = 1;
 	    }
+        if(!param.bStarForm && !prmSpecified(prm, "bDoStellarLW")) {
+            // Stellar LW output is meaningless if we are not forming stars.
+            param.bDoStellarLW = 0;
+            }
 	if(param.bDoGas && !(param.bGasCooling || param.bGasAdiabatic
 			     || param.bGasIsothermal)) {
 	    ckerr << "Defaulting to Adiabatic Gas Model." << endl;
@@ -1196,10 +1226,10 @@ Main::Main(CkArgMsg* m) {
 
         /* Convert K(T) to k(u)  erg s^-1 (erg/gm)^-7/2 cm^-1 */
         param.dThermalCondCoeffCode = param.dThermalCondCoeff
-            *pow(1.5*KBOLTZ/(param.dMeanMolWeight*MHYDR),-3.5);
+            *pow(1.5*KBOLTZ/(0.6*MHYDR),-3.5);
         /* Convert K2(T) to k2(u)  erg s^-1 (erg/gm)^-3/2 cm^-1 */
         param.dThermalCond2CoeffCode = param.dThermalCond2Coeff
-            *pow(1.5*KBOLTZ/(param.dMeanMolWeight*MHYDR),-1.5);
+            *pow(1.5*KBOLTZ/(0.6*MHYDR),-1.5);
         /* Convert to code units */
         param.dThermalCondCoeffCode /= 
             pow(param.dErgPerGmUnit,-3.5)
@@ -1214,7 +1244,7 @@ Main::Main(CkArgMsg* m) {
         /* You enter effective thermal coefficient e.g. kappa0=6.1d-7 erg s^-1 K^-7/2 cm^-1 
            Code then multiplies by prefactors to 4/25 kappa0 mmw/k (1.5k/mmw)^-5/2 */
         param.dEvapCoeffCode = param.dEvapCoeff*pow(32./param.nSmooth,.3333333333)*
-            4/25.*(param.dMeanMolWeight*MHYDR)/KBOLTZ*pow(1.5*KBOLTZ/(param.dMeanMolWeight*MHYDR),-2.5);
+            4/25.*(0.6*MHYDR)/KBOLTZ*pow(1.5*KBOLTZ/(0.6*MHYDR),-2.5);
         /* Convert final units: g/cm/s (erg/g)^-2.5 to code units 
                [Later: Multiply by u^5/2 and multiply a length gives mdot   units g/s] */
         param.dEvapCoeffCode /= 
@@ -1311,7 +1341,9 @@ Main::Main(CkArgMsg* m) {
             CkAbort("None of the implemented decompositions specified");
           }
         }
-	
+
+        CkMustAssert(numTreePieces >= CkNumPes(),
+                     "We need at least one treepiece on each processor");
 	CkArrayOptions opts(numTreePieces); 
 #ifdef ROUND_ROBIN_WITH_OCT_DECOMP
 	if (domainDecomposition == Oct_dec) {
@@ -1688,6 +1720,13 @@ Main::loadBalance(int iPhase)
 /// @param iPhase Active rung (or phase).
 void Main::buildTree(int iPhase)
 {
+#ifdef CUDA
+    // If we are about to use the GPU, tell the data manager
+    // not to clean up its TreePiece list during combineLocalTrees
+    if (nActiveGrav >= param.nGpuMinParts) {
+        dMProxy.unmarkTreePiecesForCleanup(CkCallbackResumeThread());
+    }
+#endif
 #ifdef PUSH_GRAVITY
     bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
     if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
@@ -1727,6 +1766,9 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
         turnProjectionsOn(iActiveRung);
 #endif
 
+#ifdef CUDA
+        if (nActiveGrav > param.nGpuMinParts) CkPrintf("Gravity will be calculated on the GPU\n");
+#endif
         CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
         *startTime = CkWallTimer();
         if(param.bConcurrentSph) {
@@ -1736,14 +1778,14 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
             else{
 #endif
-                treeProxy.startGravity(iActiveRung, theta, cbGravity);
+		int bUseCpu = 1;
+#ifdef CUDA
+                bUseCpu = nActiveGrav < param.nGpuMinParts;
+#endif
+                treeProxy.startGravity(iActiveRung, bUseCpu, theta, cbGravity);
+
 #ifdef PUSH_GRAVITY
             }
-#endif
-
-#ifdef HAPI_INSTRUMENT_WRS
-            // XXX this is probably broken (cbGravity gets called too soon.)
-            dMProxy.clearInstrument(cbGravity);
 #endif
         }
         else {
@@ -1754,14 +1796,17 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
             else{
 #endif
-                treeProxy.startGravity(iActiveRung, theta, CkCallbackResumeThread());
+
+		int bUseCpu = 1;
+#ifdef CUDA
+                bUseCpu = nActiveGrav < param.nGpuMinParts;
+#endif
+                treeProxy.startGravity(iActiveRung, bUseCpu, theta, CkCallbackResumeThread());
+
 #ifdef PUSH_GRAVITY
             }
 #endif
 
-#ifdef HAPI_INSTRUMENT_WRS
-            dMProxy.clearInstrument(CkCallbackResumeThread());
-#endif
             double tGrav = CkWallTimer() - *startTime;
             timings[iActiveRung].tGrav += tGrav;
             CkPrintf("took %g seconds\n", tGrav);
@@ -1778,7 +1823,9 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        if (nActiveGrav > param.nGpuMinParts) {
+          dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        }
 #endif
         }
 }
@@ -2040,17 +2087,20 @@ void Main::advanceBigStep(int iStep) {
     if(verbosity > 1)
 	memoryStats();
 
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /***** Resorting of particles and Domain Decomposition *****/
     domainDecomp(activeRung);
 
     if(verbosity > 1)
 	memoryStats();
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /********* Load balancer ********/
     loadBalance(activeRung);
 
     if(verbosity > 1)
 	memoryStats();
 
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /******** Tree Build *******/
     buildTree(activeRung);
 
@@ -2063,6 +2113,7 @@ void Main::advanceBigStep(int iStep) {
 
     if(verbosity > 1)
 	memoryStats();
+    CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     double gravStartTime;
     startGravity(cbGravity, activeRung, &gravStartTime);
     if(param.bDoExternalGravity)
@@ -2127,6 +2178,7 @@ void Main::advanceBigStep(int iStep) {
         }
 
     double startTime = CkWallTimer();
+    CkPrintf("Elapsed time: %g\n", startTime - dSimStartTime);
     treeProxy.finishNodeCache(CkCallbackResumeThread());
     double tCache = CkWallTimer() - startTime;
     timings[activeRung].tCache += tCache;
@@ -2155,6 +2207,9 @@ void Main::advanceBigStep(int iStep) {
 void Main::setupICs() {
   double startTime;
 
+#ifdef CUDA
+  dMProxy.createStreams(numStreams, CkCallbackResumeThread());
+#endif
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,
@@ -2168,7 +2223,9 @@ void Main::setupICs() {
       struct stat s;
       int err = stat(basefilename.c_str(), &s);
       if(err == -1) {
-          ckerr << "File error: " << basefilename.c_str() << endl;
+          char *achErr = strerror(errno);
+          ckerr << "File error: " << basefilename.c_str() << ": " << achErr
+                << endl;
           CkExit();
           return;
           }
@@ -2264,8 +2321,10 @@ void Main::setupICs() {
       param.stfm->CheckParams(prm, param);
       if(param.sinks.bBHSink)
 	  param.sinks.dDeltaStarForm = param.stfm->dDeltaStarForm;
-      treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
       }
+  if(param.bStarForm || param.bFeedback || param.iSIDMSelect) {
+      treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
+  }
 
   if(param.bStarForm) {
       initStarLog();
@@ -2293,8 +2352,11 @@ void Main::setupICs() {
       param.dSIDMSigma=param.dSIDMSigma*param.dMsolUnit*MSOLG/(param.dKpcUnit*KPCCM*param.dKpcUnit*KPCCM); //converts input cross section in cm^2 g^-1 to simulation units in len_unit^2 / mass_unit
       if (param.iSIDMSelect==2){ //only for classical regime do this
           param.dSIDMVariable=param.dSIDMVariable/(pow(param.dMsolUnit*MSOLG*GCGS/(KPCCM*param.dKpcUnit),.5)/100000.0) ; //converts from km/s to sim units
-          }
-      } 
+      }
+      // iStartStep != 0 indicates we are restarting from an output:
+      // read in extra information.
+      if(param.iStartStep) restartNSIDM();
+  }
   
   param.externalGravity.CheckParams(prm, param);
 
@@ -2385,8 +2447,8 @@ void Main::setupICs() {
 #ifdef FEEDBACKDIFFLIMIT
   ofsLog << " FEEDBACKDIFFLIMIT";
 #endif
-#ifdef RTFORCE
-  ofsLog << " RTFORCE";
+#ifdef GDFORCE
+  ofsLog << " GDFORCE";
 #endif
 #ifdef CULLENALPHA
   ofsLog << " CULLENALPHA";
@@ -2636,15 +2698,15 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	    initCooling();
 	if(param.bStarForm) {
 	    initStarLog();
-        if(param.feedback->sn.bUseStoch)
+    if(param.feedback->sn.bUseStoch)
             initHMStarLog();
         }
 #ifdef COOLING_MOLECULARH
     if(param.bFeedback && param.feedback->sn.bUseStoch)
             initLWData();
 #endif
-        if(param.bStarForm || param.bFeedback)
-            treeProxy.initRand(param.stfm->iRandomSeed, CkCallbackResumeThread());
+        if(param.bStarForm || param.bFeedback || param.iSIDMSelect)
+            treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
         DumpFrameInit(dTime0, 0.0, bIsRestarting);
         timings.resize(PHASE_FEEDBACK+1);
         nActiveGrav = nTotalParticles;
@@ -2701,15 +2763,6 @@ Main::initialForces()
   if(verbosity)
       memoryStats();
   
-#ifdef CUDA
-  ckout << "Init. Accel. ...";
-  double dInitAccelTime = CkWallTimer();
-  treeProxy.initAccel(0, CkCallbackResumeThread());
-  ckout << " took " << (CkWallTimer() - dInitAccelTime) << " seconds."
-        << endl;
-#endif
-
-      
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
   double gravStartTime;
@@ -2800,6 +2853,7 @@ Main::doSimulation()
     
     if (verbosity) ckout << "Starting big step " << iStep << endl;
     startTime = CkWallTimer();
+    CkPrintf("Elapsed time: %g\n", startTime - dSimStartTime);
     starCenterOfMass();
     for(int iRung = 0; iRung < timings.size(); iRung++) {
         timings[iRung].clear();
@@ -2860,6 +2914,7 @@ Main::doSimulation()
     treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
+        CkWaitQD(); // Be sure system is quiescent before checkpoint
 	CkCallback cb(CkIndex_Main::restart(0), mainChare);
 	CkStartCheckpoint(achCheckFileName.c_str(), cb, true);
 	return;
@@ -2870,7 +2925,7 @@ Main::doSimulation()
 
   /******** Shutdown process ********/
 
-  if(param.nSteps == 0) {
+  if(param.nSteps == 0 && param.bBenchmark == 0) {
       string achFile = string(param.achOutName) + ".000000";
       // assign each particle its domain for diagnostic.
       treeProxy.assignDomain(CkCallbackResumeThread());
@@ -3084,9 +3139,11 @@ Main::doSimulation()
 	  }
   }
 
-  treeProxy[0].flushStarLog(CkCallbackResumeThread());
-  if(param.feedback->sn.bUseStoch)
-  treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
+  if(param.bBenchmark == 0) {
+      treeProxy[0].flushStarLog(CkCallbackResumeThread());
+      if(param.feedback->sn.bUseStoch)
+          treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
+  }
 	
 #if COSMO_STATS > 0
   ckerr << "Outputting statistics ...";
@@ -3502,9 +3559,11 @@ void Main::writeOutput(int iStep)
 	if(param.bDoIOrderOutput || param.bStarForm || param.bFeedback) {
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
 	    outputBinary(pIOrdOut, param.bParaWrite, CkCallbackResumeThread());
+        if(param.bDoGas 
 #ifndef SPLITGAS
-	    if(param.bStarForm) 
+	   && param.bStarForm
 #endif
+           )
         {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
@@ -3589,9 +3648,11 @@ void Main::writeOutput(int iStep)
 	    IOrderOutputParams pIOrdOut(achFile, param.iBinaryOut, dOutTime);
 	    treeProxy[0].outputASCII(pIOrdOut, param.bParaWrite,
 					CkCallbackResumeThread());
+        if(param.bDoGas 
 #ifndef SPLITGAS
-	    if(param.bStarForm) 
+	   && param.bStarForm
 #endif
+           )
         {
 		IGasOrderOutputParams pIGasOrdOut(achFile, param.iBinaryOut,
                     dOutTime);
@@ -3631,7 +3692,9 @@ void Main::writeOutput(int iStep)
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        if (nActiveGrav > param.nGpuMinParts) {
+          dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        }
 #endif
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -3672,7 +3735,9 @@ void Main::writeOutput(int iStep)
 #ifdef CUDA
             // We didn't do gravity where the registered TreePieces on the
             // DataManager normally get cleared.  Clear them here instead.
-            dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+            if (nActiveGrav > param.nGpuMinParts) {
+              dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+            }
 #endif
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."

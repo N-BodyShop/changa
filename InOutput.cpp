@@ -115,6 +115,7 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
     p.fStarMFracIron() = 0.098*sp.metals;
     p.fMassForm() = sp.mass;
     p.fTimeForm() = sp.tform;
+    p.iGasOrder() = -1;
 #ifdef COOLING_MOLECULARH 
     p.dStarLymanWerner() = 0.0;
 #endif
@@ -288,6 +289,9 @@ void TreePiece::loadTipsy(const std::string& filename,
                         load_tipsy_star<double,double>(r, myParticles[i+1]);
                     iStar++;
 		}
+                // File corruption checks
+                CkAssert(myParticles[i+1].mass >= 0.0);
+                CkAssert(myParticles[i+1].soft >= 0.0);
 #ifdef SIDMINTERACT
 		myParticles[i+1].iNSIDMInteractions = 0;
 #endif
@@ -338,7 +342,10 @@ void TreePiece::readTipsyArray(OutputParams& params, const CkCallback& cb)
     params.dm = dm; // pass cooling information
     FILE *infile = CmiFopen((params.fileName+"." + params.sTipsyExt).c_str(),
                             "r+");
-    CkAssert(infile != NULL);
+    if(infile == NULL)
+        CkError("Bad open of %s.%s: %s\n", params.fileName.c_str(),
+                params.sTipsyExt.c_str(), strerror(errno));
+    CkMustAssert(infile != NULL, "Cannot open tipsy array file\n");
     // Check if its a binary file
     unsigned int iDum;
     XDR xdrs;
@@ -720,9 +727,10 @@ static void load_NC_star(std::string filename, int64_t startParticle,
         CkPrintf("loading stars\n");
 
     for(int i = 0; i < myNumStar; ++i) {
-        myParts[i].fDensity = 0.0;
         myParts[i].iType = TYPE_STAR;
         myParts[i].extraData = &myStarParts[i];
+        myParts[i].fDensity = 0.0;
+        myParts[i].iGasOrder() = -1;
         }
     load_NC_base(filename, startParticle, myNumStar, myParts);
 
@@ -1352,6 +1360,9 @@ void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
     
     if(nStartWrite == 0)
 	w.writeHeader();
+    if(myNumParticles == 0)     // no particles to write
+        return;
+    
     CkMustAssert(w.seekParticleNum(nStartWrite), "bad seek");
     for(unsigned int i = 0; i < myNumParticles; i++) {
 	if(myParticles[i+1].isGas()) {
@@ -1968,13 +1979,13 @@ void Main::outputBinary(OutputParams& params, // specifies
         opts.activePEs = 1;
         }
     
+    params.iTypeWriting = 0;
     if(params.iBinaryOut != 6) {
         Ck::IO::open(params.fileName+"."+params.sTipsyExt,
                      CkCallback(CkIndex_Main::cbOpen(0), thishandle),
                      opts);
         }
     else {
-        params.iTypeWriting = 0;
         std::string strFile = getNCNextOutput(params);
         if(strFile.empty()) { // No data to write
             cb.send();

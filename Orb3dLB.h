@@ -12,9 +12,6 @@
 #include "TaggedVector3D.h"
 #include <queue>
 
-void CreateOrb3dLB();
-BaseLB * AllocateOrb3dLB();
-
 class Orb3dLB : public CBase_Orb3dLB {
   friend class MultistepLB;
 private:

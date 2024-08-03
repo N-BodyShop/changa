@@ -77,9 +77,6 @@ void Stfm::AddParams(PRM prm)
     dInitBHMass = 0.0;
     prmAddParam(prm,"dInitBHMass",paramDouble, &dInitBHMass, sizeof(double),
 		"bhm0", "<initial BH mass> = 0.0");
-    iRandomSeed = 1;
-    prmAddParam(prm,"iRandomSeed", paramInt, &iRandomSeed, sizeof(int),
-		"iRand", "<Star formation random Seed> = 1");
     }
 
 /*
@@ -157,8 +154,8 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 
 void TreePiece::initRand(int iRand, const CkCallback &cb)  
 {
-   srand(iRand + thisIndex);  // make each piece unique
-   contribute(cb);
+    rndGen = Rand(iRand + thisIndex);  // make each piece unique
+    contribute(cb);
 }
 
 ///
@@ -200,7 +197,9 @@ void Main::FormStars(double dTime, double dDelta)
 #ifdef CUDA
     // We didn't do gravity where the registered TreePieces on the
     // DataManager normally get cleared.  Clear them here instead.
-    dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+    if (nActiveGrav > param.nGpuMinParts) {
+        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+    }
 #endif
 
     addDelParticles();
@@ -229,9 +228,8 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
     for(unsigned int i = 1; i <= myNPartTmp; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if(p->isGas()) {
-	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
-						   dDelta, dCosmoFac, 
-						   &TempForm,&H2FractionForm, dm->LWData);
+        GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime, dDelta,
+                dCosmoFac, &TempForm,&H2FractionForm, dm->LWData, rndGen);
 	    
 	    if(starp != NULL) {
 		nFormed++;
@@ -277,8 +275,12 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 
 */
 GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-				double dDelta,  // drift timestep
-				double dCosmoFac, double *T, double *H2FractionForm, LWDATA *LWData) 
+                                double dDelta,  // drift timestep
+                                double dCosmoFac, double *T,
+                                double *H2FractionForm,
+                                LWDATA *LWData,
+                                Rand& rndGen
+                                ) 
 {
     /*
      * Determine dynamical time.
@@ -320,7 +322,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 
 #ifdef COOLING_MOLECULARH
     double dMprob;
-    if (dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
+    if (!bGasCooling || dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
     else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
     			    dStarFormEfficiencyH2*p->CoolParticle().f_H2);    
     *H2FractionForm = p->CoolParticle().f_H2;
@@ -342,7 +344,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     /* No negative or very tiny masses please! */
     if ( (dDeltaM > p->mass) ) dDeltaM = p->mass;
 
-    if(dMprob*p->mass < dDeltaM*(rand()/((double) RAND_MAX)))
+    if(dMprob*p->mass < dDeltaM*rndGen.dbl())
 	return NULL;
 
     /* 
@@ -367,7 +369,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     /* Seed BH Formation JMB 1/19/09*/
     int newbh = 0;  /* BH tracker */
     if (bBHForm == 1 && starp->fStarMetals() <= 1.0e-6
-	&& dBHFormProb > (rand()/((double) RAND_MAX ))) {
+        && dBHFormProb > rndGen.dbl()) {
 	starp->fTimeForm() = -1.0*starp->fTimeForm();
 	newbh = 1;
 	/* Decrement mass of particle.*/
@@ -677,7 +679,7 @@ void StarLog::logMetaData(std::ofstream &osfLog)
     osfLog << "# rhoForm f" << sizeof(double) << endl;
     osfLog << "# TForm f" << sizeof(double) << endl;
 #ifdef COOLING_MOLECULARH 
-    osfLog <<" #  H2FracForm f" << sizeof(double) << endl;
+    osfLog << "# H2FracForm f" << sizeof(double) << endl;
 #endif
     osfLog << "# end starlog data\n";
 }

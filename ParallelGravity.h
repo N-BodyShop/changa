@@ -25,6 +25,8 @@
 #include "dumpframe.h"
 #include <liveViz.h>
 
+#include "rand.h"
+
 #include "TaggedVector3D.h"
 
 #include "codes.h"
@@ -36,6 +38,7 @@
 
 #ifdef CUDA
 #include "cuda_typedef.h"
+#include "hapi.h"
 #endif
 
 #include "keytype.h"
@@ -51,12 +54,12 @@ PUPbytes(LWDATA);
 
 #include <map>
 
-#define MERGE_REMOTE_REQUESTS_VERBOSE /*CkPrintf*/
+#define MERGE_REMOTE_REQUESTS_VERBOSE(X) /*CkPrintf x*/
 
 /// @brief CkAssert() replacement works even in production mode.
 inline void CkMustAssert(bool cond, const char *err)
 {
-    if (!cond) CkAbort(err);
+    if (!cond) CkAbort("%s", err);
 }
 
 using namespace std;
@@ -72,6 +75,7 @@ enum LBStrategy{
   MultistepNode_notopo,
   Orb3d_notopo,
   MultistepOrb,
+  Multistep_SFC,
   HierarchOrb
 };
 PUPbytes(LBStrategy);
@@ -173,6 +177,10 @@ extern CProxy_CkCacheManager<KeyType> cacheNode;
 
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;
+
+extern int START_REG;
+extern int START_IB;
+extern int START_PW;
 
 extern int boundaryEvaluationUE;
 extern int weightBalanceUE;
@@ -325,6 +333,12 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
   int whichTreePiece;
 };
 #endif
+
+/// Associated with calls to calculateEwald
+/// Indicates whether the function was called by initEwald
+struct EwaldMsg: public CMessage_EwaldMsg {
+    bool fromInit;
+};
     
 /// Class to count added and deleted particles
 class CountSetPart 
@@ -607,6 +621,7 @@ public:
 	void pup(PUP::er& p);
 	void liveVizImagePrep(liveVizRequestMsg *msg);
         void doSIDM(double dTime,double dDelta, int activeRung); /* SIDM */
+        void restartNSIDM();
 };
 
 /* IBM brain damage */
@@ -888,16 +903,22 @@ class TreePiece : public CBase_TreePiece {
         int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
 
+	// For accessing GPU memory
+	CudaMultipoleMoments *d_localMoments;
+        CudaMultipoleMoments *d_remoteMoments;
+        CompactPartData *d_localParts;
+	CompactPartData *d_remoteParts;
+        VariablePartData *d_localVars;
+        size_t sMoments;
+        size_t sCompactParts;
+        size_t sVarParts;
+	cudaStream_t stream;
+
         int getNumBuckets(){
         	return numBuckets;
         }
 
-        void callFreeRemoteChunkMemory(int chunk);
-
         int getActiveRung(){ return activeRung; }
-#ifdef HAPI_INSTRUMENT_WRS
-        int getInstrumentId(){ return instrumentId; }
-#endif
         // returns either all particles or only active particles,
         // depending on fraction of active particles to their
         // total count.
@@ -994,30 +1015,16 @@ class TreePiece : public CBase_TreePiece {
         long long remoteResumePartInteractions;
 #endif
 
-#ifdef HAPI_INSTRUMENT_WRS
-        int instrumentId;
-
-        double localNodeListConstructionTime;
-        double remoteNodeListConstructionTime;
-        double remoteResumeNodeListConstructionTime;
-        double localPartListConstructionTime;
-        double remotePartListConstructionTime;
-        double remoteResumePartListConstructionTime;
-        
-        int nLocalNodeReqs;
-        int nRemoteNodeReqs;
-        int nRemoteResumeNodeReqs;
-        int nLocalPartReqs;
-        int nRemotePartReqs;
-        int nRemoteResumePartReqs;
-
 #endif
 
-#endif
-
-        void continueStartRemoteChunk(int chunk);
 #ifdef CUDA
+       void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
+       void fillGPUBuffer(intptr_t bufLocalParts,
+                          intptr_t bufLocalMoments,
+                          intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
         void updateParticles(intptr_t data, int partIndex);
+#else
+        void continueStartRemoteChunk(int chunk);
 #endif
         void continueWrapUp();
 
@@ -1052,6 +1059,8 @@ class TreePiece : public CBase_TreePiece {
 	/// Time read in from input file
 	double dStartTime;
 
+        Rand rndGen;            // Random number generator for star
+                                // formation and other uses.
 private:        
 	// liveViz 
 	liveVizRequestMsg * savedLiveVizMsg;
@@ -1196,6 +1205,9 @@ private:
         /// The current active mask for force computation in multistepping
         int activeRung;
 
+	/// Whether the GPU or CPU is to be used on the current gravity substep
+       int bUseCpu;
+
 	/// Periodic Boundary stuff
 	int bPeriodic;
 	int bComove;
@@ -1212,8 +1224,6 @@ private:
 #ifdef HEXADECAPOLE
 	MOMC momcRoot;		/* complete moments of root */
 #endif
-        /// Have the Ewald h loop tables been calculated.
-        bool bEwaldInited;
 
 	int bGasCooling;
 #ifndef COOLING_NONE
@@ -1339,7 +1349,7 @@ private:
   EwaldData *h_idata;
   CkCallback *cbEwaldGPU;
 #endif
-  void EwaldGPU(); 
+  void EwaldGPU();
   void EwaldGPUComplete();
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
@@ -1455,6 +1465,7 @@ public:
 #if INTERLIST_VER > 0
 	  sInterListWalk = NULL;
 #endif
+          bUseCpu = 1;
 #ifdef CUDA
           numActiveBuckets = -1;
 #ifdef HAPI_TRACE
@@ -1474,7 +1485,6 @@ public:
 	  prefetchRoots = NULL;
 	  ewt = NULL;
 	  nMaxEwhLoop = 100;
-          bEwaldInited = false;
 
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
@@ -1515,7 +1525,6 @@ public:
 	  prefetchRoots = NULL;
 	  //remaining Chunk = NULL;
           ewt = NULL;
-          bEwaldInited = false;
 	  root = NULL;
 	  pTreeNodes = NULL;
 
@@ -1583,8 +1592,9 @@ public:
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
-	void calculateEwald(dummyMsg *m);
-  void calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num);
+       void ewaldCPU(EwaldMsg *msg);
+	void calculateEwald(EwaldMsg *m);
+  void calculateEwaldUsingCkLoop(int yield_num);
   void callBucketEwald(int id);
   void doParallelNextBucketWork(int id, LoopParData* lpdata);
 	void initCoolingData(const CkCallback& cb);
@@ -1860,9 +1870,17 @@ public:
 	/// this TreePiece. The opening angle theta has already been passed
 	/// through startGravity().  This function just calls doAllBuckets().
 	void calculateGravityLocal();
-	/// Do some minor preparation for the local walkk then
+	/// Do some minor preparation for the local walk then
 	/// calculateGravityLocal().
+#ifdef CUDA
+	void commenceCalculateGravityLocal(intptr_t d_localMoments,
+                                           intptr_t d_localParts,
+                                           intptr_t d_localVars,
+                                           intptr_t streams, int numStreams,
+                                           size_t sMoments, size_t sCompactParts, size_t sVarParts);
+#else
 	void commenceCalculateGravityLocal();
+#endif
 
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted
@@ -1893,8 +1911,9 @@ public:
   /// @brief Start a tree based gravity computation.
   /// @param am the active rung for the computation
   /// @param theta the opening angle
+  /// @param bUseCpu_ whether the cpu or gpu is being used
   /// @param cb the callback to use after all the computation has finished
-  void startGravity(int am, double myTheta, const CkCallback& cb);
+  void startGravity(int am, int bUseCpu_, double myTheta, const CkCallback& cb);
   /// Setup utility function for all the smooths.  Initializes caches.
   void setupSmooth();
   /// Start a tree based smooth computation.

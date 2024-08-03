@@ -333,7 +333,9 @@ void Main::StellarFeedback(double dTime, double dDelta)
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        if (nActiveGrav > param.nGpuMinParts) {
+            dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        }
 #endif
 
 #ifdef SPLITGAS
@@ -408,10 +410,10 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
         if(p->isStar()) {
             if(p->fTimeForm() >= 0.0) {
                 if(fb.sn.bUseStoch){
-                    fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, dm->LWData);
+                    fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, dm->LWData, rndGen);
                 }
                 else {
-                    fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, NULL); /* If not stochastic IMF, LWData table never initialized*/
+                    fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, NULL, rndGen); /* If not stochastic IMF, LWData table never initialized*/
                 }
             }
             else {  // zero out feedback quantities for Sinks
@@ -446,9 +448,12 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 /// @param dTime Current time in years.
 /// @param dDeltaYr Timestep in years.
 /// @param fbTotals pointer to total effects for bookkeeping
+/// @param rndGen Random number generator reference
 
 void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
-		      FBEffects *fbTotals, LWDATA *LWData) const
+                      FBEffects *fbTotals,
+                      LWDATA *LWData,
+                      Rand& rndGen) const
 {
     double dTotMassLoss, dTotMetals, dTotMOxygen, dTotMIron, dDelta;
     dTotMassLoss = dTotMetals = dTotMOxygen = dTotMIron = 0.0;
@@ -484,7 +489,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	switch (j) {
 	case FB_SNII:
 	    if (bAGORAFeedback) break;
-	    sn.CalcSNIIFeedback(sfEvent, dTime, dDeltaYr, &fbEffects);
+	    sn.CalcSNIIFeedback(sfEvent, dTime, dDeltaYr, &fbEffects, rndGen);
 	    if (sn.dESN > 0)
 		p->fNSN() = fbEffects.dEnergy*MSOLG*fbEffects.dMassLoss/sn.dESN;
 	    break;
@@ -1141,9 +1146,8 @@ TreePiece::massMetalsEnergyCheck(int bPreDist, const CkCallback& cb)
 	    dTotals[3] += p->mass*p->fMFracIron();
 #ifdef SUPERBUBBLE
 	    dTotals[4] += p->massHot()*p->fESNrate();
-#else
-	    dTotals[4] += p->mass*p->fESNrate();
 #endif
+	    dTotals[4] += p->mass*p->fESNrate();
 	    }
 	if(p->isStar()) {
 	    dTotals[1] += p->mass*p->fStarMetals();
@@ -1174,8 +1178,8 @@ void TreePiece::SplitGas(double dInitGasMass, const CkCallback& cb)
         nFormed++;
         norm = 666; // \m/
         while (norm>1.0){ //unit sphere point picking (Marsaglia 1972)
-            uvar=2.0*(rand()/(double)RAND_MAX)-1.0;  //#random number on [-1,1]
-            vvar=2.0*(rand()/(double)RAND_MAX)-1.0;
+            uvar=2.0*rndGen.dbl()-1.0;  //#random number on [-1,1]
+            vvar=2.0*rndGen.dbl()-1.0;
             norm=(uvar*uvar+vvar*vvar);
         }
         norm = sqrt(1.0-norm); //only do one sqrt

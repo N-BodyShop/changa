@@ -892,6 +892,10 @@ void TreePiece::updateuDot(int activeRung,
         else {
             PoverRhoGas = gammam1*p->uPred();
         }
+#ifdef SUPERBUBBLE
+        double frac = p->massHot()/p->mass;
+        PoverRhoGas = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
+#endif
         PoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
         PoverRho = PoverRhoGas;
         if(PoverRho < PoverRhoJeans) PoverRho = PoverRhoJeans;
@@ -906,8 +910,6 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef COOLING_MOLECULARH
         double columnLHot = 0;
 #endif
-        double frac = p->massHot()/p->mass;
-        PoverRho = gammam1*(p->uHot()*frac+p->u()*(1-frac));
         double fDensityHot;
         double uMean = frac*p->uHot()+(1-frac)*p->u();
         CkAssert(uMean > 0.0);
@@ -1566,7 +1568,6 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     Vector3D<double> dv;
     double ph,absmu;
     double fNorm1,vFac;
-    double fDivv_Corrector;
     double dt;
     int i;
 
@@ -1574,7 +1575,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         CkError("WARNING: lonely SPH particle\n");
         return;
     }
-#ifndef RTFORCE
+#ifndef GDFORCE
     pParams.PoverRho2 = p->PoverRho2();
     pParams.PoverRho2f = pParams.PoverRho2;
 #endif
@@ -1584,7 +1585,12 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     params.aFac = a;        /* comoving acceleration factor */
     vFac = 1./(a*a); /* converts v to xdot */
 
-#ifdef RTFORCE
+#if defined(GDFORCE) && defined(DIVVCORRECTOR)
+    // The following calculates the correction factor of eq. 8 in
+    // Wadsley et al, 2017.  However, Robert Wissing has shown
+    // (private communication, 2022) that this correction is
+    // problematic for large, sharp density jumps.  By default
+    // DIVVCORRECTOR is not defined, and no correction is calculated.
     double divvi = 0;
     double divvj = 0;
     for (i=0;i<nSmooth;++i) {
@@ -1597,9 +1603,9 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         divvj += rs1/q->fDensity;
     }
     divvi /= p->fDensity;
-    fDivv_Corrector = (divvj != 0.0 ? divvi/divvj : 1.0);
+    double fDivv_Corrector = (divvj != 0.0 ? divvi/divvj : 1.0);
 #else
-    fDivv_Corrector = 1.0;
+    const double fDivv_Corrector = 1.0;
 #endif
 
     for (i=0;i<nSmooth;++i) {
@@ -1615,7 +1621,7 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         params.dx = nnList[i].dx;
         dv = p->vPred() - q->vPred();
         params.dvdotdr = vFac*dot(dv, params.dx) + fDist2*H;
-#ifdef RTFORCE
+#ifdef GDFORCE
         pParams.PoverRho2 = p->PoverRho2()*p->fDensity/q->fDensity;
         pParams.PoverRho2f = pParams.PoverRho2;
         qParams.PoverRho2 = q->PoverRho2()*q->fDensity/p->fDensity;
@@ -2162,7 +2168,7 @@ void PromoteToHotGasSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         /* cf. Weaver etal'77 mdot = 4.13d-14 * (dx^2/4 !pi) (Thot^2.5-Tcold^2.5)/dx - 2 udot mHot/(k T/mu) 
            Kernel sets total probability to 1 */
         Prob = fFactor*(up52-pow(q->uPred(),2.5))*rs/q->mass;
-        if ( (rand()/((double) RAND_MAX)) < Prob) {
+        if ( tp->rndGen.dbl() < Prob) {
             mPromoted += q->mass; 
             }
         }

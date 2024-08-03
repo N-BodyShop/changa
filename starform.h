@@ -11,6 +11,7 @@
 #endif
 
 #include "parameters.h"
+#include "rand.h"
 #include "imf.h"
 #include "lymanwerner.h"
 
@@ -47,7 +48,6 @@ class Stfm : public PUP::able  {
     int bUseStoch;          /* use stochastic IMF */
     double dStochCut;       /* cutoff mass for stochastic IMF */
     int iStarFormRung;		/* rung for star formation */
-    int iRandomSeed;		/* seed for probability */
     double dMinGasMass;		/* minimum mass gas before we delete
 				   the particle. */
     double dDeltaStarForm;	/* timestep in system units */
@@ -55,7 +55,7 @@ class Stfm : public PUP::able  {
     void CheckParams(PRM prm, struct parameters &param);
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-			      double dDelta, double dCosmoFac, double *T, double *H2Fraction, LWDATA *LWData);
+			      double dDelta, double dCosmoFac, double *T, double *H2Fraction, LWDATA *LWData, Rand& rndGen);
     IMF *imf;
 
     Stfm() {}
@@ -89,7 +89,6 @@ inline Stfm::Stfm(const Stfm& st) {
     bUseStoch = st.bUseStoch;
     dStochCut = st.dStochCut;
     iStarFormRung = st.iStarFormRung;
-    iRandomSeed = st.iRandomSeed;
     dMinGasMass = st.dMinGasMass;
     dDeltaStarForm = st.dDeltaStarForm;
 #ifdef COOLING_MOLECULARH
@@ -106,7 +105,6 @@ inline void Stfm::pup(PUP::er &p) {
     p|dStochCut;
     p|dDeltaStarForm;
     p|iStarFormRung;
-    p|iRandomSeed;
     p|dMsolUnit;
     p|dGmUnit;
     p|dGmPerCcUnit;

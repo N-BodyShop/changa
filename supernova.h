@@ -3,6 +3,7 @@
 
 #include "starlifetime.h"
 #include "imf.h"
+#include "rand.h"
 
 class SFEvent;
 class FBEffects;
@@ -80,8 +81,10 @@ class SN
 	}
     void CalcAGORAFeedback(SFEvent *sfEvent, double dTime, double dDelta,
                            FBEffects *fbEffects) const;
-    void CalcSNIIFeedback(SFEvent *sfEvent, double dTime, double dDelta, 
-                          FBEffects *fbEffects) const;
+    void CalcSNIIFeedback(SFEvent *sfEvent,
+                          double dTime, double dDelta, 
+                          FBEffects *fbEffects,
+                          Rand& rndGen) const;
     void CalcSNIaFeedback(SFEvent *sfEvent,double dTime, 
                           double dDelta, FBEffects *fbEffects) const;
     double NSNIa (double dMassT1, double dMassT2) const;

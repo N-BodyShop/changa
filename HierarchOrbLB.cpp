@@ -13,10 +13,18 @@
 
 #define  DEBUGF(x)      // CmiPrintf x;
 
+#if CHARM_VERSION > 61002
+static void lbinit()
+{
+    LBRegisterBalancer<HierarchOrbLB>("HierarchOrbLB",
+      "Hybrid load balancer");
+}
+#else
 CreateLBFunc_Def(HierarchOrbLB, "Hybrid load balancer")
+extern BaseLB* AllocateOrb3dLB_notopo();
+#endif
 
 CkpvExtern(int, _lb_obj_index);
-extern BaseLB* AllocateOrb3dLB_notopo();
 
 void HierarchOrbLB::init() {
   lbname = (char *)"HierarchOrbLB";
@@ -30,7 +38,11 @@ HierarchOrbLB::HierarchOrbLB(const CkLBOptions &opt): CBase_HierarchOrbLB(opt) {
   // decide which load balancer to call
   // IMPORTANT: currently, the greedy LB must allow objects that
   // are not from existing processors.
+#if CHARM_VERSION > 61002
+  orblb = (CentralLB *)new Orb3dLB_notopo(static_cast<CkMigrateMessage *>(nullptr));
+#else
   orblb = (CentralLB *)AllocateOrb3dLB_notopo();
+#endif
 
   initTree();
 #endif
