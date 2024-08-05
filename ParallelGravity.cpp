@@ -1858,6 +1858,11 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
     double a = csmTime2Exp(param.csm,dTime);
     if(param.bGasCooling)
         dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+
+#ifdef CUDA
+    dMProxy.setupuDot(iActiveRung, bAll, CkCallbackResumeThread());
+#endif // CUDA
+
     treeProxy.updateuDot(iActiveRung, duKick, dStartTime,
                          param.bGasCooling, bUpdateState, bAll,
                          (param.dConstGamma-1),

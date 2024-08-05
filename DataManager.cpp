@@ -500,6 +500,18 @@ void DataManager::serializeLocalTree(){
       CmiUnlock(__nodelock);
 }
 
+// TODO ifdefs for gas cooling
+void DataManager::setupuDot(int activeRung, int bAll, const CkCallback& cb){
+  int pTPindex = 0;
+  for(int i = 0; i < numTreePieces; i++){
+      CkPrintf("setGPUudotMarkers %d %d\n", i, pTPindex);
+      treePieces[registeredTreePieces[i].treePiece->getIndex()].setGPUudotMarkers(activeRung, bAll, pTPindex);
+      pTPindex += registeredTreePieces[i].treePiece->getNumActiveGasParticles();
+      }
+
+  contribute(cb);
+}
+
 /// @brief Callback from local data transfer to GPU
 /// Indicate the transfer is done, and start the local gravity walks
 /// on the treepieces on this node.

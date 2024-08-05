@@ -216,6 +216,8 @@ public:
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
 
+        void setupuDot(int activeRung, int bAll, const CkCallback& cb);
+
 #ifdef GPU_LOCAL_TREE_WALK
         void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
 #endif //GPU_LOCAL_TREE_WALK

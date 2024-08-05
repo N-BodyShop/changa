@@ -892,10 +892,14 @@ class TreePiece : public CBase_TreePiece {
         // the list
         int numActiveBuckets; 
         int myNumActiveParticles;
+        int myNumActiveGasParticles;
         // First and Last indices of GPU particle
         int FirstGPUParticleIndex;
         int LastGPUParticleIndex;
         int NumberOfGPUParticles;
+        // First and last indices of GPU cooling particles
+        int FirstGPUCoolParticleIndex;
+        int LastGPUCoolParticleIndex;
         BucketActiveInfo *bucketActiveInfo;
 
 	// For accessing GPU memory
@@ -941,8 +945,23 @@ class TreePiece : public CBase_TreePiece {
           }
         }
 
+        int getNumActiveGasParticles() {
+          return myNumActiveGasParticles;
+        }
+
         int getNumActiveParticles(){
           return myNumActiveParticles;
+        }
+
+        void calculateNumActiveGasParticles(int bAll) {
+          myNumActiveGasParticles = 0;
+          for(unsigned int i = 1; i <= myNumParticles; ++i) {
+          GravityParticle *p = &myParticles[i];
+          if (TYPETest(p, TYPE_GAS)
+              && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
+                    myNumActiveGasParticles++;
+                }
+            }
         }
 
         void calculateNumActiveParticles(){ 
@@ -1032,6 +1051,7 @@ class TreePiece : public CBase_TreePiece {
        void fillGPUBuffer(intptr_t bufLocalParts,
                           intptr_t bufLocalMoments,
                           intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
+        void setGPUudotMarkers(int activeRung, int bAll, int pTPindex);
         void updateParticles(intptr_t data, int partIndex);
 #else
         void continueStartRemoteChunk(int chunk);

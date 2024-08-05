@@ -59,6 +59,9 @@ Main::initSph()
 	if(param.bGasCooling) {
 	    // Update cooling on the datamanager
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+#ifdef CUDA
+    dMProxy.setupuDot(0, 1, CkCallbackResumeThread());
+#endif // CUDA
 	    if(!bIsRestarting)  // Energy is already OK from checkpoint.
 		treeProxy.InitEnergy(dTuFac, z, dTime, (param.dConstGamma-1), CkCallbackResumeThread());
 	    }
@@ -1207,11 +1210,11 @@ void TreePiece::updateuDot(int activeRung,
 			   const CkCallback& cb)
 {
 #ifndef COOLING_NONE
-
+    // TODO ifdef cudas here
     int nv = 5; // TODO this should be read from somewhere else
-    int numParts = 512000/128; // This needs to be per tree piece (set -p 128 or this will break!)
 
-    int offset = numParts*thisIndex;
+    int offset = FirstGPUCoolParticleIndex;
+    CkPrintf("%d\n", FirstGPUCoolParticleIndex);
     d_CudaCoolData = &dm->d_CudaCoolData[offset];
     d_CudaStiff = &dm->d_CudaStiff[offset];
     d_dtg = &dm->d_dtg[offset/nv];
@@ -1229,18 +1232,9 @@ void TreePiece::updateuDot(int activeRung,
     d_rtaus = &dm->d_rtaus[offset];
     d_scrarray = &dm->d_scrarray[offset];
 
-    // Count the number of particles to update
-    int numSelParts = 0;
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
-	GravityParticle *p = &myParticles[i];
-	if (TYPETest(p, TYPE_GAS)
-	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
-            numSelParts++;
-        }
-    }
+    int numSelParts = myNumActiveGasParticles;
 
     //CkPrintf("Rung %d, %d particles to update\n", activeRung, numSelParts);
-    if (numSelParts > numParts) CkAbort("TreePiece %d is trying to copy too many particles. Increase the amount of allocated GPU memory\n");
 
     if (numSelParts == 0) {
         smoothProxy[thisIndex].ckLocal()->contribute(cb);
