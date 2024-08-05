@@ -154,6 +154,8 @@ protected:
   // Pointers to cooling data on GPU
   CudaclDerivsData *d_CudaCoolData;
   CudaSTIFF *d_CudaStiff;
+  double *d_y;
+  double *d_dtg;
 	double *d_ymin;
 	double *d_y0;
 	double *d_y1;

@@ -2210,16 +2210,17 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].dtGrav = 0.0;
 }
 
-void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, std::vector<double> dtg, int numParts, cudaStream_t stream) {
+void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, double  **y, double tstart, std::vector<double> dtg, int numParts, cudaStream_t stream) {
 
     if (numParts == 0) return;
 
-    double *d_y, *d_dtg;
+    //double *d_y, *d_dtg;
     size_t ySize = numParts * 5 * sizeof(double); // TODO const defined in clIntegrateEnergy
     size_t dtgSize = dtg.size() * sizeof(double);
 
-    cudaChk(cudaMalloc(&d_y, ySize));
-    cudaChk(cudaMalloc(&d_dtg, dtgSize));
+    // Moved to initcooling
+    //cudaChk(cudaMalloc(&d_y, ySize));
+    //cudaChk(cudaMalloc(&d_dtg, dtgSize));
 
     double *y_host, *dtg_host, *y_host_out;
     allocatePinnedHostMemory((void **)&y_host, ySize);
@@ -2244,8 +2245,8 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double  **y, double tstart, std:
         memcpy(y[i], y_host_out + i * 5, 5 * sizeof(double));
     }
 
-    cudaFree(d_y);
-    cudaFree(d_dtg);
+    //cudaFree(d_y);
+    //cudaFree(d_dtg);
     freePinnedHostMemory(y_host);
     freePinnedHostMemory(y_host_out);
     freePinnedHostMemory(dtg_host);
