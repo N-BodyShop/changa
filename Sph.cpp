@@ -60,7 +60,9 @@ Main::initSph()
 	    // Update cooling on the datamanager
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 #ifdef CUDA
+    treeProxy.calculateNumActiveGasParticles(1, CkCallbackResumeThread());
     dMProxy.setupuDot(0, 1, CkCallbackResumeThread());
+    CkPrintf("init setupudot back to main thread\n");
 #endif // CUDA
 	    if(!bIsRestarting)  // Energy is already OK from checkpoint.
 		treeProxy.InitEnergy(dTuFac, z, dTime, (param.dConstGamma-1), CkCallbackResumeThread());
@@ -1407,8 +1409,8 @@ void TreePiece::updateuDot(int activeRung,
         // Frees at end of sim
 
         int nv = CoolDataArr[0]->IntegratorContext->nv;
-        std::vector<double> h_ymin(nv*numSelParts, 1e-300);
-        cudaChk(cudaMemcpy(d_ymin, h_ymin.data(), nv*numSelParts*sizeof(double), cudaMemcpyHostToDevice));
+        //std::vector<double> h_ymin(nv*numSelParts, 1e-300);
+        //cudaChk(cudaMemcpy(d_ymin, h_ymin.data(), nv*numSelParts*sizeof(double), cudaMemcpyHostToDevice));
 
         std::vector<CudaclDerivsData> h_CudaCoolData(numSelParts);
 	std::vector<CudaSTIFF> CudaStiff(numSelParts);
@@ -1447,17 +1449,17 @@ void TreePiece::updateuDot(int activeRung,
 
 	// For testing purposes, run calculation in serial on CPU
         for(unsigned int i = 0; i < numSelParts; ++i) {
-           //StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
+           StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
 	}
 
 	// There is a bug where the heating rates blow up after the first updateudot
 	// if only running 1 tree piece
-        t = 0.0;
+        /*t = 0.0;
         TreePieceODESolver(d_CudaStiff, d_y, d_dtg, y, t, dtUse, numSelParts, this->stream);
         cudaChk(cudaMemcpy(h_CudaCoolData.data(), d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData), cudaMemcpyDeviceToHost));
         for (int i = 0; i < numSelParts; i++) {
            CudaclDerivsDatatoclDerivsData(&h_CudaCoolData[i], CoolDataArr[i]);
-	}
+	}*/
 
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {

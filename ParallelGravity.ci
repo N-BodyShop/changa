@@ -252,6 +252,7 @@ mainmodule ParallelGravity {
     entry void createStreams(int _numStreams, const CkCallback& cb);
     entry void unmarkTreePiecesForCleanup(const CkCallback& cb);
     entry void setupuDot(int activeRung, int bAll, const CkCallback& cb);
+    entry void setupuDotDone(const CkCallback& cb);
 #endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
@@ -542,11 +543,12 @@ mainmodule ParallelGravity {
 
     // jetley
 #ifdef CUDA
+    entry void calculateNumActiveGasParticles(int bAll, const CkCallback& cb);
     entry void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
     entry void fillGPUBuffer(intptr_t bufLocalParts,
                              intptr_t bufLocalMoments,
                              intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
-    entry void setGPUudotMarkers(int activeRung, int bAll, int pTPindex);
+    entry void setGPUudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb);
     entry void updateParticles(intptr_t data, int partIndex);
 #else
     entry void continueStartRemoteChunk(int chunk);

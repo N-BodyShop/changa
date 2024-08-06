@@ -953,7 +953,8 @@ class TreePiece : public CBase_TreePiece {
           return myNumActiveParticles;
         }
 
-        void calculateNumActiveGasParticles(int bAll) {
+        void calculateNumActiveGasParticles(int bAll, const CkCallback& cb) {
+          CkPrintf("%d calculateNumActiveGasParticles start\n", thisIndex);
           myNumActiveGasParticles = 0;
           for(unsigned int i = 1; i <= myNumParticles; ++i) {
           GravityParticle *p = &myParticles[i];
@@ -962,6 +963,8 @@ class TreePiece : public CBase_TreePiece {
                     myNumActiveGasParticles++;
                 }
             }
+          CkPrintf("%d calculateNumActiveGasParticles done\n", thisIndex);
+          contribute(cb);
         }
 
         void calculateNumActiveParticles(){ 
@@ -1051,7 +1054,7 @@ class TreePiece : public CBase_TreePiece {
        void fillGPUBuffer(intptr_t bufLocalParts,
                           intptr_t bufLocalMoments,
                           intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
-        void setGPUudotMarkers(int activeRung, int bAll, int pTPindex);
+        void setGPUudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb);
         void updateParticles(intptr_t data, int partIndex);
 #else
         void continueStartRemoteChunk(int chunk);

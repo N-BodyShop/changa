@@ -3822,9 +3822,11 @@ void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
     dm->transferLocalToGPU(nParts, (GenericTreeNode *)node);
 }
 
-void TreePiece::setGPUudotMarkers(int activeRung, int bAll, int pTPindex) {
+void TreePiece::setGPUudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb) {
     FirstGPUCoolParticleIndex = pTPindex;
     LastGPUCoolParticleIndex = FirstGPUCoolParticleIndex + myNumActiveGasParticles;
+    CkPrintf("%d markers set\n", thisIndex);
+    dm->setupuDotDone(cb);
 }
 
 /// @brief update particle accelerations with GPU results
@@ -5118,7 +5120,6 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
   numActiveBuckets = 0;
   calculateNumActiveParticles();
-  calculateNumActiveGasParticles(1); // TODO This is probably a bad spot for this, also replace 1 with bAll
 
   if (!bUseCpu) {
 

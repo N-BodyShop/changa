@@ -86,6 +86,7 @@ protected:
         /// replicated by TreePieces that share the same address space.
         int cumNumReplicatedNodes;
         int treePiecesDone;
+        int treePiecesDoneUdot;
         int savedChunk;
         int treePiecesDonePrefetch;
         int treePiecesDoneLocalComputation;
@@ -217,6 +218,7 @@ public:
         void serializeLocalTree();
 
         void setupuDot(int activeRung, int bAll, const CkCallback& cb);
+        void setupuDotDone(const CkCallback& cb);
 
 #ifdef GPU_LOCAL_TREE_WALK
         void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);

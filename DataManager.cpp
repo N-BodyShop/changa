@@ -35,6 +35,7 @@ void DataManager::init() {
   cleanupTreePieces = true;
 #ifdef CUDA
   treePiecesDone = 0;
+  treePiecesDoneUdot = 0;
   treePiecesDonePrefetch = 0;
   treePiecesDoneLocalComputation = 0;
   treePiecesDoneRemoteChunkComputation = 0;
@@ -161,6 +162,7 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
 
 /// \brief Clear registeredTreePieces on this node.
 void DataManager::clearRegisteredPieces(const CkCallback& cb) {
+    CkPrintf("Clear registeredTreePieces\n");
     registeredTreePieces.removeAll();
     cleanupTreePieces = true;
     contribute(cb);
@@ -224,6 +226,7 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
     root = buildProcessorTree(totalChares, &gtn[0]);
 
     if (cleanupTreePieces) {
+      CkPrintf("Clear registeredTreePieces\n");
       registeredTreePieces.removeAll();
     }
 
@@ -502,14 +505,28 @@ void DataManager::serializeLocalTree(){
 
 // TODO ifdefs for gas cooling
 void DataManager::setupuDot(int activeRung, int bAll, const CkCallback& cb){
+  CkPrintf("setupudot called with %ld registered TreePieces\n", registeredTreePieces.size());
   int pTPindex = 0;
-  for(int i = 0; i < numTreePieces; i++){
-      CkPrintf("setGPUudotMarkers %d %d\n", i, pTPindex);
-      treePieces[registeredTreePieces[i].treePiece->getIndex()].setGPUudotMarkers(activeRung, bAll, pTPindex);
+  for(int i = 0; i < registeredTreePieces.size(); i++){
+      CkPrintf("setGPUudotMarkers %d %d %ld\n", i, pTPindex, registeredTreePieces.size());
+      treePieces[registeredTreePieces[i].treePiece->getIndex()].setGPUudotMarkers(activeRung, bAll, pTPindex, cb);
       pTPindex += registeredTreePieces[i].treePiece->getNumActiveGasParticles();
+      //CkPrintf("done\n");
       }
+}
 
-  contribute(cb);
+void DataManager::setupuDotDone(const CkCallback& cb){
+  CmiLock(__nodelock);
+  treePiecesDoneUdot++;
+  CkPrintf("setupuDotDone %d %ld\n", treePiecesDoneUdot, registeredTreePieces.size());
+  if(treePiecesDoneUdot == registeredTreePieces.size()){
+    treePiecesDoneUdot = 0;
+    CmiUnlock(__nodelock);
+    CkPrintf("all TreePieces contributed, return to main thread\n");
+    contribute(cb);
+  }
+  else
+      CmiUnlock(__nodelock);
 }
 
 /// @brief Callback from local data transfer to GPU
