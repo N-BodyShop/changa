@@ -1,0 +1,9 @@
+This directory contains a test of the collision module. A collection of
+solid spheres are placed in a periodic box with random positions, random
+velocity vector orientations and uniform speeds. The particles are allowed
+to elastically bounce off of each other. After a sufficient number of steps,
+the speeds should follow a Maxwell-Bolztmann distribution.
+
+The command './runtest.sh' will run the test simulation and verify the results.
+The script used to generate the initial conditions is also included, and can
+be run using 'python genIC.py'.
