@@ -2258,7 +2258,7 @@ void Main::advanceBigStep(int iStep) {
 	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
 	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
 	      bool bBuildTree = (iSub + 1 == driftSteps);
-	      treeProxy.drift(dDriftFac, (param.bDoGas || param.bDoDark), param.bGasIsothermal,
+	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
 			      dKickFac, dTimeSub, nGrowMassDrift, bBuildTree,
                               param.dMaxEnergy,
 			      CkCallbackResumeThread());
