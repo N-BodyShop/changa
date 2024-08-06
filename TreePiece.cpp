@@ -2224,19 +2224,6 @@ void TreePiece::newParticle(GravityParticle *p)
 	myParticles[myNumParticles].extraData = &myStarParticles[myNumStar];
 	myNumStar++;
 	}
-          if(p->isDark()) {
-          if(myNumDark >= nStoreDark) {
-            int nTmpStore = (int) ((nStoreDark + 1)*(1.0 + dExtraStore));
-            CkError("WARNING: Increasing dark particle store to %d\n",
-                    nTmpStore);
-            CkAssert(nTmpStore > nStoreDark);
-            
-            //myDarkParticles = myTmpParticles;
-                    nStoreDark = nTmpStore;
-                    }
-
-          myNumDark++;
-          }
     }
 
 /**
@@ -5719,7 +5706,6 @@ void TreePiece::pup(PUP::er& p) {
   p | nTotalDark;
   p | nTotalStar;
   p | myNumStar;
-  p | myNumDark;
   p | nStoreDark;
   p | nbor_msgs_count_;
   if(p.isUnpacking()) {
