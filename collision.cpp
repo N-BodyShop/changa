@@ -91,7 +91,7 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
 #endif
 #ifdef CHANGESOFT
     if (param.iCollModel != 1)
-        CkAbort("ChaNGa must be compiled without the CHANGESOFT flag to allow for particle radii to grow during mergers\n");
+        CkAbort("ChaNGa must be compiled with --disable-changesoft  to allow particle radii to grow during mergers\n");
 #endif
    if (param.iCollModel > 4)
        CkAbort("Invalid Collision Model number\n");
