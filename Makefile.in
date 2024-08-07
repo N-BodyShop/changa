@@ -43,7 +43,7 @@ charmrun    := charmrun
 cxx_std     := c++11
 c_std       := c99
 opt_flag    := -O3
-target_arch := -m64
+target_arch :=
 threads     := -lpthread
 
 # ------- Debugging -----------------------------------------------------------
