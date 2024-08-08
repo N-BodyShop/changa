@@ -2214,13 +2214,8 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, doub
 
     if (numParts == 0) return;
 
-    //double *d_y, *d_dtg;
     size_t ySize = numParts * 5 * sizeof(double); // TODO const defined in clIntegrateEnergy
     size_t dtgSize = dtg.size() * sizeof(double);
-
-    // Moved to initcooling
-    //cudaChk(cudaMalloc(&d_y, ySize));
-    //cudaChk(cudaMalloc(&d_dtg, dtgSize));
 
     double *y_host, *dtg_host, *y_host_out;
     allocatePinnedHostMemory((void **)&y_host, ySize);
@@ -2235,7 +2230,6 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, doub
     cudaChk(cudaMemcpyAsync(d_dtg, dtg_host, dtgSize, cudaMemcpyHostToDevice, stream));
 
     CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_CudaStiff, d_y, tstart, d_dtg, numParts);
-    // Put these in pinned host memory
     cudaChk(cudaMemcpyAsync(y_host_out, d_y, ySize, cudaMemcpyDeviceToHost, stream));
     cudaStreamSynchronize(stream);
 
@@ -2244,8 +2238,6 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, doub
         memcpy(y[i], y_host_out + i * 5, 5 * sizeof(double));
     }
 
-    //cudaFree(d_y);
-    //cudaFree(d_dtg);
     freePinnedHostMemory(y_host);
     freePinnedHostMemory(y_host_out);
     freePinnedHostMemory(dtg_host);

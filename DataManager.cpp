@@ -505,24 +505,19 @@ void DataManager::serializeLocalTree(){
 
 // TODO ifdefs for gas cooling
 void DataManager::setupuDot(int activeRung, int bAll, const CkCallback& cb){
-  CkPrintf("setupudot called with %ld registered TreePieces\n", registeredTreePieces.size());
   int pTPindex = 0;
   for(int i = 0; i < registeredTreePieces.size(); i++){
-      CkPrintf("setGPUudotMarkers %d %d %ld\n", i, pTPindex, registeredTreePieces.size());
       treePieces[registeredTreePieces[i].treePiece->getIndex()].setGPUudotMarkers(activeRung, bAll, pTPindex, cb);
       pTPindex += registeredTreePieces[i].treePiece->getNumActiveGasParticles();
-      //CkPrintf("done\n");
       }
 }
 
 void DataManager::setupuDotDone(const CkCallback& cb){
   CmiLock(__nodelock);
   treePiecesDoneUdot++;
-  CkPrintf("setupuDotDone %d %ld\n", treePiecesDoneUdot, registeredTreePieces.size());
   if(treePiecesDoneUdot == registeredTreePieces.size()){
     treePiecesDoneUdot = 0;
     CmiUnlock(__nodelock);
-    CkPrintf("all TreePieces contributed, return to main thread\n");
     contribute(cb);
   }
   else

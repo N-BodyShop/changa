@@ -257,6 +257,23 @@ public:
 	    cudaFree(d_MetalCoolln);
 	    cudaFree(d_MetalHeatln);
 	    cudaFree(d_CudaUvspectrum);
+	    cudaFree(d_CudaCool);
+
+	    cudaFree(d_CudaCoolData);
+	    cudaFree(d_CudaStiff);
+	    cudaFree(d_dtg);
+
+	    cudaFree(d_y);
+	    cudaFree(d_ymin);
+	    cudaFree(d_y0);
+	    cudaFree(d_q);
+	    cudaFree(d_d);
+	    cudaFree(d_rtau);
+	    cudaFree(d_ys);
+	    cudaFree(d_qs);
+	    cudaFree(d_rtaus);
+	    cudaFree(d_scrarray);
+	    cudaFree(d_y1);
 
             for (int i = 0; i < numStreams; i++) {
                 cudaStreamDestroy(streams[i]);

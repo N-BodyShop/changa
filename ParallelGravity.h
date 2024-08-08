@@ -954,7 +954,6 @@ class TreePiece : public CBase_TreePiece {
         }
 
         void calculateNumActiveGasParticles(int bAll, const CkCallback& cb) {
-          CkPrintf("%d calculateNumActiveGasParticles start\n", thisIndex);
           myNumActiveGasParticles = 0;
           for(unsigned int i = 1; i <= myNumParticles; ++i) {
           GravityParticle *p = &myParticles[i];
@@ -963,7 +962,6 @@ class TreePiece : public CBase_TreePiece {
                     myNumActiveGasParticles++;
                 }
             }
-          CkPrintf("%d calculateNumActiveGasParticles done\n", thisIndex);
           contribute(cb);
         }
 

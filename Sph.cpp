@@ -62,7 +62,6 @@ Main::initSph()
 #ifdef CUDA
     treeProxy.calculateNumActiveGasParticles(1, CkCallbackResumeThread());
     dMProxy.setupuDot(0, 1, CkCallbackResumeThread());
-    CkPrintf("init setupudot back to main thread\n");
 #endif // CUDA
 	    if(!bIsRestarting)  // Energy is already OK from checkpoint.
 		treeProxy.InitEnergy(dTuFac, z, dTime, (param.dConstGamma-1), CkCallbackResumeThread());
@@ -1216,7 +1215,6 @@ void TreePiece::updateuDot(int activeRung,
     int nv = 5; // TODO this should be read from somewhere else
 
     int offset = FirstGPUCoolParticleIndex;
-    CkPrintf("%d\n", FirstGPUCoolParticleIndex);
     d_CudaCoolData = &dm->d_CudaCoolData[offset];
     d_CudaStiff = &dm->d_CudaStiff[offset];
     d_dtg = &dm->d_dtg[offset/nv];
@@ -1235,8 +1233,6 @@ void TreePiece::updateuDot(int activeRung,
     d_scrarray = &dm->d_scrarray[offset];
 
     int numSelParts = myNumActiveGasParticles;
-
-    //CkPrintf("Rung %d, %d particles to update\n", activeRung, numSelParts);
 
     if (numSelParts == 0) {
         smoothProxy[thisIndex].ckLocal()->contribute(cb);
@@ -1444,19 +1440,17 @@ void TreePiece::updateuDot(int activeRung,
             STIFFtoCudaSTIFF(CoolDataArr[i]->IntegratorContext, &CudaStiff[i]);
         }
 
-        cudaChk(cudaMemcpy(d_CudaCoolData, h_CudaCoolData.data(), numSelParts*sizeof(CudaclDerivsData), cudaMemcpyHostToDevice));
-        cudaChk(cudaMemcpy(d_CudaStiff, CudaStiff.data(), sizeof(CudaSTIFF)*numSelParts, cudaMemcpyHostToDevice));
+        cudaChk(cudaMemcpyAsync(d_CudaCoolData, h_CudaCoolData.data(), numSelParts*sizeof(CudaclDerivsData), cudaMemcpyHostToDevice, this->stream));
+        cudaChk(cudaMemcpyAsync(d_CudaStiff, CudaStiff.data(), sizeof(CudaSTIFF)*numSelParts, cudaMemcpyHostToDevice, this->stream));
 
 	// For testing purposes, run calculation in serial on CPU
         for(unsigned int i = 0; i < numSelParts; ++i) {
            //StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
 	}
 
-	// There is a bug where the heating rates blow up after the first updateudot
-	// if only running 1 tree piece
         t = 0.0;
         TreePieceODESolver(d_CudaStiff, d_y, d_dtg, y, t, dtUse, numSelParts, this->stream);
-        cudaChk(cudaMemcpy(h_CudaCoolData.data(), d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData), cudaMemcpyDeviceToHost));
+        cudaChk(cudaMemcpyAsync(h_CudaCoolData.data(), d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData), cudaMemcpyDeviceToHost, this->stream));
         for (int i = 0; i < numSelParts; i++) {
            CudaclDerivsDatatoclDerivsData(&h_CudaCoolData[i], CoolDataArr[i]);
 	}
@@ -1485,7 +1479,6 @@ void TreePiece::updateuDot(int activeRung,
             if(dtUse[i] > 0 || ExternalHeating[i]*duDelta[p->rung] + p->u() < 0)
                 // linear interpolation over interval
                 p->uDot() = (E[i] - p->u())/duDelta[p->rung];
-		//CkPrintf("%g\n", p->uDot());
                 if (bUpdateState) p->CoolParticle() = cp[i];
             } else {
                 p->uDot() = ExternalHeating[i];

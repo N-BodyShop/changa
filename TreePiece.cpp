@@ -3825,7 +3825,6 @@ void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
 void TreePiece::setGPUudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb) {
     FirstGPUCoolParticleIndex = pTPindex;
     LastGPUCoolParticleIndex = FirstGPUCoolParticleIndex + myNumActiveGasParticles;
-    CkPrintf("%d markers set\n", thisIndex);
     dm->setupuDotDone(cb);
 }
 
