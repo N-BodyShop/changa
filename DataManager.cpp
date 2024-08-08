@@ -1098,7 +1098,7 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
         }
         delete (data->cb);
         delete data;
-        registeredTreePieces.length() = 0;
+        //registeredTreePieces.length() = 0;
     }
     CmiUnlock(__nodelock);
 }

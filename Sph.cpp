@@ -1449,17 +1449,17 @@ void TreePiece::updateuDot(int activeRung,
 
 	// For testing purposes, run calculation in serial on CPU
         for(unsigned int i = 0; i < numSelParts; ++i) {
-           StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
+           //StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
 	}
 
 	// There is a bug where the heating rates blow up after the first updateudot
 	// if only running 1 tree piece
-        /*t = 0.0;
+        t = 0.0;
         TreePieceODESolver(d_CudaStiff, d_y, d_dtg, y, t, dtUse, numSelParts, this->stream);
         cudaChk(cudaMemcpy(h_CudaCoolData.data(), d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData), cudaMemcpyDeviceToHost));
         for (int i = 0; i < numSelParts; i++) {
            CudaclDerivsDatatoclDerivsData(&h_CudaCoolData[i], CoolDataArr[i]);
-	}*/
+	}
 
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {

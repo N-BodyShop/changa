@@ -2231,7 +2231,6 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, doub
     }
     memcpy(dtg_host, dtg.data(), dtgSize);
 
-    cudaStreamSynchronize(stream);
     cudaChk(cudaMemcpyAsync(d_y, y_host, ySize, cudaMemcpyHostToDevice, stream));
     cudaChk(cudaMemcpyAsync(d_dtg, dtg_host, dtgSize, cudaMemcpyHostToDevice, stream));
 

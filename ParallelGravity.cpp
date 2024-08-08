@@ -2107,6 +2107,7 @@ void Main::advanceBigStep(int iStep) {
 
     CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /******** Tree Build *******/
+    dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
     buildTree(activeRung);
 
     CkCallback cbGravity(CkCallback::resumeThread);
