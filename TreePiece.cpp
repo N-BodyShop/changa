@@ -116,8 +116,13 @@ void TreePiece::velScale(double dScale, const CkCallback& cb)
     for(unsigned int i = 0; i < myNumParticles; ++i) 
 	{
 	    myParticles[i+1].velocity *= dScale;
-	    if(TYPETest(&myParticles[i+1], TYPE_GAS) || TYPETest(&myParticles[i+1], TYPE_DARK))
-		myParticles[i+1].vPred() *= dScale;
+	    if(TYPETest(&myParticles[i+1], TYPE_GAS)
+#ifdef COLLISION
+	       || TYPETest(&myParticles[i+1], TYPE_DARK)
+#endif
+	        ) {
+	        myParticles[i+1].vPred() *= dScale;
+	        }
 	    }
     contribute(cb);
     }
