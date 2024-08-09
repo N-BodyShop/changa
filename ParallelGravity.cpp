@@ -630,9 +630,14 @@ Main::Main(CkArgMsg* m) {
 				sizeof(double),"thermalcond2sat",
 				"<Coefficient in Saturated Thermal Conductivity 2, e.g. 0.5 > = 0.5");
 
-       param.bDoExternalForce = 0;
-       prmAddParam(prm, "bDoExternalForce", paramBool, &param.bDoExternalForce,
-           sizeof(int), "bDoExternalForce", "<Apply external gravity field to particles> = 0");
+        param.bDoExternalForce = 0;
+        prmAddParam(prm, "bDoExternalForce", paramBool, &param.bDoExternalForce,
+            sizeof(int), "bDoExternalForce", "<Apply external force field to particles> = 0");
+        // bDoExternalGravity was renamed to bDoExternalForce
+        // Include the old parameter name to ensure backwards compatibility
+        param.bDoExternalGravity = 0;
+        prmAddParam(prm, "bDoExternalGravity", paramBool, &param.bDoExternalGravity,
+            sizeof(int), "bDoExternalGravity", "<Apply external gravity field to particles> = 0");
 
        param.externalForce.AddParams(prm);
 

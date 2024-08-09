@@ -118,6 +118,7 @@ typedef struct parameters {
     double dEvapCoeffCode;
     int iRandomSeed;            /* Seed for random numbers */
     int bDoExternalForce;
+    int bDoExternalGravity;
     ExternalForce externalForce;
 #ifdef COLLISION
     int bCollision;
@@ -269,6 +270,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dEvapCoeff;
     p|param.dEvapCoeffCode;
     p|param.bDoExternalForce;
+    p|param.bDoExternalGravity;
     p|param.externalForce;
 #ifdef COLLISION
     p|param.bCollision;

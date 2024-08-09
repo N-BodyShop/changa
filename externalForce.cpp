@@ -87,7 +87,7 @@ void ExternalForce::AddParams(PRM prm)
 void ExternalForce::CheckParams(PRM prm, struct parameters &param)
 {
     // Enable external force if any of the flags are set
-    if (bBodyForce || bPatch || bCentralBody)
+    if (bBodyForce || bPatch || bCentralBody || param.bDoExternalGravity)
         param.bDoExternalForce = 1; 
     // Gas drag requires central point mass
     if (bDoGasDrag && !bCentralBody)
