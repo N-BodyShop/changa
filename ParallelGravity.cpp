@@ -224,7 +224,6 @@ Main::Main(CkArgMsg* m) {
 	bIsRestarting = 0;
         bHaveAlpha = 0;
 	bChkFirst = 1;
-    bParticlesShuffled = 0;
 	dSimStartTime = CkWallTimer();
 
   int threadNum = CkMyNodeSize();
@@ -1402,7 +1401,6 @@ Main::Main(CkMigrateMessage* m) : CBase_Main(m) {
     mainChare = thishandle;
     bIsRestarting = 1;
     bHaveAlpha = 1;
-    bParticlesShuffled = 0;
     CkPrintf("Main(CkMigrateMessage) called\n");
     sorter = CProxy_Sorter::ckNew(0);
     }
@@ -1664,12 +1662,6 @@ void Main::advanceBigCollStep(int iStep) {
   kick(false, activeRung, activeRung, cbNull, 0.0);
   
   ckout << "Checking for near collisions ...";
-  if (bParticlesShuffled) {
-    ckout << "Particles have been shuffled since last DD, re-sorting\n";
-    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                    CkCallbackResumeThread());
-    sorter.startSorting(dataManagerID, ddTolerance, CkCallbackResumeThread(), true);
-    }
      
   double startTime = CkWallTimer();
   treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
@@ -1750,15 +1742,6 @@ void Main::advanceBigCollStep(int iStep) {
           // Collision detection and response handling
           if (param.bCollision) {
               CkPrintf("Starting collision detection and response\n");
-              if (bParticlesShuffled) {
-                  CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
-                  // The following call is to get the particles in key order
-                  // before the sort.
-                  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                        CkCallbackResumeThread());
-                  sorter.startSorting(dataManagerID, ddTolerance,
-                                          CkCallbackResumeThread(), true);
-                  }
 
               treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
               startTime = CkWallTimer();
@@ -2229,15 +2212,6 @@ void Main::advanceBigStep(int iStep) {
           // Collision detection and response handling
           if (param.bCollision) {
               CkPrintf("Starting collision detection and response\n");
-              if (bParticlesShuffled) {
-                  CkPrintf("Particles have been shuffled since last DD, re-sorting\n");
-                  // The following call is to get the particles in key order
-                  // before the sort.
-                  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                        CkCallbackResumeThread());
-                  sorter.startSorting(dataManagerID, ddTolerance,
-                                          CkCallbackResumeThread(), true);
-                  }
 
               treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
               startTime = CkWallTimer();

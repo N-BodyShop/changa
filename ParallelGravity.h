@@ -488,9 +488,6 @@ class Main : public CBase_Main {
 	int64_t nActiveGrav;
 	int64_t nActiveSPH;
 
-    int bParticlesShuffled; /* flag to track whether particles have been reordered
-                                   since the last domain decomposition */
-
 #ifdef CUDA
           double localNodesPerReqDouble;
           double remoteNodesPerReqDouble;
