@@ -543,7 +543,7 @@ mainmodule ParallelGravity {
 
     // jetley
 #ifdef CUDA
-    entry void calculateNumActiveGasParticles(int bAll, const CkCallback& cb);
+    entry void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb);
     entry void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
     entry void fillGPUBuffer(intptr_t bufLocalParts,
                              intptr_t bufLocalMoments,

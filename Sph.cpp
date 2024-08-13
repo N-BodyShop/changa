@@ -60,7 +60,7 @@ Main::initSph()
 	    // Update cooling on the datamanager
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 #ifdef CUDA
-    treeProxy.calculateNumActiveGasParticles(1, CkCallbackResumeThread());
+    treeProxy.calculateNumActiveGasParticles(1, 0, CkCallbackResumeThread());
     dMProxy.setupuDot(0, 1, CkCallbackResumeThread());
 #endif // CUDA
 	    if(!bIsRestarting)  // Energy is already OK from checkpoint.
