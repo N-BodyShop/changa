@@ -90,12 +90,12 @@ void Collision::CheckParams(PRM prm, struct parameters &param)
         CkAbort("ChaNGa must be compiled with the COLLISION flag in order to use collision detection\n");
 #endif
 #ifdef CHANGESOFT
-    if (param.iCollModel != 1)
+    if (param.collision.iCollModel != 1)
         CkAbort("ChaNGa must be compiled with --disable-changesoft  to allow particle radii to grow during mergers\n");
 #endif
-   if (param.iCollModel > 4)
+   if (param.collision.iCollModel > 4)
        CkAbort("Invalid Collision Model number\n");
-   if (param.iCollModel == 4 && !param.externalForce.bCentralBody)
+   if (param.collision.iCollModel == 4 && !param.externalForce.bCentralBody)
        CkAbort("Cannot calculate tidal force without bCentralBody enabled\n");
    }
 
