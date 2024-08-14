@@ -1793,10 +1793,10 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
 	  }
 #ifdef COLLISION
       if(bKepStep) {
-          double dt = dEta/sqrt(dAccFac*p->dtKep);
-      if(dt < dTIdeal)
-          dTIdeal = dt;
-      }
+	  double dt = dEta/sqrt(dAccFac*p->dtKep);
+	  if(dt < dTIdeal)
+	      dTIdeal = dt;
+	  }
 #endif
       if(bSphStep && TYPETest(p, TYPE_GAS)) {
 	  double dt;
