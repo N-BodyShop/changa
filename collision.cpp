@@ -603,7 +603,7 @@ double Collision::LastKickTime(int rung, double baseTime, double timeNow)
 void Collision::doWallCollision(GravityParticle *p) {
     p->velocity[2] *= -dEpsN;
 
-    Vector3D<double> vPerp = (0., 0., p->velocity.z);
+    Vector3D<double> vPerp(0., 0., p->velocity.z);
     Vector3D<double> vParallel = p->velocity - vPerp;
     p->velocity -= vParallel*(1.-dEpsT);
     }
