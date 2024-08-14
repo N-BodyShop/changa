@@ -331,7 +331,7 @@ public:
 	Vector3D<cosmoType> treeAcceleration;
 #ifdef COLLISION
 	cosmoType dtCol;
-	int iOrderCol;
+	int64_t iOrderCol;
 	Vector3D<cosmoType> w;
 	cosmoType dtKep;
 	// For consistency with non-collision version

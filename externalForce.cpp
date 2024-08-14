@@ -299,7 +299,7 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p, int bKepS
           }
 
         if (rPeri < dCentRad) { 
-            CkPrintf("Particle %d will collide with star, deleting\n", p->iOrder);
+            CkPrintf("Particle %ld will collide with star, deleting\n", p->iOrder);
             deleteParticle(p);
             }
 #endif

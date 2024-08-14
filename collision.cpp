@@ -116,7 +116,7 @@ void TreePiece::delEjected(double dDelDist, const CkCallback& cb)
         GravityParticle *p = &myParticles[i];
         double dist = p->position.length();
         if (dist > dDelDist) {
-            CkPrintf("%d ejected, deleting\n", p->iOrder);
+            CkPrintf("%ld ejected, deleting\n", p->iOrder);
             deleteParticle(p);
             }
         }
@@ -450,10 +450,10 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
             bBounce = coll.doCollision(p, c2, dCentMass);
             if (!bBounce) {
 		if ((c1.mass > (c2.mass + eps*c2.mass)) || ((fabs(c1.mass - c2.mass)/c1.mass < eps) && (c1.iOrder < c2.iOrder))) {
-                    CkPrintf("Merge %d into %d\n", c2.iOrder, p->iOrder);
+                    CkPrintf("Merge %ld into %ld\n", c2.iOrder, p->iOrder);
                 }
                 else {
-                    CkPrintf("Delete %d\n", p->iOrder);
+                    CkPrintf("Delete l%d\n", p->iOrder);
                     deleteParticle(p);
                 }
             }
@@ -467,10 +467,10 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
             bBounce = coll.doCollision(p, c1, dCentMass);
             if (!bBounce) {
 		if ((c2.mass > (c1.mass + eps*c1.mass)) || ((fabs(c2.mass - c1.mass)/c1.mass < eps) && (c2.iOrder < c1.iOrder))) {
-                    CkPrintf("Merge %d into %d\n", c1.iOrder, p->iOrder);
+                    CkPrintf("Merge %ld into %ld\n", c1.iOrder, p->iOrder);
                 }
                 else {
-                    CkPrintf("Delete %d\n", p->iOrder);
+                    CkPrintf("Delete %ld\n", p->iOrder);
                     deleteParticle(p);
                 }
             }
@@ -528,13 +528,13 @@ void TreePiece::sameHigherRung(int iord1, int rung1, int iord2, int rung2, const
             p->iOrderCol = -1;
             if (rung1 > rung2) {
                 if (p->iOrder == iord2) {
-                    CkPrintf("Moving particle %d to rung %d\n", p->iOrder, rung1);
+                    CkPrintf("Moving particle %ld to rung %ld\n", p->iOrder, rung1);
                     p->rung = rung1;
                     }
                 }
             else {
                 if (p->iOrder == iord1) {
-                    CkPrintf("Moving particle %d to rung %d\n", p->iOrder, rung2);
+                    CkPrintf("Moving particle %ld to rung %ld\n", p->iOrder, rung2);
                     p->rung = rung2;
                     }
                 }
