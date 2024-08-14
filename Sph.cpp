@@ -1213,11 +1213,12 @@ void TreePiece::updateuDot(int activeRung,
 #ifndef COOLING_NONE
     // TODO ifdef cudas here
     int nv = 5; // TODO this should be read from somewhere else
-
     int offset = FirstGPUCoolParticleIndex;
     d_CudaCoolData = &dm->d_CudaCoolData[offset];
     d_CudaStiff = &dm->d_CudaStiff[offset];
     d_dtg = &dm->d_dtg[offset/nv];
+    int numStreams = 100;
+    this->stream = dm->streams[thisIndex % numStreams];
 
     offset *= nv;
     d_ymin = &dm->d_ymin[offset];
@@ -1454,6 +1455,7 @@ void TreePiece::updateuDot(int activeRung,
         for (int i = 0; i < numSelParts; i++) {
            CudaclDerivsDatatoclDerivsData(&h_CudaCoolData[i], CoolDataArr[i]);
 	}
+    cudaStreamSynchronize(this->stream);
 
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {

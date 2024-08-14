@@ -225,10 +225,10 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
     }
     root = buildProcessorTree(totalChares, &gtn[0]);
 
-    if (cleanupTreePieces) {
+    /*if (cleanupTreePieces) {
       CkPrintf("Clear registeredTreePieces\n");
       registeredTreePieces.removeAll();
-    }
+    }*/
 
 #ifdef PRINT_MERGED_TREE
     ostringstream dmName;
