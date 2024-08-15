@@ -612,7 +612,7 @@ class ExternalSmoothParticle {
 #ifdef COLLISION  
   double soft;
   double dtCol;
-  int iOrderCol;
+  int64_t iOrderCol;
 #endif
   Vector3D<cosmoType> vPred;
   Vector3D<cosmoType> treeAcceleration;

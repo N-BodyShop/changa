@@ -13,8 +13,8 @@ public:
     double mass;
     double dtCol;
     double radius;
-    int iOrder;
-    int iOrderCol;
+    int64_t iOrder;
+    int64_t iOrderCol;
     int rung;
     /* If true, this collider is flagged for deletion and will merge with
        its more massive partner */

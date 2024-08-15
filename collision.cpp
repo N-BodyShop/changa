@@ -264,7 +264,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
                 // Otherwise, force both particles onto the smaller rung
                 // Collision will get detected again on the next pass thru the loop
                 else {
-                    CkPrintf("%d and %d colliding on rungs %d and %d, skipping collision and forcing lower rung\n", c[0].iOrder, c[1].iOrder, c[0].rung, c[1].rung);
+                    CkPrintf("%ld and %ld colliding on rungs %d and %d, skipping collision and forcing lower rung\n", c[0].iOrder, c[1].iOrder, c[0].rung, c[1].rung);
                     treeProxy.sameHigherRung(c[0].iOrder, c[0].rung, c[1].iOrder, c[1].rung, CkCallbackResumeThread());
                     }
                 }
@@ -306,7 +306,7 @@ void TreePiece::logOverlaps(const CkCallback& cb)
     FILE *fpLog = fopen("overlap.log", "a");
     for (unsigned int i=1; i <= myNumParticles; i++) {
         GravityParticle *p = &myParticles[i];
-        if (p->dtCol < 0) fprintf(fpLog, "%d %d\n", p->iOrder, p->iOrderCol);
+        if (p->dtCol < 0) fprintf(fpLog, "%ld %ld\n", p->iOrder, p->iOrderCol);
         }
     fclose(fpLog);
     contribute(cb);
@@ -375,7 +375,7 @@ void TreePiece::getCollInfo(const CkCallback& cb)
  *
  * @param iOrder The iOrder of the particle to retrieve
  */
-void TreePiece::getCollInfo(int iOrder, const CkCallback& cb)
+void TreePiece::getCollInfo(int64_t iOrder, const CkCallback& cb)
 {
     ColliderInfo ci;
     ci.iOrder = -1;
@@ -453,7 +453,7 @@ void TreePiece::resolveCollision(Collision coll, const ColliderInfo &c1,
                     CkPrintf("Merge %ld into %ld\n", c2.iOrder, p->iOrder);
                 }
                 else {
-                    CkPrintf("Delete l%d\n", p->iOrder);
+                    CkPrintf("Delete %ld\n", p->iOrder);
                     deleteParticle(p);
                 }
             }
@@ -506,7 +506,7 @@ void TreePiece::unKickCollStep(int iKickRung, double dDeltaBase, const CkCallbac
  * @param iOrder The iOrder of the particle to search for
  * @param collStepRung The rung to place the particle onto
  */
-void TreePiece::placeOnCollRung(int iOrder, int collStepRung, const CkCallback& cb) {
+void TreePiece::placeOnCollRung(int64_t iOrder, int collStepRung, const CkCallback& cb) {
     for (unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle*p = &myParticles[i];
       if (p->iOrder == iOrder) p->rung = collStepRung;
@@ -520,7 +520,7 @@ void TreePiece::placeOnCollRung(int iOrder, int collStepRung, const CkCallback& 
  * @param iord1, iord2 The iOrders of the colliding particles
  * @param rung1, rung2 The current rungs of the colliding particles
  */
-void TreePiece::sameHigherRung(int iord1, int rung1, int iord2, int rung2, const CkCallback& cb) {
+void TreePiece::sameHigherRung(int64_t iord1, int rung1, int64_t iord2, int rung2, const CkCallback& cb) {
     for (unsigned int i = 1; i <= myNumParticles; ++i) {
         GravityParticle *p = &myParticles[i];
         if ((p->iOrder == iord1) || (p->iOrder == iord2)) {
@@ -528,13 +528,13 @@ void TreePiece::sameHigherRung(int iord1, int rung1, int iord2, int rung2, const
             p->iOrderCol = -1;
             if (rung1 > rung2) {
                 if (p->iOrder == iord2) {
-                    CkPrintf("Moving particle %ld to rung %ld\n", p->iOrder, rung1);
+                    CkPrintf("Moving particle %ld to rung %d\n", p->iOrder, rung1);
                     p->rung = rung1;
                     }
                 }
             else {
                 if (p->iOrder == iord1) {
-                    CkPrintf("Moving particle %ld to rung %ld\n", p->iOrder, rung2);
+                    CkPrintf("Moving particle %ld to rung %d\n", p->iOrder, rung2);
                     p->rung = rung2;
                     }
                 }
