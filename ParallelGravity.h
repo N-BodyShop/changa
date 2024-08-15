@@ -913,20 +913,22 @@ class TreePiece : public CBase_TreePiece {
         size_t sVarParts;
 	cudaStream_t stream;
 
+#ifndef COOLING_NONE
         CudaclDerivsData *d_CudaCoolData;
         CudaSTIFF *d_CudaStiff;
         double *d_y;
         double *d_dtg;
-	double *d_ymin;
-	double *d_y0;
-	double *d_y1;
-	double *d_q;
-	double *d_d;
-	double *d_rtau;
-	double *d_ys;
-	double *d_qs;
-	double *d_rtaus;
-	double *d_scrarray;
+        double *d_ymin;
+        double *d_y0;
+        double *d_y1;
+        double *d_q;
+        double *d_d;
+        double *d_rtau;
+        double *d_ys;
+        double *d_qs;
+        double *d_rtaus;
+        double *d_scrarray;
+#endif
 
         int getNumBuckets(){
         	return numBuckets;

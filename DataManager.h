@@ -167,6 +167,12 @@ protected:
 	double *d_qs;
 	double *d_rtaus;
 	double *d_scrarray;
+
+  // Used to determine if GPU memory needs to be reallocated
+  // Total number of gas particles on this node
+  int numTotalGasParts;
+  // Total number of gas particles allocated on GPU
+  int numGPUGasParts;
 #endif // COOLING_NONE
 
 	int numStreams;
@@ -234,7 +240,7 @@ public:
         void updateParticles(UpdateParticlesStruct *data);
         void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
-        DataManager(){}
+        DataManager(){ numGPUGasParts = 0; }
 
 #endif
 
@@ -329,6 +335,9 @@ public:
       else return NULL;
     }
     inline Tree::GenericTreeNode *getRoot() { return root; }
+#ifdef CUDA
+    void allocCoolParticleBlock(int numParts, int bFree);
+#endif
     void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);

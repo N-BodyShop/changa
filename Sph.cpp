@@ -459,11 +459,37 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     free(coolBuf);
     free(heatBuf);
     free(CudaRates_T);
+#endif // CUDA
+#endif //COOLING_NONE
+    contribute(cb);
+    }
 
-    // Integrator context and derivative data
-    // Need to track for every gas particle in sim
-    int numParts = 512000; // TODO reallocate if we end up with more gas particles later
-    // TODO these aren't getting freed yet
+#ifdef CUDA
+/**
+ * Allocate space for ODE solver on the GPU
+ * @param numParts Number of particles to allocate memory for
+ * @param bFree Free the previous device pointers if reallocating
+ */
+void
+DataManager::allocCoolParticleBlock(int numParts, int bFree) {
+    if (bFree) {
+        cudaChk(cudaFree(d_CudaCoolData));
+        cudaChk(cudaFree(d_CudaStiff));
+        cudaChk(cudaFree(d_dtg));
+
+        cudaChk(cudaFree(d_y));
+        cudaChk(cudaFree(d_ymin));
+        cudaChk(cudaFree(d_y0));
+        cudaChk(cudaFree(d_q));
+        cudaChk(cudaFree(d_d));
+        cudaChk(cudaFree(d_rtau));
+        cudaChk(cudaFree(d_ys));
+        cudaChk(cudaFree(d_qs));
+        cudaChk(cudaFree(d_rtaus));
+        cudaChk(cudaFree(d_scrarray));
+        cudaChk(cudaFree(d_y1));
+    }
+
     cudaChk(cudaMalloc(&d_CudaCoolData, numParts*sizeof(CudaclDerivsData)));
     cudaChk(cudaMalloc(&d_CudaStiff, numParts*sizeof(CudaSTIFF)));
     cudaChk(cudaMalloc(&d_dtg, numParts*sizeof(*d_dtg)));
@@ -480,10 +506,9 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     cudaChk(cudaMalloc(&d_rtaus, numParts*nv*sizeof(*d_rtaus)));
     cudaChk(cudaMalloc(&d_scrarray, numParts*nv*sizeof(*d_scrarray)));
     cudaChk(cudaMalloc(&d_y1, numParts*nv*sizeof(*d_y1)));
-#endif // CUDA
-#endif //COOLING_NONE
-    contribute(cb);
-    }
+}
+
+#endif
 
 /**
  * Per thread initialization
