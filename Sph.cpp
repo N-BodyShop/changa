@@ -1237,6 +1237,7 @@ void TreePiece::updateuDot(int activeRung,
 {
 #ifndef COOLING_NONE
     // TODO ifdef cudas here
+    int gpuGasMinParts = 10000;
     int nv = 5; // TODO this should be read from somewhere else
     int offset = FirstGPUCoolParticleIndex;
     d_CudaCoolData = &dm->d_CudaCoolData[offset];
@@ -1415,73 +1416,82 @@ void TreePiece::updateuDot(int activeRung,
 	t = 0.0;
 	
 #ifdef CUDA
-	// When running on the GPU, each thread needs its own:
-	//   Integrator context
-	//   Derivative data
-	//   y variables for chemeq
+    if (numSelParts > gpuGasMinParts) {
+        CkPrintf("%d solving ODE on the GPU with %d particles\n", thisIndex, numSelParts);
+        // When running on the GPU, each thread needs its own:
+        //   Integrator context
+        //   Derivative data
+        //   y variables for chemeq
 
-        // Memory operations here are the bottleneck
-        // Possible optimizations:
-        // Use pinned host memory
-        // Malloc for all particles at beginning of sim, assuming we never need > N_0
-        // Some memcpys could be replaced with kernel operations
-        //    - Init y_min
-        //    - CoolData
-        //    - Integrator context setup (this is probably the hardest)
-        // Frees at end of sim
+            // Memory operations here are the bottleneck
+            // Possible optimizations:
+            // Use pinned host memory
+            // Malloc for all particles at beginning of sim, assuming we never need > N_0
+            // Some memcpys could be replaced with kernel operations
+            //    - Init y_min
+            //    - CoolData
+            //    - Integrator context setup (this is probably the hardest)
+            // Frees at end of sim
 
-        int nv = CoolDataArr[0]->IntegratorContext->nv;
-        //std::vector<double> h_ymin(nv*numSelParts, 1e-300);
-        //cudaChk(cudaMemcpy(d_ymin, h_ymin.data(), nv*numSelParts*sizeof(double), cudaMemcpyHostToDevice));
+            int nv = CoolDataArr[0]->IntegratorContext->nv;
+            //std::vector<double> h_ymin(nv*numSelParts, 1e-300);
+            //cudaChk(cudaMemcpy(d_ymin, h_ymin.data(), nv*numSelParts*sizeof(double), cudaMemcpyHostToDevice));
 
-        std::vector<CudaclDerivsData> h_CudaCoolData(numSelParts);
-	std::vector<CudaSTIFF> CudaStiff(numSelParts);
-        for (int i = 0; i < numSelParts; i++) {
-            clDerivsDatatoCudaclDerivsData(CoolDataArr[i], &h_CudaCoolData[i]);
-            h_CudaCoolData[i].cl = dm->d_CudaCool;
-            h_CudaCoolData[i].IntegratorContext = &d_CudaStiff[i];
+            std::vector<CudaclDerivsData> h_CudaCoolData(numSelParts);
+        std::vector<CudaSTIFF> CudaStiff(numSelParts);
+            for (int i = 0; i < numSelParts; i++) {
+                clDerivsDatatoCudaclDerivsData(CoolDataArr[i], &h_CudaCoolData[i]);
+                h_CudaCoolData[i].cl = dm->d_CudaCool;
+                h_CudaCoolData[i].IntegratorContext = &d_CudaStiff[i];
 
-	    h_CudaCoolData[i].rho = CodeDensityToComovingGmPerCc(dm->Cool, fDensity[i]);
-	    h_CudaCoolData[i].ExternalHeating =  CoolCodeWorkToErgPerGmPerSec(dm->Cool, ExternalHeating[i]);
-	    h_CudaCoolData[i].ZMetal = fMetals[i];
-	    h_CudaCoolData[i].dLymanWerner = cp[i].dLymanWerner;
-	    h_CudaCoolData[i].columnL = columnL[i];
+            h_CudaCoolData[i].rho = CodeDensityToComovingGmPerCc(dm->Cool, fDensity[i]);
+            h_CudaCoolData[i].ExternalHeating =  CoolCodeWorkToErgPerGmPerSec(dm->Cool, ExternalHeating[i]);
+            h_CudaCoolData[i].ZMetal = fMetals[i];
+            h_CudaCoolData[i].dLymanWerner = cp[i].dLymanWerner;
+            h_CudaCoolData[i].columnL = columnL[i];
 
-	    clSetAbundanceTotals(dm->Cool, fMetals[i], &h_CudaCoolData[i].Y_H,
-			                               &h_CudaCoolData[i].Y_He,
-						       &h_CudaCoolData[i].Y_eMax);
-            CudaStiff[i].ymin = d_ymin;
-            CudaStiff[i].y0 = d_y0;
-            CudaStiff[i].q = d_q;
-            CudaStiff[i].d = d_d;
-            CudaStiff[i].rtau = d_rtau;
-            CudaStiff[i].ys = d_ys;
-            CudaStiff[i].qs = d_qs;
-            CudaStiff[i].rtaus = d_rtaus;
-            CudaStiff[i].scrarray = d_scrarray;
-            CudaStiff[i].y1 = d_y1;
-            CudaStiff[i].Data = d_CudaCoolData;
-            CudaStiff[i].derivs = CudaclDerivs;
+            clSetAbundanceTotals(dm->Cool, fMetals[i], &h_CudaCoolData[i].Y_H,
+                                            &h_CudaCoolData[i].Y_He,
+                                &h_CudaCoolData[i].Y_eMax);
+                CudaStiff[i].ymin = d_ymin;
+                CudaStiff[i].y0 = d_y0;
+                CudaStiff[i].q = d_q;
+                CudaStiff[i].d = d_d;
+                CudaStiff[i].rtau = d_rtau;
+                CudaStiff[i].ys = d_ys;
+                CudaStiff[i].qs = d_qs;
+                CudaStiff[i].rtaus = d_rtaus;
+                CudaStiff[i].scrarray = d_scrarray;
+                CudaStiff[i].y1 = d_y1;
+                CudaStiff[i].Data = d_CudaCoolData;
+                CudaStiff[i].derivs = CudaclDerivs;
 
-            STIFFtoCudaSTIFF(CoolDataArr[i]->IntegratorContext, &CudaStiff[i]);
+                STIFFtoCudaSTIFF(CoolDataArr[i]->IntegratorContext, &CudaStiff[i]);
+            }
+
+            cudaChk(cudaMemcpyAsync(d_CudaCoolData, h_CudaCoolData.data(), numSelParts*sizeof(CudaclDerivsData), cudaMemcpyHostToDevice, this->stream));
+            cudaChk(cudaMemcpyAsync(d_CudaStiff, CudaStiff.data(), sizeof(CudaSTIFF)*numSelParts, cudaMemcpyHostToDevice, this->stream));
+
+        // For testing purposes, run calculation in serial on CPU
+            for(unsigned int i = 0; i < numSelParts; ++i) {
+            //StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
         }
 
-        cudaChk(cudaMemcpyAsync(d_CudaCoolData, h_CudaCoolData.data(), numSelParts*sizeof(CudaclDerivsData), cudaMemcpyHostToDevice, this->stream));
-        cudaChk(cudaMemcpyAsync(d_CudaStiff, CudaStiff.data(), sizeof(CudaSTIFF)*numSelParts, cudaMemcpyHostToDevice, this->stream));
-
-	// For testing purposes, run calculation in serial on CPU
+            t = 0.0;
+            TreePieceODESolver(d_CudaStiff, d_y, d_dtg, y, t, dtUse, numSelParts, this->stream);
+            cudaChk(cudaMemcpyAsync(h_CudaCoolData.data(), d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData), cudaMemcpyDeviceToHost, this->stream));
+            for (int i = 0; i < numSelParts; i++) {
+            CudaclDerivsDatatoclDerivsData(&h_CudaCoolData[i], CoolDataArr[i]);
+        }
+        cudaStreamSynchronize(this->stream);
+        }
+    else {
+        CkPrintf("%d solving ODE on the CPU with %d particles\n", thisIndex, numSelParts);
         for(unsigned int i = 0; i < numSelParts; ++i) {
-           //StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
+           t = 0.0;
+           StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
 	}
-
-        t = 0.0;
-        TreePieceODESolver(d_CudaStiff, d_y, d_dtg, y, t, dtUse, numSelParts, this->stream);
-        cudaChk(cudaMemcpyAsync(h_CudaCoolData.data(), d_CudaCoolData, numSelParts*sizeof(CudaclDerivsData), cudaMemcpyDeviceToHost, this->stream));
-        for (int i = 0; i < numSelParts; i++) {
-           CudaclDerivsDatatoclDerivsData(&h_CudaCoolData[i], CoolDataArr[i]);
-	}
-    cudaStreamSynchronize(this->stream);
-
+    }
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
