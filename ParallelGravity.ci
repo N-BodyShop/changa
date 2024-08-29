@@ -168,6 +168,7 @@ mainmodule ParallelGravity {
   PUPable Cool3OutputParams;
 #ifdef COOLING_MOLECULARH
   PUPable LWOutputParams;
+  PUPable ShieldOutputParams;
 #endif /*COOLING_MOLECULARH*/
   PUPable OxOutputParams;
   PUPable FeOutputParams;

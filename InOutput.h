@@ -963,6 +963,35 @@ class LWOutputParams : public OutputParams
         OutputParams::pup(p);//Call base class
 	}
     };
+
+class ShieldOutputParams : public OutputParams
+{
+    virtual double dValue(GravityParticle *p) {
+      if (TYPETest(p, TYPE_STAR)) return p->fShieldForm();
+	else return 0.0;
+	}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+			    {CkAssert(0); return 0.0;}
+    virtual void setDValue(GravityParticle *p, double val) {
+      if (TYPETest(p, TYPE_STAR))  p->dStarLymanWerner() = val;
+    }
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+    ShieldOutputParams() {}
+    ShieldOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "shieldform"; sNChilExt = "shieldform";
+        dTime = _dTime;
+        iType = TYPE_GAS | TYPE_STAR; }
+    PUPable_decl(ShieldOutputParams);
+    ShieldOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+	}
+    };
+
 #endif /*COOLING_MOLECULARH*/
 
 /// @brief Output Oxygen mass fraction.

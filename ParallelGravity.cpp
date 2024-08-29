@@ -3456,6 +3456,7 @@ void Main::writeOutput(int iStep)
 #ifdef COOLING_MOLECULARH
     Cool3OutputParams pCool3Out(achFile, param.iBinaryOut, dOutTime); 
     LWOutputParams pLWOut(achFile, param.iBinaryOut, dOutTime);
+    ShieldOutputParams pShieldOut(achFile, param.iBinaryOut, dOutTime);
 #endif /*COOLING_MOLECULARH*/
 #endif
 #ifdef SUPERBUBBLE
@@ -3510,6 +3511,7 @@ void Main::writeOutput(int iStep)
 #ifdef COOLING_MOLECULARH
         if(param.bDoStellarLW)
             outputBinary(pLWOut, param.bParaWrite, CkCallbackResumeThread());
+        outputBinary(pShieldOut, param.bParaWrite, CkCallbackResumeThread());
 #endif /*COOLING_MOLECULARH*/
 #endif
 	if(param.bDoSoftOutput && param.iBinaryOut != 6) {
@@ -3597,6 +3599,8 @@ void Main::writeOutput(int iStep)
 	if(param.bDoStellarLW)
 	  treeProxy[0].outputASCII(pLWOut, param.bParaWrite,
 				   CkCallbackResumeThread());  
+        treeProxy[0].outputASCII(pShieldOut, param.bParaWrite,
+                                 CkCallbackResumeThread());  
 #endif /*COOLING_MOLECULARH*/
 #endif
 #ifdef DIFFUSION

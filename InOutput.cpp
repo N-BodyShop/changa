@@ -117,6 +117,7 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
     p.fTimeForm() = sp.tform;
     p.iGasOrder() = -1;
 #ifdef COOLING_MOLECULARH 
+    p.fShieldForm() = sp.fShieldForm;
     p.dStarLymanWerner() = 0.0;
 #endif
 }

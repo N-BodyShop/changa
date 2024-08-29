@@ -307,9 +307,43 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 
 #ifdef COOLING_MOLECULARH
     double dMprob;
-    if (!bGasCooling || dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
+    // The self-shield removed this altogether: I should make it a thing that can be turned on or off.
+    /* if (!bGasCooling || dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
     else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
-    			    dStarFormEfficiencyH2*p->CoolParticle().f_H2);    
+    			    dStarFormEfficiencyH2*p->CoolParticle().f_H2);    */ 
+
+      /*Jeans Approx used for column length */
+      // DataManager *dm = (DataManager*) CkLocalNodeBranch(dataManagerID);
+    double rho = p->fDensity*(Cool->dMsolUnit*MSOLG/(pow((Cool->dKpcUnit*KPCCM * Cool->dExpand),3)));
+    double temp = *T;
+    if (temp > 40)
+      temp = 40;
+    double columnL = sqrt(15*KBOLTZ*temp/(4*M_PI*GCGS*rho*MHYDR))/(Cool->dKpcUnit*KPCCM * Cool->dExpand);
+    double metallicity = p->fMetals();
+    if (metallicity < 7e-5) metallicity = 7e-5; //Metallicity floor purposes of abundance and shielding calculation
+    /* Calculate shielding */
+    double HImass = 6.022e23*(938.7830/931.494); /*Avegadro's Number * Mass_Hydrogen/Energy_AMU */
+    double Y_HI = COOL_ARRAY0(Cool, &p->CoolParticle(), metallicity);
+    double Y_H2 = COOL_ARRAY3(Cool, &p->CoolParticle(), metallicity);
+    double yHI = (p->fDensity)*HImass*Y_HI;
+    double yH2 = (p->fDensity)*HImass*Y_H2;
+    double column_denHI = columnL*yHI*(Cool->dMsolUnit*MSOLG/(pow((Cool->dKpcUnit*KPCCM * Cool->dExpand),2)));
+    double column_denH2 = columnL*yH2*(Cool->dMsolUnit*MSOLG/(pow((Cool->dKpcUnit*KPCCM * Cool->dExpand),2)));
+    double sigmad = 2e-21; /*changed sigmad from 2e-21 to 8e-20 6/20/17; reverted 7/12/17*/
+    double f_s = exp(-1.0*sigmad*metallicity/(0.0130215)*(column_denHI + 2.0*column_denH2));
+    /*
+      double LW_shield = pow(10.0,p->CoolParticle().dLymanWerner - 59.626264) * (Cool->dMsolUnit*MSOLG) * .5 * f_s / (Cool->dKpcUnit*KPCCM * Cool->dExpand) / (Cool->dKpcUnit*KPCCM * Cool->dExpand);
+      if (LW_shield > 1e-12)
+      return NULL;
+    */
+    if (1) { //Adjust star formation recipe to make it depend on shielding
+      dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*(1.0-f_s));
+    }
+    else {
+      if (!bGasCooling || dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
+      else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
+    			    dStarFormEfficiencyH2*p->CoolParticle().f_H2);
+    }
     *H2FractionForm = p->CoolParticle().f_H2;
 #else /* COOLING_MOLECULARH */ 
     double dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform);
@@ -376,6 +410,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 	}
 #ifdef COOLING_MOLECULARH /*Initialize LW radiation for a star particle of that mass and 10^7 (the minimum) years old*/
     starp->dStarLymanWerner() = calcLogSSPLymanWerner(7,log10(dDeltaM));
+    starp->fShieldForm() = f_s;
 #endif /*COOLING_MOLECULARH*/
 
     /* NB: It is important that the star inherit special
