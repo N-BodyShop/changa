@@ -2935,12 +2935,24 @@ __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *d
              dGain[2];
 }
 
-__global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *_dtg, int nVars) {
+#define y(i) (_y[id * s->nv + (i)])
+#define y0(i) (s->y0[id * s->nv + (i)])
+#define ymin(i) (s->ymin[id * s->nv + (i)])
+#define q(i) (s->q[id * s->nv + (i)])
+#define d(i) (s->d[id * s->nv + (i)])
+#define rtau(i) (s->rtau[id * s->nv + (i)])
+#define ys(i) (s->ys[id * s->nv + (i)])
+#define qs(i) (s->qs[id * s->nv + (i)])
+#define rtaus(i) (s->rtaus[id * s->nv + (i)])
+#define scrarray(i) (s->scrarray[id * s->nv + (i)])
+#define y1(i) (s->y1[id * s->nv + (i)])
+
+__const__ float tfd = 1.000008; /* fudge for completion of timestep */
+
+__global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *dtg, int nVars) {
     int id;
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
-
-    double dtg = _dtg[id]; 
 
     double tn;			/* time within step */
     int i;
@@ -2950,57 +2962,29 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
     /*
      * Local copies of Stiff context
      */
-    int n = s->nv;
-    double *y = &_y[id * s->nv];
 
-    double *y0 = &s->y0[id * s->nv];
-    double *ymin = &s->ymin[id * s->nv];
-    double *q = &s->q[id * s->nv];
-    double *d = &s->d[id * s->nv];
-    double *rtau = &s->rtau[id * s->nv];
-    double *ys = &s->ys[id * s->nv];
-    double *qs = &s->qs[id * s->nv];
-    double *rtaus = &s->rtaus[id * s->nv];
-    double *scrarray = &s->scrarray[id * s->nv];
-    double *y1 = &s->y1[id * s->nv];
-
-    double epsmin = s->epsmin;
-    double sqreps = s->sqreps;
-    double epscl = s->epscl;
-    double epsmax = s->epsmax;
-    double dtmin = s->dtmin;
-    int itermax = s->itermax;
-    int gcount = 0;		/* count calls to derivs */
-    int rcount = 0;		/* count restart steps */
     double scrtch;
-    double ascr;
-    double scr1;
+    float scr1;
     double scr2;
     double dt;			/* timestep used by the integrator */
     double ts;			/* t at start of the chemical timestep */
-    double alpha;		/* solution parameter used in update */
+    float alpha;		/* solution parameter used in update */
     int iter;			/* counter for corrector iterations */
-    double eps;			/* maximum correction term */
-    double rtaub;
-    double qt;			/* alpha weighted average of q */
-    double pb;
-    const double tfd = 1.000008; /* fudge for completion of timestep */
-    double rteps;		/* estimate of sqrt(eps) */
-    double dto;			/* old timestep; to rescale rtaus */
-    double temp;                
+    float eps;			/* maximum correction term */
+    float rteps;		/* estimate of sqrt(eps) */
+    float dto;			/* old timestep; to rescale rtaus */
     
     tn = 0.0;
-    for(i = 0; i < n; i++) {
-	q[i] = 0.0;
-	d[i] = 0.0;
-	y0[i] = y[i];
-	y[i] = max(y[i], ymin[i]);
+    for(i = 0; i < s->nv; i++) {
+	q(i) = 0.0;
+	d(i) = 0.0;
+	y0(i) = y(i);
+	y(i) = max(y(i), ymin(i));
 	}
     
     //s->derivs(tn + tstart, y, q, d, s->Data);
-    CudaclDerivs(tn + tstart, y, q, d, &((CudaclDerivsData*)s->Data)[id]);
+    CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((CudaclDerivsData*)s->Data)[id]);
     //printf("q: %g\n", q[0]);
-    gcount++;
     
     /*
     C
@@ -3015,28 +2999,26 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
     c initial stepsize.
     */
     scrtch  = 1.0e-25;
-    for(i = 0; i < n; i++) {
-	ascr = fabs(q[i]);
-	scr2 = sign(1./y[i],.1*epsmin*ascr - d[i]);
-	scr1 = scr2 * d[i];
-	temp = -fabs(ascr-d[i])*scr2;
+    for(i = 0; i < s->nv; i++) {
+	scr2 = sign(1./y(i),.1*s->epsmin*fabs(q(i)) - d(i));
+	scr1 = scr2 * d(i);
 	/* If the species is already at the minimum, disregard
 	   destruction when calculating step size */
-	if (y[i] == ymin[i]) temp = 0.0;
-	scrtch = max(scr1,max(temp,scrtch));
+	if (y(i) == ymin(i)) scrtch = max(scr1,max(0.0,scrtch));
+  else scrtch = max(scr1,max(-fabs(fabs(q(i))-d(i))*scr2,scrtch));
 	// this should be a small number, not infinity
 	}
-    dt = min(sqreps/scrtch,dtg);
+    dt = min(s->sqreps/scrtch,dtg[id]);
     while(1) {
 	/*
 	  c the starting values are stored.
 	*/
 	ts = tn;
-	for(i = 0; i < n; i++) {
-	    rtau[i] = dt*d[i]/y[i];
-	    ys[i] = y[i];
-	    qs[i] = q[i];
-	    rtaus[i] = rtau[i];
+	for(i = 0; i < s->nv; i++) {
+	    rtau(i) = dt*d(i)/y(i);
+	    ys(i) = y(i);
+	    qs(i) = q(i);
+	    rtaus(i) = rtau(i);
 	    }
 
 	/*
@@ -3045,11 +3027,10 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
      int bLoop = 1;
      while (bLoop) {
      //restart: // doesnt work in CUDA
-	for(i = 0; i < n; i++) {
+	for(i = 0; i < s->nv; i++) {
 	    /*
 	     * prediction
 	     */
-	    double rtaui = rtau[i];
 	    /*
 	    c note that one of two approximations for alpha is chosen:
 	    c 1) Pade b for all rtaui (see supporting memo report)
@@ -3060,8 +3041,8 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 	    c
 	    c Option 1): Pade b
 	    */
-	    alpha = (180.+rtaui*(60.+rtaui*(11.+rtaui)))
-		/(360.+ rtaui*(60. + rtaui*(12. + rtaui)));
+	    alpha = (180.+rtau(i)*(60.+rtau(i)*(11.+rtau(i))))
+	                    /(360.+ rtau(i)*(60. + rtau(i)*(12. + rtau(i))));
 	    /*
 	    c Option 2): Pade a or linear
 	    c
@@ -3072,17 +3053,17 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 	    c    alpha = 1.-1./rtaui
 	    c end if
 	    */
-	    scrarray[i] = (q[i]-d[i])/(1.0 + alpha*rtaui);
+	    scrarray(i) = (q(i)-d(i))/(1.0 + alpha*rtau(i));
 	    }
 
 	iter = 1;
-	while(iter <= itermax) {
-	    for(i = 0; i < n; i++) {
+	while(iter <= s->itermax) {
+	    for(i = 0; i < s->nv; i++) {
 		/*
 		C ym2(i) = ym1(i)
 		C ym1(i) = y(i)
 		*/
-		y[i] = max(ys[i] + dt*scrarray[i], ymin[i]);
+		y(i) = max(ys(i) + dt*scrarray(i), ymin(i));
 		}
 	    /*	    if(iter == 1) {  Removed from original algorithm
 		    so that previous, rather than first, corrector is
@@ -3093,25 +3074,23 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 		check later.
 		*/
 		tn = ts + dt;
-		for(i = 0; i < n; i++)
-		    y1[i] = y[i];
+		for(i = 0; i < s->nv; i++)
+		    y1(i) = y(i);
 		/*		} Close for "if(iter == 1)" above */
 	    /*
 	      evaluate the derivitives for the corrector.
 	    */
 	   // s->derivs(tn + tstart, y, q, d, s->Data);
-            CudaclDerivs(tn + tstart, y, q, d, &((CudaclDerivsData*)s->Data)[id]);
-	    gcount++;
+            CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((CudaclDerivsData*)s->Data)[id]);
 	    eps = 1.0e-10;
-	    for(i = 0; i < n; i++) {
-		rtaub = .5*(rtaus[i]+dt*d[i]/y[i]);
+	    for(i = 0; i < s->nv; i++) {
 		/*
 		c Same options for calculating alpha as in predictor:
 		c
 		c Option 1): Pade b
 		*/
-		alpha = (180.+rtaub*(60.+rtaub*(11.+rtaub)))
-		    / (360. + rtaub*(60. + rtaub*(12. + rtaub)));
+                alpha = (180.+(.5*(rtaus(i)+dt*d(i)/y(i)))*(60.+(.5*(rtaus(i)+dt*d(i)/y(i)))*(11.+(.5*(rtaus(i)+dt*d(i)/y(i))))))
+		    / (360. + (.5*(rtaus(i)+dt*d(i)/y(i)))*(60. + (.5*(rtaus(i)+dt*d(i)/y(i)))*(12. + (.5*(rtaus(i)+dt*d(i)/y(i))))));
 		/*
 		c Option 2): Pade a or linear
 		c
@@ -3123,9 +3102,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 		c alpha = 1.- 1./rtaub
 		c end if
 		*/
-		qt = qs[i]*(1. - alpha) + q[i]*alpha;
-		pb = rtaub/dt;
-		scrarray[i] = (qt - ys[i]*pb) / (1.0 + alpha*rtaub);
+		scrarray(i) = ((qs(i)*(1. - alpha) + q(i)*alpha) - ys(i)*((.5*(rtaus(i)+dt*d(i)/y(i)))/dt)) / (1.0 + alpha*(.5*(rtaus(i)+dt*d(i)/y(i))));
 		}
 	    iter++;
 	    }
@@ -3133,21 +3110,21 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 	c calculate new f, check for convergence, and limit decreasing
 	c functions. the order of the operations in this loop is important.
 	*/
-	for(i = 0; i < n; i++) {
-	    scr2 = max(ys[i] + dt*scrarray[i], 0.0);
-	    scr1 = fabs(scr2 - y1[i]);
-	    y[i] = max(scr2, ymin[i]);
+	for(i = 0; i < s->nv; i++) {
+	    scr2 = max(ys(i) + dt*scrarray(i), 0.0);
+	    scr1 = fabs(scr2 - y1(i));
+	    y(i) = max(scr2, ymin(i));
 	    /*
 	    C ym2(i) = ymi(i)
 	    C yml(i) = y(i)
 	    */
-	    if(.25*(ys[i] + y[i]) > ymin[i]) {
-		scr1 = scr1/y[i];
+	    if(.25*(ys(i) + y(i)) > ymin(i)) {
+		scr1 = scr1/y(i);
 		eps = max(.5*(scr1+
-			      min(fabs(q[i]-d[i])/(q[i]+d[i]+1.0e-30),scr1)),eps);
+			      min(fabs(q(i)-d(i))/(q(i)+d(i)+1.0e-30),scr1)),eps);
 		}
 	    }
-	eps = eps*epscl;
+	eps = eps*s->epscl;
 	/*
 	c check for convergence.
 	c
@@ -3160,7 +3137,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 	C end do
 	C endif
 	*/
-	if(eps <= epsmax) {
+	if(eps <= s->epsmax) {
 	    /*
 	      & .and.stab.le.1.
 	    c
@@ -3168,9 +3145,9 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 	    */
 	    //printf("%g %g\n", dtg, tn*tfd);
 	    //if(1==1){
-	    if(dtg <= tn*tfd) {
+	    if(dtg[id] <= tn*tfd) {
                 for (int i = 0; i < 5; ++i) {
-                    _y[id * 5 + i] = y[i];
+                    _y[id * 5 + i] = y(i);
                 }
 	        return;
 	    }
@@ -3190,23 +3167,22 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 	rteps = 0.5*(rteps + eps/rteps);
 
 	dto = dt;
-	dt = min(dt*(1.0/rteps+.005), tfd*(dtg - tn));
+	dt = min(dt*(1.0/rteps+.005), tfd*(dtg[id] - tn));
 	/* & ,dto/(stab+.001) */
 	/*
 	  begin new step if previous step converged.
 	*/
 	bLoop = 0;
-	if(eps > epsmax) {
+	if(eps > s->epsmax) {
 	    /*    & .or. stab. gt. 1 */
-	    rcount++;
 	    /*
 	    c After an unsuccessful step the initial timescales don't
 	    c change, but dt does, requiring rtaus to be scaled by the
 	    c ratio of the new and old timesteps.
 	    */
 	    dto = dt/dto;
-	    for(i = 0; i < n; i++) {
-		rtaus[i] = rtaus[i]*dto;
+	    for(i = 0; i < s->nv; i++) {
+		rtaus(i) = rtaus(i)*dto;
 		}
 	    /*
 	     * Unsuccessful steps return to line 101 so that the initial
@@ -3221,12 +3197,11 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 	  and continue back at line 100
 	*/
 	//s->derivs(tn + tstart, y, q, d, s->Data);
-        CudaclDerivs(tn + tstart, y, q, d, &((CudaclDerivsData*)s->Data)[id]);
-	gcount++;
+        CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((CudaclDerivsData*)s->Data)[id]);
 	}
 
     // Copy back the modified data
     for (int i = 0; i < 5; ++i) {
-        _y[id * 5 + i] = y[i];
+        _y[id * 5 + i] = y(i);
         }
     }
