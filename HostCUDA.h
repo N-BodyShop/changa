@@ -117,6 +117,13 @@ typedef struct _CudaRequest{
 #endif //GPU_LOCAL_TREE_WALK
 }CudaRequest;
 
+typedef struct _CoolRequest{
+  cudaStream_t stream;
+  double *y;
+  double *d_y;
+  size_t ySize;
+}CoolRequest;
+
 /// Device memory pointers used by most functions in HostCUDA
 typedef struct _CudaDevPtr{
     void *d_list;
@@ -153,7 +160,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 void TreePiecePartListDataTransferRemote(CudaRequest *data);
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data);
 
-void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, double  **y_in, double tstart, std::vector<double> dtg, int numParts, cudaStream_t stream);
+void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, double  *y, double tstart, std::vector<double> dtg, int numParts, cudaStream_t stream);
 
 void DummyKernel(void *cb);
 

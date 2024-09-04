@@ -1399,21 +1399,17 @@ void TreePiece::updateuDot(int activeRung,
 
 	// Cooling functions can only accept C-style arrays
 	// so we dont use std::vectors here
-        double **y = new double*[numSelParts];
-        for (int i = 0; i < numSelParts; ++i) {
-  	    y[i] = new double[5];
-        }
+        double *y = new double[numSelParts*5];
 
         for(unsigned int i = 0; i < numSelParts; ++i) {
 	    Ecgs[i] = 0.0;
             CoolDataArr[i] = CoolDerivsInit(dm->Cool);
             CoolIntegrateEnergyCodeStart(dm->Cool, CoolDataArr[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
 	                                 ExternalHeating[i], fDensity[i],
-	  	                         fMetals[i], r[i].data(), dtUse[i], columnL[i], y[i]);
+	  	                         fMetals[i], r[i].data(), dtUse[i], columnL[i], &y[i*5]);
             }
 	double t;
 	t = 0.0;
-	
 #ifdef CUDA
 	// When running on the GPU, each thread needs its own:
 	//   Integrator context
@@ -1485,15 +1481,15 @@ void TreePiece::updateuDot(int activeRung,
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
-           StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
+           StiffStep( CoolDataArr[i]->IntegratorContext, y[i*5], t, dtUse[i]);
 	}
 #endif
 
+	// TODO slow, move to GPU kernel
         for(unsigned int i = 0; i < numSelParts; ++i) {
             CoolIntegrateEnergyCodeFinish(dm->Cool, CoolDataArr[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
 	                                  ExternalHeating[i], fDensity[i],
-	  	                          fMetals[i], r[i].data(), dtUse[i], columnL[i], y[i]);
-	    delete[] y[i];
+	  	                          fMetals[i], r[i].data(), dtUse[i], columnL[i], &y[i*5]);
             StiffFinalize(CoolDataArr[i]->IntegratorContext);
             }
 	delete[] y;

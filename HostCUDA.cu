@@ -2210,37 +2210,19 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].dtGrav = 0.0;
 }
 
-void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, double  **y, double tstart, std::vector<double> dtg, int numParts, cudaStream_t stream) {
+void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, double  *y, double tstart, std::vector<double> dtg, int numParts, cudaStream_t stream) {
 
     if (numParts == 0) return;
 
     size_t ySize = numParts * 5 * sizeof(double); // TODO const defined in clIntegrateEnergy
     size_t dtgSize = dtg.size() * sizeof(double);
 
-    double *y_host, *dtg_host, *y_host_out;
-    allocatePinnedHostMemory((void **)&y_host, ySize);
-    allocatePinnedHostMemory((void **)&y_host_out, ySize);
-    allocatePinnedHostMemory((void **)&dtg_host, dtgSize);
-    for (int i = 0; i < numParts; ++i) {
-        memcpy(y_host + i * 5, y[i], 5 * sizeof(double));
-    }
-    memcpy(dtg_host, dtg.data(), dtgSize);
-
-    cudaChk(cudaMemcpyAsync(d_y, y_host, ySize, cudaMemcpyHostToDevice, stream));
-    cudaChk(cudaMemcpyAsync(d_dtg, dtg_host, dtgSize, cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(d_y, y, ySize, cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(d_dtg, dtg.data(), dtgSize, cudaMemcpyHostToDevice, stream));
 
     CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_CudaStiff, d_y, tstart, d_dtg, numParts);
-    cudaChk(cudaMemcpyAsync(y_host_out, d_y, ySize, cudaMemcpyDeviceToHost, stream));
-    cudaStreamSynchronize(stream);
 
-    // Copy data back to the original 2D array y
-    for (int i = 0; i < numParts; ++i) {
-        memcpy(y[i], y_host_out + i * 5, 5 * sizeof(double));
-    }
-
-    freePinnedHostMemory(y_host);
-    freePinnedHostMemory(y_host_out);
-    freePinnedHostMemory(dtg_host);
+    cudaChk(cudaMemcpyAsync(y, d_y, ySize, cudaMemcpyDeviceToHost, stream));
 }
 
 // These need to be copied to device memory
