@@ -1485,13 +1485,13 @@ void TreePiece::updateuDot(int activeRung,
         CkPrintf("%d solving ODE on the CPU with %d particles\n", thisIndex, numSelParts);
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
-           StiffStep( CoolDataArr[i]->IntegratorContext, y[i], t, dtUse[i]);
+           StiffStep( CoolDataArr[i]->IntegratorContext, &y[i*5], t, dtUse[i]);
 	}
     }
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
-           StiffStep( CoolDataArr[i]->IntegratorContext, y[i*5], t, dtUse[i]);
+           StiffStep( CoolDataArr[i]->IntegratorContext, &y[i*5], t, dtUse[i]);
 	}
 #endif
 
