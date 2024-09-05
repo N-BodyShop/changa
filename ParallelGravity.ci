@@ -548,7 +548,7 @@ mainmodule ParallelGravity {
     entry void fillGPUBuffer(intptr_t bufLocalParts,
                              intptr_t bufLocalMoments,
                              intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
-    entry void setGPUudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb);
+    entry void setudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb);
     entry void updateParticles(intptr_t data, int partIndex);
 #else
     entry void continueStartRemoteChunk(int chunk);

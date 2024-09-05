@@ -464,15 +464,29 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     contribute(cb);
     }
 
-#ifdef CUDA
+
 /**
- * Allocate space for ODE solver on the GPU
+ * Allocate space for ODE solver
  * @param numParts Number of particles to allocate memory for
  * @param bFree Free the previous device pointers if reallocating
  */
 void
 DataManager::allocCoolParticleBlock(int numParts, int bFree) {
     if (bFree) {
+        free(h_CoolData);
+        free(h_Stiff);
+        free(h_ymin);
+        free(h_y0);
+        free(h_y1);
+        free(h_q);
+        free(h_d);
+        free(h_rtau);
+        free(h_ys);
+        free(h_qs);
+        free(h_rtaus);
+        free(h_scrarray);
+
+#ifdef CUDA
         cudaChk(cudaFree(d_CudaCoolData));
         cudaChk(cudaFree(d_CudaStiff));
         cudaChk(cudaFree(d_dtg));
@@ -488,13 +502,29 @@ DataManager::allocCoolParticleBlock(int numParts, int bFree) {
         cudaChk(cudaFree(d_rtaus));
         cudaChk(cudaFree(d_scrarray));
         cudaChk(cudaFree(d_y1));
+#endif
     }
 
+    int nv = 5; //CoolData->IntegratorContext->nv; // TODO set this based on cooling code params
+
+    h_CoolData = (clDerivsData *) malloc(numParts*sizeof(clDerivsData));
+    h_Stiff = (STIFF *) malloc(numParts*sizeof(STIFF));
+    h_ymin = (double *) malloc(numParts*nv*sizeof(double*));
+    h_y0 = (double *) malloc(numParts*nv*sizeof(double*));
+    h_y1 = (double *) malloc(numParts*nv*sizeof(double*));
+    h_q = (double *) malloc(numParts*nv*sizeof(double*));
+    h_d = (double *) malloc(numParts*nv*sizeof(double*));
+    h_rtau = (double *) malloc(numParts*nv*sizeof(double*));
+    h_ys = (double *) malloc(numParts*nv*sizeof(double*));
+    h_qs = (double *) malloc(numParts*nv*sizeof(double*));
+    h_rtaus = (double *) malloc(numParts*nv*sizeof(double*));
+    h_scrarray = (double *) malloc(numParts*nv*sizeof(double*));
+
+#ifdef CUDA
     cudaChk(cudaMalloc(&d_CudaCoolData, numParts*sizeof(CudaclDerivsData)));
     cudaChk(cudaMalloc(&d_CudaStiff, numParts*sizeof(CudaSTIFF)));
     cudaChk(cudaMalloc(&d_dtg, numParts*sizeof(*d_dtg)));
 
-    int nv = 5; //CoolData->IntegratorContext->nv; // TODO set this based on cooling code params
     cudaChk(cudaMalloc(&d_y, numParts*nv*sizeof(*d_y)));
     cudaChk(cudaMalloc(&d_ymin, numParts*nv*sizeof(*d_ymin)));
     cudaChk(cudaMalloc(&d_y0, numParts*nv*sizeof(*d_y0)));
@@ -506,9 +536,9 @@ DataManager::allocCoolParticleBlock(int numParts, int bFree) {
     cudaChk(cudaMalloc(&d_rtaus, numParts*nv*sizeof(*d_rtaus)));
     cudaChk(cudaMalloc(&d_scrarray, numParts*nv*sizeof(*d_scrarray)));
     cudaChk(cudaMalloc(&d_y1, numParts*nv*sizeof(*d_y1)));
+#endif
 }
 
-#endif
 
 /**
  * Per thread initialization
@@ -1236,10 +1266,26 @@ void TreePiece::updateuDot(int activeRung,
 			   const CkCallback& cb)
 {
 #ifndef COOLING_NONE
-    // TODO ifdef cudas here
-    int gpuGasMinParts = 10000;
     int nv = 5; // TODO this should be read from somewhere else
-    int offset = FirstGPUCoolParticleIndex;
+    int offset = FirstCoolParticleIndex;
+    h_CoolData = &dm->h_CoolData[offset];
+    h_Stiff = &dm->h_Stiff[offset];
+
+    offset *= nv;
+    h_ymin = &dm->h_y0[offset];
+    h_y0 = &dm->h_y0[offset];
+    h_y1 = &dm->h_y1[offset];
+    h_q = &dm->h_q[offset];
+    h_d = &dm->h_d[offset];
+    h_rtau = &dm->h_rtau[offset];
+    h_ys = &dm->h_ys[offset];
+    h_qs = &dm->h_qs[offset];
+    h_rtaus = &dm->h_rtaus[offset];
+    h_scrarray = &dm->h_scrarray[offset];
+
+#ifdef CUDA
+    offset = FirstCoolParticleIndex;
+    int gpuGasMinParts = 1;
     d_CudaCoolData = &dm->d_CudaCoolData[offset];
     d_CudaStiff = &dm->d_CudaStiff[offset];
     d_dtg = &dm->d_dtg[offset/nv];
@@ -1258,6 +1304,7 @@ void TreePiece::updateuDot(int activeRung,
     d_qs = &dm->d_qs[offset];
     d_rtaus = &dm->d_rtaus[offset];
     d_scrarray = &dm->d_scrarray[offset];
+#endif
 
     int numSelParts = myNumActiveGasParticles;
 
@@ -1401,10 +1448,39 @@ void TreePiece::updateuDot(int activeRung,
 	// Cooling functions can only accept C-style arrays
 	// so we dont use std::vectors here
         double *y = new double[numSelParts*5];
-
+#define EPSINTEG  1e-3
         for(unsigned int i = 0; i < numSelParts; ++i) {
 	    Ecgs[i] = 0.0;
-            CoolDataArr[i] = CoolDerivsInit(dm->Cool);
+            CoolDataArr[i] = &h_CoolData[i];
+            CoolDataArr[i]->cl = dm->Cool;
+
+            h_Stiff[i].nv = nv;
+            h_Stiff[i].epsmin = EPSINTEG;
+            h_Stiff[i].sqreps = 5.0*sqrt(EPSINTEG);
+            h_Stiff[i].epscl = 1.0/EPSINTEG;
+            h_Stiff[i].epsmax = 10.0;
+            h_Stiff[i].dtmin = 1e-15;
+            h_Stiff[i].itermax = 3;
+            h_Stiff[i].ymin = &h_ymin[i];
+            for(int j = 0; j < nv; j++)
+                h_Stiff[i].ymin[i*nv + j] = 1e-300;
+            h_Stiff[i].y0 = &h_y0[i];
+            h_Stiff[i].y1 = &h_y1[i];
+            h_Stiff[i].q = &h_q[i];
+            h_Stiff[i].d = &h_d[i];
+            h_Stiff[i].rtau = &h_rtau[i];
+            h_Stiff[i].ys = &h_ys[i];
+            h_Stiff[i].qs = &h_qs[i];
+            h_Stiff[i].rtaus = &h_rtaus[i];
+            h_Stiff[i].scrarray = &h_scrarray[i];
+
+            h_Stiff[i].Data = &h_CoolData[i];
+            h_Stiff[i].derivs = clDerivs;
+
+            h_Stiff[i].epsmax = 10.0;
+
+            CoolDataArr[i]->IntegratorContext = &h_Stiff[i];
+
             CoolIntegrateEnergyCodeStart(dm->Cool, CoolDataArr[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
 	                                 ExternalHeating[i], fDensity[i],
 	  	                         fMetals[i], r[i].data(), dtUse[i], columnL[i], &y[i*5]);
@@ -1495,12 +1571,10 @@ void TreePiece::updateuDot(int activeRung,
 	}
 #endif
 
-	// TODO slow, move to GPU kernel
         for(unsigned int i = 0; i < numSelParts; ++i) {
             CoolIntegrateEnergyCodeFinish(dm->Cool, CoolDataArr[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
 	                                  ExternalHeating[i], fDensity[i],
 	  	                          fMetals[i], r[i].data(), dtUse[i], columnL[i], &y[i*5]);
-            StiffFinalize(CoolDataArr[i]->IntegratorContext);
             }
 	delete[] y;
         }

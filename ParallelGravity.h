@@ -880,6 +880,25 @@ class TreePiece : public CBase_TreePiece {
   GravityParticle *getParticles(){return myParticles;}
 
 
+#ifndef COOLING_NONE
+        // First and last indices of cooling particles
+        int FirstCoolParticleIndex;
+        int LastCoolParticleIndex;
+
+        clDerivsData *h_CoolData;
+        STIFF *h_Stiff;
+        double *h_ymin;
+        double *h_y0;
+        double *h_y1;
+        double *h_q;
+        double *h_d;
+        double *h_rtau;
+        double *h_ys;
+        double *h_qs;
+        double *h_rtaus;
+        double *h_scrarray;
+#endif
+
 #ifdef CUDA
         // this variable holds the number of buckets active at
         // the start of an iteration
@@ -897,9 +916,6 @@ class TreePiece : public CBase_TreePiece {
         int FirstGPUParticleIndex;
         int LastGPUParticleIndex;
         int NumberOfGPUParticles;
-        // First and last indices of GPU cooling particles
-        int FirstGPUCoolParticleIndex;
-        int LastGPUCoolParticleIndex;
         BucketActiveInfo *bucketActiveInfo;
 
 	// For accessing GPU memory
@@ -1054,7 +1070,7 @@ class TreePiece : public CBase_TreePiece {
        void fillGPUBuffer(intptr_t bufLocalParts,
                           intptr_t bufLocalMoments,
                           intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
-        void setGPUudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb);
+        void setudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb);
         void updateParticles(intptr_t data, int partIndex);
 #else
         void continueStartRemoteChunk(int chunk);

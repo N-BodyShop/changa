@@ -152,6 +152,19 @@ protected:
         size_t sVarParts;
 
 #ifndef COOLING_NONE
+  clDerivsData *h_CoolData;
+  STIFF *h_Stiff;
+	double *h_ymin;
+	double *h_y0;
+	double *h_y1;
+	double *h_q;
+	double *h_d;
+	double *h_rtau;
+	double *h_ys;
+	double *h_qs;
+	double *h_rtaus;
+	double *h_scrarray;
+#ifdef CUDA
   // Pointers to cooling data on GPU
   CudaclDerivsData *d_CudaCoolData;
   CudaSTIFF *d_CudaStiff;
@@ -168,11 +181,12 @@ protected:
 	double *d_rtaus;
 	double *d_scrarray;
 
-  // Used to determine if GPU memory needs to be reallocated
+  // Used to determine if memory needs to be reallocated
   // Total number of gas particles on this node
   int numTotalGasParts;
-  // Total number of gas particles allocated on GPU
-  int numGPUGasParts;
+  // Total number of gas particles allocated
+  int numGasParts;
+#endif // CUDA
 #endif // COOLING_NONE
 
 	int numStreams;
@@ -240,7 +254,7 @@ public:
         void updateParticles(UpdateParticlesStruct *data);
         void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
-        DataManager(){ numGPUGasParts = 0; }
+        DataManager(){ numGasParts = 0; }
 
 #endif
 

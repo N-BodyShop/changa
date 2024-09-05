@@ -3822,9 +3822,9 @@ void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
     dm->transferLocalToGPU(nParts, (GenericTreeNode *)node);
 }
 
-void TreePiece::setGPUudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb) {
-    this->FirstGPUCoolParticleIndex = pTPindex;
-    this->LastGPUCoolParticleIndex = FirstGPUCoolParticleIndex + myNumActiveGasParticles;
+void TreePiece::setudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb) {
+    this->FirstCoolParticleIndex = pTPindex;
+    this->LastCoolParticleIndex = FirstCoolParticleIndex + myNumActiveGasParticles;
     dm->setupuDotDone(cb);
 }
 
