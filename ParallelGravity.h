@@ -930,8 +930,8 @@ class TreePiece : public CBase_TreePiece {
 	cudaStream_t stream;
 
 #ifndef COOLING_NONE
-        CudaclDerivsData *d_CudaCoolData;
-        CudaSTIFF *d_CudaStiff;
+        clDerivsData *d_CoolData;
+        STIFF *d_Stiff;
         double *d_y;
         double *d_dtg;
         double *d_ymin;

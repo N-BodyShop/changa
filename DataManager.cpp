@@ -34,6 +34,7 @@ void DataManager::init() {
   chunkRoots = NULL;
   cleanupTreePieces = true;
 #ifdef CUDA
+  numGasParts = 0;
   treePiecesDone = 0;
   treePiecesDoneUdot = 0;
   treePiecesDonePrefetch = 0;

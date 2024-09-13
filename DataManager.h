@@ -166,8 +166,8 @@ protected:
 	double *h_scrarray;
 #ifdef CUDA
   // Pointers to cooling data on GPU
-  CudaclDerivsData *d_CudaCoolData;
-  CudaSTIFF *d_CudaStiff;
+  clDerivsData *d_CoolData;
+  STIFF *d_Stiff;
   double *d_y;
   double *d_dtg;
 	double *d_ymin;
@@ -213,9 +213,9 @@ public:
 	 */
 	COOL *Cool;
 #ifdef CUDA
-	CudaCOOL *d_CudaCool;
-	CudaRATES_T *d_CudaRates_T;
-	CudaUVSPECTRUM *d_CudaUvspectrum;
+	COOL *d_Cool;
+	RATES_T *d_Rates_T;
+	UVSPECTRUM *d_Uvspectrum;
 	float *d_MetalCoolln;
 	float *d_MetalHeatln;
 #endif
@@ -254,7 +254,7 @@ public:
         void updateParticles(UpdateParticlesStruct *data);
         void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
-        DataManager(){ numGasParts = 0; }
+        DataManager(){ }
 
 #endif
 
@@ -273,14 +273,14 @@ public:
 	    delete starLog;
 	    CmiDestroyLock(lockStarLog);
 #ifdef CUDA
-	    cudaFree(d_CudaRates_T);
+	    cudaFree(d_Rates_T);
 	    cudaFree(d_MetalCoolln);
 	    cudaFree(d_MetalHeatln);
-	    cudaFree(d_CudaUvspectrum);
-	    cudaFree(d_CudaCool);
+	    cudaFree(d_Uvspectrum);
+	    cudaFree(d_Cool);
 
-	    cudaFree(d_CudaCoolData);
-	    cudaFree(d_CudaStiff);
+	    cudaFree(d_CoolData);
+	    cudaFree(d_Stiff);
 	    cudaFree(d_dtg);
 
 	    cudaFree(d_y);

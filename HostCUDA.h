@@ -5,6 +5,8 @@
 #include <cuda_runtime.h>
 #include "cuda_typedef.h"
 
+#include "cooling_metal_H2.h"
+
 #define THREADS_PER_BLOCK 128
 
 #ifdef GPU_LOCAL_TREE_WALK
@@ -147,7 +149,7 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 				  cudaStream_t stream,
                                   void *callback);
 
-void CudaCoolSetTime( CudaCOOL *cl, double dTime, double z, cudaStream_t stream );
+void CudaCoolSetTime( COOL *cl, double dTime, double z, cudaStream_t stream );
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb);
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
@@ -160,7 +162,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 void TreePiecePartListDataTransferRemote(CudaRequest *data);
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data);
 
-void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, double  *y, double tstart, std::vector<double> dtg, int numParts, cudaStream_t stream);
+void TreePieceODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double  *y, double tstart, std::vector<double> dtg, int numParts, cudaStream_t stream);
 
 void DummyKernel(void *cb);
 

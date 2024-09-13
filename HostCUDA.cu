@@ -2210,7 +2210,7 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].dtGrav = 0.0;
 }
 
-void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, double  *y, double tstart, std::vector<double> dtg, int numParts, cudaStream_t stream) {
+void TreePieceODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double  *y, double tstart, std::vector<double> dtg, int numParts, cudaStream_t stream) {
 
     if (numParts == 0) return;
 
@@ -2220,7 +2220,7 @@ void TreePieceODESolver(CudaSTIFF *d_CudaStiff, double *d_y, double *d_dtg, doub
     cudaChk(cudaMemcpyAsync(d_y, y, ySize, cudaMemcpyHostToDevice, stream));
     cudaChk(cudaMemcpyAsync(d_dtg, dtg.data(), dtgSize, cudaMemcpyHostToDevice, stream));
 
-    CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_CudaStiff, d_y, tstart, d_dtg, numParts);
+    CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_Stiff, d_y, tstart, d_dtg, numParts);
 
     cudaChk(cudaMemcpyAsync(y, d_y, ySize, cudaMemcpyDeviceToHost, stream));
 }
@@ -2436,11 +2436,11 @@ __device__ double cudaCLDUSTSHIELD (double yHI, double yH2, double z, double h) 
 #define CL_Tcmb0  2.735
 #define CL_Ccomp  (CL_Ccomp0*CL_Tcmb0)
 
-void CudaCoolSetTime( CudaCOOL *cl, double dTime, double z, cudaStream_t stream ) {
-    clRatesRedshift<<<1, 1, 0, stream>>>( cl, z, dTime );
+void CudaCoolSetTime( COOL *cl, double dTime, double z, cudaStream_t stream ) {
+    CudaclRatesRedshift<<<1, 1, 0, stream>>>( cl, z, dTime );
 }
 
-__device__ void clSetAbundanceTotals(CudaCOOL *cl, double ZMetal, double *pY_H, double *pY_He, double *pY_eMax) {
+__device__ void CudaclSetAbundanceTotals(COOL *cl, double ZMetal, double *pY_H, double *pY_He, double *pY_eMax) {
     double Y_H, Y_He;
     
     if (ZMetal <= 0.1) {
@@ -2457,11 +2457,11 @@ __device__ void clSetAbundanceTotals(CudaCOOL *cl, double ZMetal, double *pY_H, 
 
 }
 
-__global__ void clRatesRedshift( CudaCOOL *cl, double zIn, double dTimeIn ) {
+__global__ void CudaclRatesRedshift( COOL *cl, double zIn, double dTimeIn ) {
   int i;
   double xx;
   double zTime;
-  CudaUVSPECTRUM *UV,*UV0;
+  UVSPECTRUM *UV,*UV0;
   double Y_H, Y_He, Y_eMax;
   double ten = 10.0,output, expon;
 
@@ -2474,7 +2474,7 @@ __global__ void clRatesRedshift( CudaCOOL *cl, double zIn, double dTimeIn ) {
 
   cl->R.Cool_Comp = pow((1+zIn)*CL_Ccomp,4.0)*CL_B_gm; 
   cl->R.Tcmb = CL_Tcmb0*(1+zIn);
-  clSetAbundanceTotals(cl,0.0,&Y_H,&Y_He,&Y_eMax); /* Hack to estimate Y_H */
+  CudaclSetAbundanceTotals(cl,0.0,&Y_H,&Y_He,&Y_eMax); /* Hack to estimate Y_H */
   cl->R.Cool_LowTFactor = (cl->bLowTCool ? CL_B_gm*Y_H*Y_H/0.001 : 0 );
 
   /* Photo-Ionization rates */
@@ -2562,12 +2562,12 @@ __global__ void clRatesRedshift( CudaCOOL *cl, double zIn, double dTimeIn ) {
 
 /* Returns Heating - Cooling excluding External Heating, units of ergs s^-1 g^-1 
    Public interface CoolEdotInstantCode */
-__device__ double cudaClEdotInstant_Table( CudaCOOL *cl, CudaPERBARYON *Y, CudaRATE *Rate, double rho, 
+__device__ double cudaClEdotInstant_Table( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, 
 			    double ZMetal, double *dEdotHeat, double *dEdotCool )
 {
   double en_B = rho*CL_B_gm;
   double xTln,wTln0,wTln1;/*,wTln0d,wTln1d;*/
-  CudaRATES_T *RT0,*RT1;/*,*RT0d,*RT1d;*/
+  RATES_T *RT0,*RT1;/*,*RT0d,*RT1d;*/
   int iTln;
 
   double ne,LowTCool;
@@ -2673,10 +2673,10 @@ __device__ double cudaClEdotInstant_Table( CudaCOOL *cl, CudaPERBARYON *Y, CudaR
   return *dEdotHeat - *dEdotCool;
 }
 
-__device__ void cudaClRates_Table( CudaCOOL *cl, CudaRATE *Rate, double T, double rho, double ZMetal, double columnL, double Rate_Phot_H2_stellar) {
+__device__ void cudaClRates_Table( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, double columnL, double Rate_Phot_H2_stellar) {
   double Tln;
   double xTln,wTln0,wTln1;/*,wTln0d,wTln1d;*/
-  CudaRATES_T *RT0,*RT1;/*,*RT0d,*RT1d;*/
+  RATES_T *RT0,*RT1;/*,*RT0d,*RT1d;*/
   int iTln;
 
   if (T >= cl->TMax) T=cl->TMax*(1.0 - EPS);   
@@ -2756,7 +2756,7 @@ __device__ void cudaClRates_Table( CudaCOOL *cl, CudaRATE *Rate, double T, doubl
       }
 }
 
-__device__ void cudaClRateMetalTable(CudaCOOL *cl, CudaRATE *Rate, double T, double rho, double Y_H, double ZMetal)
+__device__ void cudaClRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, double ZMetal)
 {
   double tempT, tempnH,tempz, nH;
   double Tlog, nHlog; 
@@ -2807,23 +2807,24 @@ __device__ void cudaClRateMetalTable(CudaCOOL *cl, CudaRATE *Rate, double T, dou
   
   int nnH = cl->nnHMetalTable;
   int nt = cl->nTMetalTable;
-  Cool000 = cl->MetalCoolln[(iz * nnH * nt) + (inHlog * nt) + iTlog];
-  Cool001 = cl->MetalCoolln[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
-  Cool010 = cl->MetalCoolln[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
-  Cool011 = cl->MetalCoolln[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
-  Cool100 = cl->MetalCoolln[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
-  Cool101 = cl->MetalCoolln[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
-  Cool110 = cl->MetalCoolln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
-  Cool111 = cl->MetalCoolln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
   
-  Heat000 = cl->MetalHeatln[(iz * nnH * nt) + (inHlog * nt) + iTlog];
-  Heat001 = cl->MetalHeatln[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
-  Heat010 = cl->MetalHeatln[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
-  Heat011 = cl->MetalHeatln[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
-  Heat100 = cl->MetalHeatln[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
-  Heat101 = cl->MetalHeatln[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
-  Heat110 = cl->MetalHeatln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
-  Heat111 = cl->MetalHeatln[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+  Cool000 = ((float *) cl->MetalCoolln)[(iz * nnH * nt) + (inHlog * nt) + iTlog];
+  Cool001 = ((float *) cl->MetalCoolln)[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Cool010 = ((float *) cl->MetalCoolln)[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Cool011 = ((float *) cl->MetalCoolln)[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+  Cool100 = ((float *) cl->MetalCoolln)[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
+  Cool101 = ((float *) cl->MetalCoolln)[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Cool110 = ((float *) cl->MetalCoolln)[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Cool111 = ((float *) cl->MetalCoolln)[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+  
+  Heat000 = ((float *) cl->MetalHeatln)[(iz * nnH * nt) + (inHlog * nt) + iTlog];
+  Heat001 = ((float *) cl->MetalHeatln)[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Heat010 = ((float *) cl->MetalHeatln)[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Heat011 = ((float *) cl->MetalHeatln)[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+  Heat100 = ((float *) cl->MetalHeatln)[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
+  Heat101 = ((float *) cl->MetalHeatln)[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Heat110 = ((float *) cl->MetalHeatln)[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Heat111 = ((float *) cl->MetalHeatln)[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
 
   xz = xz - iz; 
   wz1 = xz; 
@@ -2864,7 +2865,7 @@ __device__ void cudaClRateMetalTable(CudaCOOL *cl, CudaRATE *Rate, double T, dou
 
 __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *dLoss,
 	     void *Data) {
-  CudaclDerivsData *d = (CudaclDerivsData *)Data;
+  clDerivsData *d = (clDerivsData *)Data;
   double T,ne,nHI, nHII, internalheat = 0, externalheat = 0;
   double internalcool = 0;
   double en_B = d->rho*CL_B_gm;
@@ -2949,7 +2950,304 @@ __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *d
 
 __const__ float tfd = 1.000008; /* fudge for completion of timestep */
 
-__global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *dtg, int nVars) {
+__global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *_dtg, int nVars) {
+    int id;
+    id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    if(id >= nVars) return;
+
+    double dtg = _dtg[id]; 
+
+    double tn;			/* time within step */
+    int i;
+
+    STIFF *s = &s0[id];
+
+    /*
+     * Local copies of Stiff context
+     */
+    int n = s->nv;
+    double *y = &_y[id * s->nv];
+    double *y0 = s->y0;
+    double *ymin = s->ymin;
+    double *q = s->q;
+    double *d = s->d;
+    double *rtau = s->rtau;
+    double *ys = s->ys;
+    double *qs = s->qs;
+    double *rtaus = s->rtaus;
+    double *scrarray = s->scrarray;
+    double *y1 = s->y1;
+
+    double epsmin = s->epsmin;
+    double sqreps = s->sqreps;
+    double epscl = s->epscl;
+    double epsmax = s->epsmax;
+    double dtmin = s->dtmin;
+    int itermax = s->itermax;
+    int gcount = 0;		/* count calls to derivs */
+    int rcount = 0;		/* count restart steps */
+    double scrtch;
+    double ascr;
+    double scr1;
+    double scr2;
+    double dt;			/* timestep used by the integrator */
+    double ts;			/* t at start of the chemical timestep */
+    double alpha;		/* solution parameter used in update */
+    int iter;			/* counter for corrector iterations */
+    double eps;			/* maximum correction term */
+    double rtaub;
+    double qt;			/* alpha weighted average of q */
+    double pb;
+    const double tfd = 1.000008; /* fudge for completion of timestep */
+    double rteps;		/* estimate of sqrt(eps) */
+    double dto;			/* old timestep; to rescale rtaus */
+    double temp;                
+    
+    tn = 0.0;
+    for(i = 0; i < n; i++) {
+	q[i] = 0.0;
+	d[i] = 0.0;
+	y0[i] = y[i];
+	y[i] = max(y[i], ymin[i]);
+	}
+    //s->derivs(tn + tstart, y, q, d, s->Data);
+    CudaclDerivs(tn + tstart, y, q, d, s->Data);
+    // Seems ok up to this point
+    //printf("q: %g\n", q[0]);
+    gcount++;
+    
+    /*
+    C
+    c estimate the initial stepsize.
+    C
+    c strongly increasing functions(q >>> d assumed here) use a step-
+    c size estimate proportional to the step needed for the function to
+    c reach equilibrium where as functions decreasing or in equilibrium
+    c use a stepsize estimate directly proportional to the character-
+    c istic stepsize of the function. convergence of the integration
+    c scheme is likely since the smallest estimate is chosen for the
+    c initial stepsize.
+    */
+    scrtch  = 1.0e-25;
+    for(i = 0; i < n; i++) {
+	ascr = fabs(q[i]);
+	scr2 = sign(1./y[i],.1*epsmin*ascr - d[i]);
+	scr1 = scr2 * d[i];
+	temp = -fabs(ascr-d[i])*scr2;
+	/* If the species is already at the minimum, disregard
+	   destruction when calculating step size */
+	if (y[i] == ymin[i]) temp = 0.0;
+	scrtch = max(scr1,max(temp,scrtch));
+	// this should be a small number, not infinity
+	}
+    dt = min(sqreps/scrtch,dtg);
+    while(1) {
+	/*
+	  c the starting values are stored.
+	*/
+	ts = tn;
+	for(i = 0; i < n; i++) {
+	    rtau[i] = dt*d[i]/y[i];
+	    ys[i] = y[i];
+	    qs[i] = q[i];
+	    rtaus[i] = rtau[i];
+	    }
+
+	/*
+	 * find the predictor terms.
+	 */
+     int bLoop = 1;
+     while (bLoop) {
+     //restart: // doesnt work in CUDA
+	for(i = 0; i < n; i++) {
+	    /*
+	     * prediction
+	     */
+	    double rtaui = rtau[i];
+	    /*
+	    c note that one of two approximations for alpha is chosen:
+	    c 1) Pade b for all rtaui (see supporting memo report)
+	    c or
+	    c 2) Pade a for rtaui<=rswitch,
+	    c linear approximation for rtaui > rswitch
+	    c (again, see supporting NRL memo report (Mott et al., 2000))
+	    c
+	    c Option 1): Pade b
+	    */
+	    alpha = (180.+rtaui*(60.+rtaui*(11.+rtaui)))
+		/(360.+ rtaui*(60. + rtaui*(12. + rtaui)));
+	    /*
+	    c Option 2): Pade a or linear
+	    c
+	    c if(rtaui.le.rswitch) then
+	    c      alpha = (840.+rtaui*(140.+rtaui*(20.+rtaui)))
+	    c    &         / (1680. + 40. * rtaui*rtaui)
+	    c else
+	    c    alpha = 1.-1./rtaui
+	    c end if
+	    */
+	    scrarray[i] = (q[i]-d[i])/(1.0 + alpha*rtaui);
+	    }
+
+	iter = 1;
+	while(iter <= itermax) {
+	    for(i = 0; i < n; i++) {
+		/*
+		C ym2(i) = ym1(i)
+		C ym1(i) = y(i)
+		*/
+		y[i] = max(ys[i] + dt*scrarray[i], ymin[i]);
+		}
+	    /*	    if(iter == 1) {  Removed from original algorithm
+		    so that previous, rather than first, corrector is
+		    compared to.  Results in faster integration. */
+		/*
+		c the first corrector step advances the time (tentatively) and
+		c saves the initial predictor value as y1 for the timestep
+		check later.
+		*/
+		tn = ts + dt;
+		for(i = 0; i < n; i++)
+		    y1[i] = y[i];
+		/*		} Close for "if(iter == 1)" above */
+	    /*
+	      evaluate the derivitives for the corrector.
+	    */
+	   // s->derivs(tn + tstart, y, q, d, s->Data);
+    CudaclDerivs(tn + tstart, y, q, d, s->Data);
+	    gcount++;
+	    eps = 1.0e-10;
+	    for(i = 0; i < n; i++) {
+		rtaub = .5*(rtaus[i]+dt*d[i]/y[i]);
+		/*
+		c Same options for calculating alpha as in predictor:
+		c
+		c Option 1): Pade b
+		*/
+		alpha = (180.+rtaub*(60.+rtaub*(11.+rtaub)))
+		    / (360. + rtaub*(60. + rtaub*(12. + rtaub)));
+		/*
+		c Option 2): Pade a or linear
+		c
+		c if(rtaub.le.rswitch)
+		c then
+		c alpha = (840.+rtaub*(140.+rtaub*(20.+rtaub)))
+		c & / (1680. + 40.*rtaub*rtaub)
+		c else
+		c alpha = 1.- 1./rtaub
+		c end if
+		*/
+		qt = qs[i]*(1. - alpha) + q[i]*alpha;
+		pb = rtaub/dt;
+		scrarray[i] = (qt - ys[i]*pb) / (1.0 + alpha*rtaub);
+		}
+	    iter++;
+	    }
+	/*
+	c calculate new f, check for convergence, and limit decreasing
+	c functions. the order of the operations in this loop is important.
+	*/
+	for(i = 0; i < n; i++) {
+	    scr2 = max(ys[i] + dt*scrarray[i], 0.0);
+	    scr1 = fabs(scr2 - y1[i]);
+	    y[i] = max(scr2, ymin[i]);
+	    /*
+	    C ym2(i) = ymi(i)
+	    C yml(i) = y(i)
+	    */
+	    if(.25*(ys[i] + y[i]) > ymin[i]) {
+		scr1 = scr1/y[i];
+		eps = max(.5*(scr1+
+			      min(fabs(q[i]-d[i])/(q[i]+d[i]+1.0e-30),scr1)),eps);
+		}
+	    }
+	eps = eps*epscl;
+	/*
+	c check for convergence.
+	c
+	c The following section is used for the stability check
+	C       stab = 0.01
+	C if(itermax.ge.3) then
+	C       do i=1,n
+	C           stab = max(stab, abs(y(i)-yml(i))/
+	C       &       (abs(ymi(i)-ym2(i))+1.e-20*y(i)))
+	C end do
+	C endif
+	*/
+	if(eps <= epsmax) {
+	    /*
+	      & .and.stab.le.1.
+	    c
+	    c Valid step. Return if dtg has been reached.
+	    */
+	    //printf("%g %g\n", dtg, tn*tfd);
+	    //if(1==1){
+	    if(dtg <= tn*tfd) {
+                for (int i = 0; i < 5; ++i) {
+                    _y[id * 5 + i] = y[i];
+                }
+	        return;
+	    }
+	    }
+	else {
+	    /*
+	      Invalid step; reset tn to ts
+	    */
+	    tn = ts;
+	    }
+	/*
+	  perform stepsize modifications.
+	  estimate sqrt(eps) by newton iteration.
+	*/
+	rteps = 0.5*(eps + 1.0);
+	rteps = 0.5*(rteps + eps/rteps);
+	rteps = 0.5*(rteps + eps/rteps);
+
+	dto = dt;
+	dt = min(dt*(1.0/rteps+.005), tfd*(dtg - tn));
+	/* & ,dto/(stab+.001) */
+	/*
+	  begin new step if previous step converged.
+	*/
+	bLoop = 0;
+	if(eps > epsmax) {
+	    /*    & .or. stab. gt. 1 */
+	    rcount++;
+	    /*
+	    c After an unsuccessful step the initial timescales don't
+	    c change, but dt does, requiring rtaus to be scaled by the
+	    c ratio of the new and old timesteps.
+	    */
+	    dto = dt/dto;
+	    for(i = 0; i < n; i++) {
+		rtaus[i] = rtaus[i]*dto;
+		}
+	    /*
+	     * Unsuccessful steps return to line 101 so that the initial
+	     * source terms do not get recalculated.
+	    */
+	    //goto restart;
+	    bLoop = 1;
+	    }
+     }
+	/*
+	  Successful step; get the source terms for the next step
+	  and continue back at line 100
+	*/
+	//s->derivs(tn + tstart, y, q, d, s->Data);
+    CudaclDerivs(tn + tstart, y, q, d, s->Data);
+	gcount++;
+	}
+
+    // Copy back the modified data
+    for (int i = 0; i < 5; ++i) {
+        _y[id * 5 + i] = y[i];
+        }
+    }
+
+#ifdef HELLO
+__global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *dtg, int nVars) {
+
     int id;
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
@@ -2957,7 +3255,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
     double tn;			/* time within step */
     int i;
 
-    CudaSTIFF *s = &s0[id];
+    STIFF *s = &s0[id];
 
     /*
      * Local copies of Stiff context
@@ -2981,11 +3279,10 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 	y0(i) = y(i);
 	y(i) = max(y(i), ymin(i));
 	}
-    
+
     //s->derivs(tn + tstart, y, q, d, s->Data);
-    CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((CudaclDerivsData*)s->Data)[id]);
+    CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((clDerivsData*)s->Data)[id]);
     //printf("q: %g\n", q[0]);
-    
     /*
     C
     c estimate the initial stepsize.
@@ -3009,6 +3306,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 	// this should be a small number, not infinity
 	}
     dt = min(s->sqreps/scrtch,dtg[id]);
+    
     while(1) {
 	/*
 	  c the starting values are stored.
@@ -3081,7 +3379,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 	      evaluate the derivitives for the corrector.
 	    */
 	   // s->derivs(tn + tstart, y, q, d, s->Data);
-            CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((CudaclDerivsData*)s->Data)[id]);
+            CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((clDerivsData*)s->Data)[id]);
 	    eps = 1.0e-10;
 	    for(i = 0; i < s->nv; i++) {
 		/*
@@ -3197,7 +3495,7 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
 	  and continue back at line 100
 	*/
 	//s->derivs(tn + tstart, y, q, d, s->Data);
-        CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((CudaclDerivsData*)s->Data)[id]);
+        CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((clDerivsData*)s->Data)[id]);
 	}
 
     // Copy back the modified data
@@ -3205,3 +3503,5 @@ __global__ void CudaStiffStep(CudaSTIFF *s0, double *_y, double tstart, double *
         _y[id * 5 + i] = y(i);
         }
     }
+
+    #endif

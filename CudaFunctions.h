@@ -36,8 +36,8 @@ __global__ void nodeGravityComputation(
 
 __global__ void ZeroVars(VariablePartData *particleVars, int nVars);
 
-__global__ void clRatesRedshift( CudaCOOL *cl, double zIn, double dTimeIn );
-__global__ void CudaStiffStep(CudaSTIFF *s, double *y, double tstart, double *dtg, int nVars);
+__global__ void CudaclRatesRedshift( COOL *cl, double zIn, double dTimeIn );
+__global__ void CudaStiffStep(STIFF *s, double *y, double tstart, double *dtg, int nVars);
 __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *dLoss,
 		             void *Data);
 
