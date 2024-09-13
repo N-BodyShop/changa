@@ -19,11 +19,11 @@ void ExternalForce::AddParams(PRM prm)
     dCentMass = 1.0;
     prmAddParam(prm,"dCentMass",paramDouble,&dCentMass,
                 sizeof(double),
-                "fgm","specifies the central mass for Keplerian orbits");
-    dCentRad = 0.0046;
+                "mcent","specifies the central mass for Keplerian orbits = 1 M_sun");
+    dCentRad = 0.0046; // 1 R_sun in AU
     prmAddParam(prm,"dCentRad",paramDouble,&dCentRad,
                 sizeof(double),
-                "fgm","central radius of the star, delete bodies which will fall inside of this");
+                "rcent","central radius of the star, delete bodies which will fall inside of this = 1 R_sun");
     bPatch = 0;
     prmAddParam(prm,"bPatch",paramBool,&bPatch,
                 sizeof(int),
