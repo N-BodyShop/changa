@@ -2936,20 +2936,7 @@ __device__ void CudaclDerivs(double x, const double *y, double *dGain, double *d
              dGain[2];
 }
 
-#define y(i) (_y[id * s->nv + (i)])
-#define y0(i) (s->y0[id * s->nv + (i)])
-#define ymin(i) (s->ymin[id * s->nv + (i)])
-#define q(i) (s->q[id * s->nv + (i)])
-#define d(i) (s->d[id * s->nv + (i)])
-#define rtau(i) (s->rtau[id * s->nv + (i)])
-#define ys(i) (s->ys[id * s->nv + (i)])
-#define qs(i) (s->qs[id * s->nv + (i)])
-#define rtaus(i) (s->rtaus[id * s->nv + (i)])
-#define scrarray(i) (s->scrarray[id * s->nv + (i)])
-#define y1(i) (s->y1[id * s->nv + (i)])
-
-__const__ float tfd = 1.000008; /* fudge for completion of timestep */
-
+#ifdef HELLO
 __global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *_dtg, int nVars) {
     int id;
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
@@ -3244,8 +3231,22 @@ __global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *_dtg
         _y[id * 5 + i] = y[i];
         }
     }
+#endif
 
-#ifdef HELLO
+#define y(i) (_y[id * s->nv + (i)])
+#define y0(i) (s->y0[i])
+#define ymin(i) (s->ymin[i])
+#define q(i) (s->q[i])
+#define d(i) (s->d[i])
+#define rtau(i) (s->rtau[i])
+#define ys(i) (s->ys[i])
+#define qs(i) (s->qs[i])
+#define rtaus(i) (s->rtaus[i])
+#define scrarray(i) (s->scrarray[i])
+#define y1(i) (s->y1[i])
+
+__const__ float tfd = 1.000008; /* fudge for completion of timestep */
+
 __global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *dtg, int nVars) {
 
     int id;
@@ -3281,7 +3282,7 @@ __global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *dtg,
 	}
 
     //s->derivs(tn + tstart, y, q, d, s->Data);
-    CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((clDerivsData*)s->Data)[id]);
+    CudaclDerivs(tn + tstart, &_y[id * s->nv], s->q, s->d, s->Data);
     //printf("q: %g\n", q[0]);
     /*
     C
@@ -3379,7 +3380,7 @@ __global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *dtg,
 	      evaluate the derivitives for the corrector.
 	    */
 	   // s->derivs(tn + tstart, y, q, d, s->Data);
-            CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((clDerivsData*)s->Data)[id]);
+      CudaclDerivs(tn + tstart, &_y[id * s->nv], s->q, s->d, s->Data);
 	    eps = 1.0e-10;
 	    for(i = 0; i < s->nv; i++) {
 		/*
@@ -3495,7 +3496,7 @@ __global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *dtg,
 	  and continue back at line 100
 	*/
 	//s->derivs(tn + tstart, y, q, d, s->Data);
-        CudaclDerivs(tn + tstart, &_y[id * s->nv], &s->q[id * s->nv], &s->d[id * s->nv], &((clDerivsData*)s->Data)[id]);
+    CudaclDerivs(tn + tstart, &_y[id * s->nv], s->q, s->d, s->Data);
 	}
 
     // Copy back the modified data
@@ -3503,5 +3504,3 @@ __global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *dtg,
         _y[id * 5 + i] = y(i);
         }
     }
-
-    #endif
