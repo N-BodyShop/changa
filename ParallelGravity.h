@@ -1727,7 +1727,7 @@ public:
  * @param exForce The external force object
  * @param cb Callback function
  */
-  void externalForce(int activeRung, const ExternalForce exForce, int bKepStep,
+  void externalForce(int activeRung, const ExternalForce& exForce, int bKepStep,
                        const CkCallback& cb);
 
 /**

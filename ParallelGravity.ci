@@ -378,7 +378,7 @@ mainmodule ParallelGravity {
         double dMultiPhaseMaxTime, double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
     entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
-    entry void externalForce(int activeRung, const ExternalForce exForce, int bKepStep,
+    entry void externalForce(int activeRung, const ExternalForce& exForce, int bKepStep,
                        const CkCallback& cb);
 #ifdef COOLING_MOLECULARH
     entry void distribLymanWerner(const CkCallback& cb);

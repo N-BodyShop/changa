@@ -108,7 +108,7 @@ void ExternalForce::CheckParams(PRM prm, struct parameters &param)
  * @return The accumulated acceleration on the potential by the particles on this
  * TreePiece
  */
-void TreePiece::externalForce(int iKickRung, const ExternalForce exForce, int bKepStep,
+void TreePiece::externalForce(int iKickRung, const ExternalForce& exForce, int bKepStep,
                                 const CkCallback& cb)
 {
     CkAssert(bBucketsInited);
