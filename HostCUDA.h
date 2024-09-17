@@ -29,11 +29,6 @@
 #define NUM_INIT_PARTICLE_INTERACTIONS_PER_BUCKET 100
 
 
-// Usetable fns only
-#define CLRATES( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar) cudaClRates_Table( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)
-#define CLEDOTINSTANT( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool ) cudaClEdotInstant_Table( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool)
-
-
 #define EPS 1e-5
 #define M_H      1.672e-24
 

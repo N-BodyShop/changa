@@ -1250,7 +1250,7 @@ void TreePiece::updateuDot(int activeRung,
             Stiff[i].scrarray = &d_scrarray[i*nv];
             Stiff[i].y1 = &d_y1[i*nv];
             Stiff[i].Data = &d_CoolData[i];
-            Stiff[i].derivs = CudaclDerivs;
+            Stiff[i].derivs = clDerivs;
         }
 
         cudaChk(cudaMemcpyAsync(d_CoolData, h_CoolData, numSelParts*sizeof(clDerivsData), cudaMemcpyHostToDevice, this->stream));

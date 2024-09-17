@@ -15,6 +15,15 @@
 #include "param.h"
 #include "rpc/xdr.h"
 
+#ifdef CUDA
+#include <cuda_runtime.h>
+
+#define CUDA_DH __device__ __host__
+#else
+#define CUDA_DH
+#endif
+
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -34,6 +43,17 @@ extern "C" {
 
 #define CL_RT_FLOAT      double
 #define CL_RT_MIN        1e-100
+
+#define USETABLE
+
+#ifdef USETABLE
+#define CLRATES( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar) clRates_Table( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)
+#define CLEDOTINSTANT( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool ) clEdotInstant_Table( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool)
+
+#else
+#define CLRATES( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)   clRates( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)
+#define CLEDOTINSTANT( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool ) clEdotInstant( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool)
+#endif
 
 /*
 #define CL_RT_MIN        DBL_MIN
@@ -302,12 +322,16 @@ void clInitConstants( COOL *cl, double dGMPerCcunit, double dComovingGmPerCcUnit
 void clInitUV(COOL *cl, int nTableColumns, int nTableRows, double *dTableData );
 void clInitRatesTable( COOL *cl, double TMin, double TMax, int nTable );
 void clReadMetalTable(COOL *cl, COOLPARAM clParam);
-void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, double ZMetal); 
+CUDA_DH void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, double ZMetal); 
 void clHHeTotal(COOL *cl, double ZMetal); 
 void CoolInitRatesTable( COOL *cl, COOLPARAM CoolParam);
 
+CUDA_DH void clRates_Table( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, double columnL, double Rate_Phot_H2_stellar);
 void clRatesTableError( COOL *cl );
-void clRatesRedshift( COOL *cl, double z, double dTime );
+#ifdef CUDA
+__global__ void CudaclRatesRedshift( COOL *cl, double zIn, double dTimeIn );
+#endif
+CUDA_DH void clRatesRedshift( COOL *cl, double zIn, double dTimeIn );
 double clHeatTotal ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal );
 void clRates( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, double columnL, double  Rate_Phot_H2_stellar);
 double clCoolTotal( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal );
@@ -317,9 +341,9 @@ void clPrintCoolFile( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMe
 
 void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal);
 double clThermalEnergy( double Y_Total, double T );
-double clTemperature( double Y_Total, double E );
-double clSelfShield (double yH2, double h);
-double clDustShield (double yHI, double yH2, double z, double h);
+CUDA_DH double clTemperature( double Y_Total, double E );
+CUDA_DH double clSelfShield (double yH2, double h);
+CUDA_DH double clDustShield (double yHI, double yH2, double z, double h);
 double clRateCollHI( double T );
 double clRateCollHeI( double T );
 double clRateCollHeII( double T );
@@ -346,13 +370,13 @@ double clCoolLineHI( double T );
 double clCoolLineHeI( double T );
 double clCoolLineHeII( double T );
 double clCoolLineH2_table( double T );  
-double clCoolLineH2_HI( double T );
-double clCoolLineH2_H2( double T );
-double clCoolLineH2_He( double T );
-double clCoolLineH2_e( double T );
-double clCoolLineH2_HII( double T );
+CUDA_DH double clCoolLineH2_HI( double T );
+CUDA_DH double clCoolLineH2_H2( double T );
+CUDA_DH double clCoolLineH2_He( double T );
+CUDA_DH double clCoolLineH2_e( double T );
+CUDA_DH double clCoolLineH2_HII( double T );
 double clCoolLowT( double T );
-double clRateDustFormH2(double z, double clump); 
+CUDA_DH double clRateDustFormH2(double z, double clump);
 double clEdotInstant ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, 
 		       double ZMetal, double *dEdotHeat, double *dEdotCool );
   void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
@@ -363,9 +387,11 @@ double clEdotInstant ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 		               double ExternalHeating, double rho, double ZMetal, double dt, double columnL, double dLymanWerner, double *y  );
   void clIntegrateEnergyDEBUG(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal,  double dt );
+CUDA_DH double clEdotInstant_Table( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
+			    double ZMetal, double *dEdotHeat, double *dEdotCool );
 
 
-void clDerivs(double x, const double *y, double *yheat,
+CUDA_DH void clDerivs(double x, const double *y, double *yheat,
 	      double *ycool, void *Data) ;
   
 void CoolAddParams( COOLPARAM *CoolParam, PRM );
@@ -397,7 +423,7 @@ double COOL_COOLING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode
 double COOL_HEATING( COOL *cl_, COOLPARTICLE *cp_, double ECode_, double rhoCode_, double ZMetal_, double *posCode_, double columnL_ );
 #define COOL_HEATING( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_, columnL_) (CoolCodeWorkToErgPerGmPerSec( cl_, CoolHeatingCode( cl_, cp_, ECode_, rhoCode_, ZMetal_, posCode_ , columnL_))) 
 
-void clSetAbundanceTotals(COOL *cl, double ZMetal, double *Y_H, double *Y_He, double *Y_eMAX);
+CUDA_DH void clSetAbundanceTotals(COOL *cl, double ZMetal, double *Y_H, double *Y_He, double *Y_eMAX);
 void CoolPARTICLEtoPERBARYON(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double ZMetal);
 void CoolPERBARYONtoPARTICLE(COOL *cl_, PERBARYON *Y, COOLPARTICLE *cp, double ZMetal);
 

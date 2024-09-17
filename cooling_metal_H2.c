@@ -118,7 +118,7 @@ clDerivsData *CoolDerivsInit(COOL *cl)
     clDerivsData *Data;
 
     assert(cl != NULL);
-    Data = malloc(sizeof(clDerivsData));
+    Data = (clDerivsData *) malloc(sizeof(clDerivsData));
     assert(Data != NULL);
     Data->IntegratorContext = StiffInit(EPSINTEG, 5, Data, clDerivs); /*Change array length to 5 to include H2*/
     Data->cl = cl;
@@ -194,7 +194,7 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
 
  */ 
 
-void clSetAbundanceTotals(COOL *cl, double ZMetal, double *pY_H, double *pY_He, double *pY_eMax) {
+CUDA_DH  void clSetAbundanceTotals(COOL *cl, double ZMetal, double *pY_H, double *pY_He, double *pY_eMax) {
     double Y_H, Y_He;
     
     if (ZMetal <= 0.1) {
@@ -651,7 +651,7 @@ void clRatesTableError( COOL *cl ) {
 #define CL_Ccomp  (CL_Ccomp0*CL_Tcmb0)
 
 
-void clRatesRedshift( COOL *cl, double zIn, double dTimeIn ) {
+CUDA_DH  void clRatesRedshift( COOL *cl, double zIn, double dTimeIn ) {
   int i;
   double xx;
   double zTime;
@@ -808,6 +808,48 @@ void clRates( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, double 
   if (T < cl->TMin) T=cl->TMin;
   Tln = log(T); /* Deprecated but log's, sqrt's etc... used in raw rate functions */
 
+  double AP_log_den_mp_percm3[] = { -10.25, -9.75, -9.25, -8.75, -8.25, -7.75, -7.25,
+        -6.75, -6.25, -5.75, -5.25, -4.75, -4.25, -3.75, 
+        -3.25, -2.75, -2.25,
+        -1.75, -1.25, -0.75, -0.25, 0.25, 0.75, 1.25, 1.75, 2.25 };
+
+  double AP_Gamma_HI_factor[] = { 0.99805271764596307, 0.99877911567687988, 0.99589340865612034,
+        0.99562060764857702, 0.99165170359332663, 0.9900889877822455,
+        0.98483276828954668, 0.97387675312245325, 0.97885673164000397,
+        0.98356305803821331, 0.96655786672182487, 0.9634906824933207,
+        0.95031917373653985, 0.87967606627349137, 0.79917533618355074,
+        0.61276011113763151, 0.16315185162187529, 0.02493663181368239,
+        0.0044013580765645335, 0.00024172553511936628, 1.9576102058649783e-10,
+        0.0, 0.0, 0.0, 0.0, 0.0 };
+
+  double AP_Gamma_HeI_factor[] = { 0.99284882980782224, 0.9946618686265097, 0.98641914356740497,
+          0.98867015777574848, 0.96519214493135597, 0.97188336387980656,
+          0.97529866247535113 , 0.97412477991428936, 0.97904139838765991,
+          0.98368372768570034, 0.96677432842215549, 0.96392622083382651,
+          0.95145730833093178, 0.88213871255482879, 0.80512823597731886,
+          0.62474472739578646, 0.17222786134467002, 0.025861959933038869,
+          0.0045265030237581529, 0.00024724339438128221, 1.3040144591221284e-08,
+          0.0, 0.0, 0.0, 0.0, 0.0};
+
+
+  double AP_Gamma_HeII_factor[] = { 0.97990208047216765, 0.98606251822654412,
+      0.97657215632444849, 0.97274858503068629, 0.97416108746560681,
+      0.97716929017896703, 0.97743607605974214, 0.97555305775319012,
+      0.97874250764784809, 0.97849791914637996, 0.95135572977973504,
+      0.92948461312852582, 0.89242272355549912, 0.79325512242742746 ,
+      0.6683745597121028, 0.51605924897038324, 0.1840253816147828,
+      0.035905775349044489, 0.0045537756654992923, 0.00035933897136804514,
+      1.2294426136470751e-6, 0.0, 0.0, 0.0, 0.0, 0.0 };
+
+  double AP_Gamma_H2_factor[] = {1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0, 1.0, 1.0}; 
+
   Rate->T = T;
   Rate->Tln = Tln; 
   Rate->Coll_HI = clRateCollHI( T );
@@ -877,6 +919,48 @@ void clRates_Table_Lin( COOL *cl, RATE *Rate, double T, double rho, double ZMeta
   Rate->T = T;
   Rate->Tln = Tln; 
 
+  double AP_log_den_mp_percm3[] = { -10.25, -9.75, -9.25, -8.75, -8.25, -7.75, -7.25,
+        -6.75, -6.25, -5.75, -5.25, -4.75, -4.25, -3.75, 
+        -3.25, -2.75, -2.25,
+        -1.75, -1.25, -0.75, -0.25, 0.25, 0.75, 1.25, 1.75, 2.25 };
+
+  double AP_Gamma_HI_factor[] = { 0.99805271764596307, 0.99877911567687988, 0.99589340865612034,
+        0.99562060764857702, 0.99165170359332663, 0.9900889877822455,
+        0.98483276828954668, 0.97387675312245325, 0.97885673164000397,
+        0.98356305803821331, 0.96655786672182487, 0.9634906824933207,
+        0.95031917373653985, 0.87967606627349137, 0.79917533618355074,
+        0.61276011113763151, 0.16315185162187529, 0.02493663181368239,
+        0.0044013580765645335, 0.00024172553511936628, 1.9576102058649783e-10,
+        0.0, 0.0, 0.0, 0.0, 0.0 };
+
+  double AP_Gamma_HeI_factor[] = { 0.99284882980782224, 0.9946618686265097, 0.98641914356740497,
+          0.98867015777574848, 0.96519214493135597, 0.97188336387980656,
+          0.97529866247535113 , 0.97412477991428936, 0.97904139838765991,
+          0.98368372768570034, 0.96677432842215549, 0.96392622083382651,
+          0.95145730833093178, 0.88213871255482879, 0.80512823597731886,
+          0.62474472739578646, 0.17222786134467002, 0.025861959933038869,
+          0.0045265030237581529, 0.00024724339438128221, 1.3040144591221284e-08,
+          0.0, 0.0, 0.0, 0.0, 0.0};
+
+
+  double AP_Gamma_HeII_factor[] = { 0.97990208047216765, 0.98606251822654412,
+      0.97657215632444849, 0.97274858503068629, 0.97416108746560681,
+      0.97716929017896703, 0.97743607605974214, 0.97555305775319012,
+      0.97874250764784809, 0.97849791914637996, 0.95135572977973504,
+      0.92948461312852582, 0.89242272355549912, 0.79325512242742746 ,
+      0.6683745597121028, 0.51605924897038324, 0.1840253816147828,
+      0.035905775349044489, 0.0045537756654992923, 0.00035933897136804514,
+      1.2294426136470751e-6, 0.0, 0.0, 0.0, 0.0, 0.0 };
+
+  double AP_Gamma_H2_factor[] = {1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0, 1.0, 1.0}; 
+
   xTln = (Tln-cl->TlnMin)*cl->rDeltaTln;
   iTln = xTln;
   RT0 = (cl->RT+iTln*TABLEFACTOR);
@@ -937,11 +1021,53 @@ void clRates_Table_Lin( COOL *cl, RATE *Rate, double T, double rho, double ZMeta
 }
 
 
-void clRates_Table( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, double columnL, double Rate_Phot_H2_stellar) {
+CUDA_DH void clRates_Table( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, double columnL, double Rate_Phot_H2_stellar) {
   double Tln;
   double xTln,wTln0,wTln1;/*,wTln0d,wTln1d;*/
   RATES_T *RT0,*RT1;/*,*RT0d,*RT1d;*/
   int iTln;
+
+  double AP_log_den_mp_percm3[] = { -10.25, -9.75, -9.25, -8.75, -8.25, -7.75, -7.25,
+          -6.75, -6.25, -5.75, -5.25, -4.75, -4.25, -3.75, 
+          -3.25, -2.75, -2.25,
+          -1.75, -1.25, -0.75, -0.25, 0.25, 0.75, 1.25, 1.75, 2.25 };
+
+  double AP_Gamma_HI_factor[] = { 0.99805271764596307, 0.99877911567687988, 0.99589340865612034,
+        0.99562060764857702, 0.99165170359332663, 0.9900889877822455,
+        0.98483276828954668, 0.97387675312245325, 0.97885673164000397,
+        0.98356305803821331, 0.96655786672182487, 0.9634906824933207,
+        0.95031917373653985, 0.87967606627349137, 0.79917533618355074,
+        0.61276011113763151, 0.16315185162187529, 0.02493663181368239,
+        0.0044013580765645335, 0.00024172553511936628, 1.9576102058649783e-10,
+        0.0, 0.0, 0.0, 0.0, 0.0 };
+
+  double AP_Gamma_HeI_factor[] = { 0.99284882980782224, 0.9946618686265097, 0.98641914356740497,
+          0.98867015777574848, 0.96519214493135597, 0.97188336387980656,
+          0.97529866247535113 , 0.97412477991428936, 0.97904139838765991,
+          0.98368372768570034, 0.96677432842215549, 0.96392622083382651,
+          0.95145730833093178, 0.88213871255482879, 0.80512823597731886,
+          0.62474472739578646, 0.17222786134467002, 0.025861959933038869,
+          0.0045265030237581529, 0.00024724339438128221, 1.3040144591221284e-08,
+          0.0, 0.0, 0.0, 0.0, 0.0};
+
+
+  double AP_Gamma_HeII_factor[] = { 0.97990208047216765, 0.98606251822654412,
+      0.97657215632444849, 0.97274858503068629, 0.97416108746560681,
+      0.97716929017896703, 0.97743607605974214, 0.97555305775319012,
+      0.97874250764784809, 0.97849791914637996, 0.95135572977973504,
+      0.92948461312852582, 0.89242272355549912, 0.79325512242742746 ,
+      0.6683745597121028, 0.51605924897038324, 0.1840253816147828,
+      0.035905775349044489, 0.0045537756654992923, 0.00035933897136804514,
+      1.2294426136470751e-6, 0.0, 0.0, 0.0, 0.0, 0.0 };
+
+  double AP_Gamma_H2_factor[] = {1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0,
+        1.0, 1.0, 1.0, 1.0, 1.0}; 
 
 #ifdef TESTRATE
   RATE test;
@@ -1058,7 +1184,7 @@ void clRates_Table( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, d
 }
 
 
-void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, double ZMetal)
+CUDA_DH  void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, double ZMetal)
 {
   double tempT, tempnH,tempz, nH;
   double Tlog, nHlog; 
@@ -1107,6 +1233,30 @@ void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, do
   inHlog = xnHlog;
   if (inHlog == cl->nnHMetalTable - 1) inHlog = cl->nnHMetalTable - 2; /*CC; To prevent running over the table.  Should not be used*/
   
+// MetalCoolln and MetalHeatln are flattened 1d arrays on the GPU
+// and 3d arrays on the CPU. This code can be called from host or
+// device so make sure the data is read correctly
+#ifdef __CUDA_ARCH__
+  int nnH = cl->nnHMetalTable;
+  int nt = cl->nTMetalTable;
+  Cool000 = ((float *)cl->MetalCoolln)[(iz * nnH * nt) + (inHlog * nt) + iTlog];
+  Cool001 = ((float *)cl->MetalCoolln)[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Cool010 = ((float *)cl->MetalCoolln)[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Cool011 = ((float *)cl->MetalCoolln)[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+  Cool100 = ((float *)cl->MetalCoolln)[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
+  Cool101 = ((float *)cl->MetalCoolln)[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Cool110 = ((float *)cl->MetalCoolln)[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Cool111 = ((float *)cl->MetalCoolln)[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+
+  Heat000 = ((float *)cl->MetalHeatln)[(iz * nnH * nt) + (inHlog * nt) + iTlog];
+  Heat001 = ((float *)cl->MetalHeatln)[(iz * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Heat010 = ((float *)cl->MetalHeatln)[(iz * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Heat011 = ((float *)cl->MetalHeatln)[(iz * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+  Heat100 = ((float *)cl->MetalHeatln)[((iz + 1) * nnH * nt) + (inHlog * nt) + iTlog];
+  Heat101 = ((float *)cl->MetalHeatln)[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
+  Heat110 = ((float *)cl->MetalHeatln)[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
+  Heat111 = ((float *)cl->MetalHeatln)[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
+#else
   Cool000 = cl->MetalCoolln[iz][inHlog][iTlog];
   Cool001 = cl->MetalCoolln[iz][inHlog][iTlog+1];
   Cool010 = cl->MetalCoolln[iz][inHlog+1][iTlog];
@@ -1124,6 +1274,7 @@ void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, do
   Heat101 = cl->MetalHeatln[iz+1][inHlog][iTlog+1];
   Heat110 = cl->MetalHeatln[iz+1][inHlog+1][iTlog];
   Heat111 = cl->MetalHeatln[iz+1][inHlog+1][iTlog+1];
+#endif // __CUDA_ARCH__
 
   xz = xz - iz; 
   wz1 = xz; 
@@ -1747,7 +1898,7 @@ double clThermalEnergy( double Y_Total, double T ) {
 
 }
 
-double clTemperature( double Y_Total, double E ) {
+CUDA_DH double clTemperature( double Y_Total, double E ) {
   return E/(Y_Total*CL_Eerg_gm_degK3_2);
 }
 
@@ -1757,7 +1908,7 @@ double clTemperaturePrimordial( COOL *cl, double Y_HI, double Y_HeI, double Y_He
     return clTemperature( 2*Y_H - Y_HI + 3*Y_He - 2*Y_HeI - Y_HeII,  E );
     }
 
-double clSelfShield (double yH2, double h) {
+CUDA_DH double clSelfShield (double yH2, double h) {
   double x, column_denH2, omega_H2 = 0.2; 
       if (yH2 <= 0) return 1.0;
       column_denH2 = h*yH2;
@@ -1765,7 +1916,7 @@ double clSelfShield (double yH2, double h) {
       return (1 - omega_H2)/(1 + x)/(1 + x) + omega_H2/sqrt(1 + x)*exp(-0.00085*sqrt(1 + x));
 }
 
-double clDustShield (double yHI, double yH2, double z, double h) {
+CUDA_DH double clDustShield (double yHI, double yH2, double z, double h) {
   double column_denHI, column_denH2, sigmad = 2e-21; /*4e-21;*/
       if (yHI < 0) column_denHI = 0;
       else column_denHI = h*yHI;
@@ -1998,7 +2149,7 @@ double clRateRadrHeIII( double T ) {
           pow(1+Tsq*0.326686,0.2476) * pow(1+Tsq*6.004084e-4,1.7524));
 }
 
-double clRateDustFormH2( double z, double clump ) {
+CUDA_DH double clRateDustFormH2( double z, double clump ) {
   double Rate_dust = 0;
   /* clump = 10.0; Ranges from 2-10 to 30-100, Gendin et al 2008 CC*/ 
   Rate_dust = 3.5e-17*z/ZSOLAR*clump; /*Formation rate coefficient of molecular hydrogen on dust, Gnedin et al 2008, Wolfire 2008, unit of cc per s, divide metallicity by solar metallicity (was 0.0177 in first iterations of code) CC*/  
@@ -2182,7 +2333,7 @@ double clCoolLineHeII( double T ) {
 }
 #endif
 
-double clCoolLineH2_HI( double T){ /* H2-H collisionally-induced cooling, Glover & Abel 08, Table 8 */
+CUDA_DH double clCoolLineH2_HI( double T){ /* H2-H collisionally-induced cooling, Glover & Abel 08, Table 8 */
   double a00 = -16.818342,
     a10 = 37.383713,
     a20 = 58.145166,
@@ -2224,7 +2375,7 @@ double clCoolLineH2_HI( double T){ /* H2-H collisionally-induced cooling, Glover
   else return pow(10.0,slope*(log10(T/1000.0) - log10(xint/1000.0)) + log10(yint));
 }
 
-double clCoolLineH2_H2( double T){  /* H2-H2 collisionally-induced cooling, Glover & Abel 08, Table 8*/
+CUDA_DH double clCoolLineH2_H2( double T){  /* H2-H2 collisionally-induced cooling, Glover & Abel 08, Table 8*/
   double a0 = -23.962112,
     a1 = 2.09433740,
     a2 = -0.77151436,
@@ -2242,7 +2393,7 @@ double clCoolLineH2_H2( double T){  /* H2-H2 collisionally-induced cooling, Glov
  else return pow(10.0,slope*(log10(T/1000.0) - log10(xint/1000.0)) + log10(yint));
 }
 
-double clCoolLineH2_He( double T){ /* H2-He collisionally-induced cooling, Glover & Abel 08, Table 8 */
+CUDA_DH double clCoolLineH2_He( double T){ /* H2-He collisionally-induced cooling, Glover & Abel 08, Table 8 */
   double a0 = -23.689237,
     a1 = 2.1892372,
     a2 = -0.81520438,
@@ -2260,7 +2411,7 @@ double clCoolLineH2_He( double T){ /* H2-He collisionally-induced cooling, Glove
   else return pow(10.0,slope*(log10(T/1000.0) - log10(xint/1000.0)) + log10(yint));
 }
 
-double clCoolLineH2_HII( double T){ /*H2-HII collisionally-induced cooling , Glover & Abel 08, Table 8 */
+CUDA_DH double clCoolLineH2_HII( double T){ /*H2-HII collisionally-induced cooling , Glover & Abel 08, Table 8 */
   double a0 = -21.716699,
     a1 = 1.3865783,
     a2 = -0.37915285,
@@ -2278,7 +2429,7 @@ double clCoolLineH2_HII( double T){ /*H2-HII collisionally-induced cooling , Glo
   else return pow(10.0,slope*(log10(T/1000.0) - log10(xint/1000.0)) + log10(yint));
 }
 
-double clCoolLineH2_e( double T){  /*Cooling based on H2-e collisionally-induced dissociation, Glover & Abel 08, Table 8*/
+CUDA_DH double clCoolLineH2_e( double T){  /*Cooling based on H2-e collisionally-induced dissociation, Glover & Abel 08, Table 8*/
   double a00 = -34.286155,
     a10 = -48.537163,
     a20 = -77.121176,
@@ -2400,7 +2551,7 @@ double clCoolLowT( double T ) {
 
 /* Returns Heating - Cooling excluding External Heating, units of ergs s^-1 g^-1 
    Public interface CoolEdotInstantCode */
-double clEdotInstant_Table( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, 
+CUDA_DH double clEdotInstant_Table( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, 
 			    double ZMetal, double *dEdotHeat, double *dEdotCool )
 {
   double en_B = rho*CL_B_gm;
@@ -2654,7 +2805,7 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 
 double clfTemp(void *Data, double T) 
 {
-  clDerivsData *d = Data; 
+  clDerivsData *d = (clDerivsData *) Data;
   d->its++;
   CLRATES( d->cl, &d->Rate, T, d->rho, d->ZMetal, d->Rate.CorreLength/(d->cl->dKpcUnit * KPCCM * d->cl->dExpand), d->Rate.LymanWernerCode );
   clRateMetalTable(d->cl, &d->Rate, T, d->rho, d->Y_H, d->ZMetal); 
@@ -2684,9 +2835,9 @@ void clTempIteration( clDerivsData *d )
  clAbunds( d->cl, &d->Y, &d->Rate, d->rho, d->ZMetal);
 }
 
-void clDerivs(double x, const double *y, double *dGain, double *dLoss,
+CUDA_DH void clDerivs(double x, const double *y, double *dGain, double *dLoss,
 	     void *Data) {
-  clDerivsData *d = Data;
+  clDerivsData *d = (clDerivsData *) Data;
   double T,ne,nHI, nHII, internalheat = 0, externalheat = 0;
   double internalcool = 0;
   double en_B = d->rho*CL_B_gm;
@@ -3375,7 +3526,7 @@ void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns, 
 
 void CoolTableRead( COOL *Cool, int nData, void *vData)
 {
-   double *dTableData = vData;
+   double *dTableData = (double *) vData;
    int nTableColumns; 
    int nTableRows;
    int localcntTable = 0;
