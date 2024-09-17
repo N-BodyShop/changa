@@ -423,7 +423,11 @@ mainmodule ParallelGravity {
 			const CkCallback& cb);
     entry void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
     	       		double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, double dResolveJeans, double gammam1, const CkCallback& cb);
+			int bUpdateState, double dResolveJeans, double gammam1,
+#ifdef CUDA
+      int gpuGasMinParts,
+#endif
+const CkCallback& cb);
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
 	const CkCallback& cb);

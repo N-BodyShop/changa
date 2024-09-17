@@ -212,6 +212,7 @@ public:
 	 ** Cooling 
 	 */
 	COOL *Cool;
+	int Cool_nv; /// Number of variables for ODE solver
 #ifdef CUDA
 	COOL *d_Cool;
 	RATES_T *d_Rates_T;

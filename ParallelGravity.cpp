@@ -760,6 +760,9 @@ Main::Main(CkArgMsg* m) {
         param.nGpuMinParts = 1000;
         prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
                     sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
+        param.nGpuGasMinParts = 500;
+        prmAddParam(prm, "nGpuGasMinParts", paramInt, &param.nGpuGasMinParts,
+                    sizeof(int),"gpugp", "Min active gas particle on TreePiece to trigger GPU (default: 500)");
 #endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
@@ -1868,6 +1871,9 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
                          param.bGasCooling, bUpdateState, bAll,
                          (param.dConstGamma-1),
                          param.dResolveJeans/a,
+#ifdef CUDA
+                        param.nGpuGasMinParts,
+#endif
                          CkCallbackResumeThread());
     double tuDot = CkWallTimer() - startTime;
     timings[iActiveRung].tuDot += tuDot;

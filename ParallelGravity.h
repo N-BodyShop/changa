@@ -1846,9 +1846,21 @@ public:
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
 	void InitEnergy(double dTuFac, double z, double dTime, double gammam1,
 			const CkCallback& cb);
+#ifndef COOLING_NONE
+  void setCoolPtrs();
+  void integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector<COOLPARTICLE> &cp,
+                       std::vector<double> &E, std::vector<double> &ExternalHeating,
+                       std::vector<double> &fDensity, std::vector<double> &fMetals,
+                       std::vector<std::vector<double>> &r, std::vector<double> &dtUse,
+                       std::vector<double> &columnL);
+#endif
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, double gammam1, double dResolveJeans, const CkCallback& cb);
+			int bUpdateState, double gammam1, double dResolveJeans,
+#ifdef CUDA
+      int gpuGasMinParts,
+#endif
+      const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
     void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,

@@ -314,7 +314,7 @@ struct clDerivsDataStruct {
 
 COOL *CoolInit( );
 void CoolFinalize( COOL *cl );
-clDerivsData *CoolDerivsInit(COOL *cl);
+clDerivsData *CoolDerivsInit(COOL *cl, int nv);
 void CoolDerivsFinalize(clDerivsData *cld ) ;
 
 void clInitConstants( COOL *cl, double dGMPerCcunit, double dComovingGmPerCcUnit,

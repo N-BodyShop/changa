@@ -76,7 +76,11 @@ Main::initSph()
 	    dStartTime[iRung] = dTime;
 	    }
 	treeProxy.updateuDot(0, duDelta, dStartTime, param.bGasCooling, 0, 1,
-            (param.dConstGamma-1), param.dResolveJeans/a, CkCallbackResumeThread());
+            (param.dConstGamma-1), param.dResolveJeans/a,
+#ifdef CUDA
+            param.nGpuGasMinParts,
+#endif
+            CkCallbackResumeThread());
 	}
     }
 
@@ -984,36 +988,13 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
     smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
-/**
- * @brief Update the cooling rate (uDot)
- *
- * @param activeRung (minimum) rung being updated
- * @param duDelta    array of timesteps of length MAXRUNG+1
- * @param dStartTime array of start times of length MAXRUNG+1
- * @param bCool      Whether cooling is on
- * @param bUpdateState Whether the ionization factions need updating
- * @param bAll	     Do all rungs below activeRung
- * @param gammam1    Isentropic expansion factor/adiabatic index - 1.
- * @param dResolveJeans Fraction of Pressure to resolve Jeans mass (comoving)
- * @param cb	     Callback.
- */
-void TreePiece::updateuDot(int activeRung,
-			   double duDelta[MAXRUNG+1], // timesteps
-			   double dStartTime[MAXRUNG+1],
-			   int bCool, // select equation of state
-			   int bUpdateState, // update ionization fractions
-			   int bAll, // update all rungs below activeRung
-                           double gammam1, // adiabatic index gamma - 1.
-                           double dResolveJeans, // Jeans Pressure floor constant
-			   const CkCallback& cb)
-{
 #ifndef COOLING_NONE
-    int nv = 5; // TODO this should be read from somewhere else
+void TreePiece::setCoolPtrs() {
     int offset = FirstCoolParticleIndex;
     h_CoolData = &dm->h_CoolData[offset];
     h_Stiff = &dm->h_Stiff[offset];
 
-    offset *= nv;
+    offset *= dm->Cool_nv;
     h_ymin = &dm->h_ymin[offset];
     h_y0 = &dm->h_y0[offset];
     h_y1 = &dm->h_y1[offset];
@@ -1027,14 +1008,14 @@ void TreePiece::updateuDot(int activeRung,
 
 #ifdef CUDA
     offset = FirstCoolParticleIndex;
-    int gpuGasMinParts = 1;
     d_CoolData = &dm->d_CoolData[offset];
     d_Stiff = &dm->d_Stiff[offset];
     d_dtg = &dm->d_dtg[offset];
-    int numStreams = 100;
-    this->stream = dm->streams[thisIndex % numStreams];
 
-    offset *= nv;
+    int numStreams = 100;
+    this->stream = dm->streams[thisIndex % numStreams]; // TODO this should be set before gravity
+
+    offset *= dm->Cool_nv;
     d_ymin = &dm->d_ymin[offset];
     d_y = &dm->d_y[offset];
     d_y0 = &dm->d_y0[offset];
@@ -1047,9 +1028,155 @@ void TreePiece::updateuDot(int activeRung,
     d_rtaus = &dm->d_rtaus[offset];
     d_scrarray = &dm->d_scrarray[offset];
 #endif
+}
+
+void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector<COOLPARTICLE> &cp,
+                                std::vector<double> &E, std::vector<double> &ExternalHeating,
+                                std::vector<double> &fDensity, std::vector<double> &fMetals,
+                                std::vector<std::vector<double>> &r, std::vector<double> &dtUse,
+                                std::vector<double> &columnL) {
+    std::vector<PERBARYON> Y(numSelParts);
+    std::vector<double> Ecgs(numSelParts);
+
+    int nv = dm->Cool_nv;
+
+    // Cooling functions require C-style array
+    double *y = new double[numSelParts*5];
+#define EPSINTEG  1e-3
+    for(unsigned int i = 0; i < numSelParts; ++i) {
+        // This is largely duplicated from StiffInit
+        Ecgs[i] = 0.0;
+        h_CoolData[i].cl = dm->Cool;
+
+        h_Stiff[i].nv = nv;
+        h_Stiff[i].epsmin = EPSINTEG;
+        h_Stiff[i].sqreps = 5.0*sqrt(EPSINTEG);
+        h_Stiff[i].epscl = 1.0/EPSINTEG;
+        h_Stiff[i].epsmax = 10.0;
+        h_Stiff[i].dtmin = 1e-15;
+        h_Stiff[i].itermax = 3;
+        h_Stiff[i].ymin = &h_ymin[i*nv];
+        for(int j = 0; j < nv; j++)
+            h_Stiff[i].ymin[j] = 1e-300;
+        h_Stiff[i].y0 = &h_y0[i*nv];
+        h_Stiff[i].y1 = &h_y1[i*nv];
+        h_Stiff[i].q = &h_q[i*nv];
+        h_Stiff[i].d = &h_d[i*nv];
+        h_Stiff[i].rtau = &h_rtau[i*nv];
+        h_Stiff[i].ys = &h_ys[i*nv];
+        h_Stiff[i].qs = &h_qs[i*nv];
+        h_Stiff[i].rtaus = &h_rtaus[i*nv];
+        h_Stiff[i].scrarray = &h_scrarray[i*nv];
+
+        h_Stiff[i].Data = &h_CoolData[i];
+        h_Stiff[i].derivs = clDerivs;
+
+        h_Stiff[i].epsmax = 10.0;
+
+        h_CoolData[i].IntegratorContext = &h_Stiff[i];
+
+        CoolIntegrateEnergyCodeStart(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
+                                    ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
+                                    dtUse[i], columnL[i], &y[i*5]);
+    }
+    double t;
+#ifdef CUDA
+    if (numSelParts > gpuGasMinParts) {
+        CkPrintf("%d solving ODE on the GPU with %d particles\n", thisIndex, numSelParts);
+        cudaChk(cudaMemcpy(d_ymin, h_ymin, nv*numSelParts*sizeof(double), cudaMemcpyHostToDevice));
+
+        std::vector<STIFF> Stiff(numSelParts);
+        for (int i = 0; i < numSelParts; i++) {
+            h_CoolData[i].cl = dm->d_Cool;
+            h_CoolData[i].IntegratorContext = &d_Stiff[i];
+            
+            Stiff[i] = h_Stiff[i];
+
+            Stiff[i].ymin = &d_ymin[i*nv];
+            Stiff[i].y0 = &d_y0[i*nv];
+            Stiff[i].q = &d_q[i*nv];
+            Stiff[i].d = &d_d[i*nv];
+            Stiff[i].rtau = &d_rtau[i*nv];
+            Stiff[i].ys = &d_ys[i*nv];
+            Stiff[i].qs = &d_qs[i*nv];
+            Stiff[i].rtaus = &d_rtaus[i*nv];
+            Stiff[i].scrarray = &d_scrarray[i*nv];
+            Stiff[i].y1 = &d_y1[i*nv];
+            Stiff[i].Data = &d_CoolData[i];
+            Stiff[i].derivs = clDerivs;
+        }
+
+        cudaChk(cudaMemcpyAsync(d_CoolData, h_CoolData, numSelParts*sizeof(clDerivsData), cudaMemcpyHostToDevice, this->stream));
+        cudaChk(cudaMemcpyAsync(d_Stiff, Stiff.data(), sizeof(STIFF)*numSelParts, cudaMemcpyHostToDevice, this->stream));
+
+        t = 0.0;
+        TreePieceODESolver(d_Stiff, d_y, d_dtg, y, t, dtUse, numSelParts, this->stream);
+
+        cudaChk(cudaMemcpyAsync(h_CoolData, d_CoolData, numSelParts*sizeof(clDerivsData), cudaMemcpyDeviceToHost, this->stream));
+        cudaStreamSynchronize(this->stream);
+
+        for (int i = 0; i < numSelParts; i++) {
+            h_CoolData[i].cl = dm->Cool;
+            h_CoolData[i].IntegratorContext = &h_Stiff[i];
+        }
+    }
+    else {
+        CkPrintf("%d solving ODE on the CPU with %d particles\n", thisIndex, numSelParts);
+        for(unsigned int i = 0; i < numSelParts; ++i) {
+           t = 0.0;
+           StiffStep( h_CoolData[i].IntegratorContext, &y[i*5], t, dtUse[i]);
+        }
+    }
+#else
+        for(unsigned int i = 0; i < numSelParts; ++i) {
+           t = 0.0;
+           StiffStep( h_CoolData[i].IntegratorContext, &y[i*5], t, dtUse[i]);
+        }
+#endif
+        for(unsigned int i = 0; i < numSelParts; ++i) {
+            CoolIntegrateEnergyCodeFinish(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
+                                          ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
+                                          dtUse[i], columnL[i], &y[i*5]);
+        }
+    delete[] y;
+}
+
+#endif
+
+/**
+ * @brief Update the cooling rate (uDot)
+ *
+ * @param activeRung (minimum) rung being updated
+ * @param duDelta    array of timesteps of length MAXRUNG+1
+ * @param dStartTime array of start times of length MAXRUNG+1
+ * @param bCool      Whether cooling is on
+ * @param bUpdateState Whether the ionization factions need updating
+ * @param bAll	     Do all rungs below activeRung
+ * @param gammam1    Isentropic expansion factor/adiabatic index - 1.
+ * @param dResolveJeans Fraction of Pressure to resolve Jeans mass (comoving)
+ * @param gpuGasMinParts Min number of particles on TP to trigger ODE solver on GPU
+ * @param cb	     Callback.
+ */
+void TreePiece::updateuDot(int activeRung,
+			   double duDelta[MAXRUNG+1], // timesteps
+			   double dStartTime[MAXRUNG+1],
+			   int bCool, // select equation of state
+			   int bUpdateState, // update ionization fractions
+			   int bAll, // update all rungs below activeRung
+                           double gammam1, // adiabatic index gamma - 1.
+                           double dResolveJeans, // Jeans Pressure floor constant
+#ifdef CUDA
+                int gpuGasMinParts,
+#endif
+               const CkCallback& cb)
+{
+#ifndef COOLING_NONE
+
+    setCoolPtrs();
 
     int numSelParts = myNumActiveGasParticles;
 
+    // TODO is this necessary?
     if (numSelParts == 0) {
         smoothProxy[thisIndex].ckLocal()->contribute(cb);
         return;
@@ -1061,10 +1188,7 @@ void TreePiece::updateuDot(int activeRung,
     double PoverRhoJeans;
     double cGas;
 
-    // There is a lot of data here
-    // std::vectors preventsthe data from going onto function stack frame
     std::vector<GravityParticle *> pPtr(numSelParts);
-
     std::vector<double> ExternalHeating(numSelParts);
     std::vector<double> dtUse(numSelParts);
     std::vector<double> fDensity(numSelParts);
@@ -1183,112 +1307,9 @@ void TreePiece::updateuDot(int activeRung,
         }
 
     if (bCool) {
-	std::vector<PERBARYON> Y(numSelParts);
-	std::vector<double> Ecgs(numSelParts);
-
-	// Cooling functions can only accept C-style arrays
-	// so we dont use std::vectors here
-        double *y = new double[numSelParts*5];
-#define EPSINTEG  1e-3
-        for(unsigned int i = 0; i < numSelParts; ++i) {
-	    Ecgs[i] = 0.0;
-            h_CoolData[i].cl = dm->Cool;
-
-            h_Stiff[i].nv = nv;
-            h_Stiff[i].epsmin = EPSINTEG;
-            h_Stiff[i].sqreps = 5.0*sqrt(EPSINTEG);
-            h_Stiff[i].epscl = 1.0/EPSINTEG;
-            h_Stiff[i].epsmax = 10.0;
-            h_Stiff[i].dtmin = 1e-15;
-            h_Stiff[i].itermax = 3;
-            h_Stiff[i].ymin = &h_ymin[i*nv];
-            for(int j = 0; j < nv; j++)
-                h_Stiff[i].ymin[j] = 1e-300;
-            h_Stiff[i].y0 = &h_y0[i*nv];
-            h_Stiff[i].y1 = &h_y1[i*nv];
-            h_Stiff[i].q = &h_q[i*nv];
-            h_Stiff[i].d = &h_d[i*nv];
-            h_Stiff[i].rtau = &h_rtau[i*nv];
-            h_Stiff[i].ys = &h_ys[i*nv];
-            h_Stiff[i].qs = &h_qs[i*nv];
-            h_Stiff[i].rtaus = &h_rtaus[i*nv];
-            h_Stiff[i].scrarray = &h_scrarray[i*nv];
-
-            h_Stiff[i].Data = &h_CoolData[i];
-            h_Stiff[i].derivs = clDerivs;
-
-            h_Stiff[i].epsmax = 10.0;
-
-            h_CoolData[i].IntegratorContext = &h_Stiff[i];
-
-            CoolIntegrateEnergyCodeStart(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
-	                                 ExternalHeating[i], fDensity[i],
-	  	                         fMetals[i], r[i].data(), dtUse[i], columnL[i], &y[i*5]);
-            }
-	double t;
-	t = 0.0;
-#ifdef CUDA
-    if (numSelParts > gpuGasMinParts) {
-        CkPrintf("%d solving ODE on the GPU with %d particles\n", thisIndex, numSelParts);
-        cudaChk(cudaMemcpy(d_ymin, h_ymin, nv*numSelParts*sizeof(double), cudaMemcpyHostToDevice));
-
-        std::vector<STIFF> Stiff(numSelParts);
-        for (int i = 0; i < numSelParts; i++) {
-            h_CoolData[i].cl = dm->d_Cool;
-            h_CoolData[i].IntegratorContext = &d_Stiff[i];
-            
-            Stiff[i] = h_Stiff[i];
-
-            Stiff[i].ymin = &d_ymin[i*nv];
-            Stiff[i].y0 = &d_y0[i*nv];
-            Stiff[i].q = &d_q[i*nv];
-            Stiff[i].d = &d_d[i*nv];
-            Stiff[i].rtau = &d_rtau[i*nv];
-            Stiff[i].ys = &d_ys[i*nv];
-            Stiff[i].qs = &d_qs[i*nv];
-            Stiff[i].rtaus = &d_rtaus[i*nv];
-            Stiff[i].scrarray = &d_scrarray[i*nv];
-            Stiff[i].y1 = &d_y1[i*nv];
-            Stiff[i].Data = &d_CoolData[i];
-            Stiff[i].derivs = clDerivs;
-        }
-
-        cudaChk(cudaMemcpyAsync(d_CoolData, h_CoolData, numSelParts*sizeof(clDerivsData), cudaMemcpyHostToDevice, this->stream));
-        cudaChk(cudaMemcpyAsync(d_Stiff, Stiff.data(), sizeof(STIFF)*numSelParts, cudaMemcpyHostToDevice, this->stream));
-
-        TreePieceODESolver(d_Stiff, d_y, d_dtg, y, t, dtUse, numSelParts, this->stream);
-
-        cudaChk(cudaMemcpyAsync(h_CoolData, d_CoolData, numSelParts*sizeof(clDerivsData), cudaMemcpyDeviceToHost, this->stream));
-        cudaStreamSynchronize(this->stream);
-
-        for (int i = 0; i < numSelParts; i++) {
-           CkPrintf("%d: %g %g %g %g %g\n", pPtr[i]->iOrder, y[i*5], y[i*5+1], y[i*5+2], y[i*5+3], y[i*5+4]);
-            h_CoolData[i].cl = dm->Cool;
-            h_CoolData[i].IntegratorContext = &h_Stiff[i];
-        }
-        }
-    else {
-        CkPrintf("%d solving ODE on the CPU with %d particles\n", thisIndex, numSelParts);
-        for(unsigned int i = 0; i < numSelParts; ++i) {
-           t = 0.0;
-           StiffStep( h_CoolData[i].IntegratorContext, &y[i*5], t, dtUse[i]);
-           CkPrintf("%d: %g %g %g %g %g\n", pPtr[i]->iOrder, y[i*5], y[i*5+1], y[i*5+2], y[i*5+3], y[i*5+4]);
-	}
+        integrateEnergy(numSelParts, gpuGasMinParts, cp, E, ExternalHeating, fDensity,
+                        fMetals, r, dtUse, columnL);
     }
-#else
-        for(unsigned int i = 0; i < numSelParts; ++i) {
-           t = 0.0;
-           StiffStep( h_CoolData[i].IntegratorContext, &y[i*5], t, dtUse[i]);
-	}
-#endif
-
-        for(unsigned int i = 0; i < numSelParts; ++i) {
-            CoolIntegrateEnergyCodeFinish(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
-	                                  ExternalHeating[i], fDensity[i],
-	  	                          fMetals[i], r[i].data(), dtUse[i], columnL[i], &y[i*5]);
-            }
-	delete[] y;
-        }
 
     for(unsigned int i = 0; i < numSelParts; ++i) {
 	GravityParticle *p = pPtr[i];

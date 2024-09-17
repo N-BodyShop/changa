@@ -46,6 +46,7 @@ void DataManager::init() {
 
 #endif
   Cool = CoolInit();
+  Cool_nv = 5; // TODO Is this the same for all cooling modules?
   starLog = new StarLog();
   lockStarLog = CmiCreateLock();
 }
