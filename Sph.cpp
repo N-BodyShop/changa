@@ -1201,6 +1201,89 @@ void TreePiece::updateuDot(int activeRung,
     int pIdx;
 
     pIdx = 0;
+
+#ifdef SUPERBUBBLE
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+        if (TYPETest(p, TYPE_GAS)
+            && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
+            pPtr[pIdx] = p;
+            double frac = p->massHot()/p->mass;
+            PoverRhoGas = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
+            PoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
+            PoverRho = PoverRhoGas;
+            if(PoverRho < PoverRhoJeans) PoverRho = PoverRhoJeans;
+            ExternalHeating[pIdx] = p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
+            if ( bCool ) {
+            cp[pIdx] = p->CoolParticle();
+            p->position.array_form(r[pIdx].data());
+            CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+            CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        #ifdef COOLING_MOLECULARH
+            double columnLHot = 0;
+        #endif
+            double fDensityHot;
+            double uMean = frac*p->uHot()+(1-frac)*p->u();
+            CkAssert(uMean > 0.0);
+            CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+            CkAssert(p->uHot() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+            /*
+            * If we have mass in the hot phase, we need to cool it appropriately.
+            */
+            if (p->massHot() > 0) { 
+                ExternalHeating[pIdx] = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
+                if (p->uHot() > 0) {
+                    E[pIdx] = p->uHot();
+                    fDensity[pIdx] = p->fDensity*(p->uHot()*frac+p->u()*(1-frac))/p->uHot();
+                    cp[pIdx] = p->CoolParticleHot();
+                    // Assume the cold phase is a shell surrounding the hot phase,
+                    // which is a sphere
+                    columnL[pIdx] =  pow((p->massHot()/fDensity)*(p->fDensity/p->mass), 1./3.)*(0.5*p->fBall);
+        #ifdef COOLDEBUG
+                    dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
+        #endif
+                }
+            }
+            }
+        }
+    }
+
+    if (bCool) {
+        integrateEnergy(numSelParts, gpuGasMinParts, cp, E, ExternalHeating, fDensity,
+                        fMetals, r, dtUse, columnL);
+    }
+
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+        if (TYPETest(p, TYPE_GAS)
+            && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
+            pPtr[pIdx] = p;
+                    p->uHotDot() = (E[pIdx] - p->uHot())/duDelta[p->rung];
+                    if(bUpdateState) p->CoolParticleHot() = cp[pIdx];
+                }
+                else if(p->cpHotInit() == 0) {
+                    /* If we just got feedback, only set up the uDot */
+                    /* If cpHotInit is still 1 at this point, we have recently
+                        * gotten feedback, but the particle (presumably on a long
+                        * timestep has yet to do a updateuDot() with it.  Leave
+                        * uDotHot() at its current value in that case. */
+                    p->uHotDot() = ExternalHeating[pIdx];
+                    p->cpHotInit() = 1;
+                    CkAssert(ExternalHeating[pIdx] >= 0.0);
+                }
+                ExternalHeating[pIdx] = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
+            }
+            else { /* We have a single phase particle, treat it normally*/
+                p->uHotDot() = 0;
+                ExternalHeating[pIdx] =  p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
+            }
+            fDensity[pIdx] = p->fDensity*PoverRho/(gammam1*p->u());
+            if (p->fDensityU() < p->fDensity) fDensity[pIdx] = p->fDensityU()*PoverRho/(gammam1*p->u());
+            CkAssert(fDensity[pIdx] > 0);
+            cp[pIdx] = p->CoolParticle();
+    }
+#endif /*SUPERBUBBLE*/
+
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)
@@ -1218,75 +1301,6 @@ void TreePiece::updateuDot(int activeRung,
         else {
             PoverRhoGas = gammam1*p->uPred();
         }
-#ifdef SUPERBUBBLE
-        double frac = p->massHot()/p->mass;
-        PoverRhoGas = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
-#endif
-        PoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
-        PoverRho = PoverRhoGas;
-        if(PoverRho < PoverRhoJeans) PoverRho = PoverRhoJeans;
-        ExternalHeating[pIdx] = p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
-	    if ( bCool ) {
-		cp[pIdx] = p->CoolParticle();
-		p->position.array_form(r[pIdx].data());
-        CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
-        CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
-#ifdef SUPERBUBBLE
-#ifdef COOLING_MOLECULARH
-        double columnLHot = 0;
-#endif
-        double fDensityHot;
-        double uMean = frac*p->uHot()+(1-frac)*p->u();
-        CkAssert(uMean > 0.0);
-        CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
-        CkAssert(p->uHot() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
-        /*
-         * If we have mass in the hot phase, we need to cool it appropriately.
-         */
-        if (p->massHot() > 0) { 
-            ExternalHeating[pIdx] = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
-            if (p->uHot() > 0) {
-                E[pIdx] = p->uHot();
-                fDensityHot = p->fDensity*(p->uHot()*frac+p->u()*(1-frac))/p->uHot();
-                cp[pIdx] = p->CoolParticleHot();
-#ifdef COOLING_MOLECULARH
-                // Assume the cold phase is a shell surrounding the hot phase,
-                // which is a sphere
-                columnLHot =  pow((p->massHot()/fDensityHot)*(p->fDensity/p->mass), 1./3.)*(0.5*p->fBall);
-#ifdef COOLDEBUG
-                dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
-#endif
-                CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp[pIdx], &E[pIdx],
-                            ExternalHeating[pIdx], fDensityHot,
-                            fMetals[pIdx], r[pIdx], dt, columnLHot);
-#else /*COOLING_MOLECULARH*/
-                CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp[pIdx], &E[pIdx], ExternalHeating[pIdx], fDensityHot,
-                        fMetals[pIdx], r[pIdx], dt);
-#endif
-                p->uHotDot() = (E[pIdx] - p->uHot())/duDelta[p->rung];
-                if(bUpdateState) p->CoolParticleHot() = cp[pIdx];
-            }
-            else if(p->cpHotInit() == 0) {
-                /* If we just got feedback, only set up the uDot */
-                /* If cpHotInit is still 1 at this point, we have recently
-                 * gotten feedback, but the particle (presumably on a long
-                 * timestep has yet to do a updateuDot() with it.  Leave
-                 * uDotHot() at its current value in that case. */
-                p->uHotDot() = ExternalHeating[pIdx];
-                p->cpHotInit() = 1;
-                CkAssert(ExternalHeating[pIdx] >= 0.0);
-            }
-            ExternalHeating[pIdx] = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
-        }
-        else { /* We have a single phase particle, treat it normally*/
-            p->uHotDot() = 0;
-            ExternalHeating[pIdx] =  p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
-        }
-        fDensity[pIdx] = p->fDensity*PoverRho/(gammam1*p->u());
-        if (p->fDensityU() < p->fDensity) fDensity[pIdx] = p->fDensityU()*PoverRho/(gammam1*p->u());
-        CkAssert(fDensity[pIdx] > 0);
-        cp[pIdx] = p->CoolParticle();
-#endif
 		E[pIdx]  = p->u();
 #ifdef COOLING_BOLEY
 		cp[pIdx].mrho = pow(p->mass/p->fDensity, 1./3.);
@@ -1303,7 +1317,6 @@ void TreePiece::updateuDot(int activeRung,
                 columnL[pIdx] = sqrt(0.25)*p->fBall;
                 }
             pIdx++;
-            }
         }
 
     if (bCool) {
