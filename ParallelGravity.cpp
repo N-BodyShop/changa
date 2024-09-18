@@ -1679,6 +1679,7 @@ void Main::advanceBigCollStep(int iStep) {
   CkReductionMsg *msgChk;
   treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
   int iNeedSubsteps = *(int *)msgChk->getData();
+  delete msgChk;
 
   if (iNeedSubsteps > 0) {
       ckout << " " << iNeedSubsteps <<  " particles are on a near collision course and will be stepped on rung "

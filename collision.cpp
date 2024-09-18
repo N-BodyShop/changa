@@ -154,6 +154,8 @@ void Main::doNearCollisions(double dTime, double dDelta, int activeRung)
     for (int i=0; i < numIords; i++) {
         treeProxy.placeOnCollRung(data[i], param.collision.iCollStepRung, CkCallbackResumeThread());
         }
+
+    delete msgChk;
     }
 
 /**
@@ -218,20 +220,20 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
 
         // Once 'dtCol' and 'iOrderCol' are set, we need to determine which
         // collision is going to happen the soonest
-        CkReductionMsg *msgChk;
-        treeProxy.getCollInfo(CkCallbackResumeThread((void*&)msgChk));
-        ColliderInfo *c = (ColliderInfo *)msgChk->getData();
+        CkReductionMsg *msgChk1, *msgChk2;
+        treeProxy.getCollInfo(CkCallbackResumeThread((void*&)msgChk1));
+        ColliderInfo *c = (ColliderInfo *)msgChk1->getData();
 
 	// Since particles can have different search radii, we need to find each collider
 	// on the TreePieces separately
         if (c[0].dtCol <= dDelta && c[1].dtCol > dDelta) {
-            treeProxy.getCollInfo(c[0].iOrderCol, CkCallbackResumeThread((void*&)msgChk));
-            c[1] = *(ColliderInfo *)msgChk->getData();
+            treeProxy.getCollInfo(c[0].iOrderCol, CkCallbackResumeThread((void*&)msgChk2));
+            c[1] = *(ColliderInfo *)msgChk2->getData();
             c[1].dtCol = c[0].dtCol;
             }
         else if (c[1].dtCol <= dDelta && c[0].dtCol > dDelta) {
-            treeProxy.getCollInfo(c[1].iOrderCol, CkCallbackResumeThread((void*&)msgChk));
-            c[0] = *(ColliderInfo *)msgChk->getData();
+            treeProxy.getCollInfo(c[1].iOrderCol, CkCallbackResumeThread((void*&)msgChk2));
+            c[0] = *(ColliderInfo *)msgChk2->getData();
             c[0].dtCol = c[1].dtCol;
             }
 
@@ -254,12 +256,10 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
 		// Prevents runaway growth from triggering at rung boundaries in a Keplerian disk
 		if ((c[0].rung == c[1].rung) || (iStep > param.collision.iMRCollMin)) {
                     nColl++;
-                    CkReductionMsg *msgChk1;
                     treeProxy.resolveCollision(param.collision, c[0], c[1], dDelta,
                                            dTime, dCentMass, CkCallbackResumeThread((void*&)msgChk1));
                     int *collType = (int *)msgChk1->getData();
                     logCollision(dTime, c, *collType);
-                    delete msgChk1;
                     }
                 // Otherwise, force both particles onto the smaller rung
                 // Collision will get detected again on the next pass thru the loop
@@ -269,7 +269,9 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
                     }
                 }
             }
-            delete msgChk;
+
+        delete msgChk1;
+        delete msgChk2;
 
 	// Resolving a collision alters particle positions + velocities
 	// We might have created another imminent collision, so go back and check

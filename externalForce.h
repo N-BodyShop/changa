@@ -47,6 +47,7 @@ inline void ExternalForce::pup(PUP::er &p) {
      p | dJ2;
      p | dJ4;
      p | dJ6;
+     p | bLogarithmicHalo;
      p | bDoGasDrag;
      p | dSigma0;
      p | bConstGasProf;
