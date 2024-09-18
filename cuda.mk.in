@@ -50,6 +50,11 @@ ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
 	use_dc_flag := -dc
 endif
 
+ifeq (-DCOOLING_BOLEY,@FLAG_COOLING@)
+	cuda_srcs += $(source_dir)/cooling_boley.cu
+	use_dc_flag := -dc
+endif
+
 ifeq (-DCOOLING_MOLECULARH,@FLAG_COOLING@)
 	cuda_srcs += $(source_dir)/cooling_metal_H2.cu
 	use_dc_flag := -dc
@@ -101,10 +106,10 @@ cuda-dist-clean:
 
 $(build_dir)/%.o: $(source_dir)/%.cu
 	@ echo Compiling $<...
-	$(quiet) /usr/local/cuda-12.5/bin/nvcc -std=$(cxx_std) -Xcompiler "$(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix)" $(nvcc_flags) $(use_dc_flag) -c $< -o $@
+	$(quiet) @NVCC_PATH@ -std=$(cxx_std) -Xcompiler "$(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix)" $(nvcc_flags) $(use_dc_flag) -c $< -o $@
 
 ifeq ($(use_dc_flag),-dc)
 $(build_dir)/cuda_link.o: $(cuda_objs)
 	@ echo Linking cuda object files...
-	$(quiet) /usr/local/cuda-12.5/bin/nvcc -std=$(cxx_std) -Xcompiler "$(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix)" $(nvcc_flags) --device-link $(cuda_objs) --output-file $@
+	$(quiet) @NVCC_PATH@ -std=$(cxx_std) -Xcompiler "$(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix)" $(nvcc_flags) --device-link $(cuda_objs) --output-file $@
 endif

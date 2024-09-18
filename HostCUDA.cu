@@ -2227,7 +2227,9 @@ __device__ double sign(double a, double b)
 }
 
 __global__ void CudaclRatesRedshift( COOL *cl, double z, double dTime ) {
+#ifndef COOLING_BOLEY
   clRatesRedshift(cl, z, dTime);
+#endif
 }
 
 void CudaCoolSetTime( COOL *cl, double dTime, double z, cudaStream_t stream ) {

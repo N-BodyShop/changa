@@ -215,10 +215,14 @@ public:
 	int Cool_nv; /// Number of variables for ODE solver
 #ifdef CUDA
 	COOL *d_Cool;
+#if !defined(COOLING_NONE) && !defined(COOLING_BOLEY)
 	RATES_T *d_Rates_T;
 	UVSPECTRUM *d_Uvspectrum;
+#if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
 	float *d_MetalCoolln;
 	float *d_MetalHeatln;
+#endif
+#endif
 #endif
 	/// @brief log of star formation events.
 	///
@@ -274,10 +278,13 @@ public:
 	    delete starLog;
 	    CmiDestroyLock(lockStarLog);
 #ifdef CUDA
+#if !defined(COOLING_NONE) && !defined(COOLING_BOLEY)
 	    cudaFree(d_Rates_T);
 	    cudaFree(d_MetalCoolln);
 	    cudaFree(d_MetalHeatln);
 	    cudaFree(d_Uvspectrum);
+#endif
+
 	    cudaFree(d_Cool);
 
 	    cudaFree(d_CoolData);

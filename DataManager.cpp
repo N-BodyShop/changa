@@ -17,11 +17,11 @@
 #include "Compute.h"
 #include "TreeWalk.h"
 
-#ifdef COOLING_MOLECULAR_H
+#ifdef COOLING_MOLECULARH
 #define COOL_NV 5
 #elif COOLING_METAL
 #define COOL_NV 4
-#elif COOLING_COSMO
+#elif COOLING_COSMO || COOLING_BOLEY
 #define COOL_NV 1
 #endif
 

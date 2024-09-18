@@ -15,6 +15,14 @@
 
 #include "param.h"
 
+#ifdef CUDA
+#include <cuda_runtime.h>
+
+#define CUDA_DH __device__ __host__
+#else
+#define CUDA_DH
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -106,7 +114,7 @@ typedef struct CoolingPKDStruct {
 } COOL;
 
 struct clDerivsDataStruct {
-  void *IntegratorContext;
+  STIFF *IntegratorContext;
   COOL *cl;
   double rho,PdV,E,T,Y_Total,rFactor;
   double dDeltaTau;  /* optical depth across particle */
@@ -117,7 +125,7 @@ struct clDerivsDataStruct {
 
 COOL *CoolInit( );
 void CoolFinalize( COOL *cl );
-clDerivsData *CoolDerivsInit(COOL *cl);
+clDerivsData *CoolDerivsInit(COOL *cl, int nv);
 void CoolDerivsFinalize(clDerivsData *cld ) ;
 
 void clInitConstants( COOL *cl, double dGMPerCcunit, double dComovingGmPerCcUnit,
@@ -127,15 +135,19 @@ void clInitRatesTable( COOL *cl, double TMin, double TMax, int nTable );
 void CoolInitRatesTable( COOL *cl, COOLPARAM CoolParam);
 
 double clThermalEnergy(double Y_Total, double T );
-double clTemperature(double Y_Total, double E );
+CUDA_DH double clTemperature(double Y_Total, double E );
 
-double clEdotInstant( COOL *cl, double E, double T, double rho, double r, 
+CUDA_DH double clEdotInstant( COOL *cl, double E, double T, double rho, double r, 
                       double *dDeltaTau,
                       double *dEdotHeat, double *dEdotCool);
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData, double *E, 
 		       double PdV, double rho, double Y_Total, double radius, double tStep );
+void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, double *E, 
+		       double PdV, double rho, double Y_Total, double radius, double tStep, double *y );
+void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, double *E, 
+		       double rho, double Y_Total, double radius, double tStep, double *y );
 
-void clDerivs(double x, const double *y, double *dHeat, double *dCool, void *Data) ;
+CUDA_DH void clDerivs(double x, const double *y, double *dHeat, double *dCool, void *Data) ;
 
 int clJacobn( double x, const double y[], double dfdx[], double *dfdy, void *Data) ;
   
@@ -221,6 +233,12 @@ void CoolIntegrateEnergy(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 
 void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp, double *E, 
 		       double PdV, double rho, double ZMetal, double *r, double tStep );
+
+void CoolIntegrateEnergyCodeStart(COOL *cl, clDerivsData *cData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, double *E, 
+			          double PdVCode, double rho, double ZMetal, double *r, double tStep, double *y );
+
+void CoolIntegrateEnergyCodeFinish(COOL *cl, clDerivsData *cData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, double *E, 
+			           double PdVCode, double rho, double ZMetal, double *r, double tStep, double *y );
 
 void CoolDefaultParticleData( COOLPARTICLE *cp );
 

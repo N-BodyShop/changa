@@ -167,6 +167,7 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     COOL h_Cool;
     h_Cool = *Cool;
 
+#if !defined(COOLING_BOLEY)
     cudaMalloc(&d_Rates_T, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR);
     cudaMemcpy(d_Rates_T, Cool->RT, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR, cudaMemcpyHostToDevice);
     h_Cool.RT = d_Rates_T;
@@ -175,8 +176,9 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     cudaChk(cudaMalloc(&d_Uvspectrum, sizeof(UVSPECTRUM)*nUV));
     h_Cool.UV = d_Uvspectrum;
     cudaChk(cudaMemcpy(d_Uvspectrum, Cool->UV, sizeof(UVSPECTRUM)*nUV, cudaMemcpyHostToDevice));
+#endif
 
-#if defined(COOLING_MOLECULAR_H) || defined(COOLING_METAL)
+#if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
     int nz = h_Cool.nzMetalTable;
     int nnH = h_Cool.nnHMetalTable;
     int nt = h_Cool.nTMetalTable;
@@ -1078,7 +1080,7 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
 
         h_CoolData[i].IntegratorContext = &h_Stiff[i];
 
-#ifdef COOLING_MOLECULAR_H
+#ifdef COOLING_MOLECULARH
         CoolIntegrateEnergyCodeStart(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
                                     ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
                                     dtUse[i], columnL[i], &y[i*5]);
@@ -1143,7 +1145,7 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
         }
 #endif
         for(unsigned int i = 0; i < numSelParts; ++i) {
-#ifdef COOLING_MOLECULAR_H
+#ifdef COOLING_MOLECULARH
             CoolIntegrateEnergyCodeFinish(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
                                           ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
                                           dtUse[i], columnL[i], &y[i*5]);

@@ -57,16 +57,17 @@ COOL *CoolInit( )
 /**
  * Per thread initialization of cooling
  * @param cl Initialized COOL structure.
+ * @param nv Number of dependent variables for ODE solver
  */
-clDerivsData *CoolDerivsInit(COOL *cl)
+clDerivsData *CoolDerivsInit(COOL *cl, int nv)
 {
     clDerivsData *Data;
     double dEMin;
 
     assert(cl != NULL);
-    Data = malloc(sizeof(clDerivsData));
+    Data = (clDerivsData *) malloc(sizeof(clDerivsData));
     assert(Data != NULL);
-    Data->IntegratorContext = StiffInit( EPSINTEG, 1, Data, clDerivs);
+    Data->IntegratorContext = StiffInit( EPSINTEG, nv, Data, clDerivs);
     Data->cl = cl;
     dEMin =  clThermalEnergy(cl->Y_Total, cl->Tmin);
     StiffSetYMin(Data->IntegratorContext, &dEMin);
@@ -200,11 +201,11 @@ double clThermalEnergy( double Y_Total, double T ) {
 
 }
 
-double clTemperature( double Y_Total, double E ) {
+CUDA_DH double clTemperature( double Y_Total, double E ) {
   return E/(Y_Total*CL_Eerg_gm_degK3_2);
 }
 
-double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor,
+CUDA_DH double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor,
                       double *dDeltaTau, 
                       double *dEdotHeat, double *dEdotCool)
 { 
@@ -303,9 +304,9 @@ double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor,
  * 
  */
 
-void clDerivs(double x, const double *y, double *dHeat, double *dCool,
+CUDA_DH void clDerivs(double x, const double *y, double *dHeat, double *dCool,
               void *Data) {
-  clDerivsData *d = Data;
+  clDerivsData *d = (clDerivsData *) Data;
 
   d->E = y[0];
   d->T = clTemperature( d->Y_Total, d->E );
@@ -370,6 +371,53 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, double *E,
       }
 #endif
   }
+  /* 
+     Note Stored abundances are not necessary with
+     this eqm integrator therefore the following operations
+     could be moved to output routines 
+  */
+
+  d->E = *E;
+  d->T = clTemperature( d->Y_Total, d->E );
+  if (d->T < cl->Tmin ) {
+	  d->T = cl->Tmin;
+	  *E = clThermalEnergy( d->Y_Total, d->T );
+	  }
+}
+
+void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, double *E, 
+		       double PdV, double rho, double Y_Total,
+                       double radius, /* radius of particle */
+                       double tStep, double* y ) {
+  double EMin;
+  double t=0;
+  clDerivsData *d = clData;
+  STIFF *sbs = d->IntegratorContext;
+  
+  if (tStep <= 0) return;
+
+  d->rho = rho;
+  d->PdV = PdV;
+  d->Y_Total = Y_Total;
+
+  d->rFactor = radius;
+
+  EMin = clThermalEnergy( d->Y_Total, cl->Tmin );
+}
+
+void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, double *E, 
+		                   double rho, double Y_Total,
+                       double radius, /* radius of particle */
+                       double tStep, double* y ) {
+  clDerivsData *d = clData;
+  double EMin = clThermalEnergy( d->Y_Total, cl->Tmin );
+#ifdef ASSERTENEG      
+      assert(*E > 0.0);
+#else
+      if (*E < EMin) {
+	*E = EMin;
+      }
+#endif
   /* 
      Note Stored abundances are not necessary with
      this eqm integrator therefore the following operations
@@ -503,6 +551,32 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 	*ECode = CoolErgPerGmToCodeEnergy(cl, *ECode);
         cp->dDeltaTau = clData->dDeltaTau;
 	}
+
+void CoolIntegrateEnergyCodeStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, 
+			          double *ECode, double PdVCode, 
+			          double rhoCode, double ZMetal, double *posCode, 
+			          double tStep, double *y ) {
+  double radius;          /* radius of a particle to calculate tau */
+
+	radius = cp->mrho*cl->dKpcUnit*CONVERT_CMPERKPC;
+
+	*ECode = CoolCodeEnergyToErgPerGm( cl, *ECode );
+  clIntegrateEnergyStart(cl, clData, ECode, CoolCodeWorkToErgPerGmPerSec( cl, PdVCode ), 
+					  CodeDensityToComovingGmPerCc(cl, rhoCode), cp->Y_Total, radius, tStep, y);
+  }
+
+void CoolIntegrateEnergyCodeFinish(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, 
+			          double *ECode, double PdVCode, 
+			          double rhoCode, double ZMetal, double *posCode, 
+			          double tStep, double *y ) {
+  double radius;          /* radius of a particle to calculate tau */
+
+	radius = cp->mrho*cl->dKpcUnit*CONVERT_CMPERKPC;
+  clIntegrateEnergyFinish(cl, clData, ECode,
+					  CodeDensityToComovingGmPerCc(cl, rhoCode), cp->Y_Total, radius, tStep, y);
+  *ECode = CoolErgPerGmToCodeEnergy(cl, *ECode);
+        cp->dDeltaTau = clData->dDeltaTau;
+  }
 
 /* Star form function -- do not use */
 double CoolHeatingRate( COOL *cl, COOLPARTICLE *cp, double T, double dDensity ) {
