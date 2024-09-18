@@ -200,6 +200,9 @@ void ExternalForce::applyGasDrag(GravityParticle *p) const
  * @brief This function applies the gravitational potential force to a specific particle
  * by updating its 'treeAcceleration'.
  *
+ * If the particle is in a Keplerian potential, it gets deleted here if the pericenter distance
+ * falls inside the radius of the central body (dCentRad)
+ *
  * @param p The particle to apply the potential to
  *
  * @return The acceleration on the potential by particle p
