@@ -166,14 +166,20 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 #ifdef CUDA
     COOL h_Cool;
     h_Cool = *Cool;
+
     cudaMalloc(&d_Rates_T, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR);
     cudaMemcpy(d_Rates_T, Cool->RT, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR, cudaMemcpyHostToDevice);
     h_Cool.RT = d_Rates_T;
 
+    int nUV = h_Cool.nUV;
+    cudaChk(cudaMalloc(&d_Uvspectrum, sizeof(UVSPECTRUM)*nUV));
+    h_Cool.UV = d_Uvspectrum;
+    cudaChk(cudaMemcpy(d_Uvspectrum, Cool->UV, sizeof(UVSPECTRUM)*nUV, cudaMemcpyHostToDevice));
+
+#if defined(COOLING_MOLECULAR_H) || defined(COOLING_METAL)
     int nz = h_Cool.nzMetalTable;
     int nnH = h_Cool.nnHMetalTable;
     int nt = h_Cool.nTMetalTable;
-    int nUV = h_Cool.nUV;
     size_t tableSize = nz*nnH*nt*sizeof(float);
 
     // Flatten 3d arrays before moving to device memory
@@ -187,13 +193,10 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 	    }
     }
 
-    cudaChk(cudaMalloc(&d_Uvspectrum, sizeof(UVSPECTRUM)*nUV));
     cudaChk(cudaMalloc(&d_MetalCoolln, tableSize));
     cudaChk(cudaMalloc(&d_MetalHeatln, tableSize));
-    cudaChk(cudaMemcpy(d_Uvspectrum, Cool->UV, sizeof(UVSPECTRUM)*nUV, cudaMemcpyHostToDevice));
     cudaChk(cudaMemcpy(d_MetalCoolln, coolBuf, tableSize, cudaMemcpyHostToDevice));
     cudaChk(cudaMemcpy(d_MetalHeatln, heatBuf, tableSize, cudaMemcpyHostToDevice));
-    h_Cool.UV = d_Uvspectrum;
 
     // The COOL struct uses 3d arrays, but we flattened the data to move it to
     // device memory. Do an ugly cast here to avoid defining a whole new struct.
@@ -201,11 +204,11 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     h_Cool.MetalCoolln = (float*** )d_MetalCoolln;
     h_Cool.MetalHeatln = (float*** )d_MetalHeatln;
 
-    cudaMalloc(&d_Cool, sizeof(COOL));
-    cudaMemcpy(d_Cool, &h_Cool, sizeof(COOL), cudaMemcpyHostToDevice);
-
     free(coolBuf);
     free(heatBuf);
+#endif // COOLING_MOLECULAR_H or COOLING_METAL
+    cudaMalloc(&d_Cool, sizeof(COOL));
+    cudaMemcpy(d_Cool, &h_Cool, sizeof(COOL), cudaMemcpyHostToDevice);
 #endif // CUDA
 #endif //COOLING_NONE
     contribute(cb);

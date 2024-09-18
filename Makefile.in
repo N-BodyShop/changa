@@ -158,21 +158,31 @@ cxx_srcs := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.cpp))
 ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
   c_srcs += $(source_dir)/cooling_planet.c
 endif
+
 ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
+ifeq (yes,@ENABLE_CUDA@)
+  cuda_link := 1
+else
   c_srcs += $(source_dir)/cooling_cosmo.c
 endif
+endif
+
 ifeq (-DCOOLING_BOLEY,@FLAG_COOLING@)
 	c_srcs += $(source_dir)/cooling_boley.c
 endif
 
-ifeq (no,@ENABLE_CUDA@)
 ifeq (-DCOOLING_METAL,@FLAG_COOLING@)
+ifeq (yes,@ENABLE_CUDA@)
+  cuda_link := 1
+else
 	c_srcs += $(source_dir)/cooling_metal.c
 endif
 endif
 
-ifeq (no,@ENABLE_CUDA@)
 ifeq (-DCOOLING_MOLECULARH,@FLAG_COOLING@)
+ifeq (yes,@ENABLE_CUDA@)
+  cuda_link := 1
+else
 	c_srcs += $(source_dir)/cooling_metal_H2.c
 endif
 endif
@@ -190,10 +200,8 @@ c_objs   := $(patsubst %.c,%.o,$(subst $(source_dir),$(build_dir),$(c_srcs)))
 cxx_objs := $(patsubst %.cpp,%.o,$(subst $(source_dir),$(build_dir),$(cxx_srcs)))
 objects  := $(strip $(cxx_objs) $(c_objs) $(cuda_objs))
 
-ifeq (yes,@ENABLE_CUDA@)
-ifeq ($(or @FLAG_COOLING@,-DCOOLING_MOLECULARH,-DCOOLING_METAL),1)
+ifeq (1,$(cuda_link))
 	objects += $(build_dir)/cuda_link.o
-endif
 endif
 
 # ------- Dependencies --------------------------------------------------------

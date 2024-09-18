@@ -72,16 +72,17 @@ COOL *CoolInit( )
 /**
  * Per thread initialization of cooling
  * @param cl Initialized COOL structure.
+ * @param nv Number of independent variable for ODE solver
  */
-clDerivsData *CoolDerivsInit(COOL *cl)
+clDerivsData *CoolDerivsInit(COOL *cl, int nv)
 {
     clDerivsData *Data;
     double dEMin;
 
     assert(cl != NULL);
-    Data = malloc(sizeof(clDerivsData));
+    Data = (clDerivsData *) malloc(sizeof(clDerivsData));
     assert(Data != NULL);
-    Data->IntegratorContext = StiffInit( EPSINTEG, 1, Data, clDerivs);
+    Data->IntegratorContext = StiffInit( EPSINTEG, nv, Data, clDerivs);
     Data->cl = cl;
     Data->Y_Total0 = (cl->Y_H+cl->Y_He)*.9999; /* neutral */
     Data->Y_Total1 = (cl->Y_eMAX+cl->Y_H+cl->Y_He)*1.0001; /* Full Ionization */
@@ -267,7 +268,7 @@ void clRatesTableError( COOL *cl ) {
 #define CL_Tcmb0  2.735
 #define CL_Ccomp  (CL_Ccomp0*CL_Tcmb0)
 
-void clRatesRedshift( COOL *cl, double zIn, double dTimeIn ) {
+CUDA_DH void clRatesRedshift( COOL *cl, double zIn, double dTimeIn ) {
   int i;
   double xx;
   double zTime;
@@ -772,7 +773,7 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho ) {
  * removes no energy from the Gas ( similarly for Helium ) 
  * It also means photoionization doesn't add the 13.6eV, only the excess.
  */
-double clThermalEnergy( double Y_Total, double T ) {
+CUDA_DH double clThermalEnergy( double Y_Total, double T ) {
   return Y_Total*CL_Eerg_gm_degK3_2*T;
 
 }
@@ -1006,7 +1007,7 @@ double clCoolLowT( double T ) {
 
 /* Returns Heating - Cooling excluding External Heating, units of ergs s^-1 g^-1 
    Public interface CoolEdotInstantCode */
-double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
+CUDA_DH double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 		    double ZMetal,  double *dEdotHeat, double *dEdotCool)
 {
   double en_B = rho*CL_B_gm;
@@ -1078,7 +1079,7 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 
 double clfTemp(void *Data, double T) 
 {
-  clDerivsData *d = Data; 
+  clDerivsData *d = (clDerivsData *) Data; 
   
   d->its++;
   clRates( d->cl, &d->Rate, T, d->rho );
@@ -1087,7 +1088,7 @@ double clfTemp(void *Data, double T)
   return d->E-clThermalEnergy( d->Y.Total, T );
 }
 
-void clTempIteration( clDerivsData *d )
+CUDA_DH void clTempIteration( clDerivsData *d )
 {
  double T,TA,TB;
  d->its = 0;
@@ -1106,9 +1107,9 @@ void clTempIteration( clDerivsData *d )
  clAbunds( d->cl, &d->Y, &d->Rate, d->rho );
 }
 
-void clDerivs(double x, const double *y, double *dHeat, double *dCool,
+CUDA_DH void clDerivs(double x, const double *y, double *dHeat, double *dCool,
 	     void *Data) {
-  clDerivsData *d = Data;
+  clDerivsData *d = (clDerivsData *) Data;
 
   d->E = y[0];
   clTempIteration( d );
@@ -1193,6 +1194,59 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
   *Y = d->Y;
   /*  printf("Abunds:  e %e HI %e HII %e\nHeI %e HeII %e HeIII %e\n",
   	 d->Y.e,d->Y.HI,d->Y.HII,d->Y.HeI,d->Y.HeII,d->Y.HeIII); */
+}
+
+void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
+		       double ExternalHeating, double rho, double ZMetal, double tStep, double *y ) {
+  double EMin;
+  double t=0;
+  clDerivsData *d = clData;
+  STIFF *sbs = d->IntegratorContext;
+  
+  if (tStep == 0) return;
+
+  d->rho = rho;
+  d->ExternalHeating = ExternalHeating;
+  d->ZMetal = ZMetal;
+  
+  clRates( d->cl, &d->Rate, cl->TMin, d->rho );
+  clAbunds( d->cl, &d->Y, &d->Rate, d->rho );
+
+  EMin = clThermalEnergy( d->Y.Total, cl->TMin );
+  //if(tStep < 0) return; 
+   if (tStep < 0)  {   /* Don't integrate energy equation */
+      tStep = fabs(tStep);
+      *E += ExternalHeating*tStep;
+      if (*E < EMin) *E=EMin;
+      d->E = *E;
+      clTempIteration( d );
+      *Y = d->Y;
+      return;
+      };  
+
+}
+
+void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
+		            double ExternalHeating, double rho, double ZMetal, double tStep, double *y  ) {
+double EMin;
+EMin = clThermalEnergy( clData->Y.Total, cl->TMin );
+#ifdef ASSERTENEG      
+      assert(*E > 0.0);
+#else
+      if (*E < EMin) {
+	*E = EMin;
+      }
+#endif    
+      cl->its = 1;
+  /* 
+     Note Stored abundances are not necessary with
+     this eqm integrator therefore the following operations
+     could be moved to output routines 
+  */
+
+  clData->E = *E;
+  clTempIteration( clData );
+  *Y = clData->Y;
 }
 
 /* Module Interface routines */
@@ -1289,7 +1343,7 @@ void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns, 
 
 void CoolTableRead( COOL *Cool, int nData, void *vData)
 {
-   double *dTableData = vData;
+   double *dTableData = (double *) vData;
    int nTableColumns; 
    int nTableRows;
    int localcntTable = 0;
@@ -1375,6 +1429,30 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 	*ECode = CoolErgPerGmToCodeEnergy(cl, E);
 
 	}
+
+void CoolIntegrateEnergyCodeStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, 
+			          double *ECode, double ExternalHeatingCode, 
+			          double rhoCode, double ZMetal, double *posCode, 
+			          double tStep, double *y ) {
+	*Ecgs = CoolCodeEnergyToErgPerGm( cl, *ECode );
+	CoolPARTICLEtoPERBARYON(cl, Y, cp);
+
+  clIntegrateEnergyStart(cl, clData, Y, Ecgs,
+			       CoolCodeWorkToErgPerGmPerSec( cl, ExternalHeatingCode ), 
+			       CodeDensityToComovingGmPerCc(cl, rhoCode), ZMetal, tStep, y );
+
+  }
+
+void CoolIntegrateEnergyCodeFinish(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, 
+			           double *ECode, double ExternalHeatingCode, 
+			           double rhoCode, double ZMetal, double *posCode, 
+			           double tStep, double *y ) {
+	clIntegrateEnergyFinish(cl, clData, Y, Ecgs,
+			        CoolCodeWorkToErgPerGmPerSec( cl, ExternalHeatingCode ), 
+			        CodeDensityToComovingGmPerCc(cl, rhoCode), ZMetal, tStep, y );
+	CoolPERBARYONtoPARTICLE(cl, Y, cp);
+	*ECode = CoolErgPerGmToCodeEnergy(cl, *Ecgs);
+  }
 
 /* Deprecated: */
 double CoolHeatingRate( COOL *cl, COOLPARTICLE *cp, double T, double dDensity, double ZMetal ) {

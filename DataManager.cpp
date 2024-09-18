@@ -17,10 +17,12 @@
 #include "Compute.h"
 #include "TreeWalk.h"
 
-#ifdef COOLING_METAL_H2
+#ifdef COOLING_MOLECULAR_H
 #define COOL_NV 5
 #elif COOLING_METAL
 #define COOL_NV 4
+#elif COOLING_COSMO
+#define COOL_NV 1
 #endif
 
 void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name);

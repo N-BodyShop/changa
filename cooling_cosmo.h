@@ -11,6 +11,14 @@
 
 #include "param.h"
 
+#ifdef CUDA
+#include <cuda_runtime.h>
+
+#define CUDA_DH __device__ __host__
+#else
+#define CUDA_DH
+#endif
+
 #ifdef __cplusplus
 extern "C" {
 #endif
@@ -217,7 +225,7 @@ struct clDerivsDataStruct {
 
 COOL *CoolInit( );
 void CoolFinalize( COOL *cl );
-clDerivsData *CoolDerivsInit(COOL *cl);
+clDerivsData *CoolDerivsInit(COOL *cl, int nv);
 void CoolDerivsFinalize(clDerivsData *cld ) ;
 
 void clInitConstants( COOL *cl, double dGMPerCcunit, double dComovingGmPerCcUnit,
@@ -227,7 +235,7 @@ void clInitRatesTable( COOL *cl, double TMin, double TMax, int nTable );
 void CoolInitRatesTable( COOL *cl, COOLPARAM CoolParam);
 
 void clRatesTableError( COOL *cl );
-void clRatesRedshift( COOL *cl, double z, double dTime );
+CUDA_DH void clRatesRedshift( COOL *cl, double z, double dTime );
 double clHeatTotal ( COOL *cl, PERBARYON *Y, RATE *Rate );
 void clRates( COOL *cl, RATE *Rate, double T, double rho );
 double clCoolTotal( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal );
@@ -236,7 +244,7 @@ void clPrintCool( COOL *cl, PERBARYON *Y, RATE *Rate, double rho );
 void clPrintCoolFile( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, FILE *fp );
 
 void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho);
-double clThermalEnergy( double Y_Total, double T );
+CUDA_DH double clThermalEnergy( double Y_Total, double T );
 double clTemperature( double Y_Total, double E );
 double clRateCollHI( double T );
 double clRateCollHeI( double T );
@@ -255,15 +263,19 @@ double clCoolLineHeI( double T );
 double clCoolLineHeII( double T );
 double clCoolLowT( double T );
 
-double clEdotInstant ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
+CUDA_DH double clEdotInstant ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 		       double ZMetal, double *EdotHeat, double *EdotCool );
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double dt );
+void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
+            double ExternalHeating, double rho, double ZMetal, double dt, double *y  );
+void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
+            double ExternalHeating, double rho, double ZMetal, double dt, double *y  );
 void clIntegrateEnergyDEBUG(COOL *cl, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double dt );
 
 
-void clDerivs(double x, const double *y, double *dHeat, double *dCool,
+CUDA_DH void clDerivs(double x, const double *y, double *dHeat, double *dCool,
 	     void *Data) ;
 
 int clJacobn( double x, const double y[], double dfdx[], double *dfdy, void *Data) ;
@@ -363,6 +375,12 @@ void CoolIntegrateEnergy(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double
 
 void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double *r, double tStep );
+
+void CoolIntegrateEnergyCodeStart(COOL *cl, clDerivsData *cData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, double *E, 
+			     double ExternalHeating, double rho, double ZMetal, double *r, double tStep, double *y );
+
+void CoolIntegrateEnergyCodeFinish(COOL *cl, clDerivsData *cData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, double *E, 
+			     double ExternalHeating, double rho, double ZMetal, double *r, double tStep, double *y );
 
 void CoolDefaultParticleData( COOLPARTICLE *cp );
 

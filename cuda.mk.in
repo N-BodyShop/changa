@@ -45,6 +45,11 @@ cuda_includes := -I@CUDA_DIR@/include -I@CHARM_PATH@/tmp/hybridAPI
 
 cuda_srcs     := $(source_dir)/HostCUDA.cu
 
+ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
+	cuda_srcs += $(source_dir)/cooling_cosmo.cu
+	use_dc_flag := -dc
+endif
+
 ifeq (-DCOOLING_MOLECULARH,@FLAG_COOLING@)
 	cuda_srcs += $(source_dir)/cooling_metal_H2.cu
 	use_dc_flag := -dc
@@ -98,7 +103,7 @@ $(build_dir)/%.o: $(source_dir)/%.cu
 	@ echo Compiling $<...
 	$(quiet) /usr/local/cuda-12.5/bin/nvcc -std=$(cxx_std) -Xcompiler "$(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix)" $(nvcc_flags) $(use_dc_flag) -c $< -o $@
 
-ifeq ($(or @FLAG_COOLING@,-DCOOLING_MOLECULARH,-DCOOLING_METAL),1)
+ifeq ($(use_dc_flag),-dc)
 $(build_dir)/cuda_link.o: $(cuda_objs)
 	@ echo Linking cuda object files...
 	$(quiet) /usr/local/cuda-12.5/bin/nvcc -std=$(cxx_std) -Xcompiler "$(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix)" $(nvcc_flags) --device-link $(cuda_objs) --output-file $@
