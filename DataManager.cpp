@@ -17,6 +17,12 @@
 #include "Compute.h"
 #include "TreeWalk.h"
 
+#ifdef COOLING_METAL_H2
+#define COOL_NV 5
+#elif COOLING_METAL
+#define COOL_NV 4
+#endif
+
 void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name);
 
 DataManager::DataManager(const CkArrayID& treePieceID) {
@@ -46,7 +52,7 @@ void DataManager::init() {
 
 #endif
   Cool = CoolInit();
-  Cool_nv = 5; // TODO Is this the same for all cooling modules?
+  Cool_nv = COOL_NV; // TODO This value depends on cooling module loaded
   starLog = new StarLog();
   lockStarLog = CmiCreateLock();
 }

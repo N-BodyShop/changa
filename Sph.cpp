@@ -1075,9 +1075,15 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
 
         h_CoolData[i].IntegratorContext = &h_Stiff[i];
 
+#ifdef COOLING_MOLECULAR_H
         CoolIntegrateEnergyCodeStart(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
                                     ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
                                     dtUse[i], columnL[i], &y[i*5]);
+#else
+        CoolIntegrateEnergyCodeStart(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
+                                    ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
+                                    dtUse[i], &y[i*5]);
+#endif
     }
     double t;
 #ifdef CUDA
@@ -1134,9 +1140,15 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
         }
 #endif
         for(unsigned int i = 0; i < numSelParts; ++i) {
+#ifdef COOLING_MOLECULAR_H
             CoolIntegrateEnergyCodeFinish(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
                                           ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
                                           dtUse[i], columnL[i], &y[i*5]);
+#else
+            CoolIntegrateEnergyCodeFinish(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
+                                          ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
+                                          dtUse[i], &y[i*5]);
+#endif
         }
     delete[] y;
 }

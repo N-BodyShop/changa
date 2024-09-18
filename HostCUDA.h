@@ -5,7 +5,7 @@
 #include <cuda_runtime.h>
 #include "cuda_typedef.h"
 
-#include "cooling_metal_H2.h"
+#include "cooling.h"
 
 #define THREADS_PER_BLOCK 128
 

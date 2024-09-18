@@ -328,9 +328,6 @@ void CoolInitRatesTable( COOL *cl, COOLPARAM CoolParam);
 
 CUDA_DH void clRates_Table( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, double columnL, double Rate_Phot_H2_stellar);
 void clRatesTableError( COOL *cl );
-#ifdef CUDA
-__global__ void CudaclRatesRedshift( COOL *cl, double zIn, double dTimeIn );
-#endif
 CUDA_DH void clRatesRedshift( COOL *cl, double zIn, double dTimeIn );
 double clHeatTotal ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal );
 void clRates( COOL *cl, RATE *Rate, double T, double rho, double ZMetal, double columnL, double  Rate_Phot_H2_stellar);
@@ -466,6 +463,7 @@ double CodeDensityToComovingGmPerCc( COOL *Cool, double dCodeDensity );
 void CoolIntegrateEnergy(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
 			 double ExternalHeating, double rho, double ZMetal, double tStep, double columnL );
 
+// TODO  remove
 void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
 			     double ExternalHeating, double rho, double ZMetal, double *r, double tStep, double columnL );
 

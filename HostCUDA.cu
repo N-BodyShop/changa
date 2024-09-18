@@ -2226,6 +2226,10 @@ __device__ double sign(double a, double b)
     else return -aabs;
 }
 
+__global__ void CudaclRatesRedshift( COOL *cl, double z, double dTime ) {
+  clRatesRedshift(cl, z, dTime);
+}
+
 void CudaCoolSetTime( COOL *cl, double dTime, double z, cudaStream_t stream ) {
     CudaclRatesRedshift<<<1, 1, 0, stream>>>( cl, z, dTime );
 }
