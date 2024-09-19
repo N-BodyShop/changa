@@ -220,12 +220,18 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
 
         // Once 'dtCol' and 'iOrderCol' are set, we need to determine which
         // collision is going to happen the soonest
-        CkReductionMsg *msgChk1, *msgChk2;
+        CkReductionMsg *msgChk1, *msgChk2, *msgChk3;
+        msgChk2 = NULL;
+
+        // Ideally, both colliders will be found here. Search radius scales with
+        // particle speed, so occasionally only one particle will 'see' the
+        // impending collision
         treeProxy.getCollInfo(CkCallbackResumeThread((void*&)msgChk1));
         ColliderInfo *c = (ColliderInfo *)msgChk1->getData();
 
-	// Since particles can have different search radii, we need to find each collider
-	// on the TreePieces separately
+        // In the latter case, one of the two colliders will not have its dtCol
+        // field set. When this happens, use the iOrderCol field to go back and
+        // find the second collider
         if (c[0].dtCol <= dDelta && c[1].dtCol > dDelta) {
             treeProxy.getCollInfo(c[0].iOrderCol, CkCallbackResumeThread((void*&)msgChk2));
             c[1] = *(ColliderInfo *)msgChk2->getData();
@@ -257,8 +263,8 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
 		if ((c[0].rung == c[1].rung) || (iStep > param.collision.iMRCollMin)) {
                     nColl++;
                     treeProxy.resolveCollision(param.collision, c[0], c[1], dDelta,
-                                           dTime, dCentMass, CkCallbackResumeThread((void*&)msgChk1));
-                    int *collType = (int *)msgChk1->getData();
+                                           dTime, dCentMass, CkCallbackResumeThread((void*&)msgChk3));
+                    int *collType = (int *)msgChk3->getData();
                     logCollision(dTime, c, *collType);
                     }
                 // Otherwise, force both particles onto the smaller rung
@@ -271,7 +277,8 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
             }
 
         delete msgChk1;
-        delete msgChk2;
+        if (msgChk2 != NULL) delete msgChk2;
+        delete msgChk3;
 
 	// Resolving a collision alters particle positions + velocities
 	// We might have created another imminent collision, so go back and check
