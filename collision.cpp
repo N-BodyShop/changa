@@ -936,11 +936,10 @@ void Collision::bounceCalc(double r, double m, Vector3D<double> pos,
 
 int CollisionSmoothParams::isSmoothActive(GravityParticle *p)
 {
-    if(p->rung < activeRung)
-	    return 0;
+    if(p->rung < activeRung) return 0;
+    if (coll.bSkipP0 && (p->iOrder == 0)) return 0;
 
-    if (TYPETest(p, iType)) return 1;
-    else return 0;
+    return TYPETest(p, iType);
     }
 
 void CollisionSmoothParams::initSmoothParticle(GravityParticle *p)
@@ -995,11 +994,6 @@ void CollisionSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
     double dt = DBL_MAX;
     p->dtCol = DBL_MAX;
     p->iOrderCol = -1;
-
-    if (TYPETest(p, TYPE_DELETED)) return;
-    if (coll.bSkipP0) {
-        if (p->iOrder == 0) return;
-        }
 
     if (bWall) {
         dt = (dWallPos - p->position[2] - (p->soft*2.))/p->velocity[2];
