@@ -4,4 +4,4 @@
 # speeds, will eventually evolve into a
 # Maxwell-Bolztmann distribution.
 
-../charmrun +p 2 ../ChaNGa -v 1 testcollbox.param ++local
+../charmrun +p 2 ../ChaNGa -v 1 test_collbox.param ++local
