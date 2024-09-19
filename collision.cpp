@@ -214,7 +214,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
 
 	// Log the iOrder and iOrderCol of every particle that has an overlap
 	if (param.collision.bLogOverlaps) {
-            treeProxy.logOverlaps(CkCallbackResumeThread());
+            treeProxy[0].logOverlaps(CkCallbackResumeThread());
 	    CkAbort("All overlaps have been written to logfile. Stopping here.\n");
 	    }
 
@@ -318,7 +318,14 @@ void TreePiece::logOverlaps(const CkCallback& cb)
         if (p->dtCol < 0) fprintf(fpLog, "%ld %ld\n", p->iOrder, p->iOrderCol);
         }
     fclose(fpLog);
-    contribute(cb);
+
+    if (thisIndex != (int)numTreePieces-1) {
+        pieces[thisIndex + 1].logOverlaps(cb);
+        return;
+        }
+
+    cb.send();
+    return;
     }
 
 /**
