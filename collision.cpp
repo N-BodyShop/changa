@@ -222,6 +222,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
         // collision is going to happen the soonest
         CkReductionMsg *msgChk1, *msgChk2, *msgChk3;
         msgChk2 = NULL;
+        msgChk3 = NULL;
 
         // Ideally, both colliders will be found here. Search radius scales with
         // particle speed, so occasionally only one particle will 'see' the
@@ -265,7 +266,6 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
                     treeProxy.resolveCollision(param.collision, c[0], c[1], dDelta,
                                            dTime, dCentMass, CkCallbackResumeThread((void*&)msgChk3));
                     int *collType = (int *)msgChk3->getData();
-                    delete msgChk3;
                     logCollision(dTime, c, *collType);
                     }
                 // Otherwise, force both particles onto the smaller rung
@@ -279,6 +279,7 @@ void Main::doCollisions(double dTime, double dDelta, int activeRung, int iStep, 
 
         delete msgChk1;
         if (msgChk2 != NULL) delete msgChk2;
+        if (msgChk3 != NULL) delete msgChk3;
 
 	// Resolving a collision alters particle positions + velocities
 	// We might have created another imminent collision, so go back and check
