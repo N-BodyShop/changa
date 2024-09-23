@@ -341,6 +341,10 @@ void TreePiece::getCollInfo(const CkCallback& cb)
 {
     double dtMin = DBL_MAX;
     ColliderInfo ci[2];
+
+    // There should never be a case where iOrder doesnt get set below,
+    // but initalize to -1 here to prevent Valgrind from complaining
+    ci[0].iOrder = -1;
     ci[0].dtCol = dtMin;
     for (unsigned int i=1; i <= myNumParticles; i++) {
         GravityParticle *p = &myParticles[i];
@@ -361,6 +365,7 @@ void TreePiece::getCollInfo(const CkCallback& cb)
 
     // Check to see if the second collider is here
     int bFoundC1 = 0;
+    ci[1].iOrder = -1;
     ci[1].dtCol = DBL_MAX;
     for (unsigned int i=1; i <= myNumParticles; i++) {
         GravityParticle *p = &myParticles[i];
