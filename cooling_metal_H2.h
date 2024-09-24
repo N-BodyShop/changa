@@ -17,10 +17,12 @@
 
 #ifdef CUDA
 #include <cuda_runtime.h>
-
+// Make some functions and variables accessible from both the host and device
 #define CUDA_DH __device__ __host__
+#define CUDA_CONST __constant__
 #else
 #define CUDA_DH
+#define CUDA_CONST
 #endif
 
 
