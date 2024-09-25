@@ -166,16 +166,6 @@ void DataManager::clearRegisteredPieces(const CkCallback& cb) {
     contribute(cb);
 }
 
-#ifdef CUDA
-// This gets called before a tree build happens and ensures that
-// registeredTreePieces doesnt get cleared during combineLocalTrees
-// if we are about to do a gravity calculation on the GPU
-void DataManager::unmarkTreePiecesForCleanup(const CkCallback& cb) {
-    cleanupTreePieces = false;
-    contribute(cb);
-}
-#endif
-
 
 /// \brief Build a local tree inside the node.
 ///
@@ -222,10 +212,6 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
       gtn.push_back(registeredTreePieces[i].root);
     }
     root = buildProcessorTree(totalChares, &gtn[0]);
-
-    if (cleanupTreePieces) {
-      registeredTreePieces.removeAll();
-    }
 
 #ifdef PRINT_MERGED_TREE
     ostringstream dmName;
@@ -1069,7 +1055,6 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
         }
         delete (data->cb);
         delete data;
-        registeredTreePieces.length() = 0;
     }
     CmiUnlock(__nodelock);
 }
