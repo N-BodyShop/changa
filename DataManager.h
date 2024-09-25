@@ -190,6 +190,7 @@ public:
 	void createStreams(int _numStreams, const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
+        void assignCUDAStreams(const CkCallback& cb);
 
 #ifdef GPU_LOCAL_TREE_WALK
         void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
