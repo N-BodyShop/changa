@@ -14,6 +14,7 @@
 #include "Reductions.h"
 // jetley
 #include "MultistepLB.h"
+#include "MultistepLB_SFC.h"
 #include "MultistepLB_notopo.h"
 #include "MultistepNodeLB_notopo.h"
 #include "Orb3dLB.h"
@@ -5246,7 +5247,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   if (!bUseCpu) {
       dm->serializeLocalTree();
   } else {
-      thisProxy[thisIndex].commenceCalculateGravityLocal(0, 0, 0, 0, 0, 0, 0, 0);
+      thisProxy[thisIndex].commenceCalculateGravityLocal(0, 0, 0, 0, 0, 0);
   }
 #else
   thisProxy[thisIndex].commenceCalculateGravityLocal();
@@ -5306,13 +5307,11 @@ void TreePiece::initiatePrefetch(int chunk){
 void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments, 
 		                              intptr_t d_localParts, 
 					      intptr_t d_localVars,
-					      intptr_t streams, int numStreams,
                                               size_t sMoments, size_t sCompactParts, size_t sVarParts) {
     if (!bUseCpu) {
       this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
       this->d_localParts = (CompactPartData *)d_localParts;
       this->d_localVars = (VariablePartData *)d_localVars;
-      this->stream = ((cudaStream_t *)streams)[thisIndex % numStreams];
       this->sMoments = sMoments;
       this->sCompactParts = sCompactParts;
       this->sVarParts = sVarParts;
@@ -6531,6 +6530,7 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
 
   string msname("MultistepLB");
   string orb3dname("Orb3dLB");
+  string ms_sfcname("MultistepLB_SFC");
   string ms_notoponame("MultistepLB_notopo");
   string msnode_notoponame("MultistepNodeLB_notopo");
   string orb3d_notoponame("Orb3dLB_notopo");
@@ -6548,6 +6548,10 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
       else if(orb3dname == string(lbs[i]->lbName())){ 
         foundLB = Orb3d;
         break;
+      }
+      else if(ms_sfcname == string(lbs[i]->lbName())){
+          foundLB = Multistep_SFC;
+          break;
       }
      else if(ms_notoponame == string(lbs[i]->lbName())){ 
         foundLB = Multistep_notopo;
