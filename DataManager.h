@@ -255,7 +255,6 @@ public:
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
         void assignCUDAStreams(const CkCallback& cb);
-
         void setupuDot(int activeRung, int bAll, const CkCallback& cb);
         void setupuDotDone(const CkCallback& cb);
 

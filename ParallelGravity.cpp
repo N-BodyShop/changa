@@ -2104,6 +2104,10 @@ void Main::advanceBigStep(int iStep) {
     dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
     buildTree(activeRung);
 
+#ifdef CUDA
+    dMProxy.assignCUDAStreams(CkCallbackResumeThread());
+#endif
+
     CkCallback cbGravity(CkCallback::resumeThread);
 
 #ifdef COOLING_MOLECULARH
