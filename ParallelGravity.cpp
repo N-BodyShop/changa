@@ -1965,6 +1965,7 @@ Main::loadBalance(int iPhase)
 /// @param iPhase Active rung (or phase).
 void Main::buildTree(int iPhase)
 {
+    dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
 #ifdef PUSH_GRAVITY
     bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
     if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
@@ -2352,7 +2353,6 @@ void Main::advanceBigStep(int iStep) {
 
     CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /******** Tree Build *******/
-    dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
     buildTree(activeRung);
 
 #ifdef CUDA
