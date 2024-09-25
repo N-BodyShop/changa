@@ -320,13 +320,6 @@ void Main::StellarFeedback(double dTime, double dDelta)
     treeProxy.startReSmooth(&pSHG, CkCallbackResumeThread());
 #endif
     treeProxy.finishNodeCache(CkCallbackResumeThread());
-#ifdef CUDA
-        // We didn't do gravity where the registered TreePieces on the
-        // DataManager normally get cleared.  Clear them here instead.
-        if (nActiveGrav > param.nGpuMinParts) {
-            dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
-        }
-#endif
 
 #ifdef SPLITGAS
     addDelParticles();//Don't forget to run an addDelParticles after a split

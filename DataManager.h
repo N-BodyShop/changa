@@ -255,7 +255,6 @@ public:
         std::map<NodeKey, int> &getCachedPartsOnGpuTable(){
           return cachedPartsOnGpu;
         }
-        void unmarkTreePiecesForCleanup(const CkCallback& cb);
 #endif
 	// Functions used to create a tree inside the DataManager comprising
 	// all the trees in the TreePieces in the local node
