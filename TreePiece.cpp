@@ -527,7 +527,6 @@ void TreePiece::evaluateParticleCounts(ORBSplittersMsg *splittersMsg)
   delete splittersMsg;
 }
 
-#ifdef REDUCTION_HELPER
 void ReductionHelper::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, const CkCallback& cb){
   splitters.assign(keys, keys + n);
   if(localTreePieces.presentTreePieces.size() == 0){
@@ -573,7 +572,6 @@ void ReductionHelper::evaluateBoundaries(const CkBitVector &binsToSplit, const C
   evaluateBoundaries(&newSplitters[0], newSplitters.size(), 0, cb);
 }
 
-#endif
 
 /// Determine my part of the sorting histograms by counting the number
 /// of my particles in each bin.
@@ -592,16 +590,7 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
   int numBins = skipEvery ? n - (n-1)/(skipEvery+1) - 1 : n - 1;
 
   //this array will contain the number of particles I own in each bin
-  int64_t *myCounts;
-
-#ifdef REDUCTION_HELPER
-  myCounts = new int64_t[numBins];
-#else
-  //myBinCounts.assign(numBins, 0);
-  myBinCounts.resize(numBins);
-  myCounts = myBinCounts.getVec();
-#endif
-
+  int64_t *myCounts = new int64_t[numBins];
   memset(myCounts, 0, numBins*sizeof(int64_t));
 
   if (myNumParticles > 0) {
@@ -681,12 +670,8 @@ void TreePiece::evaluateBoundaries(SFC::Key* keys, const int n, int skipEvery, c
   }
   
   //send my bin counts back in a reduction
-#ifdef REDUCTION_HELPER
   reductionHelperProxy.ckLocalBranch()->reduceBinCounts(numBins, myCounts, cb);
   delete[] myCounts;
-#else
-  contribute(numBins * sizeof(int64_t), myCounts, CkReduction::sum_long, cb);
-#endif
 }
 
 void TreePiece:: resetObjectLoad(const CkCallback& cb) {
@@ -6618,7 +6603,6 @@ void TreePiece::clearMarkedBucketsAll(){
 
 #endif
 
-#ifdef REDUCTION_HELPER
 ReductionHelper::ReductionHelper(){
 }
 
@@ -6682,7 +6666,5 @@ void ReductionHelper::senseLocalTreePieces(){
   CkLocMgr *mgr = treeProxy.ckLocMgr();        
   mgr->iterate(localTreePieces);              
 }
-
-#endif
 
 
