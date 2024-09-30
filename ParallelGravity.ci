@@ -546,11 +546,7 @@ const CkCallback& cb);
     entry void collectStatistics(const CkCallback &cb);
 
     // jetley
-#ifdef CUDA
-<<<<<<< HEAD
     entry void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb);
-=======
->>>>>>> 7dec4c5b (CUDA streams assigned to TreePieces after tree build)
     entry void assignCUDAStream(intptr_t stream);
     entry void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
     entry void fillGPUBuffer(intptr_t bufLocalParts,
