@@ -1731,6 +1731,10 @@ void Main::buildTree(int iPhase)
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
+
+#ifdef CUDA
+    dMProxy.assignCUDAStreams(CkCallbackResumeThread());
+#endif
     double tTB =  CkWallTimer()-startTime;
     timings[iPhase].tTBuild += tTB;
     CkPrintf("took %g seconds.\n", tTB);
@@ -2099,10 +2103,6 @@ void Main::advanceBigStep(int iStep) {
     /******** Tree Build *******/
     dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
     buildTree(activeRung);
-
-#ifdef CUDA
-    dMProxy.assignCUDAStreams(CkCallbackResumeThread());
-#endif
 
     CkCallback cbGravity(CkCallback::resumeThread);
 
