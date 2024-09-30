@@ -1204,6 +1204,7 @@ void TreePiece::updateuDot(int activeRung,
     double PoverRhoGas;
     double PoverRhoJeans;
     double cGas;
+    double r1[3];  // For conversion to C
 
     std::vector<GravityParticle *> pPtr(numSelParts);
     std::vector<double> ExternalHeating(numSelParts);
@@ -1248,11 +1249,10 @@ void TreePiece::updateuDot(int activeRung,
 
         if (bCool) {
             cp[pIdx] = p->CoolParticle();
-            double rc[3];
-            p->position.array_form(rc);
-            r[pIdx][0] = rc[0];
-            r[pIdx][1] = rc[1];
-            r[pIdx][2] = rc[2];
+	    p->position.array_form(r1);
+	    r[pIdx][0] = 0.;//std::vector<double>(r1, r1 + 3);
+	    r[pIdx][1] = 0.;
+	    r[pIdx][2] = 0.;
             CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
             CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #ifdef SUPERBUBBLE
@@ -1265,6 +1265,7 @@ void TreePiece::updateuDot(int activeRung,
             * If we have mass in the hot phase, we need to cool it appropriately.
             */
             if (p->massHot() > 0) { 
+			CkPrintf("%d is hot\n", p->iOrder);
                 ExternalHeating[pIdx] = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
                 if (p->uHot() > 0) { 
                     E[pIdx] = p->uHot();
@@ -1277,11 +1278,13 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef COOLDEBUG
                     dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif /*COOLDEBUG*/
-                    CoolIntegrateEnergyCode(dm->Cool, &h_CoolData[pIdx], &cp[pIdx], &E[pIdx],
+                    CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp[pIdx], &E[pIdx],
                                 ExternalHeating[pIdx], fDensityHot,
                                 fMetals[pIdx], r[pIdx].data(), dt, columnLHot);
 #else /*COOLING_MOLECULARH*/
-                    CoolIntegrateEnergyCode(dm->Cool, &h_CoolData[pIdx], &cp[pIdx], &E[pIdx], ExternalHeating[pIdx], fDensityHot,
+		    // TODO h_CoolData doesnt get initalized until integrateEnergy is called below
+		    // Just use CoolData instead?
+                    CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp[pIdx], &E[pIdx], ExternalHeating[pIdx], fDensityHot,
                             fMetals[pIdx], r[pIdx].data(), dt);
 #endif /*COOLING_MOLECULARH*/
                     p->uHotDot() = (E[pIdx] - p->uHot())/duDelta[p->rung];
@@ -1305,7 +1308,7 @@ void TreePiece::updateuDot(int activeRung,
             }
             fDensity[pIdx] = fDensity[pIdx]*PoverRho/(gammam1*p->u());
             if (p->fDensityU() < fDensity[pIdx]) fDensity[pIdx] = p->fDensityU()*PoverRho/(gammam1*p->u());
-            CkAssert(fDensity > 0);
+            CkAssert(fDensity[pIdx] > 0);
             cp[pIdx] = p->CoolParticle();
 #endif // SUPERBUBBLE
 
@@ -1324,8 +1327,8 @@ void TreePiece::updateuDot(int activeRung,
 		}
             columnL[pIdx] = sqrt(0.25)*p->fBall;
             }
-        }
         pIdx++;
+        }
     }
 
     if (bCool) {
@@ -1340,7 +1343,10 @@ void TreePiece::updateuDot(int activeRung,
             if(dtUse[i] > 0 || ExternalHeating[i]*duDelta[p->rung] + p->u() < 0)
                 // linear interpolation over interval
                 p->uDot() = (E[i] - p->u())/duDelta[p->rung];
-                CkPrintf("%g\n", p->uDot()); // E[i] and p->u are identical
+                //CkPrintf("%g\n", p->uDot()); // E[i] and p->u are identical
+		if (p->uDot() > 100) {
+			CkPrintf("Hello\n");
+		}
                 if (bUpdateState) p->CoolParticle() = cp[i];
             } else {
                 p->uDot() = ExternalHeating[i];
