@@ -1322,7 +1322,8 @@ void TreePiece::updateuDot(int activeRung,
 	       < p->fTimeCoolIsOffUntil()) {
 	        /* This flags cooling shutoff (e.g., from SNe) to
 	           the cooling functions. */
-		dtUse[pIdx] = -dt;
+		//dtUse[pIdx] = -dt;
+               h_CoolData[pIdx].bCool = 0;
 		p->uDot() = ExternalHeating[pIdx];
 		}
             columnL[pIdx] = sqrt(0.25)*p->fBall;
@@ -1344,9 +1345,6 @@ void TreePiece::updateuDot(int activeRung,
                 // linear interpolation over interval
                 p->uDot() = (E[i] - p->u())/duDelta[p->rung];
                 //CkPrintf("%g\n", p->uDot()); // E[i] and p->u are identical
-		if (p->uDot() > 100) {
-			CkPrintf("Hello\n");
-		}
                 if (bUpdateState) p->CoolParticle() = cp[i];
             } else {
                 p->uDot() = ExternalHeating[i];
