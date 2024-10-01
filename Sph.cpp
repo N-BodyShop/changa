@@ -1043,33 +1043,31 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
     std::vector<PERBARYON> Y(numSelParts);
     std::vector<double> Ecgs(numSelParts);
 
-    int nv = dm->Cool_nv;
-
     // Cooling functions require C-style array
-    double *y = new double[numSelParts*5];
+    double *y = new double[numSelParts*COOL_NV];
     for(unsigned int i = 0; i < numSelParts; ++i) {
         Ecgs[i] = 0.0;
         h_CoolData[i].cl = dm->Cool;
 
-        h_Stiff[i].nv = nv;
+        h_Stiff[i].nv = COOL_NV;
         h_Stiff[i].epsmin = EPSINTEG;
         h_Stiff[i].sqreps = 5.0*sqrt(EPSINTEG);
         h_Stiff[i].epscl = 1.0/EPSINTEG;
         h_Stiff[i].epsmax = EPSMAX;
         h_Stiff[i].dtmin = DTMIN;
         h_Stiff[i].itermax = ITERMAX;
-        h_Stiff[i].ymin = &h_ymin[i*nv];
-        for(int j = 0; j < nv; j++)
+        h_Stiff[i].ymin = &h_ymin[i*COOL_NV];
+        for(int j = 0; j < COOL_NV; j++)
             h_Stiff[i].ymin[j] = YMIN0;
-        h_Stiff[i].y0 = &h_y0[i*nv];
-        h_Stiff[i].y1 = &h_y1[i*nv];
-        h_Stiff[i].q = &h_q[i*nv];
-        h_Stiff[i].d = &h_d[i*nv];
-        h_Stiff[i].rtau = &h_rtau[i*nv];
-        h_Stiff[i].ys = &h_ys[i*nv];
-        h_Stiff[i].qs = &h_qs[i*nv];
-        h_Stiff[i].rtaus = &h_rtaus[i*nv];
-        h_Stiff[i].scrarray = &h_scrarray[i*nv];
+        h_Stiff[i].y0 = &h_y0[i*COOL_NV];
+        h_Stiff[i].y1 = &h_y1[i*COOL_NV];
+        h_Stiff[i].q = &h_q[i*COOL_NV];
+        h_Stiff[i].d = &h_d[i*COOL_NV];
+        h_Stiff[i].rtau = &h_rtau[i*COOL_NV];
+        h_Stiff[i].ys = &h_ys[i*COOL_NV];
+        h_Stiff[i].qs = &h_qs[i*COOL_NV];
+        h_Stiff[i].rtaus = &h_rtaus[i*COOL_NV];
+        h_Stiff[i].scrarray = &h_scrarray[i*COOL_NV];
 
         h_Stiff[i].Data = &h_CoolData[i];
         h_Stiff[i].derivs = clDerivs;
@@ -1081,18 +1079,18 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
 #ifdef COOLING_MOLECULARH
         CoolIntegrateEnergyCodeStart(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
                                     ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
-                                    dtUse[i], columnL[i], &y[i*5]);
+                                    dtUse[i], columnL[i], &y[i*COOL_NV]);
 #else
         CoolIntegrateEnergyCodeStart(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
                                     ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
-                                    dtUse[i], &y[i*5]);
+                                    dtUse[i], &y[i*COOL_NV]);
 #endif
     }
     double t;
 #ifdef CUDA
     if (numSelParts > gpuGasMinParts) {
         CkPrintf("%d solving ODE on the GPU with %d particles\n", thisIndex, numSelParts);
-        cudaChk(cudaMemcpy(d_ymin, h_ymin, nv*numSelParts*sizeof(double), cudaMemcpyHostToDevice));
+        cudaChk(cudaMemcpy(d_ymin, h_ymin, COOL_NV*numSelParts*sizeof(double), cudaMemcpyHostToDevice));
 
         std::vector<STIFF> Stiff(numSelParts);
         for (int i = 0; i < numSelParts; i++) {
@@ -1101,16 +1099,16 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
             
             Stiff[i] = h_Stiff[i];
 
-            Stiff[i].ymin = &d_ymin[i*nv];
-            Stiff[i].y0 = &d_y0[i*nv];
-            Stiff[i].q = &d_q[i*nv];
-            Stiff[i].d = &d_d[i*nv];
-            Stiff[i].rtau = &d_rtau[i*nv];
-            Stiff[i].ys = &d_ys[i*nv];
-            Stiff[i].qs = &d_qs[i*nv];
-            Stiff[i].rtaus = &d_rtaus[i*nv];
-            Stiff[i].scrarray = &d_scrarray[i*nv];
-            Stiff[i].y1 = &d_y1[i*nv];
+            Stiff[i].ymin = &d_ymin[i*COOL_NV];
+            Stiff[i].y0 = &d_y0[i*COOL_NV];
+            Stiff[i].q = &d_q[i*COOL_NV];
+            Stiff[i].d = &d_d[i*COOL_NV];
+            Stiff[i].rtau = &d_rtau[i*COOL_NV];
+            Stiff[i].ys = &d_ys[i*COOL_NV];
+            Stiff[i].qs = &d_qs[i*COOL_NV];
+            Stiff[i].rtaus = &d_rtaus[i*COOL_NV];
+            Stiff[i].scrarray = &d_scrarray[i*COOL_NV];
+            Stiff[i].y1 = &d_y1[i*COOL_NV];
             Stiff[i].Data = &d_CoolData[i];
             Stiff[i].derivs = clDerivs;
         }
@@ -1119,7 +1117,7 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
         cudaChk(cudaMemcpyAsync(d_Stiff, Stiff.data(), sizeof(STIFF)*numSelParts, cudaMemcpyHostToDevice, this->stream));
 
         t = 0.0;
-        TreePieceODESolver(d_Stiff, d_y, d_dtg, y, t, dtUse, numSelParts, this->stream);
+        TreePieceODESolver(d_Stiff, d_y, d_dtg, y, t, dtUse, numSelParts, COOL_NV, this->stream);
 
         cudaChk(cudaMemcpyAsync(h_CoolData, d_CoolData, numSelParts*sizeof(clDerivsData), cudaMemcpyDeviceToHost, this->stream));
         cudaStreamSynchronize(this->stream);
@@ -1133,24 +1131,24 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
         CkPrintf("%d solving ODE on the CPU with %d particles\n", thisIndex, numSelParts);
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
-           StiffStep( h_CoolData[i].IntegratorContext, &y[i*5], t, dtUse[i]);
+           StiffStep( h_CoolData[i].IntegratorContext, &y[i*COOL_NV], t, dtUse[i]);
         }
     }
 #else
         for(unsigned int i = 0; i < numSelParts; ++i) {
            t = 0.0;
-           StiffStep( h_CoolData[i].IntegratorContext, &y[i*5], t, dtUse[i]);
+           StiffStep( h_CoolData[i].IntegratorContext, &y[i*COOL_NV], t, dtUse[i]);
         }
 #endif
         for(unsigned int i = 0; i < numSelParts; ++i) {
 #ifdef COOLING_MOLECULARH
             CoolIntegrateEnergyCodeFinish(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
                                           ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
-                                          dtUse[i], columnL[i], &y[i*5]);
+                                          dtUse[i], columnL[i], &y[i*COOL_NV]);
 #else
             CoolIntegrateEnergyCodeFinish(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
                                           ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
-                                          dtUse[i], &y[i*5]);
+                                          dtUse[i], &y[i*COOL_NV]);
 #endif
         }
     delete[] y;

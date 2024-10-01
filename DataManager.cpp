@@ -17,14 +17,6 @@
 #include "Compute.h"
 #include "TreeWalk.h"
 
-#ifdef COOLING_MOLECULARH
-#define COOL_NV 5
-#elif COOLING_METAL
-#define COOL_NV 4
-#elif COOLING_COSMO || COOLING_BOLEY
-#define COOL_NV 1
-#endif
-
 void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name);
 
 DataManager::DataManager(const CkArrayID& treePieceID) {
