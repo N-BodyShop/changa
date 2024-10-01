@@ -1048,7 +1048,6 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
     // Cooling functions require C-style array
     double *y = new double[numSelParts*5];
     for(unsigned int i = 0; i < numSelParts; ++i) {
-        // This is largely duplicated from StiffInit
         Ecgs[i] = 0.0;
         h_CoolData[i].cl = dm->Cool;
 
@@ -1056,12 +1055,12 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
         h_Stiff[i].epsmin = EPSINTEG;
         h_Stiff[i].sqreps = 5.0*sqrt(EPSINTEG);
         h_Stiff[i].epscl = 1.0/EPSINTEG;
-        h_Stiff[i].epsmax = 10.0;
-        h_Stiff[i].dtmin = 1e-15;
-        h_Stiff[i].itermax = 3;
+        h_Stiff[i].epsmax = EPSMAX;
+        h_Stiff[i].dtmin = DTMIN;
+        h_Stiff[i].itermax = ITERMAX;
         h_Stiff[i].ymin = &h_ymin[i*nv];
         for(int j = 0; j < nv; j++)
-            h_Stiff[i].ymin[j] = 1e-300;
+            h_Stiff[i].ymin[j] = YMIN0;
         h_Stiff[i].y0 = &h_y0[i*nv];
         h_Stiff[i].y1 = &h_y1[i*nv];
         h_Stiff[i].q = &h_q[i*nv];
@@ -1075,7 +1074,7 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
         h_Stiff[i].Data = &h_CoolData[i];
         h_Stiff[i].derivs = clDerivs;
 
-        h_Stiff[i].epsmax = 10.0;
+        h_Stiff[i].epsmax = EPSMAX;
 
         h_CoolData[i].IntegratorContext = &h_Stiff[i];
 

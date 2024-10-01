@@ -56,13 +56,13 @@ STIFF *StiffInit( double eps, int nv, void *Data,
   s->epsmin = eps;
   s->sqreps = 5.0*sqrt(eps);
   s->epscl = 1.0/eps;
-  s->epsmax = 10.0;
-  s->dtmin = 1e-15;
-  s->itermax = 3; /*Increased from 1 to 3 to speed integration by
+  s->epsmax = EPSMAX;
+  s->dtmin = DTMIN;
+  s->itermax = ITERMAX; /*Increased from 1 to 3 to speed integration by
 		    calculating more correctors.  Adjustable parameter*/ 
   s->ymin = malloc(nv*sizeof(*(s->ymin)));
   for(i = 0; i < nv; i++)
-      s->ymin[i] = 1e-300;
+      s->ymin[i] = YMIN0;
   s->y0 = malloc(nv*sizeof(*(s->y0)));
   s->y1 = malloc(nv*sizeof(*(s->y1)));
   s->q = malloc(nv*sizeof(*(s->q)));
@@ -76,7 +76,7 @@ STIFF *StiffInit( double eps, int nv, void *Data,
   s->Data = Data;
   s->derivs = derivs;
 
-  s->epsmax = 10.0;
+  s->epsmax = EPSMAX;
 
   return s;
 }

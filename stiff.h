@@ -1,6 +1,11 @@
 #ifndef STIFF_HINCLUDED
 #define STIFF_HINCLUDED
 
+#define EPSMAX 10.0
+#define DTMIN 1e-15
+#define ITERMAX 3.0
+#define YMIN0 1e-300
+
 /** @brief Context for stiff integration
 */
 typedef struct StiffContextStructure {
