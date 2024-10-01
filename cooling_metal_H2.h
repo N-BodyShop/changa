@@ -25,12 +25,14 @@
 #define CUDA_CONST
 #endif
 
-
 #ifdef __cplusplus
 extern "C" {
 #endif
 
 #include "stiff.h"
+
+/* Accuracy target for integrators */
+#define EPSINTEG  1e-3
 
 /* Constants */
 #define CL_B_gm         (6.022e23*(938.7830/931.494))/*Avegadro's Number * Mass_Hydrogen/Energy_AMU */

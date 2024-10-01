@@ -1047,7 +1047,6 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
 
     // Cooling functions require C-style array
     double *y = new double[numSelParts*5];
-#define EPSINTEG  1e-3
     for(unsigned int i = 0; i < numSelParts; ++i) {
         // This is largely duplicated from StiffInit
         Ecgs[i] = 0.0;

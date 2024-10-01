@@ -72,8 +72,6 @@
 
 /* Integrator constants */
 
-/* Accuracy target for integrators */
-#define EPSINTEG  1e-3
 #define WARNINTEGITS 100
 #define MAXINTEGITS 10000
 

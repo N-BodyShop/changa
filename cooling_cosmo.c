@@ -39,8 +39,6 @@
 /* Good value to use I think */
 #define ECHANGEFRACSMALL 1e-4  
 
-/* Accuracy target for intergrators */
-#define EPSINTEG  1e-5
 #define MAXINTEGITS 20000
 
 #define NDOT_MIN  1e-60

@@ -25,6 +25,9 @@ extern "C" {
 
 #include "stiff.h"
 
+/* Accuracy target for intergrators */
+#define EPSINTEG  1e-5
+
 /* Constants */
 #define CL_B_gm         (6.022e23*(938.7830/931.494))
 #define CL_k_Boltzmann  1.38066e-16
