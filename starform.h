@@ -113,7 +113,7 @@ class StarLogEvent
 	p | iOrdStar;
 	p | iOrdGas;
 	p | timeForm;
-        p | rForm;
+	p | rForm;
 	p | vForm;
 	p | massForm;
 	p | rhoForm;
