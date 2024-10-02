@@ -1246,9 +1246,9 @@ void TreePiece::updateuDot(int activeRung,
         if (bCool) {
             cp[pIdx] = p->CoolParticle();
 	    p->position.array_form(r1);
-	    r[pIdx][0] = 0.;//std::vector<double>(r1, r1 + 3);
-	    r[pIdx][1] = 0.;
-	    r[pIdx][2] = 0.;
+	    r[pIdx][0] = r1[0];//std::vector<double>(r1, r1 + 3);
+	    r[pIdx][1] = r1[1];
+	    r[pIdx][2] = r1[2];
             CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
             CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #ifdef SUPERBUBBLE
