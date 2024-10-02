@@ -111,8 +111,13 @@ void TreePiece::velScale(double dScale, const CkCallback& cb)
     for(unsigned int i = 0; i < myNumParticles; ++i) 
 	{
 	    myParticles[i+1].velocity *= dScale;
-	    if(TYPETest(&myParticles[i+1], TYPE_GAS))
-		myParticles[i+1].vPred() *= dScale;
+	    if(TYPETest(&myParticles[i+1], TYPE_GAS)
+#ifdef COLLISION
+	       || TYPETest(&myParticles[i+1], TYPE_DARK)
+#endif
+	        ) {
+	        myParticles[i+1].vPred() *= dScale;
+	        }
 	    }
     contribute(cb);
     }
@@ -1449,6 +1454,18 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
       GravityParticle *p = &myParticles[i];
       if(p->rung >= iKickRung) {
+
+#ifdef COLLISION
+      if(TYPETest(p, TYPE_DARK)) {
+	      if(bClosing) { // update predicted quantities to end of step
+		  p->vPred() = p->velocity
+		      + dDelta[p->rung]*p->treeAcceleration;
+          } else {
+              p->vPred() = p->velocity;
+              }
+          }
+#endif
+
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
 		  p->vPred() = p->velocity
@@ -1685,8 +1702,11 @@ void TreePiece::distribLymanWerner(const CkCallback& cb)
 /**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.
+ * @param bCollStep Check to see if particle rungs have already
+ *                  been set by collider search
  * @param bEpsAccStep Use sqrt(eps/acc) timestepping
  * @param bGravStep Use sqrt(r^3/GM) timestepping
+ * @param bKepStep Use stepping based on peri distance to central star
  * @param bSphStep Use Courant condition
  * @param bViscosityLimitdt Use viscosity in Courant condition
  * @param dEta Factor to use in determing timestep
@@ -1702,21 +1722,37 @@ void TreePiece::distribLymanWerner(const CkCallback& cb)
  * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
-void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
-		       int bSphStep, int bViscosityLimitdt,
-		       double dEta, double dEtaCourant, double dEtauDot,
-                       double dDiffCoeff, double dEtaDiffusion,
+#ifdef COLLISION
+void TreePiece::adjust(int iKickRung, int bCollStep, int bEpsAccStep,
+               int bGravStep, int bKepStep, int bSphStep,
+               int bViscosityLimitdt, double dEta, double dEtaCourant,
+               double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
 		       double dDelta, double dAccFac,
 		       double dCosmoFac, double dhMinOverSoft,
                        double dResolveJeans,
 		       int bDoGas,
-		       const CkCallback& cb) {
+		       const CkCallback& cb)
+#else
+void TreePiece::adjust(int iKickRung, int bEpsAccStep,
+               int bGravStep, int bSphStep,
+               int bViscosityLimitdt, double dEta, double dEtaCourant,
+               double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+		       double dDelta, double dAccFac,
+		       double dCosmoFac, double dhMinOverSoft,
+                       double dResolveJeans,
+		       int bDoGas,
+		       const CkCallback& cb)
+#endif
+{
+
   int iCurrMaxRung = 0;
   int nMaxRung = 0;  // number of particles in maximum rung
   int iCurrMaxRungGas = 0;
   
   for(unsigned int i = 1; i <= myNumParticles; ++i) {
     GravityParticle *p = &myParticles[i];
+    if (TYPETest(p, TYPE_DELETED)) continue;
+
     if(p->rung >= iKickRung) {
       double dTIdeal = dDelta;
       double dTGrav, dTCourant, dTEdot;
@@ -1750,6 +1786,13 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
 	  if(dt < dTIdeal)
 	      dTIdeal = dt;
 	  }
+#ifdef COLLISION
+      if(bKepStep) {
+	  double dt = dEta/sqrt(dAccFac*p->dtKep);
+	  if(dt < dTIdeal)
+	      dTIdeal = dt;
+	  }
+#endif
       if(bSphStep && TYPETest(p, TYPE_GAS)) {
 	  double dt;
 	  double ph = 0.5*p->fBall;
@@ -1824,6 +1867,10 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep, int bGravStep,
           dTEdot = dt;
 #endif
 	  }
+
+#ifdef COLLISION
+      if (bCollStep) dTIdeal = RungToDt(dDelta, p->rung);
+#endif
 
       int iNewRung = DtToRung(dDelta, dTIdeal);
       if(iNewRung > 29) {
@@ -2014,7 +2061,14 @@ void TreePiece::drift(double dDelta,  // time step in x containing
         }
       }
       boundingBox.grow(p->position);
-      if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
+
+#ifdef COLLISION
+      if (TYPETest(p, TYPE_DARK)) {
+          p->vPred() += dvDelta*p->treeAcceleration;
+      }
+#endif
+
+    if(bNeedVpred && TYPETest(p, TYPE_GAS)) {
 	  p->vPred() += dvDelta*p->treeAcceleration;
 	  glassDamping(p->vPred(), dvDelta, dGlassDamper);
 	  if(!bGasIsothermal) {

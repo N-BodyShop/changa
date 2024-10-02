@@ -161,6 +161,9 @@ ARG_ENABLE([hexadecapole], [hexadecapole expansions in gravity], [HEXADECAPOLE],
 # physical softening in comoving coordinates
 ARG_ENABLE([changesoft], [physical softening], [FLAG_CHANGESOFT], [-DCHANGESOFT], [yes])
 
+# collision detection
+ARG_ENABLE([collision], [collision detection], [FLAG_COLLISION], [-DCOLLISION], [yes])
+
 # 128 bit keys:
 ARG_ENABLE([bigkeys], [128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [no])
 
@@ -375,7 +378,7 @@ echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
-echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER $FLAG_STOCH
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
 

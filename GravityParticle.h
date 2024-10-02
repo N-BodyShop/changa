@@ -59,8 +59,10 @@ class extraSPHData
     double _fMFracIron;		/* Iron mass fraction  */
     double _fESNrate;		/* SN energy rate  */
     double _fTimeCoolIsOffUntil;/* time cooling is turned back on */
+#ifndef COLLISION
     Vector3D<cosmoType> _vPred;	/* Predicted velocities for velocity
 				   dependent forces */
+#endif
     double _uPred;		/* Predicted internal energy */
     double _divv;		/* Diverence of the velocity */
     Vector3D<double> _curlv;	/* Curl of the velocity */
@@ -123,7 +125,9 @@ class extraSPHData
     inline double& fMFracIron() {return _fMFracIron;}
     inline double& fESNrate() {return _fESNrate;}
     inline double& fTimeCoolIsOffUntil() {return _fTimeCoolIsOffUntil;}
+#ifndef COLLISION
     inline Vector3D<cosmoType>& vPred() {return _vPred;}
+#endif
     inline double& uPred() {return _uPred;}
     inline double& divv() {return _divv;}
     inline Vector3D<double>& curlv() {return _curlv;}
@@ -185,7 +189,9 @@ class extraSPHData
 	p | _fMFracOxygen;
 	p | _fESNrate;
 	p | _fTimeCoolIsOffUntil;
+#ifndef COLLISION
 	p | _vPred;
+#endif
 	p | _uPred;
 	p | _divv;
 	p | _curlv;
@@ -347,9 +353,23 @@ class ExternalSmoothParticle;
 /// Other classes of particles require this plus an "extra data" class.
 
 class GravityParticle : public ExternalGravityParticle {
+#ifdef COLLISION
+private:
+	// Necessary for gas drag forces on solid bodies
+	Vector3D<cosmoType> _vPred;
+#endif
+
 public:
         Vector3D<cosmoType> velocity;
 	Vector3D<cosmoType> treeAcceleration;
+#ifdef COLLISION
+	cosmoType dtCol;
+	int64_t iOrderCol;
+	Vector3D<cosmoType> w;
+	cosmoType dtKep;
+	// For consistency with non-collision version
+	inline Vector3D<cosmoType>& vPred() {return _vPred;}
+#endif
 	cosmoType potential;
         cosmoType dtGrav;       ///< timestep from gravity; N.B., this
                                 ///  is actually stored as (1/time^2)
@@ -398,6 +418,13 @@ public:
           p | key;
           p | velocity;
           p | treeAcceleration;
+#ifdef COLLISION
+          p | dtCol;
+          p | iOrderCol;
+          p | _vPred;
+          p | dtKep;
+          p | w;
+#endif
           p | dtGrav;
           p | fDensity;
           p | fBall;
@@ -445,7 +472,9 @@ public:
 	inline double& fMFracIron() {IMAGAS; return (((extraSPHData*)extraData)->fMFracIron());}
 	inline double& fESNrate() {IMAGAS; return (((extraSPHData*)extraData)->fESNrate());}
 	inline double& fTimeCoolIsOffUntil() {IMAGAS; return (((extraSPHData*)extraData)->fTimeCoolIsOffUntil());}
+#ifndef COLLISION
 	inline Vector3D<cosmoType>& vPred() { IMAGAS; return (((extraSPHData*)extraData)->vPred());}
+#endif
 	inline double& uPred() {IMAGAS;  return (((extraSPHData*)extraData)->uPred());}
 	inline double& divv() { IMAGAS; return (((extraSPHData*)extraData)->divv());}
 	inline Vector3D<double>& curlv() { IMAGAS; return (((extraSPHData*)extraData)->curlv());}
@@ -620,6 +649,11 @@ class ExternalSmoothParticle {
   double dt;
   double dtNew;
 #endif
+#ifdef COLLISION  
+  double soft;
+  double dtCol;
+  int64_t iOrderCol;
+#endif
   Vector3D<cosmoType> vPred;
   Vector3D<cosmoType> treeAcceleration;
   double mumax;
@@ -682,6 +716,11 @@ class ExternalSmoothParticle {
 	  iType = p->iType;
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
+#ifdef COLLISION  
+      soft = p->soft;
+      dtCol = p->dtCol;
+      iOrderCol = p->iOrderCol;
+#endif
 	  if(TYPETest(p, TYPE_GAS)) {
 	      vPred = p->vPred();
 	      mumax = p->mumax();
@@ -751,6 +790,11 @@ class ExternalSmoothParticle {
       tmp->iType = iType;
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
+#ifdef COLLISION
+      tmp->soft = soft;
+      tmp->dtCol = dtCol;
+      tmp->iOrderCol = iOrderCol;
+#endif
       if(TYPETest(tmp, TYPE_GAS)) {
 	  tmp->vPred() = vPred;
 	  tmp->mumax() = mumax;
@@ -813,6 +857,7 @@ class ExternalSmoothParticle {
   void pup(PUP::er &p) {
     p | position;
     p | velocity;
+    p | vPred;
     p | mass;
     p | fBall;
     p | fDensity;
@@ -824,7 +869,6 @@ class ExternalSmoothParticle {
     p | dtNew;
 #endif
     p | treeAcceleration;
-    p | vPred;
     p | mumax;
     p | PdV;
     p | uDotPdV;
@@ -871,6 +915,11 @@ class ExternalSmoothParticle {
     p | iEaterOrder;
     p | dTimeFB;
     p | iBucketOff;
+#ifdef COLLISION
+    p | soft;
+    p | dtCol;
+    p | iOrderCol;
+#endif
   }
 #endif
 };

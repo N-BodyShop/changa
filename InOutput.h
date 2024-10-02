@@ -284,6 +284,35 @@ class PotOutputParams : public OutputParams
 	}
     };
 
+
+#ifdef COLLISION
+/// @brief Output particle spin
+class SpinOutputParams : public OutputParams
+{
+public:
+    virtual double dValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual Vector3D<double> vValue(GravityParticle *p)
+                {return p->w;}
+    virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+    virtual void setVValue(GravityParticle *p, Vector3D<double> val)
+        {p->position = val;}
+    virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+    virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+    SpinOutputParams() {}
+    SpinOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+        bFloat = 1;
+        bVector = 1; fileName = _fileName; iBinaryOut = _iBinaryOut;
+        sTipsyExt = "spin"; sNChilExt = "spin";
+        dTime = _dTime;
+        iType = TYPE_DARK; }
+    PUPable_decl(SpinOutputParams);
+    SpinOutputParams(CkMigrateMessage *m) {}
+    virtual void pup(PUP::er &p) {
+        OutputParams::pup(p);//Call base class
+    }
+    };
+#endif
+
 /// @brief Output particle gas density
 class GasDenOutputParams : public OutputParams
 {

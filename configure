@@ -654,6 +654,7 @@ FLAG_TREE_BUILD
 FLAG_INTERLIST
 FLAG_DTADJUST
 FLAG_BIGKEYS
+FLAG_COLLISION
 FLAG_CHANGESOFT
 HEXADECAPOLE
 FLAG_FLOAT
@@ -735,6 +736,7 @@ enable_arch
 enable_float
 enable_hexadecapole
 enable_changesoft
+enable_collision
 enable_bigkeys
 enable_dtadjust
 enable_interlist
@@ -1403,6 +1405,7 @@ Optional Features:
   --enable-float          use single-precision gravity calculations
   --enable-hexadecapole   hexadecapole expansions in gravity
   --enable-changesoft     physical softening
+  --enable-collision      collision detection
   --enable-bigkeys        128 bit hash keys
   --enable-dtadjust       emergency timestep adjust
   --enable-interlist      interaction list version
@@ -4471,6 +4474,21 @@ fi
 
 
 
+# collision detection
+	# Check whether --enable-collision was given.
+if test "${enable_collision+set}" = set; then :
+  enableval=$enable_collision; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-collision': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=yes
+fi
+
+	if test x$val = xyes; then FLAG_COLLISION=-DCOLLISION; else FLAG_COLLISION=""; fi
+
+
+
 # 128 bit keys:
 	# Check whether --enable-bigkeys was given.
 if test "${enable_bigkeys+set}" = set; then :
@@ -6977,7 +6995,7 @@ echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
-echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER $FLAG_STOCH
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
 
