@@ -1017,9 +1017,6 @@ void TreePiece::setCoolPtrs() {
     d_Stiff = &dm->d_Stiff[offset];
     d_dtg = &dm->d_dtg[offset];
 
-    int numStreams = 100;
-    this->stream = dm->streams[thisIndex % numStreams]; // TODO this should be set before gravity
-
     offset *= dm->Cool_nv;
     d_ymin = &dm->d_ymin[offset];
     d_y = &dm->d_y[offset];
