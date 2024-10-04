@@ -167,7 +167,31 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     COOL h_Cool;
     h_Cool = *Cool;
 
-#if !defined(COOLING_BOLEY)
+#ifdef COOLING_BOLEY
+    size_t tableSize = CL_TABRC*CL_TABRC2*sizeof(double);
+    double* rossBuff = (double*)malloc(tableSize);
+    double* plckBuff = (double*)malloc(tableSize);
+
+    int i;
+    for (i = 0; i < CL_TABRC; i++) {
+        memcpy(&rossBuff[i*CL_TABRC2], Cool->rossTab[i], CL_TABRC2*sizeof(double));
+        memcpy(&plckBuff[i*CL_TABRC2], Cool->plckTab[i], CL_TABRC2*sizeof(double));
+    }
+
+    cudaChk(cudaMalloc(&d_rossTab, tableSize));
+    cudaChk(cudaMalloc(&d_plckTab, tableSize));
+    cudaChk(cudaMemcpy(d_rossTab, rossBuff, tableSize, cudaMemcpyHostToDevice));
+    cudaChk(cudaMemcpy(d_plckTab, plckBuff, tableSize, cudaMemcpyHostToDevice));
+
+    // The COOL struct uses 2d arrays, but we flattened the data to move it to
+    // device memory. Do an ugly cast here to avoid defining a whole new struct.
+    // Be careful not to treat this as a 2d array from the GPU code!
+    h_Cool.rossTab = (double **)d_rossTab;
+    h_Cool.plckTab = (double **)d_plckTab;
+
+    free(rossBuff);
+    free(plckBuff);
+#else
     cudaMalloc(&d_Rates_T, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR);
     cudaMemcpy(d_Rates_T, Cool->RT, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR, cudaMemcpyHostToDevice);
     h_Cool.RT = d_Rates_T;
@@ -200,15 +224,13 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     cudaChk(cudaMemcpy(d_MetalCoolln, coolBuf, tableSize, cudaMemcpyHostToDevice));
     cudaChk(cudaMemcpy(d_MetalHeatln, heatBuf, tableSize, cudaMemcpyHostToDevice));
 
-    // The COOL struct uses 3d arrays, but we flattened the data to move it to
-    // device memory. Do an ugly cast here to avoid defining a whole new struct.
-    // Be careful not to treat this as a 3d array from the GPU code!
+    // See above comment about flattened arrays
     h_Cool.MetalCoolln = (float*** )d_MetalCoolln;
     h_Cool.MetalHeatln = (float*** )d_MetalHeatln;
 
     free(coolBuf);
     free(heatBuf);
-#endif // COOLING_MOLECULAR_H or COOLING_METAL
+#endif // COOLING_MOLECULARH or COOLING_METAL
     cudaMalloc(&d_Cool, sizeof(COOL));
     cudaMemcpy(d_Cool, &h_Cool, sizeof(COOL), cudaMemcpyHostToDevice);
 #endif // CUDA
@@ -300,6 +322,9 @@ TreePiece::initCoolingData(const CkCallback& cb)
 #ifndef COOLING_NONE
     bGasCooling = 1;
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+     // TODO set this for all elements of h_CoolData
+     // Also ensure were still compatible with non GPU ODE modules (grackle?)
+    //CoolData = CoolDerivsInit(dm->Cool);
 #endif // COOLING_NONE
     contribute(cb);
     }
@@ -1073,6 +1098,12 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
 
         h_CoolData[i].IntegratorContext = &h_Stiff[i];
 
+#ifdef COOLING_BOLEY
+        double dEMin = clThermalEnergy(dm->Cool->Y_Total, dm->Cool->Tmin);
+        for(int j = 0; j < COOL_NV; j++)
+            h_Stiff[i].ymin[j] = dEMin;
+#endif
+
 #ifdef COOLING_MOLECULARH
         CoolIntegrateEnergyCodeStart(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
                                     ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
@@ -1151,7 +1182,7 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
     delete[] y;
 }
 
-#endif
+#endif // COOLING_NONE
 
 /**
  * @brief Update the cooling rate (uDot)
@@ -1258,7 +1289,6 @@ void TreePiece::updateuDot(int activeRung,
             * If we have mass in the hot phase, we need to cool it appropriately.
             */
             if (p->massHot() > 0) { 
-			CkPrintf("%d is hot\n", p->iOrder);
                 ExternalHeating[pIdx] = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
                 if (p->uHot() > 0) { 
                     E[pIdx] = p->uHot();
@@ -1275,8 +1305,6 @@ void TreePiece::updateuDot(int activeRung,
                                 ExternalHeating[pIdx], fDensityHot,
                                 fMetals[pIdx], r[pIdx].data(), dt, columnLHot);
 #else /*COOLING_MOLECULARH*/
-		    // TODO h_CoolData doesnt get initalized until integrateEnergy is called below
-		    // Just use CoolData instead?
                     CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp[pIdx], &E[pIdx], ExternalHeating[pIdx], fDensityHot,
                             fMetals[pIdx], r[pIdx].data(), dt);
 #endif /*COOLING_MOLECULARH*/
@@ -1316,7 +1344,9 @@ void TreePiece::updateuDot(int activeRung,
 	        /* This flags cooling shutoff (e.g., from SNe) to
 	           the cooling functions. */
 		//dtUse[pIdx] = -dt;
+#if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
                h_CoolData[pIdx].bCool = 0;
+#endif
 		p->uDot() = ExternalHeating[pIdx];
 		}
             columnL[pIdx] = sqrt(0.25)*p->fBall;

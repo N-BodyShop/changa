@@ -75,7 +75,8 @@ clDerivsData *CoolDerivsInit(COOL *cl, int nv)
 
 void CoolFinalize(COOL *cl ) 
 {
-  free(cl->DerivsData);
+  // TODO this doesnt get set for any of the gpu accelerated modules anymore
+  //free(cl->DerivsData);
 
   if(cl->rossTab != NULL){
     free(cl->rossTab[0]);
@@ -248,6 +249,24 @@ CUDA_DH double clEdotInstant( COOL *cl, double E, double T, double rho, double r
   const double dp = tpl-tipl;
   const double dt = ttl-titl;
 
+// rossTab and plckTab are flattened 1d arrays on the GPU
+// and 2d arrays on the CPU. This code can be called from host or
+// device so make sure the data is read correctly
+#ifdef __CUDA_ARCH__
+  t1 = ((double *)cl->rossTab)[CL_TABRC2*tipl + titl] +
+    (((double *)cl->rossTab)[CL_TABRC2*tipl + titl + 1] - ((double *)cl->rossTab)[CL_TABRC2*tipl + titl])*dt;
+
+  t2 = ((double *)cl->rossTab)[CL_TABRC2*tipl + titl + 1] +
+    (((double *)cl->rossTab)[CL_TABRC2*(tipl+1) + titl + 1] - ((double *)cl->rossTab)[CL_TABRC2*(tipl+1) + titl])*dt;
+
+  kr = pow(10.0, t1 + (t2 - t1)*dp);
+
+  t1 = ((double *)cl->plckTab)[CL_TABRC2*tipl + titl] +
+    (((double *)cl->plckTab)[CL_TABRC2*tipl + titl + 1] - ((double *)cl->plckTab)[CL_TABRC2*tipl + titl])*dt;
+
+  t2 = ((double *)cl->plckTab)[CL_TABRC2*tipl + titl + 1] +
+    (((double *)cl->plckTab)[CL_TABRC2*(tipl+1) + titl + 1] - ((double *)cl->plckTab)[CL_TABRC2*(tipl+1) + titl])*dt;
+#else
   t1 = cl->rossTab[tipl][titl] + 
     (cl->rossTab[tipl][titl+1] - cl->rossTab[tipl][titl])*dt;
 
@@ -261,6 +280,7 @@ CUDA_DH double clEdotInstant( COOL *cl, double E, double T, double rho, double r
 
   t2 = cl->plckTab[tipl+1][titl] + 
     (cl->plckTab[tipl+1][titl+1] - cl->plckTab[tipl+1][titl])*dt;
+#endif
 
   kp = pow(10.0, t1 + (t2 - t1)*dp);
 
@@ -387,20 +407,14 @@ void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, double *E,
 		       double PdV, double rho, double Y_Total,
                        double radius, /* radius of particle */
                        double tStep, double* y ) {
-  double EMin;
-  double t=0;
   clDerivsData *d = clData;
-  STIFF *sbs = d->IntegratorContext;
-  
-  if (tStep <= 0) return;
 
   d->rho = rho;
   d->PdV = PdV;
   d->Y_Total = Y_Total;
 
   d->rFactor = radius;
-
-  EMin = clThermalEnergy( d->Y_Total, cl->Tmin );
+  y[0] = *E;
 }
 
 void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, double *E, 

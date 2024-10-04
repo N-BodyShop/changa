@@ -2245,6 +2245,7 @@ __global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *dtg,
     int id;
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
+    if (dtg[id] <= 0) return; // TODO is this okay for all cooling modules?
 
     double tn;			/* time within step */
     int i;
