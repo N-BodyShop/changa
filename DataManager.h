@@ -379,6 +379,7 @@ public:
     inline Tree::GenericTreeNode *getRoot() { return root; }
 #ifdef CUDA
     void allocCoolParticleBlock(int numParts, int bFree);
+    void coolDataToGPU(const CkCallback& cb);
 #endif
     void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,

@@ -123,6 +123,12 @@ void Main::initCooling()
 	    free(dTableData);
 	    }
 	}
+
+#ifdef CUDA
+    // Deep copy cooling struct to GPU
+    dMProxy.coolDataToGPU(CkCallbackResumeThread());
+#endif
+
     treeProxy.initCoolingData(CkCallbackResumeThread());
     if(!bIsRestarting) {  // meaning not restarting from a checkpoint.
         struct stat s;
@@ -149,21 +155,9 @@ void Main::initCooling()
 #endif
     }
 
-/**
- * Initialized Cooling Read-only data on the DataManager, which
- * doesn't migrate.
- */
-void
-DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
-		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
-		       COOLPARAM inParam, const CkCallback& cb)
-{
-#ifndef COOLING_NONE
-    clInitConstants(Cool, dGmPerCcUnit, dComovingGmPerCcUnit, dErgPerGmUnit,
-		    dSecUnit, dKpcUnit, inParam);
-    
-    CoolInitRatesTable(Cool,inParam);
 #ifdef CUDA
+void DataManager::coolDataToGPU(const CkCallback& cb) {
+#ifndef COOLING_NONE
     COOL h_Cool;
     h_Cool = *Cool;
 
@@ -191,16 +185,17 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 
     free(rossBuff);
     free(plckBuff);
-#else
-    cudaMalloc(&d_Rates_T, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR);
-    cudaMemcpy(d_Rates_T, Cool->RT, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR, cudaMemcpyHostToDevice);
+#endif // COOLING_BOLEY
+
+#if defined(COOLING_MOLECULARH) || defined(COOLING_METAL) || defined(COOLING_COSMO)
+    cudaChk(cudaMalloc(&d_Rates_T, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR));
+    cudaChk(cudaMemcpy(d_Rates_T, Cool->RT, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR, cudaMemcpyHostToDevice));
     h_Cool.RT = d_Rates_T;
 
     int nUV = h_Cool.nUV;
     cudaChk(cudaMalloc(&d_Uvspectrum, sizeof(UVSPECTRUM)*nUV));
     h_Cool.UV = d_Uvspectrum;
     cudaChk(cudaMemcpy(d_Uvspectrum, Cool->UV, sizeof(UVSPECTRUM)*nUV, cudaMemcpyHostToDevice));
-#endif
 
 #if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
     int nz = h_Cool.nzMetalTable;
@@ -231,9 +226,28 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     free(coolBuf);
     free(heatBuf);
 #endif // COOLING_MOLECULARH or COOLING_METAL
-    cudaMalloc(&d_Cool, sizeof(COOL));
-    cudaMemcpy(d_Cool, &h_Cool, sizeof(COOL), cudaMemcpyHostToDevice);
-#endif // CUDA
+#endif // COOLING_MOLECULARH or COOLING_METAL or COOLING_COSMO
+    cudaChk(cudaMalloc(&d_Cool, sizeof(COOL)));
+    cudaChk(cudaMemcpy(d_Cool, &h_Cool, sizeof(COOL), cudaMemcpyHostToDevice));
+#endif
+    contribute(cb);
+}
+#endif
+
+/**
+ * Initialized Cooling Read-only data on the DataManager, which
+ * doesn't migrate.
+ */
+void
+DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
+		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
+		       COOLPARAM inParam, const CkCallback& cb)
+{
+#ifndef COOLING_NONE
+    clInitConstants(Cool, dGmPerCcUnit, dComovingGmPerCcUnit, dErgPerGmUnit,
+		    dSecUnit, dKpcUnit, inParam);
+
+    CoolInitRatesTable(Cool,inParam);
 #endif //COOLING_NONE
     contribute(cb);
     }
@@ -278,7 +292,7 @@ DataManager::allocCoolParticleBlock(int numParts, int bFree) {
 #endif
     }
 
-    int nv = 5; //CoolData->IntegratorContext->nv; // TODO set this based on cooling code params
+    int nv = COOL_NV;
 
     h_CoolData = (clDerivsData *) malloc(numParts*sizeof(clDerivsData));
     h_Stiff = (STIFF *) malloc(numParts*sizeof(STIFF));

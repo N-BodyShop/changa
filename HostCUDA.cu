@@ -2227,13 +2227,14 @@ __device__ double sign(double a, double b)
 }
 
 __global__ void CudaclRatesRedshift( COOL *cl, double z, double dTime ) {
-#ifndef COOLING_BOLEY
+#ifndef COOLING_BOLEY // TODO COOLING_PLANET and others
   clRatesRedshift(cl, z, dTime);
 #endif
 }
 
 void CudaCoolSetTime( COOL *cl, double dTime, double z, cudaStream_t stream ) {
     CudaclRatesRedshift<<<1, 1, 0, stream>>>( cl, z, dTime );
+    cudaStreamSynchronize(stream);
 }
 
 #define y(i) (_y[id * s->nv + (i)])

@@ -10,6 +10,7 @@
 /* Global consts */
 
 #include "param.h"
+#include "stiff.h"
 
 #ifdef CUDA
 #include <cuda_runtime.h>
@@ -23,7 +24,6 @@
 extern "C" {
 #endif
 
-#include "stiff.h"
 
 /* Accuracy target for intergrators */
 #define EPSINTEG  1e-5
@@ -240,15 +240,15 @@ void CoolInitRatesTable( COOL *cl, COOLPARAM CoolParam);
 void clRatesTableError( COOL *cl );
 CUDA_DH void clRatesRedshift( COOL *cl, double z, double dTime );
 double clHeatTotal ( COOL *cl, PERBARYON *Y, RATE *Rate );
-void clRates( COOL *cl, RATE *Rate, double T, double rho );
+CUDA_DH void clRates( COOL *cl, RATE *Rate, double T, double rho );
 double clCoolTotal( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal );
 COOL_ERGPERSPERGM  clTestCool ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho );
 void clPrintCool( COOL *cl, PERBARYON *Y, RATE *Rate, double rho );
 void clPrintCoolFile( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, FILE *fp );
 
-void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho);
+CUDA_DH void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho);
 CUDA_DH double clThermalEnergy( double Y_Total, double T );
-double clTemperature( double Y_Total, double E );
+CUDA_DH double clTemperature( double Y_Total, double E );
 double clRateCollHI( double T );
 double clRateCollHeI( double T );
 double clRateCollHeII( double T );

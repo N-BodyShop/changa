@@ -45,7 +45,7 @@ void DataManager::init() {
 
 #endif
   Cool = CoolInit();
-  Cool_nv = COOL_NV; // TODO This value depends on cooling module loaded
+  Cool_nv = COOL_NV;
   starLog = new StarLog();
   lockStarLog = CmiCreateLock();
 }

@@ -1,6 +1,14 @@
 #ifndef STIFF_HINCLUDED
 #define STIFF_HINCLUDED
 
+#ifdef CUDA
+#include <cuda_runtime.h>
+
+#define CUDA_DH __device__ __host__
+#else
+#define CUDA_DH
+#endif
+
 #define EPSMAX 10.0
 #define DTMIN 1e-15
 #define ITERMAX 3.0
@@ -55,7 +63,7 @@ void StiffSetYMin(STIFF *s, const double *ymin);
  * Root Finder Header
  */
 
-double RootFind(double (*func)(void *Data, double), void *Data,
+CUDA_DH double RootFind(double (*func)(void *Data, double), void *Data,
 		double x1, double x2, double tol);
 
 #endif

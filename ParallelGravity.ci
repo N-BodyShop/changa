@@ -253,6 +253,7 @@ mainmodule ParallelGravity {
     entry void setupuDot(int activeRung, int bAll, const CkCallback& cb);
     entry void setupuDotDone(const CkCallback& cb);
     entry void assignCUDAStreams(const CkCallback& cb);
+    entry void coolDataToGPU(const CkCallback& cb);
 #endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
