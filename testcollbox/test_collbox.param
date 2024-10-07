@@ -1,0 +1,16 @@
+achInFile       = uniform_box.ic
+achOutName      = uniform_box
+iOutInterval    = 128
+iLogInterval	= 1
+
+bDoDensity      = 0
+bDoGravity      = 0
+bCollision      = 1
+# bounces only
+iCollModel      = 1
+
+bPeriodic       = 1
+dPeriod         = 1.0
+
+nSteps          = 128
+dDelta          = 1.0
