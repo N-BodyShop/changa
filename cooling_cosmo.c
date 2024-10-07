@@ -70,23 +70,21 @@ COOL *CoolInit( )
 /**
  * Per thread initialization of cooling
  * @param cl Initialized COOL structure.
+ * @param Data Initialized clDerivsData structure.
  * @param nv Number of independent variable for ODE solver
  */
-clDerivsData *CoolDerivsInit(COOL *cl, int nv)
+void CoolDerivsInit(COOL *cl, clDerivsData *Data, int nv)
 {
-    clDerivsData *Data;
     double dEMin;
 
     assert(cl != NULL);
-    Data = (clDerivsData *) malloc(sizeof(clDerivsData));
     assert(Data != NULL);
-    Data->IntegratorContext = StiffInit( EPSINTEG, nv, Data, clDerivs);
+    StiffInit( Data->IntegratorContext, EPSINTEG, nv, Data, clDerivs);
     Data->cl = cl;
     Data->Y_Total0 = (cl->Y_H+cl->Y_He)*.9999; /* neutral */
     Data->Y_Total1 = (cl->Y_eMAX+cl->Y_H+cl->Y_He)*1.0001; /* Full Ionization */
     dEMin =  clThermalEnergy(Data->Y_Total0, cl->TMin);
     StiffSetYMin(Data->IntegratorContext, &dEMin);
-    return Data;
     }
 
 void CoolFinalize(COOL *cl ) 
@@ -95,15 +93,6 @@ void CoolFinalize(COOL *cl )
   if (cl->RT != NULL) free(cl->RT);
   free(cl);
 }
-
-/**
- * Deallocate memory for per-thread data.
- */
-void CoolDerivsFinalize(clDerivsData *clData)
-{
-    StiffFinalize(clData->IntegratorContext );
-    free(clData);
-    }
 
 void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit, 
 		double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam) 
@@ -1246,15 +1235,15 @@ void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double
       d->E = *E;
       clTempIteration( d );
       *Y = d->Y;
-      return;
       };  
-
+  y[0] = *E;
 }
 
 void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		            double ExternalHeating, double rho, double ZMetal, double tStep, double *y  ) {
 double EMin;
 EMin = clThermalEnergy( clData->Y.Total, cl->TMin );
+*E = y[0];
 #ifdef ASSERTENEG      
       assert(*E > 0.0);
 #else

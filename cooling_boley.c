@@ -55,29 +55,24 @@ COOL *CoolInit( )
 /**
  * Per thread initialization of cooling
  * @param cl Initialized COOL structure.
- * @param nv Number of dependent variables for ODE solver
+ * @param Data Initialized clDerivsData structure.
+ * @param nv Number of independent variable for ODE solver
  */
-clDerivsData *CoolDerivsInit(COOL *cl, int nv)
+void CoolDerivsInit(COOL *cl, clDerivsData *Data, int nv)
 {
-    clDerivsData *Data;
     double dEMin;
 
     assert(cl != NULL);
-    Data = (clDerivsData *) malloc(sizeof(clDerivsData));
     assert(Data != NULL);
-    Data->IntegratorContext = StiffInit( EPSINTEG, nv, Data, clDerivs);
+    StiffInit(Data->IntegratorContext, EPSINTEG, nv, Data, clDerivs);
     Data->cl = cl;
     dEMin =  clThermalEnergy(cl->Y_Total, cl->Tmin);
     StiffSetYMin(Data->IntegratorContext, &dEMin);
-    return Data;
   }
   
 
 void CoolFinalize(COOL *cl ) 
 {
-  // TODO this doesnt get set for any of the gpu accelerated modules anymore
-  //free(cl->DerivsData);
-
   if(cl->rossTab != NULL){
     free(cl->rossTab[0]);
     free(cl->rossTab);
@@ -90,15 +85,6 @@ void CoolFinalize(COOL *cl )
 
   free(cl);
 }
-
-/**
- * Deallocate memory for per-thread data.
- */
-void CoolDerivsFinalize(clDerivsData *clData)
-{
-    StiffFinalize(clData->IntegratorContext );
-    free(clData);
-    }
 
 void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit, 
 		double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam) 
@@ -423,6 +409,7 @@ void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, double *E,
                        double tStep, double* y ) {
   clDerivsData *d = clData;
   double EMin = clThermalEnergy( d->Y_Total, cl->Tmin );
+  *E = y[0];
 #ifdef ASSERTENEG      
       assert(*E > 0.0);
 #else

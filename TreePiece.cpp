@@ -5840,8 +5840,9 @@ void TreePiece::pup(PUP::er& p) {
 #ifndef COOLING_NONE
     if(!_inrestart) {           // not restarting from checkpoint
         dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-        if(bGasCooling)
-            CoolData = CoolDerivsInit(dm->Cool, dm->Cool_nv);
+        // TODO make sure removing this didnt break anything
+        /*if(bGasCooling)
+            CoolData = CoolDerivsInit(dm->Cool, dm->Cool_nv);*/
         }
 #endif
   }

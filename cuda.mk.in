@@ -43,7 +43,7 @@ endif
 
 cuda_includes := -I@CUDA_DIR@/include -I@CHARM_PATH@/tmp/hybridAPI
 
-cuda_srcs     := $(source_dir)/HostCUDA.cu
+cuda_srcs     := $(source_dir)/HostCUDA.cu $(source_dir)/stiff.cu
 
 ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
 	cuda_srcs += $(source_dir)/cooling_cosmo.cu

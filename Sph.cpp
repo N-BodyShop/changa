@@ -336,9 +336,6 @@ TreePiece::initCoolingData(const CkCallback& cb)
 #ifndef COOLING_NONE
     bGasCooling = 1;
     dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-     // TODO set this for all elements of h_CoolData
-     // Also ensure were still compatible with non GPU ODE modules (grackle?)
-    //CoolData = CoolDerivsInit(dm->Cool);
 #endif // COOLING_NONE
     contribute(cb);
     }
@@ -1083,18 +1080,8 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
     double *y = new double[numSelParts*COOL_NV];
     for(unsigned int i = 0; i < numSelParts; ++i) {
         Ecgs[i] = 0.0;
-        h_CoolData[i].cl = dm->Cool;
 
-        h_Stiff[i].nv = COOL_NV;
-        h_Stiff[i].epsmin = EPSINTEG;
-        h_Stiff[i].sqreps = 5.0*sqrt(EPSINTEG);
-        h_Stiff[i].epscl = 1.0/EPSINTEG;
-        h_Stiff[i].epsmax = EPSMAX;
-        h_Stiff[i].dtmin = DTMIN;
-        h_Stiff[i].itermax = ITERMAX;
         h_Stiff[i].ymin = &h_ymin[i*COOL_NV];
-        for(int j = 0; j < COOL_NV; j++)
-            h_Stiff[i].ymin[j] = YMIN0;
         h_Stiff[i].y0 = &h_y0[i*COOL_NV];
         h_Stiff[i].y1 = &h_y1[i*COOL_NV];
         h_Stiff[i].q = &h_q[i*COOL_NV];
@@ -1111,12 +1098,7 @@ void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector
         h_Stiff[i].epsmax = EPSMAX;
 
         h_CoolData[i].IntegratorContext = &h_Stiff[i];
-
-#ifdef COOLING_BOLEY
-        double dEMin = clThermalEnergy(dm->Cool->Y_Total, dm->Cool->Tmin);
-        for(int j = 0; j < COOL_NV; j++)
-            h_Stiff[i].ymin[j] = dEMin;
-#endif
+        CoolDerivsInit(dm->Cool, &h_CoolData[i], COOL_NV);
 
 #ifdef COOLING_MOLECULARH
         CoolIntegrateEnergyCodeStart(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],

@@ -11,6 +11,7 @@
 /* Global consts */
 #include "param.h"
 #include "rpc/xdr.h"
+#include "stiff.h"
 
 #ifdef CUDA
 #include <cuda_runtime.h>
@@ -25,8 +26,6 @@
 #ifdef __cplusplus
 extern "C" {
 #endif
-
-#include "stiff.h"
 
 /* Accuracy target for integrators */
 #define EPSINTEG  1e-3
@@ -250,8 +249,7 @@ struct clDerivsDataStruct {
 
 COOL *CoolInit( );
 void CoolFinalize( COOL *cl );
-clDerivsData *CoolDerivsInit(COOL *cl, int nv);
-void CoolDerivsFinalize(clDerivsData *cld ) ;
+void CoolDerivsInit(COOL *cl, clDerivsData *Data, int nv);
 
 void clInitConstants( COOL *cl, double dGMPerCcunit, double dComovingGmPerCcUnit,
 		      double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam);
@@ -379,7 +377,6 @@ double CodeDensityToComovingGmPerCc( COOL *Cool, double dCodeDensity );
 void CoolIntegrateEnergy(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
 			 double ExternalHeating, double rho, double ZMetal, double tStep );
 
-// TODO remove
 void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *cData, COOLPARTICLE *cp, double *E, 
 			     double ExternalHeating, double rho, double ZMetal, double *r, double tStep );
 

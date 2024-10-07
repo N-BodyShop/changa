@@ -14,6 +14,7 @@
 /* Global consts */
 
 #include "param.h"
+#include "stiff.h"
 
 #ifdef CUDA
 #include <cuda_runtime.h>
@@ -27,7 +28,6 @@
 extern "C" {
 #endif
 
-#include "stiff.h"
 
 /* Accuracy target for intergrators */
 #define EPSINTEG  1e-5
@@ -128,8 +128,7 @@ struct clDerivsDataStruct {
 
 COOL *CoolInit( );
 void CoolFinalize( COOL *cl );
-clDerivsData *CoolDerivsInit(COOL *cl, int nv);
-void CoolDerivsFinalize(clDerivsData *cld ) ;
+void CoolDerivsInit(COOL *cl, clDerivsData *Data, int nv);
 
 void clInitConstants( COOL *cl, double dGMPerCcunit, double dComovingGmPerCcUnit,
 					 double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam);

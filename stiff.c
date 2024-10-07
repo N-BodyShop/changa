@@ -41,15 +41,13 @@ static inline double sign(double a, double b)
 /*
  * Set integration parameters and allocate scratch arrays.
  */
-STIFF *StiffInit( double eps, int nv, void *Data,
+void StiffInit(STIFF *s, double eps, int nv, void *Data,
 		  void (*derivs)(double, const double *, double *, double *,
 				void *Data)
 		  ) 
 {
-  STIFF *s;
   int i;
 
-  s = (STIFF *) malloc(sizeof(STIFF));
   assert(s!=NULL);
 
   s->nv = nv;
@@ -60,25 +58,13 @@ STIFF *StiffInit( double eps, int nv, void *Data,
   s->dtmin = DTMIN;
   s->itermax = ITERMAX; /*Increased from 1 to 3 to speed integration by
 		    calculating more correctors.  Adjustable parameter*/ 
-  s->ymin = malloc(nv*sizeof(*(s->ymin)));
   for(i = 0; i < nv; i++)
       s->ymin[i] = YMIN0;
-  s->y0 = malloc(nv*sizeof(*(s->y0)));
-  s->y1 = malloc(nv*sizeof(*(s->y1)));
-  s->q = malloc(nv*sizeof(*(s->q)));
-  s->d = malloc(nv*sizeof(*(s->d)));
-  s->rtau = malloc(nv*sizeof(*(s->rtau)));
-  s->ys = malloc(nv*sizeof(*(s->ys)));
-  s->qs = malloc(nv*sizeof(*(s->qs)));
-  s->rtaus = malloc(nv*sizeof(*(s->rtaus)));
-  s->scrarray = malloc(nv*sizeof(*(s->scrarray)));
 
   s->Data = Data;
   s->derivs = derivs;
 
   s->epsmax = EPSMAX;
-
-  return s;
 }
 
 /**
@@ -91,21 +77,6 @@ void StiffSetYMin(STIFF *s, const double *ymin)
     for(i = 0; i < s->nv; i++)
        s->ymin[i] = ymin[i];
     }
-
-void StiffFinalize( STIFF *s ) 
-{
-    free(s->ymin);
-    free(s->y0);
-    free(s->y1);
-    free(s->q);
-    free(s->d);
-    free(s->rtau);
-    free(s->ys);
-    free(s->qs);
-    free(s->rtaus);
-    free(s->scrarray);
-    free(s);
-}
 
 void StiffStep(STIFF *s,
 	       double y[],	/* dependent variables */
