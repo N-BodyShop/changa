@@ -1227,7 +1227,6 @@ void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double
   clAbunds( d->cl, &d->Y, &d->Rate, d->rho );
 
   EMin = clThermalEnergy( d->Y.Total, cl->TMin );
-  //if(tStep < 0) return; 
    if (tStep < 0)  {   /* Don't integrate energy equation */
       tStep = fabs(tStep);
       *E += ExternalHeating*tStep;
@@ -1241,6 +1240,7 @@ void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double
 
 void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		            double ExternalHeating, double rho, double ZMetal, double tStep, double *y  ) {
+if (tStep < 0) return;
 double EMin;
 EMin = clThermalEnergy( clData->Y.Total, cl->TMin );
 *E = y[0];
