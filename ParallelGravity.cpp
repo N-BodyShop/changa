@@ -1965,13 +1965,7 @@ Main::loadBalance(int iPhase)
 /// @param iPhase Active rung (or phase).
 void Main::buildTree(int iPhase)
 {
-#ifdef CUDA
-    // If we are about to use the GPU, tell the data manager
-    // not to clean up its TreePiece list during combineLocalTrees
-    if (nActiveGrav >= param.nGpuMinParts) {
-        dMProxy.unmarkTreePiecesForCleanup(CkCallbackResumeThread());
-    }
-#endif
+    dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
 #ifdef PUSH_GRAVITY
     bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
     if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
@@ -1982,6 +1976,10 @@ void Main::buildTree(int iPhase)
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+#endif
+
+#ifdef CUDA
+    dMProxy.assignCUDAStreams(CkCallbackResumeThread());
 #endif
     double tTB =  CkWallTimer()-startTime;
     timings[iPhase].tTBuild += tTB;
@@ -2065,13 +2063,6 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
     else {
         *startTime = CkWallTimer();
         treeProxy.initAccel(iActiveRung, CkCallbackResumeThread());
-#ifdef CUDA
-        // We didn't do gravity where the registered TreePieces on the
-        // DataManager normally get cleared.  Clear them here instead.
-        if (nActiveGrav > param.nGpuMinParts) {
-          dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
-        }
-#endif
         }
 }
 
@@ -3978,13 +3969,6 @@ void Main::writeOutput(int iStep)
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
 	treeProxy.finishNodeCache(CkCallbackResumeThread());
-#ifdef CUDA
-        // We didn't do gravity where the registered TreePieces on the
-        // DataManager normally get cleared.  Clear them here instead.
-        if (nActiveGrav > param.nGpuMinParts) {
-          dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
-        }
-#endif
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		  << endl;
@@ -4021,13 +4005,6 @@ void Main::writeOutput(int iStep)
 	    treeProxy.startSmooth(&pDenGas, 1, param.nSmooth, dfBall2OverSoft2,
 				  CkCallbackResumeThread());
 	    treeProxy.finishNodeCache(CkCallbackResumeThread());
-#ifdef CUDA
-            // We didn't do gravity where the registered TreePieces on the
-            // DataManager normally get cleared.  Clear them here instead.
-            if (nActiveGrav > param.nGpuMinParts) {
-              dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
-            }
-#endif
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		      << endl;
