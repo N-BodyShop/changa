@@ -70,8 +70,6 @@
 
 /* Integrator constants */
 
-/* Accuracy target for integrators */
-#define EPSINTEG  1e-3
 #define WARNINTEGITS 100
 #define MAXINTEGITS 10000
 
@@ -109,18 +107,15 @@ COOL *CoolInit( )
 /**
  * Per thread initialization of cooling
  * @param cl Initialized COOL structure.
+ * @param Data Initialized clDerivsData structure.
+ * @param nv Number of independent variable for ODE solver
  */
-clDerivsData *CoolDerivsInit(COOL *cl)
+void CoolDerivsInit(COOL *cl, clDerivsData *Data, int nv)
 {
-    clDerivsData *Data;
-
     assert(cl != NULL);
-    Data = malloc(sizeof(clDerivsData));
     assert(Data != NULL);
-    Data->IntegratorContext = StiffInit(EPSINTEG, 4, Data, clDerivs);
+    StiffInit(Data->IntegratorContext, EPSINTEG, nv, Data, clDerivs);
     Data->cl = cl;
-
-    return Data;
     }
 
 void CoolFinalize(COOL *cl ) 
@@ -131,15 +126,6 @@ void CoolFinalize(COOL *cl )
   if (cl->MetalHeatln != NULL) free (cl->MetalHeatln); 
   free(cl);
 }
-
-/**
- * Deallocate memory for per-thread data.
- */
-void CoolDerivsFinalize(clDerivsData *clData)
-{
-    StiffFinalize(clData->IntegratorContext );
-    free(clData);
-    }
 
 void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit, 
 		      double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam) 
@@ -185,7 +171,7 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
 
  */ 
 
-void clSetAbundanceTotals(COOL *cl, double ZMetal, double *pY_H, double *pY_He, double *pY_eMax) {
+CUDA_DH void clSetAbundanceTotals(COOL *cl, double ZMetal, double *pY_H, double *pY_He, double *pY_eMax) {
     double Y_H, Y_He;
     
     if (ZMetal <= 0.1) {
@@ -575,7 +561,7 @@ void clRatesTableError( COOL *cl ) {
 #define CL_Ccomp  (CL_Ccomp0*CL_Tcmb0)
 
 
-void clRatesRedshift( COOL *cl, double zIn, double dTimeIn ) {
+CUDA_DH void clRatesRedshift( COOL *cl, double zIn, double dTimeIn ) {
   int i;
   double xx;
   double zTime;
@@ -697,8 +683,37 @@ double AP_Gamma_HeII_factor[] = { 0.97990208047216765, 0.98606251822654412,
 			0.035905775349044489, 0.0045537756654992923, 0.00035933897136804514,
 			1.2294426136470751e-6, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
-void clRates( COOL *cl, RATE *Rate, double T, double rho ) {
+CUDA_DH void clRates( COOL *cl, RATE *Rate, double T, double rho ) {
   double Tln;
+
+  // These need to be defined inside of the function scope to be accessible from
+  // both the device and host
+  double AP_Gamma_HI_factor[] = { 0.99805271764596307, 0.99877911567687988, 0.99589340865612034,
+			  0.99562060764857702, 0.99165170359332663, 0.9900889877822455,
+			  0.98483276828954668, 0.97387675312245325, 0.97885673164000397,
+			  0.98356305803821331, 0.96655786672182487, 0.9634906824933207,
+			  0.95031917373653985, 0.87967606627349137, 0.79917533618355074,
+			  0.61276011113763151, 0.16315185162187529, 0.02493663181368239,
+			  0.0044013580765645335, 0.00024172553511936628, 1.9576102058649783e-10,
+			  0.0, 0.0, 0.0, 0.0, 0.0 };
+
+  double AP_Gamma_HeI_factor[] = { 0.99284882980782224, 0.9946618686265097, 0.98641914356740497,
+			   0.98867015777574848, 0.96519214493135597, 0.97188336387980656,
+			   0.97529866247535113 , 0.97412477991428936, 0.97904139838765991,
+			   0.98368372768570034, 0.96677432842215549, 0.96392622083382651,
+			   0.95145730833093178, 0.88213871255482879, 0.80512823597731886,
+			   0.62474472739578646, 0.17222786134467002, 0.025861959933038869,
+			   0.0045265030237581529, 0.00024724339438128221, 1.3040144591221284e-08,
+			   0.0, 0.0, 0.0, 0.0, 0.0};
+
+  double AP_Gamma_HeII_factor[] = { 0.97990208047216765, 0.98606251822654412,
+			0.97657215632444849, 0.97274858503068629, 0.97416108746560681,
+			0.97716929017896703, 0.97743607605974214, 0.97555305775319012,
+			0.97874250764784809, 0.97849791914637996, 0.95135572977973504,
+			0.92948461312852582, 0.89242272355549912, 0.79325512242742746 ,
+			0.6683745597121028, 0.51605924897038324, 0.1840253816147828,
+			0.035905775349044489, 0.0045537756654992923, 0.00035933897136804514,
+			1.2294426136470751e-6, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
   if (T >= cl->TMax) T=cl->TMax*(1.0 - EPS);   
   if (T < cl->TMin) T=cl->TMin;
@@ -1417,7 +1432,7 @@ double clThermalEnergy( double Y_Total, double T ) {
 
 }
 
-double clTemperature( double Y_Total, double E ) {
+CUDA_DH double clTemperature( double Y_Total, double E ) {
   return E/(Y_Total*CL_Eerg_gm_degK3_2);
 }
 
@@ -1432,7 +1447,7 @@ double clTemperaturePrimordial( COOL *cl, double Y_HI, double Y_HeI, double Y_He
  *     Collisional Ionization rates
  *-----------------------------------------------------------------*/
 /*     H + e- -> H+ + 2e-  Janev et al. 1987 (Abel 1996) */
-double clRateCollHI( double T ) {
+CUDA_DH double clRateCollHI( double T ) {
   double TL,arg;
     
   TL = log(T*CL_eV_per_K);
@@ -1445,7 +1460,7 @@ double clRateCollHI( double T ) {
 }
   
 /*     He + e- -> He+ + 2e-  Janev et al. 1987 (Abel 1996) */
-double clRateCollHeI( double T ) {
+CUDA_DH double clRateCollHeI( double T ) {
   double TL,arg;
     
   TL = log(T*CL_eV_per_K);
@@ -1458,7 +1473,7 @@ double clRateCollHeI( double T ) {
 }
 
 /*     He+ + e- -> He++ + 2e- Aladdin Database 1989 (Abel 1996) */
-double clRateCollHeII( double T ) { 
+CUDA_DH double clRateCollHeII( double T ) { 
   double TL,arg;
 
   TL = log(T*CL_eV_per_K);
@@ -1474,7 +1489,7 @@ double clRateCollHeII( double T ) {
  *     Radiative Recombination rates
  *-----------------------------------------------------------------*/
 /*     H+ + e- -> H + gam  Verner & Ferland 1996 */
-double clRateRadrHII( double T ) {
+CUDA_DH double clRateRadrHII( double T ) {
   double Tsq = sqrt(T); 
 
    return 7.982e-11/( Tsq*0.563615 *     
@@ -1486,7 +1501,7 @@ double clRateRadrHII( double T ) {
 }
 
 /*     He+ + e- -> He + gam  radiative  Verner & Ferland 1996 */
-double clRateRadrHeII( double T ) {
+CUDA_DH double clRateRadrHeII( double T ) {
   /* 
    * Note that these functions do not meet perfectly at 1e6 -- 2% difference 
    * The derivatives are different there also: So the apparent error is large 
@@ -1515,7 +1530,7 @@ double clRateRadrHeII( double T ) {
 }
 
 /*     He+ + e- -> He + gam  dielectronic  Aldovandi&Pequignot 1973 (Black 1981) */
-double clRateDielHeII( double T ) {
+CUDA_DH double clRateDielHeII( double T ) {
   double T_inv = 1.0/T,arg;
 
   arg = -4.7e5*T_inv;
@@ -1525,7 +1540,7 @@ double clRateDielHeII( double T ) {
 
 #define CHTR_a 7.47e-15 
 
-double clRateChtrHeII(double T) {
+CUDA_DH double clRateChtrHeII(double T) {
   /*double T_4 = T/1e4; 
     if (T_4 < 0.6) 
     return CHTR_a * pow(0.6, 2.06)*(1. + 9.93* exp(-3.89 *0.6));
@@ -1537,7 +1552,7 @@ double clRateChtrHeII(double T) {
 }
 
 /*     He++ + e- -> He+ + gam  Verner & Ferland 1996 */
-double clRateRadrHeIII( double T ) {
+CUDA_DH double clRateRadrHeIII( double T ) {
   double Tsq = sqrt(T);
 
   return 1.891e-10/( Tsq*0.326686 *
@@ -1553,7 +1568,7 @@ double clRateRadrHeIII( double T ) {
 #define CL_ar       2.13164
 #define CL_br       (-0.1240)
 
-double clCoolBrem1( double T ) {
+CUDA_DH double clCoolBrem1( double T ) {
   double Tlog10, Tsq;
 
   Tlog10 = log10(T);
@@ -1570,7 +1585,7 @@ double clCoolBrem1( double T ) {
 #define CL_arII    (4.0*(CL_ar-CL_br*CL_alog4))
 #define CL_brII    (4.0*CL_br)
 
-double clCoolBrem2( double T ) {
+CUDA_DH double clCoolBrem2( double T ) {
   double Tlog10, Tsq;
 
   Tlog10 = log10(T);
@@ -1588,7 +1603,7 @@ double clCoolBrem2( double T ) {
 #define CL_aHII  0.0215964
 #define CL_b     0.270251
 
-double clCoolRadrHII( double T ) {
+CUDA_DH double clCoolRadrHII( double T ) {
 
   double Tpow;
     
@@ -1600,7 +1615,7 @@ double clCoolRadrHII( double T ) {
   return CL_B_gm*(exp(-CL_aHII*Tpow)*CL_k_Boltzmann*T);
 }
  
-double clCoolRadrHeII( double T ) {
+CUDA_DH double clCoolRadrHeII( double T ) {
 
   double Tpow;
     
@@ -1608,7 +1623,7 @@ double clCoolRadrHeII( double T ) {
   return CL_B_gm*(exp(-(CL_aHII*pow(13.6/24.59,CL_b))*Tpow)*CL_k_Boltzmann*T);
 }
 
-double clCoolRadrHeIII( double T ) {
+CUDA_DH double clCoolRadrHeIII( double T ) {
   double Tpow;
     
   Tpow=pow(T,CL_b);
@@ -1631,7 +1646,7 @@ double clCoolRadrHeIII( double T ) {
 #define CL_fHI   -0.0422634
 #define CL_bHI_old  1.18348e05
 
-double clCoolLineHI( double T ) {
+CUDA_DH double clCoolLineHI( double T ) {
   double lnT, ln_cool, arg;
   arg = -CL_bHI_old/T;
   lnT = log(T); 
@@ -1644,7 +1659,7 @@ double clCoolLineHI( double T ) {
 #define CL_aHI  7.5e-19
 #define CL_bHI  1.18348e05
 
-double clCoolLineHI( double T ) {
+CUDA_DH double clCoolLineHI( double T ) {
   double T_inv, arg;
   double Cen_correctn = 1.0/(1.0+sqrt(T/1.0e5));
 
@@ -1675,7 +1690,7 @@ double clCoolLineHeI( double T ) {
 #define CL_bHeI   1.3179e04
 #define CL_p_HeI  0.1687
 
-double clCoolLineHeI( double T ) {
+CUDA_DH double clCoolLineHeI( double T ) {
   double T_inv,arg;
   double Cen_correctn = 1.0/(1.0+sqrt(T/1.0e5));
 
@@ -1695,7 +1710,7 @@ double clCoolLineHeI( double T ) {
 #define CL_fHeII  -0.133835
 #define CL_bHeII_old  4.73638e05
 
- double clCoolLineHeII( double T ) {
+CUDA_DH double clCoolLineHeII( double T ) {
   double lnT, ln_cool, arg;
   arg = -CL_bHeII_old/T;
   lnT = log(T); 
@@ -1709,7 +1724,7 @@ double clCoolLineHeI( double T ) {
 #define CL_bHeII   4.73638e05
 #define CL_p_HeII  0.397
 
-double clCoolLineHeII( double T ) {
+CUDA_DH double clCoolLineHeII( double T ) {
 
   double T_inv,arg;
   double Cen_correctn = 1.0/(1.0+sqrt(T/1.0e5));
@@ -1721,7 +1736,7 @@ double clCoolLineHeII( double T ) {
 }
 #endif
 
-double clCoolLowT( double T ) {
+CUDA_DH double clCoolLowT( double T ) {
     double x;
     /* Cooling Rate for low T, fit from Bromm et al. MNRAS, 328, 969 (Figure 1). by Maschenko */
     /* Fit for metallicity Z = 0.001 -- scales linearly with Z */
@@ -1820,7 +1835,7 @@ double clEdotInstant_Table( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 
 /* Returns Heating - Cooling excluding External Heating, units of ergs s^-1 g^-1 
    Public interface CoolEdotInstantCode */
-double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
+CUDA_DH double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 		      double ZMetal, double *dEdotHeat, double *dEdotCool )
 {
   double en_B = rho*CL_B_gm;
@@ -1883,7 +1898,7 @@ double clEdotInstant( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 
 double clfTemp(void *Data, double T) 
 {
-  clDerivsData *d = Data; 
+  clDerivsData *d = (clDerivsData *) Data; 
   d->its++;
   CLRATES( d->cl, &d->Rate, T, d->rho );
   clRateMetalTable(d->cl, &d->Rate, T, d->rho, d->Y_H, d->ZMetal); 
@@ -1915,7 +1930,7 @@ void clTempIteration( clDerivsData *d )
 
 void clDerivs(double x, const double *y, double *dGain, double *dLoss,
 	     void *Data) {
-  clDerivsData *d = Data;
+  clDerivsData *d = (clDerivsData *) Data;
   double T,ne,nHI, internalheat = 0, externalheat = 0;
   double internalcool = 0;
   double en_B = d->rho*CL_B_gm;
@@ -2011,6 +2026,109 @@ void clSetyscale( COOL *cl, double Y_H, double Y_He, double *y, double *yscale) 
 	if (yscale[3] < YSCALEMIN) yscale[3] = YSCALEMIN;
 
 }
+
+void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
+		       double ExternalHeating, double rho, double ZMetal, double tStep, double *y ) {
+
+/* Make sure no values are near roundoff ~ (1e-14)*Y_i */
+#define YHMIN 1e-12
+#define YHeMIN 1e-13
+
+  const int array_length=4;
+
+  double yin[array_length],EMin,YTotal ;
+  double t=0;
+  clDerivsData *d = clData;
+  STIFF *sbs = d->IntegratorContext;
+  int its = 0;
+  FILE *fp; 
+ 
+  if (tStep == 0) return;
+  d->bCool = 1;
+  if (tStep < 0) {
+      tStep = fabs(tStep);
+      d->bCool = 0;
+      }
+
+#ifdef Y_EMIN
+  if (Y->e < Y_EMIN) Y->e = Y_EMIN;
+#endif
+
+  y[0] = yin[0] = *E;
+  y[1] = yin[1] = Y->HI;
+  y[2] = yin[2] = Y->HeI;
+  y[3] = yin[3] = Y->HeII;
+
+  d->rho = rho;
+  d->ExternalHeating = ExternalHeating;
+  d->ZMetal = ZMetal; 
+  clSetAbundanceTotals( cl, ZMetal, &d->Y_H, &d->Y_He, &d->Y_eMax );
+  
+/* H, He total from cl now -- in future from particle */
+  YTotal = Y->HII + Y->HeII + 2*Y->HeIII + d->Y_H + d->Y_He + d->ZMetal/MU_METAL; 
+
+  EMin = clThermalEnergy( YTotal, cl->TMin );
+
+  double ymin[array_length];
+  ymin[1] = YHMIN;
+  ymin[2] = YHeMIN;
+  ymin[3] = YHeMIN;
+
+  YTotal = (d->Y_H) + (d->Y_H - ymin[1]) + d->Y_He + ymin[3] +
+2.0*(d->Y_He - ymin[2] - ymin[3]) + d->ZMetal/MU_METAL;
+  EMin = clThermalEnergy( YTotal, cl->TMin );
+  ymin[0] = EMin;
+  StiffSetYMin(sbs, ymin);
+}
+
+void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
+		            double ExternalHeating, double rho, double ZMetal, double tStep, double *y  ) {
+      double EMin, YTotal;
+      clDerivsData *d = clData;
+
+      if(y[1] > d->Y_H) y[1] = d->Y_H;
+      if(y[2] > d->Y_He) y[2] = d->Y_He;
+      if(y[3] > d->Y_He) y[3] = d->Y_He;
+      if (fabs(y[2])+fabs(y[3]) > d->Y_He) {
+	  if(y[2] > y[3]) y[3] = d->Y_He - y[2]; 
+	  else y[2] = d->Y_He - y[3]; 
+	  } 
+
+      if(y[1] < YHMIN) y[1] = YHMIN;
+      if(y[2] < YHeMIN) {
+	y[2] = YHeMIN;
+	if (d->Y_He - y[2] - y[3] < YHeMIN) y[3] = d->Y_He - y[2] - YHeMIN;
+      }
+      if(y[3] < YHeMIN) {
+	y[3] = YHeMIN;
+	if (d->Y_He - y[2] - y[3] < YHeMIN) y[2] = d->Y_He - y[3] - YHeMIN;
+      }
+
+      YTotal = (d->Y_H) + (d->Y_H - y[1]) + d->Y_He + y[3] +
+	2.0*(d->Y_He - y[2] - y[3]) + d->ZMetal/MU_METAL;
+      EMin = clThermalEnergy( YTotal, cl->TMin );
+
+
+#ifdef ASSERTENEG      
+      assert(*y > 0.0);
+#else
+      if (y[0] < EMin) {
+	y[0] = EMin;
+      }
+#endif   
+   cl->its = 1;
+
+   *E = y[0];
+   d->E = y[0];
+   Y->HI = y[1];
+   Y->HeI = y[2];
+   Y->HeII = y[3];
+   Y->HeIII = d->Y_He - Y->HeI - Y->HeII;
+   Y->HII = d->Y_H - Y->HI;
+   Y->e = Y->HII + Y->HeII + 2*Y->HeIII;
+   Y->Total = Y->e + d->Y_H + d->Y_He + d->ZMetal/MU_METAL;  /* H total from cl now -- in future from particle */ /*as two hydrogen atoms make one molecular hydrogen particle, subtract off number of molecules to avoid double counting particles CC */
+
+ }
 
 void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double tStep ) {
@@ -2328,7 +2446,7 @@ void CoolTableReadInfo( COOLPARAM *CoolParam, int cntTable, int *nTableColumns, 
 
 void CoolTableRead( COOL *Cool, int nData, void *vData)
 {
-   double *dTableData = vData;
+   double *dTableData = (double *) vData;
    int nTableColumns; 
    int nTableRows;
    int localcntTable = 0;
@@ -2425,6 +2543,31 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 	CoolPERBARYONtoPARTICLE(cl, &Y, cp, ZMetal);
 	*ECode = CoolErgPerGmToCodeEnergy(cl, E);
 	}
+
+void CoolIntegrateEnergyCodeStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, 
+			          double *ECode, double ExternalHeatingCode, 
+			          double rhoCode, double ZMetal, double *posCode, 
+			          double tStep, double *y ) {
+	*Ecgs = CoolCodeEnergyToErgPerGm( cl, *ECode );
+	CoolPARTICLEtoPERBARYON(cl, Y, cp, ZMetal);
+#ifdef NOEXTHEAT
+	ExternalHeatingCode = 0;
+#endif
+	clIntegrateEnergyStart(cl, clData, Y, Ecgs,
+			       CoolCodeWorkToErgPerGmPerSec( cl, ExternalHeatingCode ), 
+			       CodeDensityToComovingGmPerCc(cl, rhoCode), ZMetal, tStep, y );
+}
+
+void CoolIntegrateEnergyCodeFinish(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, 
+			           double *ECode, double ExternalHeatingCode, 
+			           double rhoCode, double ZMetal, double *posCode, 
+			           double tStep, double *y ) {
+	clIntegrateEnergyFinish(cl, clData, Y, Ecgs,
+			        CoolCodeWorkToErgPerGmPerSec( cl, ExternalHeatingCode ), 
+			        CodeDensityToComovingGmPerCc(cl, rhoCode), ZMetal, tStep, y );
+	CoolPERBARYONtoPARTICLE(cl, Y, cp, ZMetal);
+	*ECode = CoolErgPerGmToCodeEnergy(cl, *Ecgs);
+}
 
 /* Deprecated: */
 double CoolHeatingRate( COOL *cl, COOLPARTICLE *cp, double T, double dDensity, double ZMetal) {

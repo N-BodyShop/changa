@@ -1,0 +1,37 @@
+achInFile       = uniform_box.ic
+achOutName      = h2
+iOutInterval    = 128
+iLogInterval	= 10
+iCheckInterval  = 9999
+
+bDoDensity      = 0
+bDoGravity      = 0
+
+bPeriodic       = 1
+dPeriod         = 1000.0
+
+nSteps          = 1024
+dDelta          = 1e-3
+################# H2 Cooling
+dLymanWernerFrac    =        0.5
+dStarFormEfficiencyH2  =     1.0
+#####################
+
+bUV       = 1 
+dMsolUnit       = 1.5928853e16
+dHubble0        = 2.894405
+dKpcUnit        = 50000.
+dEta            = 0.195
+dEtaCourant     = 0.4
+dConstGamma     = 1.666667
+dMeanMolWeight  = 0.59259
+iGasModel       = 2
+bViscosityLimiter = 1
+bFastGas        = 1
+dFracNoDomainDecomp = 0.1
+nTruncateRung = 256
+bViscosityLimitdt = 1
+
+bPhysicalSoft   = 1
+bSoftMaxMul     = 1
+dSoftMax        = 9

@@ -18,7 +18,7 @@
 #include <assert.h>
 #include "stiff.h"
 
-static inline double max(double x, double y) 
+/*static inline double max(double x, double y) 
 {
     if(x > y) return x;
     else return y;
@@ -28,7 +28,7 @@ static inline double min(double a, double b)
 {
     if(a < b) return a;
     else return b;
-    }
+    }*/
 
 /* implement fortran sign function: return a with the sign of b */
 static inline double sign(double a, double b) 
@@ -41,44 +41,30 @@ static inline double sign(double a, double b)
 /*
  * Set integration parameters and allocate scratch arrays.
  */
-STIFF *StiffInit( double eps, int nv, void *Data,
+void StiffInit(STIFF *s, double eps, int nv, void *Data,
 		  void (*derivs)(double, const double *, double *, double *,
 				void *Data)
 		  ) 
 {
-  STIFF *s;
   int i;
 
-  s = (STIFF *) malloc(sizeof(STIFF));
   assert(s!=NULL);
 
   s->nv = nv;
   s->epsmin = eps;
   s->sqreps = 5.0*sqrt(eps);
   s->epscl = 1.0/eps;
-  s->epsmax = 10.0;
-  s->dtmin = 1e-15;
-  s->itermax = 3; /*Increased from 1 to 3 to speed integration by
+  s->epsmax = EPSMAX;
+  s->dtmin = DTMIN;
+  s->itermax = ITERMAX; /*Increased from 1 to 3 to speed integration by
 		    calculating more correctors.  Adjustable parameter*/ 
-  s->ymin = malloc(nv*sizeof(*(s->ymin)));
   for(i = 0; i < nv; i++)
-      s->ymin[i] = 1e-300;
-  s->y0 = malloc(nv*sizeof(*(s->y0)));
-  s->y1 = malloc(nv*sizeof(*(s->y1)));
-  s->q = malloc(nv*sizeof(*(s->q)));
-  s->d = malloc(nv*sizeof(*(s->d)));
-  s->rtau = malloc(nv*sizeof(*(s->rtau)));
-  s->ys = malloc(nv*sizeof(*(s->ys)));
-  s->qs = malloc(nv*sizeof(*(s->qs)));
-  s->rtaus = malloc(nv*sizeof(*(s->rtaus)));
-  s->scrarray = malloc(nv*sizeof(*(s->scrarray)));
+      s->ymin[i] = YMIN0;
 
   s->Data = Data;
   s->derivs = derivs;
 
-  s->epsmax = 10.0;
-
-  return s;
+  s->epsmax = EPSMAX;
 }
 
 /**
@@ -91,21 +77,6 @@ void StiffSetYMin(STIFF *s, const double *ymin)
     for(i = 0; i < s->nv; i++)
        s->ymin[i] = ymin[i];
     }
-
-void StiffFinalize( STIFF *s ) 
-{
-    free(s->ymin);
-    free(s->y0);
-    free(s->y1);
-    free(s->q);
-    free(s->d);
-    free(s->rtau);
-    free(s->ys);
-    free(s->qs);
-    free(s->rtaus);
-    free(s->scrarray);
-    free(s);
-}
 
 void StiffStep(STIFF *s,
 	       double y[],	/* dependent variables */
@@ -383,9 +354,9 @@ cd
 	*/
 	if(dt <= dtmin + 1.0e-16*tn) {
 	    fprintf(stderr, "stiffchem: step size too small\n");
-	    printf("y[0]: %e, y[1]: %e, y[2]: %e, y[3]: %e, y[4]: %e",y[0],y[1],y[2],y[3],y[4]);
-	    printf("q[0]: %e, q[1]: %e, q[2]: %e, q[3]: %e, q[4]: %e",q[0],q[1],q[2],q[3],q[4]);
-	    printf("d[0]: %e, d[1]: %e, d[2]: %e, d[3]: %e, d[4]: %e",d[0],d[1],d[2],d[3],d[4]);
+	    fprintf(stderr,"y[0]: %e, y[1]: %e, y[2]: %e, y[3]: %e, y[4]: %e",y[0],y[1],y[2],y[3],y[4]);
+	    fprintf(stderr,"q[0]: %e, q[1]: %e, q[2]: %e, q[3]: %e, q[4]: %e",q[0],q[1],q[2],q[3],q[4]);
+	    fprintf(stderr, "d[0]: %e, d[1]: %e, d[2]: %e, d[3]: %e, d[4]: %e",d[0],d[1],d[2],d[3],d[4]);
 	    assert(0);
 	    }
 	/*
@@ -779,7 +750,7 @@ A.
 const int itmaxRoot = 100;
 const double epsRoot = 3.0e-8;
 
-double RootFind(double (*func)(void *Data, double), void *Data, double x1,
+CUDA_DH double RootFind(double (*func)(void *Data, double), void *Data, double x1,
                 double x2, double tol)
 {
     int i;
@@ -794,7 +765,9 @@ double RootFind(double (*func)(void *Data, double), void *Data, double x1,
 
     if ((fa < 0.0 && fb < 0.0) || (fa > 0.0 && fb > 0.0))
     {
+#ifndef __CUDA_ARCH__
         fprintf(stderr, "RootFind: endpoints do not straddle y=0");
+#endif
         assert(0);
         }
 
@@ -879,7 +852,9 @@ double RootFind(double (*func)(void *Data, double), void *Data, double x1,
         fb = (*func)(Data, b);
         }
 
+#ifndef __CUDA_ARCH__
     fprintf(stderr, "brent: number of interations exceeded");
+#endif
     assert(0);
     return 0.0;
     }

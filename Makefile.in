@@ -158,18 +158,39 @@ cxx_srcs := $(filter-out $(source_dir)/cooling%,$(wildcard $(source_dir)/*.cpp))
 ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
   c_srcs += $(source_dir)/cooling_planet.c
 endif
+
 ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
+ifeq (yes,@ENABLE_CUDA@)
+  cuda_link := 1
+else
   c_srcs += $(source_dir)/cooling_cosmo.c
 endif
+endif
+
 ifeq (-DCOOLING_BOLEY,@FLAG_COOLING@)
+ifeq (yes,@ENABLE_CUDA@)
+  cuda_link := 1
+else
 	c_srcs += $(source_dir)/cooling_boley.c
 endif
+endif
+
 ifeq (-DCOOLING_METAL,@FLAG_COOLING@)
+ifeq (yes,@ENABLE_CUDA@)
+  cuda_link := 1
+else
 	c_srcs += $(source_dir)/cooling_metal.c
 endif
+endif
+
 ifeq (-DCOOLING_MOLECULARH,@FLAG_COOLING@)
+ifeq (yes,@ENABLE_CUDA@)
+  cuda_link := 1
+else
 	c_srcs += $(source_dir)/cooling_metal_H2.c
 endif
+endif
+
 ifeq (-DCOOLING_GRACKLE,@FLAG_COOLING@)
   c_srcs += $(source_dir)/cooling_grackle.c
 endif
@@ -182,6 +203,10 @@ ci_headers := $(patsubst %.ci,%.decl.h,$(subst $(source_dir),$(build_dir),$(ci_f
 c_objs   := $(patsubst %.c,%.o,$(subst $(source_dir),$(build_dir),$(c_srcs)))
 cxx_objs := $(patsubst %.cpp,%.o,$(subst $(source_dir),$(build_dir),$(cxx_srcs)))
 objects  := $(strip $(cxx_objs) $(c_objs) $(cuda_objs))
+
+ifeq (1,$(cuda_link))
+	objects += $(build_dir)/cuda_link.o
+endif
 
 # ------- Dependencies --------------------------------------------------------
 depend_flags  := -MMD -MP -MF

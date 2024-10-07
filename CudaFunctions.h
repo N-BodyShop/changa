@@ -36,6 +36,8 @@ __global__ void nodeGravityComputation(
 
 __global__ void ZeroVars(VariablePartData *particleVars, int nVars);
 
+__global__ void CudaStiffStep(STIFF *s, double *y, double tstart, double *dtg, int nVars);
+
 #ifdef CUDA_2D_TB_KERNEL
 __global__ void particleGravityComputation(
                 CompactPartData *targetCores,
