@@ -38,6 +38,7 @@
 
 #ifdef CUDA
 #include "cuda_typedef.h"
+#include "hapi.h"
 #endif
 
 #include "keytype.h"
@@ -73,6 +74,7 @@ enum LBStrategy{
   MultistepNode_notopo,
   Orb3d_notopo,
   MultistepOrb,
+  Multistep_SFC,
   HierarchOrb
 };
 PUPbytes(LBStrategy);
@@ -174,6 +176,10 @@ extern CProxy_CkCacheManager<KeyType> cacheNode;
 
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;
+
+extern int START_REG;
+extern int START_IB;
+extern int START_PW;
 
 extern int boundaryEvaluationUE;
 extern int weightBalanceUE;
@@ -327,6 +333,8 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 };
 #endif
 
+/// Associated with calls to calculateEwald
+/// Indicates whether the function was called by initEwald
 struct EwaldMsg: public CMessage_EwaldMsg {
     bool fromInit;
 };
@@ -508,6 +516,7 @@ class Main : public CBase_Main {
        public:
            int count;           ///< number of times on this rung
            double tGrav;        ///< Gravity time
+           double tColl;        ///< Collision detection
            double tuDot;        ///< Energy integration
            double tDD;          ///< Domain Decomposition
            double tLoadB;       ///< Load Balancing
@@ -521,7 +530,7 @@ class Main : public CBase_Main {
            ///@brief Zero out fields
            void clear() {
                count = 0;
-               tGrav = tuDot = tDD = tLoadB = tTBuild = tAdjust
+               tGrav = tColl = tuDot = tDD = tLoadB = tTBuild = tAdjust
                    = tEmergAdjust = tKick = tDrift = tCache = 0.0;
                }
            };
@@ -562,16 +571,19 @@ public:
         void buildTree(int iPhase);
         void startGravity(const CkCallback& cbGravity, int iActiveRung,
             double *startTime) ;
-        void externalGravity(int iActiveRung);
+        void externalForce(int iActiveRung);
         void updateuDot(int iActiveRung, const double duKick[],
             const double dStartTime[], int bUpdateState, int bAll);
         void kick(bool bClosing, int iActiveRung, int nextMaxRung,
             const CkCallback &cbGravity, double gravStartTime);
+        void advanceBigCollStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
         void emergencyAdjust(int iRung);
 	void starCenterOfMass();
+	void logCollision(double, ColliderInfo*, int);
+        void writeCollLog(const char *);
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
@@ -595,6 +607,10 @@ public:
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
+#ifdef COLLISION
+    void doCollisions(double dTime, double dDelta, int activeRung, int iStep, double dCentMass);
+    void doNearCollisions(double dTime, double dDelta, int activeRung);
+#endif
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
 	void outputBlackHoles(double dTime);
@@ -893,16 +909,22 @@ class TreePiece : public CBase_TreePiece {
         int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
 
+	// For accessing GPU memory
+	CudaMultipoleMoments *d_localMoments;
+        CudaMultipoleMoments *d_remoteMoments;
+        CompactPartData *d_localParts;
+	CompactPartData *d_remoteParts;
+        VariablePartData *d_localVars;
+        size_t sMoments;
+        size_t sCompactParts;
+        size_t sVarParts;
+	cudaStream_t stream;
+
         int getNumBuckets(){
         	return numBuckets;
         }
 
-        void callFreeRemoteChunkMemory(int chunk);
-
         int getActiveRung(){ return activeRung; }
-#ifdef HAPI_INSTRUMENT_WRS
-        int getInstrumentId(){ return instrumentId; }
-#endif
         // returns either all particles or only active particles,
         // depending on fraction of active particles to their
         // total count.
@@ -999,30 +1021,16 @@ class TreePiece : public CBase_TreePiece {
         long long remoteResumePartInteractions;
 #endif
 
-#ifdef HAPI_INSTRUMENT_WRS
-        int instrumentId;
-
-        double localNodeListConstructionTime;
-        double remoteNodeListConstructionTime;
-        double remoteResumeNodeListConstructionTime;
-        double localPartListConstructionTime;
-        double remotePartListConstructionTime;
-        double remoteResumePartListConstructionTime;
-        
-        int nLocalNodeReqs;
-        int nRemoteNodeReqs;
-        int nRemoteResumeNodeReqs;
-        int nLocalPartReqs;
-        int nRemotePartReqs;
-        int nRemoteResumePartReqs;
-
 #endif
 
-#endif
-
-        void continueStartRemoteChunk(int chunk);
 #ifdef CUDA
+       void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
+       void fillGPUBuffer(intptr_t bufLocalParts,
+                          intptr_t bufLocalMoments,
+                          intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
         void updateParticles(intptr_t data, int partIndex);
+#else
+        void continueStartRemoteChunk(int chunk);
 #endif
         void continueWrapUp();
 
@@ -1203,6 +1211,9 @@ private:
         /// The current active mask for force computation in multistepping
         int activeRung;
 
+	/// Whether the GPU or CPU is to be used on the current gravity substep
+       int bUseCpu;
+
 	/// Periodic Boundary stuff
 	int bPeriodic;
 	int bComove;
@@ -1347,7 +1358,7 @@ private:
   EwaldData *h_idata;
   CkCallback *cbEwaldGPU;
 #endif
-  void EwaldGPU(); 
+  void EwaldGPU();
   void EwaldGPUComplete();
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
@@ -1463,6 +1474,7 @@ public:
 #if INTERLIST_VER > 0
 	  sInterListWalk = NULL;
 #endif
+          bUseCpu = 1;
 #ifdef CUDA
           numActiveBuckets = -1;
 #ifdef HAPI_TRACE
@@ -1589,6 +1601,7 @@ public:
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
+       void ewaldCPU(EwaldMsg *msg);
 	void calculateEwald(EwaldMsg *m);
   void calculateEwaldUsingCkLoop(int yield_num);
   void callBucketEwald(int id);
@@ -1719,18 +1732,20 @@ public:
 
   void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
 /**
- * @brief Apply an external gravitational force
+ * @brief Apply an external force
  * @param activeRung The rung to apply the force.
- * @param exGravParams Parameters of the external force
+ * @param exForce The external force object
  * @param cb Callback function
  */
-  void externalGravity(int activeRung, const ExternalGravity exGrav,
+  void externalForce(int activeRung, const ExternalForce& exForce, int bKepStep,
                        const CkCallback& cb);
+
 /**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.
  * @param bEpsAccStep Use sqrt(eps/acc) timestepping
  * @param bGravStep Use sqrt(r^3/GM) timestepping
+ * @param bKepStep Use stepping based on peri distance to central star
  * @param bSphStep Use Courant condition
  * @param bViscosityLimitdt Use viscosity in Courant condition
  * @param dEta Factor to use in determing timestep
@@ -1746,15 +1761,27 @@ public:
  * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
-  void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
-	      int bSphStep, int bViscosityLimitdt,
-	      double dEta, double dEtaCourant, double dEtauDot,
-              double dDiffCoeff, double dEtaDiffusion,
-	      double dDelta, double dAccFac,
-	      double dCosmoFac, double dhMinOverSoft,
-              double dResolveJeans,
+#ifdef COLLISION
+  void adjust(int iKickRung, int bCollStep, int bEpsAccStep,
+          int bGravStep, int bKepStep, int bSphStep,
+          int bViscosityLimitdt, double dEta, double dEtaCourant,
+          double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+          double dDelta, double dAccFac,
+          double dCosmoFac, double dhMinOverSoft,
+                  double dResolveJeans,
 	      int bDoGas,
 	      const CkCallback& cb);
+#else
+  void adjust(int iKickRung, int bEpsAccStep,
+          int bGravStep, int bSphStep,
+          int bViscosityLimitdt, double dEta, double dEtaCourant,
+          double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+          double dDelta, double dAccFac,
+          double dCosmoFac, double dhMinOverSoft,
+                  double dResolveJeans,
+	      int bDoGas,
+	      const CkCallback& cb);
+#endif
   /**
    * @brief Truncate the highest rung
    * @param iCurrMaxRung new maximum rung.
@@ -1820,6 +1847,21 @@ public:
         void Feedback(const Fdbk &fb, double dTime, double dDelta,
                       const CkCallback& cb);
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
+#ifdef COLLISION
+    void delEjected(double dDelDist, const CkCallback& cb);
+    void getNearCollPartners(const CkCallback& cb);
+    void getCollInfo(const CkCallback& cb);
+    void getCollInfo(int64_t iOrder, const CkCallback& cb);
+    void logOverlaps(const CkCallback& cb);
+    void resolveCollision(Collision coll, const ColliderInfo &c1, const ColliderInfo &c2,
+                          double baseStep, double timeNow, double dCentMass, const CkCallback& cb);
+    void sameHigherRung(int64_t iord1, int rung1, int64_t iord2, int rung2, const CkCallback& cb);
+    void resolveWallCollision(Collision coll, const ColliderInfo &c1, const CkCallback& cb);
+    void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
+    void placeOnCollRung(int64_t iOrder, int collStepRung, const CkCallback& cb);
+    void resetRungs(const CkCallback& cb);
+    void getNeedCollStep(int collStepRung, const CkCallback& cb);
+#endif
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);
@@ -1863,9 +1905,17 @@ public:
 	/// this TreePiece. The opening angle theta has already been passed
 	/// through startGravity().  This function just calls doAllBuckets().
 	void calculateGravityLocal();
-	/// Do some minor preparation for the local walkk then
+	/// Do some minor preparation for the local walk then
 	/// calculateGravityLocal().
+#ifdef CUDA
+	void commenceCalculateGravityLocal(intptr_t d_localMoments,
+                                           intptr_t d_localParts,
+                                           intptr_t d_localVars,
+                                           intptr_t streams, int numStreams,
+                                           size_t sMoments, size_t sCompactParts, size_t sVarParts);
+#else
 	void commenceCalculateGravityLocal();
+#endif
 
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted
@@ -1896,8 +1946,9 @@ public:
   /// @brief Start a tree based gravity computation.
   /// @param am the active rung for the computation
   /// @param theta the opening angle
+  /// @param bUseCpu_ whether the cpu or gpu is being used
   /// @param cb the callback to use after all the computation has finished
-  void startGravity(int am, double myTheta, const CkCallback& cb);
+  void startGravity(int am, int bUseCpu_, double myTheta, const CkCallback& cb);
   /// Setup utility function for all the smooths.  Initializes caches.
   void setupSmooth();
   /// Start a tree based smooth computation.

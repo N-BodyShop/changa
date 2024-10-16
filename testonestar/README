@@ -1,0 +1,14 @@
+This directory contains tests of the feedback and associated stellar
+evolution.  The test simulation is a single star (actually stellar population)
+in a cloud of gas, that is run for 13 Gyr. 
+
+run.sh shows the basic script to run the test with ChaNGa. "metalcheck.sh"
+extracts needed information into a number of files and then runs an IDL
+script to perform the check.
+
+"metals.awk" and "energy.awk" are other helper scripts to do checks on the
+output.
+
+Makefile also can build a standalone test for supernovaia that shows
+overall supernova output based on the modules used in ChaNGa.
+

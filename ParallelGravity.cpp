@@ -43,9 +43,12 @@
 #include "starform.h"
 #include "feedback.h"
 #include "SIDM.h"
-#include "externalGravity.h"
+#include "externalForce.h"
 #include "formatted_string.h"
 #include "PETreeMerger.h"
+#ifdef COLLISION
+#include "collision.h"
+#endif
 
 #ifdef CUDA
 // for default per-list parameters
@@ -115,6 +118,10 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 /// @brief Number of pieces into which to divide the tree.
 unsigned int numTreePieces;
+#ifdef CUDA
+    /// @brief Number of CUDA streams to use
+    unsigned int numStreams;
+#endif
 /// @brief Number of particles per TreePiece.  Used to determine the
 /// number of TreePieces.
 unsigned int particlesPerChare;
@@ -147,6 +154,9 @@ cosmoType thetaMono;               ///< Criterion of excepting monopole
 
 /// @brief Boundary evaluation user event (for Projections tracing).
 int boundaryEvaluationUE;
+int START_REG;
+int START_IB;
+int START_PW;
 /// @brief Weight balancing during Oct decomposition user event (for Projections tracing).
 int weightBalanceUE;
 int networkProgressUE;
@@ -230,6 +240,9 @@ Main::Main(CkArgMsg* m) {
 	// Floating point exceptions.
 	// feenableexcept(FE_OVERFLOW | FE_DIVBYZERO | FE_INVALID);
 
+        START_REG = traceRegisterUserEvent("Register");
+        START_IB = traceRegisterUserEvent("Init Buckets");
+        START_PW = traceRegisterUserEvent("Prefetch Walk");
         boundaryEvaluationUE = traceRegisterUserEvent("Evaluating Boudaries");
         weightBalanceUE = traceRegisterUserEvent("Weight Balancer");
         networkProgressUE = traceRegisterUserEvent("CmiNetworkProgress");
@@ -238,13 +251,21 @@ Main::Main(CkArgMsg* m) {
 #ifdef HAPI_TRACE
         traceRegisterUserEvent("Tree Serialization", CUDA_SER_TREE);
         traceRegisterUserEvent("List Serialization", CUDA_SER_LIST);
+	traceRegisterUserEvent("Ser Local Walk", SER_LOCAL_WALK);
+	traceRegisterUserEvent("Ser Local Gather", SER_LOCAL_GATHER);
+	traceRegisterUserEvent("Ser Local Trans", SER_LOCAL_TRANSFORM);
+	traceRegisterUserEvent("Ser Local Memcpy", SER_LOCAL_MEMCPY);
 
-        traceRegisterUserEvent("Local Node", CUDA_LOCAL_NODE_KERNEL);
-        traceRegisterUserEvent("Remote Node", CUDA_REMOTE_NODE_KERNEL);
-        traceRegisterUserEvent("Remote Resume Node", CUDA_REMOTE_RESUME_NODE_KERNEL);
-        traceRegisterUserEvent("Local Particle", CUDA_LOCAL_PART_KERNEL);
-        traceRegisterUserEvent("Remote Particle", CUDA_REMOTE_PART_KERNEL);
-        traceRegisterUserEvent("Remote Resume Particle", CUDA_REMOTE_RESUME_PART_KERNEL);
+        traceRegisterUserEvent("Xfer Local", CUDA_XFER_LOCAL);
+        traceRegisterUserEvent("Xfer Remote", CUDA_XFER_REMOTE);
+        traceRegisterUserEvent("Grav Local", CUDA_GRAV_LOCAL);
+        traceRegisterUserEvent("Grav Remote", CUDA_GRAV_REMOTE);
+        traceRegisterUserEvent("Remote Resume", CUDA_REMOTE_RESUME);
+        traceRegisterUserEvent("Part Gravity Local", CUDA_PART_GRAV_LOCAL);
+        traceRegisterUserEvent("Part Gravity Local Small", CUDA_PART_GRAV_LOCAL_SMALL);
+        traceRegisterUserEvent("Part Gravity Remote", CUDA_PART_GRAV_REMOTE);
+        traceRegisterUserEvent("Xfer Back", CUDA_XFER_BACK);
+        traceRegisterUserEvent("Ewald", CUDA_EWALD);
 #endif
 
         tbFlushRequestsUE = traceRegisterUserEvent("TreeBuild::buildOctTree::flushRequests");
@@ -278,6 +299,10 @@ Main::Main(CkArgMsg* m) {
 	param.bEpsAccStep = 1;
 	prmAddParam(prm, "bEpsAccStep", paramBool, &param.bEpsAccStep,
 		    sizeof(int),"epsacc", "Use sqrt(eps/a) timestepping");
+    param.bKepStep = 0;
+    prmAddParam(prm, "bKepStep", paramBool, &param.bKepStep,
+            sizeof(int),"kepstep",
+            "Use pericenter distance timestepping");
 	param.bGravStep = 0;
 	prmAddParam(prm, "bGravStep", paramBool, &param.bGravStep,
 		    sizeof(int),"gravstep",
@@ -625,11 +650,23 @@ Main::Main(CkArgMsg* m) {
 				sizeof(double),"thermalcond2sat",
 				"<Coefficient in Saturated Thermal Conductivity 2, e.g. 0.5 > = 0.5");
 
-       param.bDoExternalGravity = 0;
-       prmAddParam(prm, "bDoExternalGravity", paramBool, &param.bDoExternalGravity,
-           sizeof(int), "bDoExternalGravity", "<Apply external gravity field to particles> = 0");
+        param.bDoExternalForce = 0;
+        prmAddParam(prm, "bDoExternalForce", paramBool, &param.bDoExternalForce,
+            sizeof(int), "bDoExternalForce", "<Apply external force field to particles> = 0");
+        // bDoExternalGravity was renamed to bDoExternalForce
+        // Include the old parameter name to ensure backwards compatibility
+        param.bDoExternalGravity = 0;
+        prmAddParam(prm, "bDoExternalGravity", paramBool, &param.bDoExternalGravity,
+            sizeof(int), "bDoExternalGravity", "<Apply external gravity field to particles> = 0");
 
-       param.externalGravity.AddParams(prm);
+       param.externalForce.AddParams(prm);
+
+#ifdef COLLISION
+       param.bCollision = 0;
+       prmAddParam(prm, "bCollision", paramBool, &param.bCollision,
+           sizeof(int), "bCollision", "<Do collision detection and response on particles> = 0");
+       param.collision.AddParams(prm);
+#endif
 
 	param.iRandomSeed = 1;
 	prmAddParam(prm,"iRandomSeed", paramInt, &param.iRandomSeed,
@@ -737,6 +774,14 @@ Main::Main(CkArgMsg* m) {
 	numTreePieces = 8 * CkNumPes();
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
 		    sizeof(int),"p", "Number of TreePieces (default: 8*procs)");
+#ifdef CUDA
+        numStreams = 100;
+        prmAddParam(prm, "nStreams", paramInt, &numStreams,
+                    sizeof(int),"str", "Number of CUDA streams (default: 100)");
+        param.nGpuMinParts = 1000;
+        prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
+                    sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
+#endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
             sizeof(int),"ppc", "Average number of particles per TreePiece");
@@ -1623,6 +1668,236 @@ inline void Main::waitForGravity(const CkCallback &cb, double startTime,
 #endif
     }
 
+#ifdef COLLISION
+
+///
+/// @brief Alternative version of 'advanceBigStep' which is used when
+//         collision stepping is enabled
+/// @param iStep The current step number.
+///
+/// This method also implements the "Kick Drift Kick" hierarchial
+/// timestepping algorithm. Particles can step on either the base
+/// rung or the collision rung. After the initial 'kick', the
+/// updated velocities are used to determine which particles need to
+/// be placed on the collision step rung. These particles are then
+/// unkicked and rekicked with the smaller timestep.
+
+void Main::advanceBigCollStep(int iStep) {
+  int currentStep = 0; // the current timestep within the big step
+  int activeRung = 0;  // the minimum rung that is active
+  int nextMaxRung = 0; // the rung that determines the smallest time for advancing
+
+  // We need to know the velocities for the current step in order to decide whether
+  // collision stepping is necessary. To do this, we will do an opening kick, check
+  // for near-collisions, and then undo the kick and evolve the simulation as in
+  // 'advanceBigStep'.
+
+  // Do the opening kick (is this still the right way?)
+  CkCallback cbNull(CkCallback::invalid);
+  kick(false, activeRung, activeRung, cbNull, 0.0);
+  
+  ckout << "Checking for near collisions ...";
+     
+  double startTime = CkWallTimer();
+  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+  timings[activeRung].tTBuild += CkWallTimer() - startTime;
+
+  startTime = CkWallTimer();
+  doNearCollisions(dTime, param.dDelta, activeRung);
+  timings[activeRung].tColl += CkWallTimer() - startTime;
+
+  CkReductionMsg *msgChk;
+  treeProxy.getNeedCollStep(param.collision.iCollStepRung, CkCallbackResumeThread((void*&)msgChk));
+  int iNeedSubsteps = *(int *)msgChk->getData();
+  delete msgChk;
+
+  if (iNeedSubsteps > 0) {
+      ckout << " " << iNeedSubsteps <<  " particles are on a near collision course and will be stepped on rung "
+            << param.collision.iCollStepRung << " \n";
+      // Place the central star (assuming its particle 0) on the collision stepping rung
+      treeProxy.placeOnCollRung(0, param.collision.iCollStepRung, CkCallbackResumeThread());
+  } else ckout << "Not needed\n";
+
+  startTime = CkWallTimer();
+  treeProxy.finishNodeCache(CkCallbackResumeThread());
+  timings[activeRung].tCache += CkWallTimer() - startTime;
+
+  // At this point, the 'rung' field of any near-colliding particles should be set
+  // We can probably get rid of the 'getNeedCollStep' function now
+  
+  // If we are collsion stepping, the star (p0) needs to go on the collision rung
+
+  // Undo the opening kick
+  treeProxy.unKickCollStep(activeRung, 0.5*param.dDelta, CkCallbackResumeThread());
+
+  while (currentStep < MAXSUBSTEPS) {
+
+    if(!param.bStaticTest) {
+      CkAssert(param.dDelta != 0.0);
+      timings[activeRung].count++;
+      emergencyAdjust(activeRung);
+      // Find new rung for active particles
+      nextMaxRung = adjust(activeRung);
+      if(currentStep == 0) rungStats();
+      if(verbosity) ckout << "MaxRung: " << nextMaxRung << endl;
+
+      CkAssert(nextMaxRung <= MAXRUNG); // timesteps WAY too short
+ 
+      if(verbosity)
+	  memoryStats();
+      // Opening Kick
+      CkCallback cbNull(CkCallback::invalid); // Nothing to wait for
+                                              // in opening Kick
+      kick(false, activeRung, nextMaxRung, cbNull, 0.0);
+
+      if(verbosity > 1)
+	  memoryStats();
+      // Dump frame may require a smaller step
+      int driftRung = nextMaxRungIncDF(nextMaxRung);
+      // Get number of drift steps from driftRung
+      int driftSteps = 1;
+      while(driftRung > nextMaxRung) {
+	  driftRung--;
+	  driftSteps <<= 1;
+	  }
+      driftRung = nextMaxRungIncDF(nextMaxRung);
+      if(param.bDoGas && (driftRung == nextMaxRung)) {
+	  driftRung++;
+	  driftSteps <<=1;
+	  }
+
+      double dTimeSub = RungToDt(param.dDelta, driftRung);
+      // Drift of smallest step
+      for(int iSub = 0; iSub < driftSteps; iSub++) 
+	  {
+	      if(verbosity)
+		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
+
+          if (param.collision.bDelEjected)
+              treeProxy.delEjected(param.collision.dDelDist, CkCallbackResumeThread());
+          // Collision detection and response handling
+          if (param.bCollision) {
+              CkPrintf("Starting collision detection and response\n");
+
+              treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+              startTime = CkWallTimer();
+              doCollisions(dTime, param.dDelta, activeRung, iStep, param.externalForce.dCentMass);
+              double tColl = CkWallTimer() - startTime;
+              timings[activeRung].tColl += tColl;
+              treeProxy.finishNodeCache(CkCallbackResumeThread());
+              }
+
+              double startTime = CkWallTimer();
+	      // Only effective if growmass parameters have been set.
+	      growMass(dTime, dTimeSub);
+	      // Are the GrowMass particles locked in place?
+	      int nGrowMassDrift = param.nGrowMass;
+	      if(param.bDynGrowMass) nGrowMassDrift = 0;
+	      
+	      double dDriftFac = csmComoveDriftFac(param.csm, dTime, dTimeSub);
+	      double dKickFac = csmComoveKickFac(param.csm, dTime, dTimeSub);
+	      bool bBuildTree = (iSub + 1 == driftSteps);
+	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
+			      dKickFac, dTimeSub, nGrowMassDrift, bBuildTree,
+                              param.dMaxEnergy,
+			      CkCallbackResumeThread());
+              double tDrift = CkWallTimer() - startTime;
+              timings[activeRung].tDrift += tDrift;
+              if(verbosity)
+                  CkPrintf("Drift took %g seconds.\n", tDrift);
+
+	      // Advance time to end of smallest step
+	      dTime += dTimeSub;
+	      currentStep += RungToSubsteps(driftRung);
+	      /* 
+	       ** Dump Frame
+	       */
+	      double dStep = iStep + ((double) currentStep)/MAXSUBSTEPS;
+	      if (param.dDumpFrameTime > 0 && dTime >= df[0]->dTime)
+		  DumpFrame(dTime, dStep );
+	      else if(param.dDumpFrameStep > 0 && dStep >= df[0]->dStep) 
+		  DumpFrame(dTime, dStep );
+	      // Update uDot at the 1/2 way point.
+	      if(param.bDoGas && (iSub+1 == driftSteps >> 1)) {
+                  double duKick[MAXRUNG+1] = {};
+                  double dStartTime[MAXRUNG+1] = {};
+
+                  duKick[nextMaxRung] = 0.5*RungToDt(param.dDelta, nextMaxRung);
+                  dStartTime[nextMaxRung] = dTime; // only updating this rung
+                  updateuDot(nextMaxRung, duKick, dStartTime, 0, 0);
+              }
+          }
+    }
+
+    // determine largest timestep that needs a kick
+    activeRung = 0;
+    int tmpRung = currentStep;
+    while (tmpRung &= ~MAXSUBSTEPS) {
+      activeRung++;
+      tmpRung <<= 1;
+    }
+
+    ckout << "\nStep: " << (iStep + ((double) currentStep)/MAXSUBSTEPS)
+          << " Time: " << dTime
+          << " Rungs " << activeRung << " to "
+          << nextMaxRung << ". ";
+
+    countActive(activeRung);
+    
+    if(verbosity > 1)
+	memoryStats();
+
+    /***** Resorting of particles and Domain Decomposition *****/
+    domainDecomp(activeRung);
+
+    if(verbosity > 1)
+	memoryStats();
+    /********* Load balancer ********/
+    loadBalance(activeRung);
+
+    if(verbosity > 1)
+	memoryStats();
+
+    /******** Tree Build *******/
+    buildTree(activeRung);
+
+    CkCallback cbGravity(CkCallback::resumeThread);
+
+    if(verbosity > 1)
+	memoryStats();
+    double gravStartTime;
+    startGravity(cbGravity, activeRung, &gravStartTime);
+    if(param.bDoExternalForce)
+        externalForce(activeRung);
+
+    if(!param.bStaticTest) {
+        // Closing Kick
+        kick(true, activeRung, nextMaxRung, cbGravity, gravStartTime);
+    }
+    else
+        waitForGravity(cbGravity, gravStartTime, activeRung);
+
+    double startTime = CkWallTimer();
+    treeProxy.finishNodeCache(CkCallbackResumeThread());
+    double tCache = CkWallTimer() - startTime;
+    timings[activeRung].tCache += tCache;
+    if(verbosity)
+        CkPrintf("Finish NodeCache took %g seconds.\n", tCache);
+
+#ifdef CHECK_TIME_WITHIN_BIGSTEP
+    if(param.iWallRunTime > 0 && ((CkWallTimer()-wallTimeStart) > param.iWallRunTime*60.)){
+      CkPrintf("wall time %g exceeded limit %g within advancestep\n", CkWallTimer()-wallTimeStart, param.iWallRunTime*60.);
+      CkExit();
+    }
+#endif
+  }
+
+  treeProxy.resetRungs(CkCallbackResumeThread());
+  if (param.collision.bDelEjected)
+      treeProxy.delEjected(param.collision.dDelDist, CkCallbackResumeThread());
+}
+#endif
+
 /// @brief Perform domain decomposition
 /// @param Active rung (or phase).
 
@@ -1694,6 +1969,13 @@ Main::loadBalance(int iPhase)
 /// @param iPhase Active rung (or phase).
 void Main::buildTree(int iPhase)
 {
+#ifdef CUDA
+    // If we are about to use the GPU, tell the data manager
+    // not to clean up its TreePiece list during combineLocalTrees
+    if (nActiveGrav >= param.nGpuMinParts) {
+        dMProxy.unmarkTreePiecesForCleanup(CkCallbackResumeThread());
+    }
+#endif
 #ifdef PUSH_GRAVITY
     bool bDoPush = param.dFracPushParticles*nTotalParticles > nActiveGrav;
     if(bDoPush) CkPrintf("[main] fracActive %f PUSH_GRAVITY\n", 1.0*nActiveGrav/nTotalParticles);
@@ -1733,6 +2015,9 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
         turnProjectionsOn(iActiveRung);
 #endif
 
+#ifdef CUDA
+        if (nActiveGrav > param.nGpuMinParts) CkPrintf("Gravity will be calculated on the GPU\n");
+#endif
         CkPrintf("Calculating gravity (tree bucket, theta = %f) ... ", theta);
         *startTime = CkWallTimer();
         if(param.bConcurrentSph) {
@@ -1742,14 +2027,14 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
             else{
 #endif
-                treeProxy.startGravity(iActiveRung, theta, cbGravity);
+		int bUseCpu = 1;
+#ifdef CUDA
+                bUseCpu = nActiveGrav < param.nGpuMinParts;
+#endif
+                treeProxy.startGravity(iActiveRung, bUseCpu, theta, cbGravity);
+
 #ifdef PUSH_GRAVITY
             }
-#endif
-
-#ifdef HAPI_INSTRUMENT_WRS
-            // XXX this is probably broken (cbGravity gets called too soon.)
-            dMProxy.clearInstrument(cbGravity);
 #endif
         }
         else {
@@ -1760,14 +2045,17 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
             }
             else{
 #endif
-                treeProxy.startGravity(iActiveRung, theta, CkCallbackResumeThread());
+
+		int bUseCpu = 1;
+#ifdef CUDA
+                bUseCpu = nActiveGrav < param.nGpuMinParts;
+#endif
+                treeProxy.startGravity(iActiveRung, bUseCpu, theta, CkCallbackResumeThread());
+
 #ifdef PUSH_GRAVITY
             }
 #endif
 
-#ifdef HAPI_INSTRUMENT_WRS
-            dMProxy.clearInstrument(CkCallbackResumeThread());
-#endif
             double tGrav = CkWallTimer() - *startTime;
             timings[iActiveRung].tGrav += tGrav;
             CkPrintf("took %g seconds\n", tGrav);
@@ -1784,17 +2072,19 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        if (nActiveGrav > param.nGpuMinParts) {
+          dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        }
 #endif
         }
 }
 
 /// @brief Apply external gravitational field.
 /// @param iActiveRung Rung on which to apply forces.
-void Main::externalGravity(int iActiveRung)
+void Main::externalForce(int iActiveRung)
 {
     CkReductionMsg *msgFrameAcc;
-    treeProxy.externalGravity(iActiveRung, param.externalGravity,
+    treeProxy.externalForce(iActiveRung, param.externalForce, param.bKepStep,
                               CkCallbackResumeThread((void*&)msgFrameAcc));
     // External gravity may accelerate the coordinate frame
     // (e.g. heliocentric coordinates.)  Retrieve any such acceleration
@@ -1956,15 +2246,34 @@ void Main::advanceBigStep(int iStep) {
 	  driftRung++;
 	  driftSteps <<=1;
 	  }
-      
+
       double dTimeSub = RungToDt(param.dDelta, driftRung);
+      double startTime;
       // Drift of smallest step
       for(int iSub = 0; iSub < driftSteps; iSub++) 
 	  {
 	      if(verbosity)
 		  CkPrintf("Drift: Rung %d Delta %g\n", driftRung, dTimeSub);
 
-              double startTime = CkWallTimer();
+#ifdef COLLISION
+          if (param.collision.bDelEjected) {
+              treeProxy.delEjected(param.collision.dDelDist, CkCallbackResumeThread());
+              //addDelParticles();
+              }
+          // Collision detection and response handling
+          if (param.bCollision) {
+              CkPrintf("Starting collision detection and response\n");
+
+              treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+              startTime = CkWallTimer();
+              doCollisions(dTime, param.dDelta, activeRung, iStep, param.externalForce.dCentMass);
+              double tColl = CkWallTimer() - startTime;
+              timings[activeRung].tColl += tColl;
+              treeProxy.finishNodeCache(CkCallbackResumeThread());
+              }
+#endif
+
+          startTime = CkWallTimer();
 	      // Only effective if growmass parameters have been set.
 	      growMass(dTime, dTimeSub);
 	      // Are the GrowMass particles locked in place?
@@ -2078,8 +2387,8 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     double gravStartTime;
     startGravity(cbGravity, activeRung, &gravStartTime);
-    if(param.bDoExternalGravity)
-        externalGravity(activeRung);
+    if(param.bDoExternalForce)
+        externalForce(activeRung);
 
     if(verbosity > 1)
 	memoryStats();
@@ -2153,7 +2462,6 @@ void Main::advanceBigStep(int iStep) {
       CkExit();
     }
 #endif
-
   }
 }
     
@@ -2169,6 +2477,9 @@ void Main::advanceBigStep(int iStep) {
 void Main::setupICs() {
   double startTime;
 
+#ifdef CUDA
+  dMProxy.createStreams(numStreams, CkCallbackResumeThread());
+#endif
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,
@@ -2309,7 +2620,11 @@ void Main::setupICs() {
       if(param.iStartStep) restartNSIDM();
   }
   
-  param.externalGravity.CheckParams(prm, param);
+  param.externalForce.CheckParams(prm, param);
+#ifdef COLLISION
+  if(param.bCollision)
+      param.collision.CheckParams(prm, param);
+#endif
 
   string achLogFileName = string(param.achOutName) + ".log";
   ofstream ofsLog;
@@ -2350,6 +2665,9 @@ void Main::setupICs() {
   ofsLog << " CMK_CHARMDEBUG";
 #endif
   ofsLog << endl << "# Preprocessor macros:";
+#ifdef COLLISION
+  ofsLog << " COLLISION";
+#endif
 #ifdef CMK_USE_SSE2
   ofsLog << " CMK_USE_SSE2";
 #endif
@@ -2710,21 +3028,12 @@ Main::initialForces()
   if(verbosity)
       memoryStats();
   
-#ifdef CUDA
-  ckout << "Init. Accel. ...";
-  double dInitAccelTime = CkWallTimer();
-  treeProxy.initAccel(0, CkCallbackResumeThread());
-  ckout << " took " << (CkWallTimer() - dInitAccelTime) << " seconds."
-        << endl;
-#endif
-
-      
   CkCallback cbGravity(CkCallback::resumeThread);  // needed below to wait for gravity
 
   double gravStartTime;
   startGravity(cbGravity, 0, &gravStartTime);
-  if(param.bDoExternalGravity)
-      externalGravity(0);
+  if(param.bDoExternalForce)
+      externalForce(0);
   if(param.bDoGas) {
       // Get star center of mass
       starCenterOfMass();
@@ -2814,7 +3123,13 @@ Main::doSimulation()
     for(int iRung = 0; iRung < timings.size(); iRung++) {
         timings[iRung].clear();
         }
+#ifdef COLLISION
+    if (param.collision.bCollStep) advanceBigCollStep(iStep-1);
+    else advanceBigStep(iStep-1);
+#else
     advanceBigStep(iStep-1);
+#endif
+
     double stepTime = CkWallTimer() - startTime;
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
 	  << endl;
@@ -2825,6 +3140,10 @@ Main::doSimulation()
 	}
     if(iStep%param.iLogInterval == 0) {
 	calcEnergy(dTime, stepTime, achLogFileName.c_str());
+#ifdef COLLISION
+	string achCollFileName = string(param.achOutName) + ".coll";
+	writeCollLog(achCollFileName.c_str());
+#endif
     }
     iStop = CheckForStop();
     /*
@@ -3165,7 +3484,7 @@ Main::writeTimings(int iStep)
     CkAssert(fpTime != NULL);
     
     fprintf(fpTime, "# Timings for step %d\n", iStep);
-    fprintf(fpTime, "# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache\n");
+    fprintf(fpTime, "# Rung Count Grav     uDot     DD       LoadB    TBuild   Adjust   EAdjust  Kick     Drift    Cache    Collision\n");
     for(int i = 0; i < timings.size(); i++) {
         if(timings[i].count) {
             if(i == PHASE_FEEDBACK) {
@@ -3175,14 +3494,15 @@ Main::writeTimings(int iStep)
                         timings[i].tDD, timings[i].tLoadB, timings[i].tTBuild);
                 }
             else {
-                fprintf(fpTime, "    %d  %d    %f %f %f %f %f %f %f %f %f %f\n", i,
+                fprintf(fpTime, "    %d  %d    %f %f %f %f %f %f %f %f %f %f %f\n", i,
                         timings[i].count, timings[i].tGrav,
                         timings[i].tuDot, timings[i].tDD,
                         timings[i].tLoadB, timings[i].tTBuild,
                         timings[i].tAdjust, timings[i].tEmergAdjust,
                         timings[i].tKick, timings[i].tDrift,
-                        timings[i].tCache);
+                        timings[i].tCache, timings[i].tColl);
                 tTotal.tGrav += timings[i].tGrav;
+                tTotal.tColl += timings[i].tColl;
                 tTotal.tuDot += timings[i].tuDot;
                 tTotal.tDD += timings[i].tDD;
                 tTotal.tLoadB += timings[i].tLoadB;
@@ -3195,14 +3515,36 @@ Main::writeTimings(int iStep)
                 }
             }
         }
-    fprintf(fpTime, "Totals:     %f %f %f %f %f %f %f %f %f %f\n",
+    fprintf(fpTime, "Totals:     %f %f %f %f %f %f %f %f %f %f %f\n",
                         tTotal.tGrav,
                         tTotal.tuDot, tTotal.tDD,
                         tTotal.tLoadB, tTotal.tTBuild,
                         tTotal.tAdjust, tTotal.tEmergAdjust,
                         tTotal.tKick, tTotal.tDrift,
-                        tTotal.tCache);
+                        tTotal.tCache, tTotal.tColl);
     fclose(fpTime);
+}
+///
+/// @brief Write collision events in buffer to log file and clear the buffer
+///
+
+void Main::writeCollLog(const char *achLogFileName)
+{
+#ifdef COLLISION
+    static int first = 1;
+    FILE *fpLog = fopen(achLogFileName, "a");
+    if(first && (!bIsRestarting || dTimeOld == 0.0)) {
+	fprintf(fpLog, "time collType iorder1 iorder2 m1 m2 r1 r2 x1x x1y x1z x2x x2y x2z v1x v1y v1z v2x v2y v2z w1x w1y w1z w2x w2y w2z\n");
+	first = 0;
+    }
+
+    for (size_t i = 0; i < param.collision.collBuffer.size(); ++i) {
+        fprintf(fpLog, "%s", param.collision.collBuffer[i].c_str());
+    }
+    param.collision.collBuffer.clear();
+
+    fclose(fpLog);
+#endif
 }
 
 ///
@@ -3387,6 +3729,14 @@ void Main::writeOutput(int iStep)
         outputBinary(pSoftOut, param.bParaWrite, CkCallbackResumeThread());
         PotOutputParams pPotOut(achFile, param.iBinaryOut, dOutTime);
         outputBinary(pPotOut, param.bParaWrite, CkCallbackResumeThread());
+
+#ifdef COLLISION
+        if (nTotalDark > 0) {
+            SpinOutputParams wOut(achFile, param.iBinaryOut, dOutTime);
+            outputBinary(wOut, param.bParaWrite, CkCallbackResumeThread());
+            }
+#endif
+
         if(nTotalSPH > 0) {
             GasDenOutputParams pGasDenOut(achFile, param.iBinaryOut, dOutTime);
             outputBinary(pGasDenOut, param.bParaWrite,
@@ -3641,7 +3991,9 @@ void Main::writeOutput(int iStep)
 #ifdef CUDA
         // We didn't do gravity where the registered TreePieces on the
         // DataManager normally get cleared.  Clear them here instead.
-        dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        if (nActiveGrav > param.nGpuMinParts) {
+          dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+        }
 #endif
 	if(verbosity) {
 	    ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -3682,7 +4034,9 @@ void Main::writeOutput(int iStep)
 #ifdef CUDA
             // We didn't do gravity where the registered TreePieces on the
             // DataManager normally get cleared.  Clear them here instead.
-            dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+            if (nActiveGrav > param.nGpuMinParts) {
+              dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
+            }
 #endif
 	    if(verbosity)
 		ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -3719,8 +4073,9 @@ int Main::adjust(int iKickRung)
         param.dMetalDiffusionCoeff : param.dThermalDiffusionCoeff);
     double startTime = CkWallTimer();
     
-    treeProxy.adjust(iKickRung, param.bEpsAccStep, param.bGravStep,
-		     param.bSphStep, param.bViscosityLimitdt,
+#ifdef COLLISION
+    treeProxy.adjust(iKickRung, param.collision.bCollStep, param.bEpsAccStep,
+             param.bGravStep, param.bKepStep, param.bSphStep, param.bViscosityLimitdt,
 		     param.dEta, param.dEtaCourant, param.dEtauDot,
                      dDiffCoeff, param.dEtaDiffusion,
                      param.dDelta, 1.0/(a*a*a), a,
@@ -3729,6 +4084,18 @@ int Main::adjust(int iKickRung)
                      param.dResolveJeans/a,
 		     param.bDoGas,
 		     CkCallbackResumeThread((void*&)msg));
+#else
+    treeProxy.adjust(iKickRung, param.bEpsAccStep,
+             param.bGravStep, param.bSphStep, param.bViscosityLimitdt,
+		     param.dEta, param.dEtaCourant, param.dEtauDot,
+                     dDiffCoeff, param.dEtaDiffusion,
+                     param.dDelta, 1.0/(a*a*a), a,
+		     0.0,  /* set to dhMinOverSoft if we implement
+			      Gasoline's LowerSoundSpeed. */
+                     param.dResolveJeans/a,
+		     param.bDoGas,
+		     CkCallbackResumeThread((void*&)msg));
+#endif
 
     int iCurrMaxRung = ((int64_t *)msg->getData())[0];
     int64_t nMaxRung = ((int64_t *)msg->getData())[1];
@@ -4055,6 +4422,8 @@ void Main::addDelParticles()
 
 	nMaxOrderGas += counts[iPiece].nAddGas;
 	nMaxOrderDark += counts[iPiece].nAddDark;
+
+	nMaxOrder += counts[iPiece].nAddDark;
 	nMaxOrder += counts[iPiece].nAddStar;
 	nTotalSPH += counts[iPiece].nAddGas - counts[iPiece].nDelGas;
 	nTotalDark += counts[iPiece].nAddDark - counts[iPiece].nDelDark;

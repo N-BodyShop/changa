@@ -383,11 +383,12 @@ void TreePiece::EwaldInit()
 }
 
 
-void TreePiece::EwaldGPU() {
+/// @brief Transfer Ewald data to GPU memory and launch EwaldHost kernel
+void TreePiece::EwaldGPU(){
   /* when not using CUDA, definition is required because
      EwaldGPU is an entry method
   */
-  
+
 #ifdef SPCUDA
   if(NumberOfGPUParticles == 0 || myNumActiveParticles == 0){
         for (int i=0; i<numBuckets; i++){
@@ -518,21 +519,17 @@ void TreePiece::EwaldGPU() {
   cbEwaldGPU = new CkCallback(CkIndex_TreePiece::EwaldGPUComplete(), myIndex,
                               thisArrayID);
 
-#ifdef HAPI_INSTRUMENT_WRS
-  EwaldHost(h_idata, (void *) cbEwaldGPU, instrumentId, activeRung, largephase);
-#else
   int myLocalIndex;
   for(myLocalIndex = 0; this != dm->registeredTreePieces[myLocalIndex].treePiece;
       myLocalIndex++);
   CkAssert(myLocalIndex < dm->registeredTreePieces.length());
 
-  EwaldHost(h_idata, (void *) cbEwaldGPU, myLocalIndex, largephase);
-#endif
-
+  EwaldHost(this->d_localParts, this->d_localVars,
+	    h_idata, this->stream, (void *) cbEwaldGPU, myLocalIndex, largephase);
 #endif
 }
 
-
+/// @brief Callback for EwaldGPU. Clean up device memory + host buffer and call finishBucket
 void TreePiece::EwaldGPUComplete() {
   /* when not using CUDA, definition is required because
      EwaldGPUComplete is an entry method

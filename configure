@@ -652,6 +652,7 @@ FLAG_NSMOOTHINNER
 FLAG_TREE_BUILD
 FLAG_INTERLIST
 FLAG_DTADJUST
+FLAG_COLLISION
 FLAG_BIGKEYS
 FLAG_CHANGESOFT
 HEXADECAPOLE
@@ -742,6 +743,7 @@ enable_splitgas
 enable_wendland
 enable_m6kernel
 enable_sph_kernel
+enable_collision
 enable_cooling
 enable_damping
 enable_diffusion
@@ -1402,6 +1404,7 @@ Optional Features:
                           (none,planet,cosmo,boley,metal,H2,grackle)
   --enable-damping        velocity damping in glasses
   --enable-diffusion      thermal and metal diffusion
+  --enable-collision      enable collision detection and response
   --enable-feedbacklimit  limit diffusion of feedback energy
   --enable-superbubble    superbubble feedback
   --enable-cullenalpha    Cullen Dehnen artificial viscosity
@@ -4440,6 +4443,19 @@ fi
 	if test x$val = xyes; then HEXADECAPOLE=-DHEXADECAPOLE; else HEXADECAPOLE=""; fi
 
 
+# solid-body collision detection
+	# Check whether --enable-collision was given.
+if test "${enable_collision+set}" = set; then :
+  enableval=$enable_collision; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-collision': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then FLAG_COLLISION=-DCOLLISION; else FLAG_COLLISION=""; fi
+
 
 # physical softening in comoving coordinates
 	# Check whether --enable-changesoft was given.
@@ -6946,7 +6962,7 @@ echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
-echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
 

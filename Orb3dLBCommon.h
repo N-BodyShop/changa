@@ -16,6 +16,9 @@
 #define  ORB3DLB_NOTOPO_DEBUG(X)
 // #define  ORB3DLB_NOTOPO_DEBUG(X) CkPrintf X
 
+void Orb_PrintLBStats(BaseLB::LDStats *stats, int numobjs);
+void write_LB_particles(BaseLB::LDStats* stats, const char *achFileName, bool bFrom);
+
 /// @brief Hold information about Pe load and number of objects.
 class PeInfo {
   public:
@@ -358,9 +361,7 @@ class Orb3dCommon{
       int *to_procs = Refiner::AllocProcs(stats->nprocs(), stats);
 #endif
 
-      int migr = 0;
       for(int i = 0; i < numobjs; i++){
-        if(stats->to_proc[i] != stats->from_proc[i]) migr++;
 #ifdef DO_REFINE
         int pe = stats->to_proc[i];
         from_procs[i] = pe;
@@ -380,150 +381,7 @@ class Orb3dCommon{
       }
 #endif
 
-      double *predLoad = new double[stats->nprocs()];
-      double *predCount = new double[stats->nprocs()];
-      for(int i = 0; i < stats->nprocs(); i++){
-        predLoad[i] = 0.0;
-        predCount[i] = 0.0;
-      }
-
-      double maxObjLoad = 0.0;
-      
-      for(int i = 0; i < numobjs; i++){
-        double ld = stats->objData[i].wallTime;
-        int proc = stats->to_proc[i];
-        predLoad[proc] += ld; 
-        predCount[proc] += 1.0; 
-        if(ld > maxObjLoad)
-            maxObjLoad = ld;
-      }
-
-      double minWall = 0.0;
-      double maxWall = 0.0;
-      double avgWall = 0.0;
-
-      double minIdle = 0.0;
-      double maxIdle = 0.0;
-      double avgIdle = 0.0;
-
-      double minBg = 0.0;
-      double maxBg = 0.0;
-      double avgBg = 0.0;
-
-      double avgPred = 0.0;
-      double minPred = 0.0;
-      double maxPred = 0.0;
-
-      double avgPiece = 0.0;
-      double minPiece = 0.0;
-      double maxPiece = 0.0;
-
-      CkPrintf("***************************\n");
-      //  CkPrintf("Before LB step %d\n", step());
-      for(int i = 0; i < stats->nprocs(); i++){
-        double wallTime = stats->procs[i].total_walltime;
-        double idleTime = stats->procs[i].idletime;
-        double bgTime = stats->procs[i].bg_walltime;
-        double pred = predLoad[i];
-        double npiece = predCount[i];
-        /*
-           CkPrintf("[pestats] %d %d %f %f %f %f\n", 
-           i,
-           stats->procs[i].pe, 
-           wallTime,
-           idleTime,
-           bgTime,
-           objTime);
-           */
-
-        avgWall += wallTime; 
-        avgIdle += idleTime; 
-        avgBg += bgTime;
-        avgPred += pred;
-        avgPiece += npiece;
-
-        if(i==0 || minWall > wallTime) minWall = wallTime;
-        if(i==0 || maxWall < wallTime) maxWall = wallTime;
-
-        if(i==0 || minIdle > idleTime) minIdle = idleTime;
-        if(i==0 || maxIdle < idleTime) maxIdle = idleTime;
-
-        if(i==0 || minBg > bgTime) minBg = bgTime;
-        if(i==0 || maxBg < bgTime) maxBg = bgTime;
-
-        if(i==0 || minPred > pred) minPred = pred;
-        if(i==0 || maxPred < pred) maxPred = pred;
-
-        if(i==0 || minPiece > npiece) minPiece = npiece;
-        if(i==0 || maxPiece < npiece) maxPiece = npiece;
-
-      }
-
-      avgWall /= stats->nprocs();
-      avgIdle /= stats->nprocs();
-      avgBg /= stats->nprocs();
-      avgPred /= stats->nprocs();
-      avgPiece /= stats->nprocs();
-
-#ifdef PRINT_LOAD_PERCENTILES
-      double accumVar = 0;
-      vector<double> objectWallTimes;
-      for(int i = 0; i < stats->nprocs(); i++){
-        double wallTime = stats->procs[i].total_walltime;
-        objectWallTimes.push_back(wallTime);
-        accumVar += (wallTime - avgWall) * (wallTime - avgWall);
-      }
-      double stdDev = sqrt(accumVar / stats->nprocs());
-      CkPrintf("Average load: %.3f\n", avgWall);
-      CkPrintf("Standard deviation: %.3f\n", stdDev);
-
-      std::sort(objectWallTimes.begin(), objectWallTimes.end());
-      CkPrintf("Object load percentiles: \n");
-      double increment = (double) objectWallTimes.size() / 10;
-      int j = 0;
-      double index = 0;
-      for (int j = 0; j < 100; j += 10) {
-        index += increment;
-        CkPrintf("%d: %.3f\n", j, objectWallTimes[(int) index]);
-      }
-      CkPrintf("100: %.3f\n", objectWallTimes.back());
-#endif
-
-      delete[] predLoad;
-      delete[] predCount;
-
-#if 0
-      float minload, maxload, avgload;
-      minload = maxload = procload[0];
-      avgload = 0.0;
-      for(int i = 0; i < stats->nprocs(); i++){
-        CkPrintf("pe %d load %f box %f %f %f %f %f %f\n", i, procload[i], 
-            procbox[i].lesser_corner.x,
-            procbox[i].lesser_corner.y,
-            procbox[i].lesser_corner.z,
-            procbox[i].greater_corner.x,
-            procbox[i].greater_corner.y,
-            procbox[i].greater_corner.z
-            );
-        avgload += procload[i];
-        if(minload > procload[i]) minload = procload[i];
-        if(maxload < procload[i]) maxload = procload[i];
-      }
-
-      avgload /= stats->nprocs();
-
-      CkPrintf("Orb3dLB_notopo stats: min %f max %f avg %f max/avg %f\n", minload, maxload, avgload, maxload/avgload);
-#endif
-
-
-      CkPrintf("Orb3dLB_notopo stats: maxObjLoad %f\n", maxObjLoad);
-      CkPrintf("Orb3dLB_notopo stats: minWall %f maxWall %f avgWall %f maxWall/avgWall %f\n", minWall, maxWall, avgWall, maxWall/avgWall);
-      CkPrintf("Orb3dLB_notopo stats: minIdle %f maxIdle %f avgIdle %f minIdle/avgIdle %f\n", minIdle, maxIdle, avgIdle, minIdle/avgIdle);
-      CkPrintf("Orb3dLB_notopo stats: minPred %f maxPred %f avgPred %f maxPred/avgPred %f\n", minPred, maxPred, avgPred, maxPred/avgPred);
-      CkPrintf("Orb3dLB_notopo stats: minPiece %f maxPiece %f avgPiece %f maxPiece/avgPiece %f\n", minPiece, maxPiece, avgPiece, maxPiece/avgPiece);
-
-      CkPrintf("Orb3dLB_notopo stats: minBg %f maxBg %f avgBg %f maxBg/avgBg %f\n", minBg, maxBg, avgBg, maxBg/avgBg);
-      CkPrintf("Orb3dLB_notopo stats: orb migrated %d refine migrated %d objects\n", migr, numRefineMigrated);
+      Orb_PrintLBStats(stats, numobjs);
 
 #ifdef DO_REFINE
       // Free the refine buffers
