@@ -182,6 +182,29 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
   hapiAddCallback(stream, callback);
 }
 
+void DataManagerLocalTreeWalk(CudaRequest *data){
+  cudaStream_t stream = data->stream;
+  gpuLocalTreeWalk<<<(data->lastParticle - data->firstParticle + 1)
+                     / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
+    data->d_localMoments,
+    data->d_localParts,
+    data->d_localVars,
+    data->firstParticle,
+    data->lastParticle,
+    data->rootIdx,
+    data->theta,
+    data->thetaMono,
+    data->nReplicas,
+    data->fperiod,
+    data->fperiodY,
+    data->fperiodZ
+    );
+
+    //hapiAddCallback(stream, data->cb);
+    cudaStreamSynchronize(stream);
+    CkExit(0);
+}
+
 /************** Gravity *****************/
 
 /// @brief Initiate a local gravity calculation on the GPU, via an interaction

@@ -500,11 +500,54 @@ void DataManager::serializeLocalTree(){
       CmiUnlock(__nodelock);
 }
 
+void dummyCallback(void *param, void *msg) {
+  CkExit(0);
+}
+
 /// @brief Callback from local data transfer to GPU
 /// Indicate the transfer is done, and start the local gravity walks
 /// on the treepieces on this node.
 void DataManager::startLocalWalk() {
     delete localTransferCallback;
+
+    // See Compute::sendLocalTreeWalkTriggerToGpu
+    // The CUDA request should be set up and launched from here
+
+    CudaRequest *request = new CudaRequest;
+
+    request->d_localMoments = d_localMoments;
+    request->d_localParts = d_localParts;
+    request->d_localVars = d_localVars;
+    request->sMoments = sMoments;
+    request->sCompactParts = sCompactParts;
+    request->sVarParts = sVarParts;
+    request->stream = streams[0];
+
+    request->numBucketsPlusOne = 0;
+    request->affectedBuckets = 0;
+    request->tp = NULL;
+    request->state = NULL;
+    request->node = true;
+    request->remote = false;
+    request->firstParticle = 0;
+    request->lastParticle = savedNumTotalParticles-1;
+
+    request->rootIdx = 0;
+    request->theta = theta;
+    request->thetaMono = thetaMono;
+    request->nReplicas = 1;
+    request->fperiod = 1;
+    request->fperiodY = 1;
+    request->fperiodZ = 1;
+    request->cb = new CkCallback(dummyCallback, NULL);
+
+    request->list = NULL;
+    request->bucketMarkers = NULL;
+    request->bucketStarts = NULL;
+    request->bucketSizes = NULL;
+    request->numInteractions = 0;
+
+    DataManagerLocalTreeWalk(request);
 
     for(int i = 0; i < registeredTreePieces.length(); i++){
       if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
