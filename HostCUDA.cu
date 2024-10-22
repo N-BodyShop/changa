@@ -189,8 +189,10 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 /// @param data CudaRequest object containing parameters for the calculation
 void TreePieceCellListDataTransferLocal(CudaRequest *data){
   cudaStream_t stream = data->stream;
+#ifndef GPU_LOCAL_TREE_WALK
   CudaDevPtr devPtr;
   TreePieceDataTransferBasic(data, &devPtr);
+#endif
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) TRANSFER LOCAL CELL\n", CmiMyPe());
@@ -238,9 +240,9 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
     devPtr.d_bucketSizes,
     data->fperiod
     );
-#endif
-#endif
   TreePieceDataTransferBasicCleanup(&devPtr);
+#endif
+#endif
   cudaChk(cudaPeekAtLastError());
   HAPI_TRACE_END(CUDA_GRAV_LOCAL);
 
