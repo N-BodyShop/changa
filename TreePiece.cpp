@@ -3723,8 +3723,8 @@ void TreePiece::finishBucket(int iBucket) {
   BucketGravityRequest *req = &bucketReqs[iBucket];
   int remaining;
 
-  remaining = sRemoteGravityState->counterArrays[0][iBucket]
-              + sLocalGravityState->counterArrays[0][iBucket];
+  remaining = sRemoteGravityState->counterArrays[0][iBucket];
+              //+ sLocalGravityState->counterArrays[0][iBucket]; // Hack: dont include local counts
 
   CkAssert(remaining >= 0);
 #ifdef COSMO_PRINT

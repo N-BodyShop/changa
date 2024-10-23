@@ -200,9 +200,9 @@ void DataManagerLocalTreeWalk(CudaRequest *data){
     data->fperiodZ
     );
 
-    //hapiAddCallback(stream, data->cb);
-    cudaStreamSynchronize(stream);
-    CkExit(0);
+    // HAPI callbacks dont seem to work here
+    CkCallback* callback = (CkCallback *)data->cb;
+    callback->send();
 }
 
 /************** Gravity *****************/

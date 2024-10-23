@@ -500,8 +500,18 @@ void DataManager::serializeLocalTree(){
       CmiUnlock(__nodelock);
 }
 
-void dummyCallback(void *param, void *msg) {
-  CkExit(0);
+void dummyCallback(void *param, void* msg) {
+  if (msg == NULL) return;
+
+  CudaRequest *data = (CudaRequest *)param;
+  DataManager *dm = (DataManager*)data->tp;
+
+  for(int i = 0; i < dm->getRegisteredTreePieces().length(); i++){
+      int in = dm->getRegisteredTreePieces()[i].treePiece->getIndex();
+      for (int j = 0; j < dm->getRegisteredTreePieces()[in].treePiece->getNumBuckets(); j++) {
+        dm->getRegisteredTreePieces()[in].treePiece->finishBucket(j);
+      }
+  }
 }
 
 /// @brief Callback from local data transfer to GPU
@@ -525,7 +535,7 @@ void DataManager::startLocalWalk() {
 
     request->numBucketsPlusOne = 0;
     request->affectedBuckets = 0;
-    request->tp = NULL;
+    request->tp = this;
     request->state = NULL;
     request->node = true;
     request->remote = false;
@@ -539,7 +549,7 @@ void DataManager::startLocalWalk() {
     request->fperiod = 1;
     request->fperiodY = 1;
     request->fperiodZ = 1;
-    request->cb = new CkCallback(dummyCallback, NULL);
+    request->cb = new CkCallback(dummyCallback, request);
 
     request->list = NULL;
     request->bucketMarkers = NULL;
@@ -549,7 +559,7 @@ void DataManager::startLocalWalk() {
 
     DataManagerLocalTreeWalk(request);
 
-    for(int i = 0; i < registeredTreePieces.length(); i++){
+    /*for(int i = 0; i < registeredTreePieces.length(); i++){
       if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
       int in = registeredTreePieces[i].treePiece->getIndex();
       treePieces[in].commenceCalculateGravityLocal((intptr_t)d_localMoments, 
@@ -565,7 +575,7 @@ void DataManager::startLocalWalk() {
           CkSetQueueing(msg,CK_QUEUEING_IFIFO);
           treePieces[in].calculateEwald(msg);
       }
-    }
+    }*/
 
     freePinnedHostMemory(bufLocalMoments);
     freePinnedHostMemory(bufLocalParts);
@@ -1019,6 +1029,8 @@ void DataManager::transferParticleVarsBack(){
   CmiLock(__nodelock);
   treePiecesWantParticlesBack++;
   if(treePiecesWantParticlesBack == registeredTreePieces.length()){
+    CkWaitQD();
+    CkExit(0);
     treePiecesWantParticlesBack = 0; 
     VariablePartData *buf;
     

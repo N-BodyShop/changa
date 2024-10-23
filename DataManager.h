@@ -168,6 +168,8 @@ protected:
         Tree::NodeLookupType chunkRootTable;
 
 public:
+  CProxy_TreePiece getTreePieces() { return treePieces; }
+  CkVec<TreePieceDescriptor> getRegisteredTreePieces() { return registeredTreePieces; }
 
 	/* 
 	 ** Cooling 
