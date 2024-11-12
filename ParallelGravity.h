@@ -939,6 +939,8 @@ class TreePiece : public CBase_TreePiece {
           }
         }
 
+        State* getLocalGravityState() { return sLocalGravityState; }
+
         bool largePhase(){
           return (1.0*myNumActiveParticles/myNumParticles) >= largePhaseThreshold;
         }

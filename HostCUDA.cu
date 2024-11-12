@@ -184,6 +184,14 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 
 void DataManagerLocalTreeWalk(CudaRequest *data){
   cudaStream_t stream = data->stream;
+
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
+  printf("(%d) DM LOCAL TREE WALK %d\n",
+        CmiMyPe(),
+        data->lastParticle - data->firstParticle
+        );
+#endif
+
   gpuLocalTreeWalk<<<(data->lastParticle - data->firstParticle + 1)
                      / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
     data->d_localMoments,
@@ -200,9 +208,7 @@ void DataManagerLocalTreeWalk(CudaRequest *data){
     data->fperiodZ
     );
 
-    // HAPI callbacks dont seem to work here
-    CkCallback* callback = (CkCallback *)data->cb;
-    callback->send();
+    hapiAddCallback(stream, data->cb);
 }
 
 /************** Gravity *****************/

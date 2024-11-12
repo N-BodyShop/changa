@@ -3724,7 +3724,7 @@ void TreePiece::finishBucket(int iBucket) {
   int remaining;
 
   remaining = sRemoteGravityState->counterArrays[0][iBucket];
-              //+ sLocalGravityState->counterArrays[0][iBucket]; // Hack: dont include local counts
+              + sLocalGravityState->counterArrays[0][iBucket];
 
   CkAssert(remaining >= 0);
 #ifdef COSMO_PRINT
@@ -3890,7 +3890,14 @@ void TreePiece::doAllBuckets(){
     ListCompute *listcompute = (ListCompute *) sGravity;
     DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
-    listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+    //listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
+    // Bookkeeping that happened inside sendLocalTreeWalkTriggerToGpu
+    for (int i = 0; i < numBuckets; ++i) {
+      if (this->bucketList[i]->rungs >= activeRung) {
+        state->counterArrays[0][i] ++;
+      }
+    }
+
     //
     // Set up the book keeping flags
     bool useckloop = false;

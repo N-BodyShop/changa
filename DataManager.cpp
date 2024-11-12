@@ -15,6 +15,7 @@
 #endif
 
 #include "Compute.h"
+#include "State.h"
 #include "TreeWalk.h"
 
 void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name);
@@ -500,16 +501,15 @@ void DataManager::serializeLocalTree(){
       CmiUnlock(__nodelock);
 }
 
-void dummyCallback(void *param, void* msg) {
-  if (msg == NULL) return;
-
-  CudaRequest *data = (CudaRequest *)param;
-  DataManager *dm = (DataManager*)data->tp;
-
-  for(int i = 0; i < dm->getRegisteredTreePieces().length(); i++){
-      int in = dm->getRegisteredTreePieces()[i].treePiece->getIndex();
-      for (int j = 0; j < dm->getRegisteredTreePieces()[in].treePiece->getNumBuckets(); j++) {
-        dm->getRegisteredTreePieces()[in].treePiece->finishBucket(j);
+void DataManager::finishLocalWalk() {
+  delete localTransferCallback;
+  if(verbosity > 1) CkPrintf("[%d] finishLocalWalk\n", CkMyPe());
+  for(int i = 0; i < registeredTreePieces.length(); i++){
+      int in = registeredTreePieces[i].treePiece->getIndex();
+      for (int j = 0; j < registeredTreePieces[in].treePiece->getNumBuckets(); j++) {
+        DoubleWalkState *state = (DoubleWalkState *)registeredTreePieces[in].treePiece->getLocalGravityState();
+        state->counterArrays[0][j]--;
+        registeredTreePieces[in].treePiece->finishBucket(j);
       }
   }
 }
@@ -520,8 +520,18 @@ void dummyCallback(void *param, void* msg) {
 void DataManager::startLocalWalk() {
     delete localTransferCallback;
 
-    // See Compute::sendLocalTreeWalkTriggerToGpu
-    // The CUDA request should be set up and launched from here
+    /*for(int i = 0; i < registeredTreePieces.length(); i++){
+      if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
+      int in = registeredTreePieces[i].treePiece->getIndex();
+      treePieces[in].commenceCalculateGravityLocal((intptr_t)d_localMoments, 
+		                                   (intptr_t)d_localParts, 
+						   (intptr_t)d_localVars,
+						   (intptr_t)streams, numStreams,
+               sMoments, sCompactParts, sVarParts);
+    }*/
+
+    localTransferCallback
+      = new CkCallback(CkIndex_DataManager::finishLocalWalk(), CkMyNode(), dMProxy);
 
     CudaRequest *request = new CudaRequest;
 
@@ -545,11 +555,11 @@ void DataManager::startLocalWalk() {
     request->rootIdx = 0;
     request->theta = theta;
     request->thetaMono = thetaMono;
-    request->nReplicas = 1;
+    request->nReplicas = 0; // TODO set these from params, need to call dmProxy.setPeriodic
     request->fperiod = 1;
     request->fperiodY = 1;
     request->fperiodZ = 1;
-    request->cb = new CkCallback(dummyCallback, request);
+    request->cb = localTransferCallback;
 
     request->list = NULL;
     request->bucketMarkers = NULL;
@@ -557,25 +567,11 @@ void DataManager::startLocalWalk() {
     request->bucketSizes = NULL;
     request->numInteractions = 0;
 
+    // Somehow, this can trigger after gravity phase finishes
+    // I think the problem is the ckwaitqd in Main::waitForGravity doesn't know to wait
     DataManagerLocalTreeWalk(request);
 
-    /*for(int i = 0; i < registeredTreePieces.length(); i++){
-      if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
-      int in = registeredTreePieces[i].treePiece->getIndex();
-      treePieces[in].commenceCalculateGravityLocal((intptr_t)d_localMoments, 
-		                                   (intptr_t)d_localParts, 
-						   (intptr_t)d_localVars,
-						   (intptr_t)streams, numStreams,
-		                                   sMoments, sCompactParts, sVarParts);
-      if(registeredTreePieces[0].treePiece->bEwald) {
-          EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
-          msg->fromInit = false;
-          // Make priority lower than gravity or smooth.
-          *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
-          CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-          treePieces[in].calculateEwald(msg);
-      }
-    }*/
+    // TODO handle ewald calculation
 
     freePinnedHostMemory(bufLocalMoments);
     freePinnedHostMemory(bufLocalParts);
@@ -1029,8 +1025,6 @@ void DataManager::transferParticleVarsBack(){
   CmiLock(__nodelock);
   treePiecesWantParticlesBack++;
   if(treePiecesWantParticlesBack == registeredTreePieces.length()){
-    CkWaitQD();
-    CkExit(0);
     treePiecesWantParticlesBack = 0; 
     VariablePartData *buf;
     
