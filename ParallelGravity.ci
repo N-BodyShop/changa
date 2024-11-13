@@ -89,6 +89,10 @@ mainmodule ParallelGravity {
 
   message EwaldMsg{
     bool fromInit;
+    EwaldData *h_idata;
+    EwtData *ewt;
+    EwaldReadOnlyData *cachedData;
+    int *EwaldMarkers;
   };
 
   message ORBSplittersMsg{
@@ -248,6 +252,9 @@ mainmodule ParallelGravity {
     entry void combineLocalTrees(CkReductionMsg *m);
 #ifdef CUDA
     entry void startLocalWalk();
+    entry void finishLocalWalk();
+    entry void startEwaldGPU(int largephase);
+    entry void finishEwaldGPU();
     entry void resumeRemoteChunk();
     entry void createStreams(int _numStreams, const CkCallback& cb);
     entry void unmarkTreePiecesForCleanup(const CkCallback& cb);
@@ -285,7 +292,7 @@ mainmodule ParallelGravity {
     entry [notrace] void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(EwaldMsg *m);
     entry [notrace] void EwaldGPUComplete(); 
-    entry void EwaldGPU();
+    entry void EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable, intptr_t _markers);
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
     entry void loadNChilada(const std::string& filename, const double dTuFac,

@@ -501,16 +501,79 @@ void DataManager::serializeLocalTree(){
       CmiUnlock(__nodelock);
 }
 
-void finishLocalWalk(void *param, void* msg) {
-  CudaRequest *data = (CudaRequest *)param;
-  DataManager *dm = (DataManager*)data->tp;
-  if(verbosity > 1) CkPrintf("[%d] finishLocalWalk\n", CkMyPe());
-  for(int i = 0; i < dm->getRegisteredTreePieces().length(); i++){
-      int in = dm->getRegisteredTreePieces()[i].treePiece->getIndex();
-      for (int j = 0; j < dm->getRegisteredTreePieces()[i].treePiece->getNumBuckets(); j++) {
-        dm->getRegisteredTreePieces()[i].treePiece->finishBucket(j);
+void DataManager::startEwaldGPU(int largephase) {
+    CmiLock(__nodelock);
+    treePiecesEwaldReady++;
+    if(treePiecesEwaldReady == registeredTreePieces.length()){
+        treePiecesEwaldReady = 0;
+        CmiUnlock(__nodelock);
+    }
+    else {
+        CmiUnlock(__nodelock);
+        return;
+    }
+
+    if(verbosity > 1) CkPrintf("[%d] startEwaldGPU done\n", CkMyPe());
+
+    localTransferCallback
+      = new CkCallback(CkIndex_DataManager::finishEwaldGPU(), CkMyNode(), dMProxy);
+
+    DataManagerEwald(d_localParts, d_localVars, h_idata, ewt, cachedData, EwaldMarkers, savedNumTotalParticles-1, streams[0], localTransferCallback);
+}
+
+void DataManager::finishEwaldGPU() {
+  delete localTransferCallback;
+
+  if(verbosity > 1) CkPrintf("[%d] finishEwaldGPU\n", CkMyPe());
+
+  free(h_idata);
+  free(ewt);
+  free(cachedData);
+  free(EwaldMarkers);
+
+  for(int i = 0; i < registeredTreePieces.length(); i++){
+      for (int j = 0; j < registeredTreePieces[i].treePiece->getNumBuckets(); j++) {
+        registeredTreePieces[i].treePiece->bucketReqs[j].finished = 1;
+        registeredTreePieces[i].treePiece->finishBucket(j);
       }
   }
+}
+
+void DataManager::finishLocalWalk() {
+  delete localTransferCallback;
+  if(verbosity > 1) CkPrintf("[%d] finishLocalWalk\n", CkMyPe());
+
+  // TODO Global check to see if ewald enabled?
+  // TODO use pinned host memory here
+  h_idata = (EwaldData*) malloc(sizeof(EwaldData)*savedNumTotalParticles-1);
+  ewt = (EwtData *) malloc(NEWH*sizeof(EwtData));
+  cachedData = (EwaldReadOnlyData *) malloc(sizeof(EwaldReadOnlyData));
+  EwaldMarkers = (int *) malloc(sizeof(int)*savedNumTotalParticles-1);
+
+  treePiecesEwaldReady = 0;
+  int numTotalParts = 0;
+  int pidx = 0;
+  for(int i = 0; i < registeredTreePieces.length(); i++){
+    if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
+      int in = registeredTreePieces[i].treePiece->getIndex();
+      if(1 == 1) { // TODO how to check if ewald enabled for tree piece? Is it possible for only a subset of particles to have ewald enabled?
+        EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
+        msg->fromInit = false;
+        msg->h_idata = &h_idata[i];
+        msg->cachedData = cachedData;
+        msg->ewt = ewt;
+        msg->EwaldMarkers = &EwaldMarkers[pidx];
+        registeredTreePieces[i].treePiece->calculateEwald(msg);
+    }
+    pidx += registeredTreePieces[i].treePiece->getNumActiveParticles();
+  }
+
+  // TODO do we need a finishBucket call here AND after ewald?
+  /*for(int i = 0; i < registeredTreePieces.length(); i++){
+      for (int j = 0; j < registeredTreePieces[i].treePiece->getNumBuckets(); j++) {
+        getRegisteredTreePieces()[i].treePiece->finishBucket(j);
+      }
+  }*/
 }
 
 /// @brief Callback from local data transfer to GPU
@@ -518,6 +581,9 @@ void finishLocalWalk(void *param, void* msg) {
 /// on the treepieces on this node.
 void DataManager::startLocalWalk() {
     delete localTransferCallback;
+
+    localTransferCallback
+      = new CkCallback(CkIndex_DataManager::finishLocalWalk(), CkMyNode(), dMProxy);
 
     CudaRequest *request = new CudaRequest;
 
@@ -545,7 +611,7 @@ void DataManager::startLocalWalk() {
     request->fperiod = 1;
     request->fperiodY = 1;
     request->fperiodZ = 1;
-    request->cb = new CkCallback(finishLocalWalk, request);
+    request->cb = localTransferCallback;
 
     request->list = NULL;
     request->bucketMarkers = NULL;
@@ -554,20 +620,6 @@ void DataManager::startLocalWalk() {
     request->numInteractions = 0;
 
     DataManagerLocalTreeWalk(request);
-
-    // TODO handle ewald calculation
-    /*for(int i = 0; i < registeredTreePieces.length(); i++){
-      if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
-        int in = registeredTreePieces[i].treePiece->getIndex();
-        if(registeredTreePieces[0].treePiece->bEwald) {
-          EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
-          msg->fromInit = false;
-          // Make priority lower than gravity or smooth.
-          *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
-          CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-          treePieces[in].calculateEwald(msg);
-      }
-    }*/
 
     freePinnedHostMemory(bufLocalMoments);
     freePinnedHostMemory(bufLocalParts);

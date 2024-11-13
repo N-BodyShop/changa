@@ -1931,6 +1931,37 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
   freePinnedHostMemory(h_idata->cachedData);
 }
 
+// TODO h_idata is unused, remove
+void DataManagerEwald(void *d_localParts, void *d_localVars, void *h_idata,  void *_ewt, void *_cachedData, void *markers, int nActive, cudaStream_t stream, void *cb) {
+  int n = ((EwaldReadOnlyData *)_cachedData)->n;
+  CkPrintf("%d %d\n", ((EwaldReadOnlyData *)_cachedData)->nEwhLoop, n);
+  int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
+  int *d_EwaldMarkers;
+
+  HAPI_TRACE_BEGIN();
+
+  cudaChk(cudaMalloc(&d_EwaldMarkers, sizeof(int)*nActive));
+  cudaMemcpyAsync(d_EwaldMarkers, markers, sizeof(int)*nActive, cudaMemcpyHostToDevice, stream);
+  cudaMemcpyToSymbolAsync(ewt, _ewt, ((EwaldReadOnlyData *)_cachedData)->nEwhLoop * sizeof(EwtData), 0, cudaMemcpyHostToDevice, stream);
+  cudaMemcpyToSymbolAsync(cachedData, _cachedData, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice, stream);
+
+  EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>((CompactPartData *)d_localParts,
+                                          (VariablePartData *)d_localVars,
+            d_EwaldMarkers, 1,
+            0, nActive);
+    HAPI_TRACE_END(CUDA_EWALD);
+
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
+  printf("[%d] in EwaldHost, enqueued EwaldKernel\n", CmiMyNode());
+#endif
+
+  cudaFree(d_EwaldMarkers);
+
+  cudaChk(cudaPeekAtLastError());
+  CkCallback* callback = (CkCallback *)cb;
+  callback->send();
+}
+
 /** @brief Set up CUDA kernels to perform Ewald sum.
  *  @param d_localParts Local particle data on device
  *  @param d_localVars Local particle accelerations on device

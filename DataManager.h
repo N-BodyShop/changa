@@ -113,6 +113,8 @@ protected:
         // TreePiece counter for multi-threaded GPU host buffer copy
 	int treePiecesBufferFilled;
 
+        int treePiecesEwaldReady;
+
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
 
@@ -149,6 +151,11 @@ protected:
         size_t sMoments;
         size_t sCompactParts;
         size_t sVarParts;
+
+        EwaldData *h_idata;
+        EwtData *ewt;
+        EwaldReadOnlyData *cachedData;
+        int *EwaldMarkers;
 
 	int numStreams;
 	cudaStream_t *streams;
@@ -187,8 +194,11 @@ public:
 	DataManager(CkMigrateMessage *);
 
         void startLocalWalk();
+        void finishLocalWalk();
         void resumeRemoteChunk();
 #ifdef CUDA
+        void startEwaldGPU(int largephase);
+        void finishEwaldGPU();
 	void createStreams(int _numStreams, const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();

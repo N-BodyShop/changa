@@ -384,7 +384,7 @@ void TreePiece::EwaldInit()
 
 
 /// @brief Transfer Ewald data to GPU memory and launch EwaldHost kernel
-void TreePiece::EwaldGPU(){
+void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable, intptr_t _markers){
   /* when not using CUDA, definition is required because
      EwaldGPU is an entry method
   */
@@ -398,9 +398,10 @@ void TreePiece::EwaldGPU(){
         return;
   }
 
-  h_idata = (EwaldData*) malloc(sizeof(EwaldData));
+  //h_idata = (EwaldData*) malloc(sizeof(EwaldData));
+		h_idata = (EwaldData *)_h_idata;
   int largephase = largePhase();
-  EwaldHostMemorySetup(h_idata, myNumActiveParticles, nEwhLoop, largephase);
+  //EwaldHostMemorySetup(h_idata, myNumActiveParticles, nEwhLoop, largephase);
 
   EwtData *ewtTable; 
   EwaldReadOnlyData *roData; 
@@ -409,12 +410,16 @@ void TreePiece::EwaldGPU(){
   cudatype L = fPeriod.x;
   cudatype alpha = 2.0f/L;
    
-  ewtTable = (EwtData*) h_idata->ewt;
-  roData = (EwaldReadOnlyData*) h_idata->cachedData; 
+  //ewtTable = (EwtData*) h_idata->ewt;
+  //roData = (EwaldReadOnlyData*) h_idata->cachedData;
+		ewtTable = (EwtData*)_ewtTable;
+
+		roData = (EwaldReadOnlyData*)_cachedData;
 
   int nActive = 0;
   if(largephase){
-  	int *markers = (int *) h_idata->EwaldMarkers;
+  	//int *markers = (int *) h_idata->EwaldMarkers;
+			int *markers = (int *) _markers;
   	int IDX = 0;
   	int IDXend = 0;
   	int IDXstart = 0;
@@ -440,7 +445,7 @@ void TreePiece::EwaldGPU(){
   	h_idata->EwaldRange[0] = FirstGPUParticleIndex;
   	h_idata->EwaldRange[1] = LastGPUParticleIndex; 
   }
-  
+
   for (int i=0; i<nEwhLoop; i++) {
     ewtTable[i].hx = (cudatype) ewt[i].hx; 
     ewtTable[i].hy = (cudatype) ewt[i].hy; 
@@ -524,8 +529,9 @@ void TreePiece::EwaldGPU(){
       myLocalIndex++);
   CkAssert(myLocalIndex < dm->registeredTreePieces.length());
 
-  EwaldHost(this->d_localParts, this->d_localVars,
-	    h_idata, this->stream, (void *) cbEwaldGPU, myLocalIndex, largephase);
+  //EwaldHost(this->d_localParts, this->d_localVars,
+	 //   h_idata, this->stream, (void *) cbEwaldGPU, myLocalIndex, largephase);
+		dm->startEwaldGPU(largephase);
 #endif
 }
 
