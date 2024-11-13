@@ -187,7 +187,6 @@ public:
 	DataManager(CkMigrateMessage *);
 
         void startLocalWalk();
-        void finishLocalWalk();
         void resumeRemoteChunk();
 #ifdef CUDA
 	void createStreams(int _numStreams, const CkCallback& cb);
