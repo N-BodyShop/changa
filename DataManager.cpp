@@ -33,7 +33,6 @@ void DataManager::init() {
   root = NULL;
   oldNumChunks = 0;
   chunkRoots = NULL;
-  cleanupTreePieces = true;
 #ifdef CUDA
   treePiecesDone = 0;
   treePiecesDonePrefetch = 0;
@@ -163,20 +162,19 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
 /// \brief Clear registeredTreePieces on this node.
 void DataManager::clearRegisteredPieces(const CkCallback& cb) {
     registeredTreePieces.removeAll();
-    cleanupTreePieces = true;
     contribute(cb);
 }
 
 #ifdef CUDA
-// This gets called before a tree build happens and ensures that
-// registeredTreePieces doesnt get cleared during combineLocalTrees
-// if we are about to do a gravity calculation on the GPU
-void DataManager::unmarkTreePiecesForCleanup(const CkCallback& cb) {
-    cleanupTreePieces = false;
-    contribute(cb);
+void DataManager::assignCUDAStreams(const CkCallback& cb) {
+  int tpIdx;
+  for(int i = 0; i < registeredTreePieces.size(); i++) {
+    tpIdx = registeredTreePieces[i].treePiece->getIndex();
+    treePieces[tpIdx].assignCUDAStream((intptr_t) &streams[tpIdx % numStreams]);
+  }
+  contribute(cb);
 }
 #endif
-
 
 /// \brief Build a local tree inside the node.
 ///
@@ -223,10 +221,6 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
       gtn.push_back(registeredTreePieces[i].root);
     }
     root = buildProcessorTree(totalChares, &gtn[0]);
-
-    if (cleanupTreePieces) {
-      registeredTreePieces.removeAll();
-    }
 
 #ifdef PRINT_MERGED_TREE
     ostringstream dmName;
@@ -1105,7 +1099,6 @@ void DataManager::transferParticleVarsBack(){
     cudaFree(d_localVars);
     cudaFree(d_remoteMoments);
     cudaFree(d_remoteParts); 
-    cleanupTreePieces = true;
 
 #ifdef CUDA_PRINT_ERRORS
     printf("transferParticleVarsBack: %s\n", cudaGetErrorString( cudaGetLastError() ) );
@@ -1166,7 +1159,6 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
         }
         delete (data->cb);
         delete data;
-        registeredTreePieces.length() = 0;
     }
     CmiUnlock(__nodelock);
 }
