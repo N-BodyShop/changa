@@ -385,22 +385,24 @@ void TreePiece::EwaldInit()
 
 /// @brief Transfer Ewald data to GPU memory and launch EwaldHost kernel
 void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable, intptr_t _markers){
+  CkPrintf("[%d] EwaldGPU %d\n", thisIndex, myNumActiveParticles);
   /* when not using CUDA, definition is required because
      EwaldGPU is an entry method
   */
 
 #ifdef SPCUDA
+  int largephase = largePhase();
   if(NumberOfGPUParticles == 0 || myNumActiveParticles == 0){
         for (int i=0; i<numBuckets; i++){
             bucketReqs[i].finished = 1;
             finishBucket(i);
             }
+	//dm->startEwaldGPU(largephase);
         return;
   }
 
   //h_idata = (EwaldData*) malloc(sizeof(EwaldData));
 		h_idata = (EwaldData *)_h_idata;
-  int largephase = largePhase();
   //EwaldHostMemorySetup(h_idata, myNumActiveParticles, nEwhLoop, largephase);
 
   EwtData *ewtTable; 

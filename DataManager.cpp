@@ -537,7 +537,8 @@ void DataManager::finishLocalWalk() {
   delete localTransferCallback;
   if(verbosity > 1) CkPrintf("[%d] finishLocalWalk\n", CkMyPe());
 
-  // TODO Global check to see if ewald enabled?
+  // TODO does finishBucket need to be called here?
+
   // TODO use pinned host memory here
   h_idata = (EwaldData*) malloc(sizeof(EwaldData)*savedNumTotalParticles-1);
   ewt = (EwtData *) malloc(NEWH*sizeof(EwtData));
@@ -550,7 +551,7 @@ void DataManager::finishLocalWalk() {
   for(int i = 0; i < registeredTreePieces.length(); i++){
     if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
       int in = registeredTreePieces[i].treePiece->getIndex();
-      if(1 == 1) { // TODO how to check if ewald enabled for tree piece? Is it possible for only a subset of particles to have ewald enabled?
+      if(registeredTreePieces[0].treePiece->bEwald) {
         EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
         msg->fromInit = false;
         msg->h_idata = &h_idata[i];
@@ -561,13 +562,6 @@ void DataManager::finishLocalWalk() {
     }
     pidx += registeredTreePieces[i].treePiece->getNumActiveParticles();
   }
-
-  // TODO do we need a finishBucket call here AND after ewald?
-  /*for(int i = 0; i < registeredTreePieces.length(); i++){
-      for (int j = 0; j < registeredTreePieces[i].treePiece->getNumBuckets(); j++) {
-        getRegisteredTreePieces()[i].treePiece->finishBucket(j);
-      }
-  }*/
 }
 
 /// @brief Callback from local data transfer to GPU

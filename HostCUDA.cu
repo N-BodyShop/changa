@@ -1933,9 +1933,7 @@ void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
 
 // TODO h_idata is unused, remove
 void DataManagerEwald(void *d_localParts, void *d_localVars, void *h_idata,  void *_ewt, void *_cachedData, void *markers, int nActive, cudaStream_t stream, void *cb) {
-  int n = ((EwaldReadOnlyData *)_cachedData)->n;
-  CkPrintf("%d %d\n", ((EwaldReadOnlyData *)_cachedData)->nEwhLoop, n);
-  int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
+  int numBlocks = (int) ceilf((float)nActive/BLOCK_SIZE);
   int *d_EwaldMarkers;
 
   HAPI_TRACE_BEGIN();
@@ -1949,12 +1947,12 @@ void DataManagerEwald(void *d_localParts, void *d_localVars, void *h_idata,  voi
                                           (VariablePartData *)d_localVars,
             d_EwaldMarkers, 1,
             0, nActive);
-    HAPI_TRACE_END(CUDA_EWALD);
+  cudaStreamSynchronize(stream);
+  HAPI_TRACE_END(CUDA_EWALD);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("[%d] in EwaldHost, enqueued EwaldKernel\n", CmiMyNode());
 #endif
-
   cudaFree(d_EwaldMarkers);
 
   cudaChk(cudaPeekAtLastError());
@@ -2017,6 +2015,7 @@ void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
   cudaChk(cudaFree(d_EwaldMarkers));
 }
 
+// TODO markers not necessary
 __global__ void EwaldKernel(CompactPartData *particleCores, 
                                VariablePartData *particleVars, 
                                int *markers, int largephase,
@@ -2028,7 +2027,7 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
   if(largephase){
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id > Last) return;
-    id = markers[id];
+    //id = markers[id];
   }else{
     id = First + blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id > Last) return;
