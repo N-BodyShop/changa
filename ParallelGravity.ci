@@ -548,6 +548,10 @@ mainmodule ParallelGravity {
     // jetley
 #ifdef CUDA
     entry void assignCUDAStream(intptr_t stream);
+    entry void assignGPUGravityPtrs(intptr_t d_localMoments,
+                                              intptr_t d_localParts,
+                                              intptr_t d_localVars,
+                                              size_t sMoments, size_t sCompactParts, size_t sVarParts);
     entry void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
     entry void fillGPUBuffer(intptr_t bufLocalParts,
                              intptr_t bufLocalMoments,

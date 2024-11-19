@@ -5301,6 +5301,21 @@ void TreePiece::initiatePrefetch(int chunk){
 
 }
 
+#ifdef CUDA
+void TreePiece::assignGPUGravityPtrs(intptr_t d_localMoments,
+                                              intptr_t d_localParts,
+                                              intptr_t d_localVars,
+                                              size_t sMoments, size_t sCompactParts, size_t sVarParts) {
+      this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
+      this->d_localParts = (CompactPartData *)d_localParts;
+      this->d_localVars = (VariablePartData *)d_localVars;
+      this->sMoments = sMoments;
+      this->sCompactParts = sCompactParts;
+      this->sVarParts = sVarParts;
+      CkPrintf("[%d] assign device ptrs %x\n", (void *)d_localParts);
+}
+#endif
+
 /// @brief Entry method wrapper for calculateGravityLocal
 /// If using the GPU, this TreePiece is assigned a cudaStream and given
 /// handles to device memory

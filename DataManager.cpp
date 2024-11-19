@@ -570,6 +570,13 @@ void DataManager::finishLocalWalk() {
 void DataManager::startLocalWalk() {
     delete localTransferCallback;
 
+    for(int i = 0; i < registeredTreePieces.length(); i++){
+	 registeredTreePieces[i].treePiece->assignGPUGravityPtrs((intptr_t)d_localMoments, 
+		                                   (intptr_t)d_localParts, 
+						   (intptr_t)d_localVars,
+		                                   sMoments, sCompactParts, sVarParts);
+    }
+
     localTransferCallback
       = new CkCallback(CkIndex_DataManager::finishLocalWalk(), CkMyNode(), dMProxy);
 

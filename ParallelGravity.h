@@ -1023,6 +1023,10 @@ class TreePiece : public CBase_TreePiece {
        void assignCUDAStream(intptr_t stream) {
          this->stream = *((cudaStream_t *) stream);
        }
+       void assignGPUGravityPtrs(intptr_t d_localMoments,
+                                              intptr_t d_localParts,
+                                              intptr_t d_localVars,
+                                              size_t sMoments, size_t sCompactParts, size_t sVarParts);
        void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
        void fillGPUBuffer(intptr_t bufLocalParts,
                           intptr_t bufLocalMoments,
