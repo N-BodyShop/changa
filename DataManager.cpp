@@ -537,7 +537,11 @@ void DataManager::finishLocalWalk() {
   delete localTransferCallback;
   if(verbosity > 1) CkPrintf("[%d] finishLocalWalk\n", CkMyPe());
 
-  // TODO does finishBucket need to be called here?
+  for(int i = 0; i < registeredTreePieces.length(); i++){
+      for (int j = 0; j < registeredTreePieces[i].treePiece->getNumBuckets(); j++) {
+        registeredTreePieces[i].treePiece->finishBucket(j);
+      }
+  }
 
   // TODO use pinned host memory here
   h_idata = (EwaldData*) malloc(sizeof(EwaldData)*savedNumTotalParticles-1);
@@ -554,11 +558,14 @@ void DataManager::finishLocalWalk() {
       if(registeredTreePieces[0].treePiece->bEwald) {
         EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
         msg->fromInit = false;
+	// Make priority lower than gravity or smooth.
+        *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
+        CkSetQueueing(msg,CK_QUEUEING_IFIFO);
         msg->h_idata = &h_idata[i];
         msg->cachedData = cachedData;
         msg->ewt = ewt;
         msg->EwaldMarkers = &EwaldMarkers[pidx];
-        registeredTreePieces[i].treePiece->calculateEwald(msg);
+        treePieces[in].calculateEwald(msg);
     }
     pidx += registeredTreePieces[i].treePiece->getNumActiveParticles();
   }
