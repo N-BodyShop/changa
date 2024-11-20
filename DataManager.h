@@ -152,7 +152,6 @@ protected:
         EwaldData *h_idata;
         EwtData *ewt;
         EwaldReadOnlyData *cachedData;
-        int *EwaldMarkers;
 
 	int numStreams;
 	cudaStream_t *streams;

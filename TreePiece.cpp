@@ -4165,7 +4165,7 @@ void TreePiece::calculateEwald(EwaldMsg *msg) {
 #ifdef SPCUDA
   else {
     if(!msg->fromInit){
-      thisProxy[thisIndex].EwaldGPU((intptr_t)msg->h_idata, (intptr_t)msg->cachedData, (intptr_t)msg->ewt, (intptr_t)msg->EwaldMarkers);
+      thisProxy[thisIndex].EwaldGPU((intptr_t)msg->h_idata, (intptr_t)msg->cachedData, (intptr_t)msg->ewt);
     }
     delete msg;
   }

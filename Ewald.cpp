@@ -384,7 +384,7 @@ void TreePiece::EwaldInit()
 
 
 /// @brief Transfer Ewald data to GPU memory and launch kernel
-void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable, intptr_t _markers){
+void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable){
   CkPrintf("[%d] EwaldGPU %d\n", thisIndex, myNumActiveParticles);
   /* when not using CUDA, definition is required because
      EwaldGPU is an entry method
@@ -416,7 +416,6 @@ void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtT
 
   int nActive = 0;
   if(largephase){
-			int *markers = (int *) _markers;
   	int IDX = 0;
   	int IDXend = 0;
   	int IDXstart = 0;
@@ -428,7 +427,6 @@ void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtT
 	    IDX = bucketNode->bucketArrayIndex; /*First particle index on GPU*/
 	    for(int j = IDXstart; j <= IDXend; j++){ /*Go through all particles in bucket*/
 	    	if(buckparts[j - IDXstart].rung < activeRung){IDX++; continue;}
-	    	markers[nActive] = IDX;
 	    	IDX++;
 	    	nActive++;
 		}

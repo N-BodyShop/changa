@@ -92,7 +92,6 @@ mainmodule ParallelGravity {
     EwaldData *h_idata;
     EwtData *ewt;
     EwaldReadOnlyData *cachedData;
-    int *EwaldMarkers;
   };
 
   message ORBSplittersMsg{
@@ -291,7 +290,7 @@ mainmodule ParallelGravity {
     entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(EwaldMsg *m);
-    entry void EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable, intptr_t _markers);
+    entry void EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable);
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
     entry void loadNChilada(const std::string& filename, const double dTuFac,

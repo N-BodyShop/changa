@@ -339,7 +339,6 @@ struct EwaldMsg: public CMessage_EwaldMsg {
     EwaldData *h_idata;
     EwtData *ewt;
     EwaldReadOnlyData *cachedData;
-    int *EwaldMarkers;
 };
     
 /// Class to count added and deleted particles
@@ -1358,7 +1357,7 @@ private:
   EwaldData *h_idata;
   CkCallback *cbEwaldGPU;
 #endif
-  void EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable, intptr_t _markers);
+  void EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable);
 
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   ///This function checks the correctness of the treewalk

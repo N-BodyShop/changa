@@ -512,7 +512,7 @@ void DataManager::startEwaldGPU(int largephase) {
     localTransferCallback
       = new CkCallback(CkIndex_DataManager::finishEwaldGPU(), CkMyNode(), dMProxy);
 
-    DataManagerEwald(d_localParts, d_localVars, h_idata, ewt, cachedData, EwaldMarkers, savedNumTotalParticles-1, streams[0], localTransferCallback);
+    DataManagerEwald(d_localParts, d_localVars, ewt, cachedData, savedNumTotalParticles-1, streams[0], localTransferCallback);
 }
 
 void DataManager::finishEwaldGPU() {
@@ -520,10 +520,9 @@ void DataManager::finishEwaldGPU() {
 
   if(verbosity > 1) CkPrintf("[%d] finishEwaldGPU\n", CkMyPe());
 
-  free(h_idata);
-  free(ewt);
-  free(cachedData);
-  free(EwaldMarkers);
+  freePinnedHostMemory(h_idata);
+  freePinnedHostMemory(ewt);
+  freePinnedHostMemory(cachedData);
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
       for (int j = 0; j < registeredTreePieces[i].treePiece->getNumBuckets(); j++) {
@@ -543,11 +542,9 @@ void DataManager::finishLocalWalk() {
       }
   }
 
-  // TODO use pinned host memory here
-  h_idata = (EwaldData*) malloc(sizeof(EwaldData)*savedNumTotalParticles-1);
-  ewt = (EwtData *) malloc(NEWH*sizeof(EwtData));
-  cachedData = (EwaldReadOnlyData *) malloc(sizeof(EwaldReadOnlyData));
-  EwaldMarkers = (int *) malloc(sizeof(int)*savedNumTotalParticles-1);
+  allocatePinnedHostMemory((void **)&h_idata, sizeof(EwaldData)*savedNumTotalParticles-1);
+  allocatePinnedHostMemory((void **)&ewt, sizeof(EwtData)*NEWH);
+  allocatePinnedHostMemory((void **)&cachedData, sizeof(EwaldReadOnlyData));
 
   treePiecesEwaldReady = 0;
   int numTotalParts = 0;
@@ -564,7 +561,6 @@ void DataManager::finishLocalWalk() {
         msg->h_idata = &h_idata[i];
         msg->cachedData = cachedData;
         msg->ewt = ewt;
-        msg->EwaldMarkers = &EwaldMarkers[pidx];
         treePieces[in].calculateEwald(msg);
     }
     pidx += registeredTreePieces[i].treePiece->getNumActiveParticles();
