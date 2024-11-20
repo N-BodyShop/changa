@@ -609,10 +609,10 @@ void DataManager::startLocalWalk() {
     request->rootIdx = 0;
     request->theta = theta;
     request->thetaMono = thetaMono;
-    request->nReplicas = 0; // TODO set these from params, need to call dmProxy.setPeriodic
-    request->fperiod = 1;
-    request->fperiodY = 1;
-    request->fperiodZ = 1;
+    request->nReplicas = registeredTreePieces[0].treePiece->nReplicas;
+    request->fperiod = registeredTreePieces[0].treePiece->fPeriod.x;
+    request->fperiodY = registeredTreePieces[0].treePiece->fPeriod.y;
+    request->fperiodZ = registeredTreePieces[0].treePiece->fPeriod.z;
     request->cb = localTransferCallback;
 
     request->list = NULL;
