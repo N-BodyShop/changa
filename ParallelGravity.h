@@ -336,9 +336,11 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 /// Indicates whether the function was called by initEwald
 struct EwaldMsg: public CMessage_EwaldMsg {
     bool fromInit;
+#ifdef CUDA
     EwaldData *h_idata;
     EwtData *ewt;
     EwaldReadOnlyData *cachedData;
+#endif
 };
     
 /// Class to count added and deleted particles
@@ -943,8 +945,6 @@ class TreePiece : public CBase_TreePiece {
           }
         }
 
-        State* getLocalGravityState() { return sLocalGravityState; }
-
         bool largePhase(){
           return (1.0*myNumActiveParticles/myNumParticles) >= largePhaseThreshold;
         }
@@ -1023,9 +1023,9 @@ class TreePiece : public CBase_TreePiece {
          this->stream = *((cudaStream_t *) stream);
        }
        void assignGPUGravityPtrs(intptr_t d_localMoments,
-                                              intptr_t d_localParts,
-                                              intptr_t d_localVars,
-                                              size_t sMoments, size_t sCompactParts, size_t sVarParts);
+                                 intptr_t d_localParts,
+                                 intptr_t d_localVars,
+                                 size_t sMoments, size_t sCompactParts, size_t sVarParts);
        void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
        void fillGPUBuffer(intptr_t bufLocalParts,
                           intptr_t bufLocalMoments,
@@ -1876,14 +1876,8 @@ public:
 	void calculateGravityLocal();
 	/// Do some minor preparation for the local walk then
 	/// calculateGravityLocal().
-#ifdef CUDA
-	void commenceCalculateGravityLocal(intptr_t d_localMoments,
-                                           intptr_t d_localParts,
-                                           intptr_t d_localVars,
-                                           size_t sMoments, size_t sCompactParts, size_t sVarParts);
-#else
+
 	void commenceCalculateGravityLocal();
-#endif
 
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted

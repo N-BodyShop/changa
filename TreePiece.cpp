@@ -3724,7 +3724,7 @@ void TreePiece::finishBucket(int iBucket) {
   BucketGravityRequest *req = &bucketReqs[iBucket];
   int remaining;
 
-  remaining = sRemoteGravityState->counterArrays[0][iBucket];
+  remaining = sRemoteGravityState->counterArrays[0][iBucket]
               + sLocalGravityState->counterArrays[0][iBucket];
 
   CkAssert(remaining >= 0);
@@ -3891,8 +3891,6 @@ void TreePiece::doAllBuckets(){
     ListCompute *listcompute = (ListCompute *) sGravity;
     DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
-    //listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
-    // Bookkeeping that happened inside sendLocalTreeWalkTriggerToGpu
     for (int i = 0; i < numBuckets; ++i) {
       if (this->bucketList[i]->rungs >= activeRung) {
         state->counterArrays[0][i] ++;
@@ -5248,7 +5246,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   if (!bUseCpu) {
       dm->serializeLocalTree();
   } else {
-      thisProxy[thisIndex].commenceCalculateGravityLocal(0, 0, 0, 0, 0, 0);
+      thisProxy[thisIndex].commenceCalculateGravityLocal();
   }
 #else
   thisProxy[thisIndex].commenceCalculateGravityLocal();
@@ -5302,40 +5300,22 @@ void TreePiece::initiatePrefetch(int chunk){
 }
 
 #ifdef CUDA
+/// @brief Used by the DataManager to assign device memory pointers to TreePieces
 void TreePiece::assignGPUGravityPtrs(intptr_t d_localMoments,
-                                              intptr_t d_localParts,
-                                              intptr_t d_localVars,
-                                              size_t sMoments, size_t sCompactParts, size_t sVarParts) {
+                                     intptr_t d_localParts,
+                                     intptr_t d_localVars,
+                                     size_t sMoments, size_t sCompactParts, size_t sVarParts) {
       this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
       this->d_localParts = (CompactPartData *)d_localParts;
       this->d_localVars = (VariablePartData *)d_localVars;
       this->sMoments = sMoments;
       this->sCompactParts = sCompactParts;
       this->sVarParts = sVarParts;
-      CkPrintf("[%d] assign device ptrs %x\n", (void *)d_localParts);
 }
 #endif
 
 /// @brief Entry method wrapper for calculateGravityLocal
-/// If using the GPU, this TreePiece is assigned a cudaStream and given
-/// handles to device memory
-#ifdef CUDA
-void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments, 
-		                              intptr_t d_localParts, 
-					      intptr_t d_localVars,
-                                              size_t sMoments, size_t sCompactParts, size_t sVarParts) {
-    if (!bUseCpu) {
-      this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
-      this->d_localParts = (CompactPartData *)d_localParts;
-      this->d_localVars = (VariablePartData *)d_localVars;
-      this->sMoments = sMoments;
-      this->sCompactParts = sCompactParts;
-      this->sVarParts = sVarParts;
-    }
-
-#else
 void TreePiece::commenceCalculateGravityLocal(){
-#endif
 #if INTERLIST_VER > 0 
   // must set placedRoots to false before starting local comp.
   DoubleWalkState *lstate = (DoubleWalkState *)sLocalGravityState;

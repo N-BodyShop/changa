@@ -15,7 +15,6 @@
 #endif
 
 #include "Compute.h"
-#include "State.h"
 #include "TreeWalk.h"
 
 void printTreeGraphViz(GenericTreeNode *node, ostream &out, const string &name);
@@ -495,6 +494,8 @@ void DataManager::serializeLocalTree(){
       CmiUnlock(__nodelock);
 }
 
+/// @brief Record when all TreePieces have finished their Ewald initilization
+/// Launch the Ewald kernel on the GPU
 void DataManager::startEwaldGPU(int largephase) {
     CmiLock(__nodelock);
     treePiecesEwaldReady++;
@@ -507,18 +508,15 @@ void DataManager::startEwaldGPU(int largephase) {
         return;
     }
 
-    if(verbosity > 1) CkPrintf("[%d] startEwaldGPU done\n", CkMyPe());
-
     localTransferCallback
       = new CkCallback(CkIndex_DataManager::finishEwaldGPU(), CkMyNode(), dMProxy);
 
     DataManagerEwald(d_localParts, d_localVars, ewt, cachedData, savedNumTotalParticles-1, streams[0], localTransferCallback);
 }
 
+/// @brief Callback from Ewald kernel launch on GPU
 void DataManager::finishEwaldGPU() {
   delete localTransferCallback;
-
-  if(verbosity > 1) CkPrintf("[%d] finishEwaldGPU\n", CkMyPe());
 
   freePinnedHostMemory(h_idata);
   freePinnedHostMemory(ewt);
@@ -532,9 +530,11 @@ void DataManager::finishEwaldGPU() {
   }
 }
 
+/// @brief Callback from local tree walk on GPU
+/// Call finishBucket for all buckets and TreePieces
+/// Start Ewald calculation if enabled
 void DataManager::finishLocalWalk() {
   delete localTransferCallback;
-  if(verbosity > 1) CkPrintf("[%d] finishLocalWalk\n", CkMyPe());
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
       for (int j = 0; j < registeredTreePieces[i].treePiece->getNumBuckets(); j++) {
@@ -550,12 +550,11 @@ void DataManager::finishLocalWalk() {
   int numTotalParts = 0;
   int pidx = 0;
   for(int i = 0; i < registeredTreePieces.length(); i++){
-    if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
       int in = registeredTreePieces[i].treePiece->getIndex();
       if(registeredTreePieces[0].treePiece->bEwald) {
         EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
         msg->fromInit = false;
-	// Make priority lower than gravity or smooth.
+        // Make priority lower than smooth.
         *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
         CkSetQueueing(msg,CK_QUEUEING_IFIFO);
         msg->h_idata = &h_idata[i];
@@ -568,16 +567,17 @@ void DataManager::finishLocalWalk() {
 }
 
 /// @brief Callback from local data transfer to GPU
-/// Indicate the transfer is done, and start the local gravity walks
-/// on the treepieces on this node.
+/// Indicate the transfer is done, and start the local gravity walk
+/// in one big kernel launch
 void DataManager::startLocalWalk() {
     delete localTransferCallback;
 
+    // Notify TreePieces of device memory pointers for remote gravity
     for(int i = 0; i < registeredTreePieces.length(); i++){
-	 registeredTreePieces[i].treePiece->assignGPUGravityPtrs((intptr_t)d_localMoments, 
-		                                   (intptr_t)d_localParts, 
-						   (intptr_t)d_localVars,
-		                                   sMoments, sCompactParts, sVarParts);
+	    registeredTreePieces[i].treePiece->assignGPUGravityPtrs((intptr_t)d_localMoments,
+                                                              (intptr_t)d_localParts,
+                                                              (intptr_t)d_localVars,
+                                                              sMoments, sCompactParts, sVarParts);
     }
 
     localTransferCallback

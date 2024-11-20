@@ -182,6 +182,11 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
   hapiAddCallback(stream, callback);
 }
 
+/************** Gravity *****************/
+
+/// @brief  Initiate a local gravity calculation on the GPU from the DataManager
+///         The calculation is done for all local particles at once
+/// @param data CudaRequest object containing parameters for the calculation
 void DataManagerLocalTreeWalk(CudaRequest *data){
   cudaStream_t stream = data->stream;
 
@@ -210,8 +215,6 @@ void DataManagerLocalTreeWalk(CudaRequest *data){
 
     hapiAddCallback(stream, data->cb);
 }
-
-/************** Gravity *****************/
 
 /// @brief Initiate a local gravity calculation on the GPU, via an interaction
 ///        list calculation between nodes, or do a local tree walk
@@ -1915,6 +1918,14 @@ __global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *pa
 
 extern unsigned int timerHandle; 
 
+/// @brief Launch the Ewald calculation on the GPU from the DataManager
+/// @param d_localParts Pointer to read-only particle data on the GPU
+/// @param d_localVars Pointer to modifiable particle data on the GPU
+/// @param _ewt Pointer to EwaldReadOnlyData on the host
+/// @param _cachedData Pointer to cachedData on the host
+/// @param nActive Number of particles to do the calculation for
+/// @param stream The CUDA stream to launch the calculation on
+/// @param cb Callback function after the kernel finishes
 void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_cachedData, int nActive, cudaStream_t stream, void *cb) {
   int numBlocks = (int) ceilf((float)nActive/BLOCK_SIZE);
 

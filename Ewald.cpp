@@ -385,7 +385,6 @@ void TreePiece::EwaldInit()
 
 /// @brief Transfer Ewald data to GPU memory and launch kernel
 void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable){
-  CkPrintf("[%d] EwaldGPU %d\n", thisIndex, myNumActiveParticles);
   /* when not using CUDA, definition is required because
      EwaldGPU is an entry method
   */
