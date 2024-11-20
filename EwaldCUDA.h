@@ -58,8 +58,6 @@ typedef struct {
 
 void EwaldHostMemorySetup(EwaldData *h_idata, int size, int nEwhLoop, int largephase); 
 void EwaldHostMemoryFree(EwaldData *h_idata, int largephase); 
-void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
-               EwaldData *h_idata, cudaStream_t stream, void *cb, int myIndex, int largephase);
 
 __global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
 

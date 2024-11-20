@@ -291,7 +291,6 @@ mainmodule ParallelGravity {
     entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(EwaldMsg *m);
-    entry [notrace] void EwaldGPUComplete(); 
     entry void EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable, intptr_t _markers);
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);

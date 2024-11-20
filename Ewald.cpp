@@ -383,7 +383,7 @@ void TreePiece::EwaldInit()
 }
 
 
-/// @brief Transfer Ewald data to GPU memory and launch EwaldHost kernel
+/// @brief Transfer Ewald data to GPU memory and launch kernel
 void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable, intptr_t _markers){
   CkPrintf("[%d] EwaldGPU %d\n", thisIndex, myNumActiveParticles);
   /* when not using CUDA, definition is required because
@@ -397,13 +397,11 @@ void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtT
             bucketReqs[i].finished = 1;
             finishBucket(i);
             }
-	//dm->startEwaldGPU(largephase);
+        dm->startEwaldGPU(largephase);
         return;
   }
 
-  //h_idata = (EwaldData*) malloc(sizeof(EwaldData));
 		h_idata = (EwaldData *)_h_idata;
-  //EwaldHostMemorySetup(h_idata, myNumActiveParticles, nEwhLoop, largephase);
 
   EwtData *ewtTable; 
   EwaldReadOnlyData *roData; 
@@ -411,16 +409,13 @@ void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtT
 
   cudatype L = fPeriod.x;
   cudatype alpha = 2.0f/L;
-   
-  //ewtTable = (EwtData*) h_idata->ewt;
-  //roData = (EwaldReadOnlyData*) h_idata->cachedData;
+
 		ewtTable = (EwtData*)_ewtTable;
 
 		roData = (EwaldReadOnlyData*)_cachedData;
 
   int nActive = 0;
   if(largephase){
-  	//int *markers = (int *) h_idata->EwaldMarkers;
 			int *markers = (int *) _markers;
   	int IDX = 0;
   	int IDXend = 0;
@@ -522,40 +517,13 @@ void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtT
  */
   roData->fInner2 = (cudatype) 1.1e-2*L*L;
 
-  CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex); 
-  cbEwaldGPU = new CkCallback(CkIndex_TreePiece::EwaldGPUComplete(), myIndex,
-                              thisArrayID);
+  CkArrayIndex1D myIndex = CkArrayIndex1D(thisIndex);
 
   int myLocalIndex;
   for(myLocalIndex = 0; this != dm->registeredTreePieces[myLocalIndex].treePiece;
       myLocalIndex++);
   CkAssert(myLocalIndex < dm->registeredTreePieces.length());
 
-  //EwaldHost(this->d_localParts, this->d_localVars,
-	 //   h_idata, this->stream, (void *) cbEwaldGPU, myLocalIndex, largephase);
 		dm->startEwaldGPU(largephase);
 #endif
 }
-
-/// @brief Callback for EwaldGPU. Clean up device memory + host buffer and call finishBucket
-void TreePiece::EwaldGPUComplete() {
-  /* when not using CUDA, definition is required because
-     EwaldGPUComplete is an entry method
-  */
-#ifdef SPCUDA
-  int largephase = largePhase(); 
-  EwaldHostMemoryFree(h_idata, largephase); 
-  free(h_idata); 
-  delete cbEwaldGPU;
-
-  /* indicate completion of ewald */
-  
-  for (int i=0; i<numBuckets; i++) {  
-    bucketReqs[i].finished = 1; 
-    finishBucket(i); 
-  }
-  //CkPrintf("[%d] in EwaldGPUComplete, completed book-keeping\n", thisIndex);
-#endif 
-}
-
-

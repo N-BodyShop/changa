@@ -1948,71 +1948,12 @@ void DataManagerEwald(void *d_localParts, void *d_localVars, void *h_idata,  voi
             d_EwaldMarkers, 1,
             0, nActive);
   cudaStreamSynchronize(stream);
-  HAPI_TRACE_END(CUDA_EWALD);
-
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("[%d] in EwaldHost, enqueued EwaldKernel\n", CmiMyNode());
-#endif
   cudaFree(d_EwaldMarkers);
+  HAPI_TRACE_END(CUDA_EWALD);
 
   cudaChk(cudaPeekAtLastError());
   CkCallback* callback = (CkCallback *)cb;
   callback->send();
-}
-
-/** @brief Set up CUDA kernels to perform Ewald sum.
- *  @param d_localParts Local particle data on device
- *  @param d_localVars Local particle accelerations on device
- *  @param h_idata Host data buffers
- *  @param stream CUDA stream to perform GPU operations over
- *  @param cb Callback
- *  @param myIndex Chare index on this node that called this request.
- *  @param largephase Whether to perform large or small phase calculation
- *  
- *  The "top" and "bottom" Ewlad kernels have been combined:
- *    "top" for the real space loop,
- *    "bottom" for the k-space loop.
- *  
- */
-void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
-               EwaldData *h_idata, cudaStream_t stream, void *cb, int myIndex, int largephase)
-{
-  int n = h_idata->cachedData->n;
-  int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
-  int nEwhLoop = h_idata->cachedData->nEwhLoop;
-  assert(nEwhLoop <= NEWH);
-
-  size_t size;
-  if(largephase) size = n * sizeof(int);
-  else size = 0;
-
-  HAPI_TRACE_BEGIN();
-  int *d_EwaldMarkers;
-  cudaChk(cudaMalloc(&d_EwaldMarkers, size));
-
-  cudaMemcpyAsync(d_EwaldMarkers, h_idata->EwaldMarkers, size, cudaMemcpyHostToDevice, stream);
-  cudaMemcpyToSymbolAsync(cachedData, h_idata->cachedData, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice, stream);
-  cudaMemcpyToSymbolAsync(ewt, h_idata->ewt, nEwhLoop * sizeof(EwtData), 0, cudaMemcpyHostToDevice, stream);
-
-  if (largephase)
-      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>(d_localParts, 
-		                                         d_localVars,
-							 d_EwaldMarkers, 1,
-							 h_idata->EwaldRange[0], h_idata->EwaldRange[1]);
-  else
-      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>(d_localParts, 
-                                                         d_localVars,
-							 NULL, 0,
-							 h_idata->EwaldRange[0], h_idata->EwaldRange[1]);
-  HAPI_TRACE_END(CUDA_EWALD);
-
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("[%d] in EwaldHost, enqueued EwaldKernel\n", myIndex);
-#endif
-
-  cudaChk(cudaPeekAtLastError());
-  hapiAddCallback(stream, cb);
-  cudaChk(cudaFree(d_EwaldMarkers));
 }
 
 // TODO markers not necessary
