@@ -3886,33 +3886,16 @@ void TreePiece::doAllBuckets(){
 
     thisProxy[thisIndex].nextBucket(msg);
   }
-#ifdef GPU_LOCAL_TREE_WALK
-  else {
-    ListCompute *listcompute = (ListCompute *) sGravity;
-    DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
+}
 
-    for (int i = 0; i < numBuckets; ++i) {
-      if (this->bucketList[i]->rungs >= activeRung) {
-        state->counterArrays[0][i] ++;
-      }
-    }
+void TreePiece::cudaFinishAllBuckets(){
+  ListCompute *listcompute = (ListCompute *) sGravity;
+  DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
-    //
-    // Set up the book keeping flags
-    bool useckloop = false;
-    for (int i = 0; i < numBuckets; i ++) {
-      sLocalGravityState->currentBucket = i;
-      GenericTreeNode *target = bucketList[i];
-      if(target->rungs >= activeRung){
-        doBookKeepingForTargetActive(i, i+1, -1, !useckloop, sLocalGravityState);
-      } else {
-        i += doBookKeepingForTargetInactive(-1, !useckloop, sLocalGravityState) - 1;
-      }
-    }
-    listcompute->resetCudaNodeState(state);
-    listcompute->resetCudaPartState(state);
+  for (int i = 0; i < numBuckets; ++i) {
+    state->counterArrays[0][i]--;
+    this->finishBucket(i);
   }
-#endif
 }
 
 void TreePiece::nextBucket(dummyMsg *msg){

@@ -494,6 +494,7 @@ mainmodule ParallelGravity {
 
     entry void commenceCalculateGravityLocal();
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
+    entry void cudaFinishAllBuckets();
 
     entry [notrace] void calculateReSmoothLocal();
     entry [notrace] void calculateMarkSmoothLocal();

@@ -537,9 +537,7 @@ void DataManager::finishLocalWalk() {
   delete localTransferCallback;
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
-      for (int j = 0; j < registeredTreePieces[i].treePiece->getNumBuckets(); j++) {
-        registeredTreePieces[i].treePiece->finishBucket(j);
-      }
+    registeredTreePieces[i].treePiece->cudaFinishAllBuckets();
   }
 
   allocatePinnedHostMemory((void **)&h_idata, sizeof(EwaldData)*savedNumTotalParticles-1);
@@ -574,10 +572,12 @@ void DataManager::startLocalWalk() {
 
     // Notify TreePieces of device memory pointers for remote gravity
     for(int i = 0; i < registeredTreePieces.length(); i++){
+      int in = registeredTreePieces[i].treePiece->getIndex();
 	    registeredTreePieces[i].treePiece->assignGPUGravityPtrs((intptr_t)d_localMoments,
                                                               (intptr_t)d_localParts,
                                                               (intptr_t)d_localVars,
                                                               sMoments, sCompactParts, sVarParts);
+      treePieces[in].commenceCalculateGravityLocal();
     }
 
     localTransferCallback
