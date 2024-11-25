@@ -1987,6 +1987,10 @@ void Main::buildTree(int iPhase)
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
+
+    tpReplicaProxy.clearTable(CkCallbackResumeThread());
+    treeProxy.replicateTreePieces(CkCallbackResumeThread());
+
     double tTB =  CkWallTimer()-startTime;
     timings[iPhase].tTBuild += tTB;
     CkPrintf("took %g seconds.\n", tTB);
@@ -2371,9 +2375,6 @@ void Main::advanceBigStep(int iStep) {
     CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /******** Tree Build *******/
     buildTree(activeRung);
-
-		tpReplicaProxy.clearTable(CkCallbackResumeThread());
-		treeProxy.replicateTreePieces(CkCallbackResumeThread());
 
     CkCallback cbGravity(CkCallback::resumeThread);
 
@@ -3022,9 +3023,6 @@ Main::initialForces()
   /******** Tree Build *******/
   buildTree(0);
 
-	tpReplicaProxy.clearTable(CkCallbackResumeThread());
-	treeProxy.replicateTreePieces(CkCallbackResumeThread());
-	
   if(verbosity)
       memoryStats();
   

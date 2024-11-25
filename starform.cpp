@@ -160,8 +160,6 @@ void Main::FormStars(double dTime, double dDelta)
     //
     // Need to build tree since we just did a drift.
     buildTree(PHASE_FEEDBACK);
-    tpReplicaProxy.clearTable(CkCallbackResumeThread());
-    treeProxy.replicateTreePieces(CkCallbackResumeThread());
     double startTime = CkWallTimer();
     DensitySmoothParams pDen(TYPE_GAS, 0);
     double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
