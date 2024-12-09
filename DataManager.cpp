@@ -164,16 +164,6 @@ void DataManager::clearRegisteredPieces(const CkCallback& cb) {
     contribute(cb);
 }
 
-#ifdef CUDA
-void DataManager::assignCUDAStreams(const CkCallback& cb) {
-  int tpIdx;
-  for(int i = 0; i < registeredTreePieces.size(); i++) {
-    tpIdx = registeredTreePieces[i].treePiece->getIndex();
-    treePieces[tpIdx].assignCUDAStream((intptr_t) &streams[tpIdx % numStreams]);
-  }
-  contribute(cb);
-}
-#endif
 
 /// \brief Build a local tree inside the node.
 ///
@@ -506,6 +496,7 @@ void DataManager::startLocalWalk() {
       treePieces[in].commenceCalculateGravityLocal((intptr_t)d_localMoments, 
 		                                   (intptr_t)d_localParts, 
 						   (intptr_t)d_localVars,
+						   (intptr_t)streams, numStreams,
 		                                   sMoments, sCompactParts, sVarParts);
       if(registeredTreePieces[0].treePiece->bEwald) {
           EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
