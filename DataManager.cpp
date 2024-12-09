@@ -32,7 +32,6 @@ void DataManager::init() {
   root = NULL;
   oldNumChunks = 0;
   chunkRoots = NULL;
-  cleanupTreePieces = true;
 #ifdef CUDA
   treePiecesDone = 0;
   treePiecesDonePrefetch = 0;
@@ -162,20 +161,19 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
 /// \brief Clear registeredTreePieces on this node.
 void DataManager::clearRegisteredPieces(const CkCallback& cb) {
     registeredTreePieces.removeAll();
-    cleanupTreePieces = true;
     contribute(cb);
 }
 
 #ifdef CUDA
-// This gets called before a tree build happens and ensures that
-// registeredTreePieces doesnt get cleared during combineLocalTrees
-// if we are about to do a gravity calculation on the GPU
-void DataManager::unmarkTreePiecesForCleanup(const CkCallback& cb) {
-    cleanupTreePieces = false;
-    contribute(cb);
+void DataManager::assignCUDAStreams(const CkCallback& cb) {
+  int tpIdx;
+  for(int i = 0; i < registeredTreePieces.size(); i++) {
+    tpIdx = registeredTreePieces[i].treePiece->getIndex();
+    treePieces[tpIdx].assignCUDAStream((intptr_t) &streams[tpIdx % numStreams]);
+  }
+  contribute(cb);
 }
 #endif
-
 
 /// \brief Build a local tree inside the node.
 ///
@@ -222,10 +220,6 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
       gtn.push_back(registeredTreePieces[i].root);
     }
     root = buildProcessorTree(totalChares, &gtn[0]);
-
-    if (cleanupTreePieces) {
-      registeredTreePieces.removeAll();
-    }
 
 #ifdef PRINT_MERGED_TREE
     ostringstream dmName;
@@ -500,29 +494,130 @@ void DataManager::serializeLocalTree(){
       CmiUnlock(__nodelock);
 }
 
+/// @brief Record when all TreePieces have finished their Ewald initilization
+/// Launch the Ewald kernel on the GPU
+void DataManager::startEwaldGPU(int largephase) {
+    CmiLock(__nodelock);
+    treePiecesEwaldReady++;
+    if(treePiecesEwaldReady == registeredTreePieces.length()){
+        treePiecesEwaldReady = 0;
+        CmiUnlock(__nodelock);
+    }
+    else {
+        CmiUnlock(__nodelock);
+        return;
+    }
+
+    localTransferCallback
+      = new CkCallback(CkIndex_DataManager::finishEwaldGPU(), CkMyNode(), dMProxy);
+
+    DataManagerEwald(d_localParts, d_localVars, ewt, cachedData, savedNumTotalParticles-1, streams[0], localTransferCallback);
+}
+
+/// @brief Callback from Ewald kernel launch on GPU
+void DataManager::finishEwaldGPU() {
+  delete localTransferCallback;
+
+  freePinnedHostMemory(h_idata);
+  freePinnedHostMemory(ewt);
+  freePinnedHostMemory(cachedData);
+
+  for(int i = 0; i < registeredTreePieces.length(); i++){
+      for (int j = 0; j < registeredTreePieces[i].treePiece->getNumBuckets(); j++) {
+        registeredTreePieces[i].treePiece->bucketReqs[j].finished = 1;
+        registeredTreePieces[i].treePiece->finishBucket(j);
+      }
+  }
+}
+
+/// @brief Callback from local tree walk on GPU
+/// Call finishBucket for all buckets and TreePieces
+/// Start Ewald calculation if enabled
+void DataManager::finishLocalWalk() {
+  delete localTransferCallback;
+
+  for(int i = 0; i < registeredTreePieces.length(); i++){
+    registeredTreePieces[i].treePiece->cudaFinishAllBuckets();
+  }
+
+  allocatePinnedHostMemory((void **)&h_idata, sizeof(EwaldData)*savedNumTotalParticles-1);
+  allocatePinnedHostMemory((void **)&ewt, sizeof(EwtData)*NEWH);
+  allocatePinnedHostMemory((void **)&cachedData, sizeof(EwaldReadOnlyData));
+
+  treePiecesEwaldReady = 0;
+  int numTotalParts = 0;
+  int pidx = 0;
+  for(int i = 0; i < registeredTreePieces.length(); i++){
+      int in = registeredTreePieces[i].treePiece->getIndex();
+      if(registeredTreePieces[0].treePiece->bEwald) {
+        EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
+        msg->fromInit = false;
+        // Make priority lower than smooth.
+        *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
+        CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+        msg->h_idata = &h_idata[i];
+        msg->cachedData = cachedData;
+        msg->ewt = ewt;
+        treePieces[in].calculateEwald(msg);
+    }
+    pidx += registeredTreePieces[i].treePiece->getNumActiveParticles();
+  }
+}
+
 /// @brief Callback from local data transfer to GPU
-/// Indicate the transfer is done, and start the local gravity walks
-/// on the treepieces on this node.
+/// Indicate the transfer is done, and start the local gravity walk
+/// in one big kernel launch
 void DataManager::startLocalWalk() {
     delete localTransferCallback;
 
+    // Notify TreePieces of device memory pointers for remote gravity
     for(int i = 0; i < registeredTreePieces.length(); i++){
-      if(verbosity > 1) CkPrintf("[%d] GravityLocal %d\n", CkMyPe(), i);
       int in = registeredTreePieces[i].treePiece->getIndex();
-      treePieces[in].commenceCalculateGravityLocal((intptr_t)d_localMoments, 
-		                                   (intptr_t)d_localParts, 
-						   (intptr_t)d_localVars,
-						   (intptr_t)streams, numStreams,
-		                                   sMoments, sCompactParts, sVarParts);
-      if(registeredTreePieces[0].treePiece->bEwald) {
-          EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
-          msg->fromInit = false;
-          // Make priority lower than gravity or smooth.
-          *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
-          CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-          treePieces[in].calculateEwald(msg);
-      }
+	    registeredTreePieces[i].treePiece->assignGPUGravityPtrs((intptr_t)d_localMoments,
+                                                              (intptr_t)d_localParts,
+                                                              (intptr_t)d_localVars,
+                                                              sMoments, sCompactParts, sVarParts);
+      treePieces[in].commenceCalculateGravityLocal();
     }
+
+    localTransferCallback
+      = new CkCallback(CkIndex_DataManager::finishLocalWalk(), CkMyNode(), dMProxy);
+
+    CudaRequest *request = new CudaRequest;
+
+    request->d_localMoments = d_localMoments;
+    request->d_localParts = d_localParts;
+    request->d_localVars = d_localVars;
+    request->sMoments = sMoments;
+    request->sCompactParts = sCompactParts;
+    request->sVarParts = sVarParts;
+    request->stream = streams[0];
+
+    request->numBucketsPlusOne = 0;
+    request->affectedBuckets = 0;
+    request->tp = this;
+    request->state = NULL;
+    request->node = true;
+    request->remote = false;
+    request->firstParticle = 0;
+    request->lastParticle = savedNumTotalParticles-1;
+
+    request->rootIdx = 0;
+    request->theta = theta;
+    request->thetaMono = thetaMono;
+    request->nReplicas = registeredTreePieces[0].treePiece->nReplicas;
+    request->fperiod = registeredTreePieces[0].treePiece->fPeriod.x;
+    request->fperiodY = registeredTreePieces[0].treePiece->fPeriod.y;
+    request->fperiodZ = registeredTreePieces[0].treePiece->fPeriod.z;
+    request->cb = localTransferCallback;
+
+    request->list = NULL;
+    request->bucketMarkers = NULL;
+    request->bucketStarts = NULL;
+    request->bucketSizes = NULL;
+    request->numInteractions = 0;
+
+    DataManagerLocalTreeWalk(request);
 
     freePinnedHostMemory(bufLocalMoments);
     freePinnedHostMemory(bufLocalParts);
@@ -1008,7 +1103,6 @@ void DataManager::transferParticleVarsBack(){
     cudaFree(d_localVars);
     cudaFree(d_remoteMoments);
     cudaFree(d_remoteParts); 
-    cleanupTreePieces = true;
 
 #ifdef CUDA_PRINT_ERRORS
     printf("transferParticleVarsBack: %s\n", cudaGetErrorString( cudaGetLastError() ) );
@@ -1069,7 +1163,6 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
         }
         delete (data->cb);
         delete data;
-        registeredTreePieces.length() = 0;
     }
     CmiUnlock(__nodelock);
 }

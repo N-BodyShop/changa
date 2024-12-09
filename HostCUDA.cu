@@ -184,13 +184,47 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 
 /************** Gravity *****************/
 
+/// @brief  Initiate a local gravity calculation on the GPU from the DataManager
+///         The calculation is done for all local particles at once
+/// @param data CudaRequest object containing parameters for the calculation
+void DataManagerLocalTreeWalk(CudaRequest *data){
+  cudaStream_t stream = data->stream;
+
+#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
+  printf("(%d) DM LOCAL TREE WALK %d\n",
+        CmiMyPe(),
+        data->lastParticle - data->firstParticle
+        );
+#endif
+
+  gpuLocalTreeWalk<<<(data->lastParticle - data->firstParticle + 1)
+                     / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>> (
+    data->d_localMoments,
+    data->d_localParts,
+    data->d_localVars,
+    data->firstParticle,
+    data->lastParticle,
+    data->rootIdx,
+    data->theta,
+    data->thetaMono,
+    data->nReplicas,
+    data->fperiod,
+    data->fperiodY,
+    data->fperiodZ
+    );
+
+    hapiAddCallback(stream, data->cb);
+}
+
 /// @brief Initiate a local gravity calculation on the GPU, via an interaction
 ///        list calculation between nodes, or do a local tree walk
 /// @param data CudaRequest object containing parameters for the calculation
 void TreePieceCellListDataTransferLocal(CudaRequest *data){
   cudaStream_t stream = data->stream;
+#ifndef GPU_LOCAL_TREE_WALK
   CudaDevPtr devPtr;
   TreePieceDataTransferBasic(data, &devPtr);
+#endif
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
   printf("(%d) TRANSFER LOCAL CELL\n", CmiMyPe());
@@ -238,9 +272,9 @@ void TreePieceCellListDataTransferLocal(CudaRequest *data){
     devPtr.d_bucketSizes,
     data->fperiod
     );
-#endif
-#endif
   TreePieceDataTransferBasicCleanup(&devPtr);
+#endif
+#endif
   cudaChk(cudaPeekAtLastError());
   HAPI_TRACE_END(CUDA_GRAV_LOCAL);
 
@@ -1880,84 +1914,40 @@ __global__ void particleGravityComputation(
 }
 #endif
 
-__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
+__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int largephase, int First, int Last);
 
 extern unsigned int timerHandle; 
 
-void EwaldHostMemorySetup(EwaldData *h_idata, int nParticles, int nEwhLoop, int largephase) {
-  if(largephase)
-    allocatePinnedHostMemory((void **)&(h_idata->EwaldMarkers), nParticles*sizeof(int));
-  else
-    h_idata->EwaldMarkers = NULL;
-  allocatePinnedHostMemory((void **)&(h_idata->ewt), nEwhLoop*sizeof(EwtData));
-  allocatePinnedHostMemory((void **)&(h_idata->cachedData), sizeof(EwaldReadOnlyData));
-}
-
-void EwaldHostMemoryFree(EwaldData *h_idata, int largephase) {
-  if(largephase)
-    freePinnedHostMemory(h_idata->EwaldMarkers);
-  freePinnedHostMemory(h_idata->ewt);
-  freePinnedHostMemory(h_idata->cachedData);
-}
-
-/** @brief Set up CUDA kernels to perform Ewald sum.
- *  @param d_localParts Local particle data on device
- *  @param d_localVars Local particle accelerations on device
- *  @param h_idata Host data buffers
- *  @param stream CUDA stream to perform GPU operations over
- *  @param cb Callback
- *  @param myIndex Chare index on this node that called this request.
- *  @param largephase Whether to perform large or small phase calculation
- *  
- *  The "top" and "bottom" Ewlad kernels have been combined:
- *    "top" for the real space loop,
- *    "bottom" for the k-space loop.
- *  
- */
-void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
-               EwaldData *h_idata, cudaStream_t stream, void *cb, int myIndex, int largephase)
-{
-  int n = h_idata->cachedData->n;
-  int numBlocks = (int) ceilf((float)n/BLOCK_SIZE);
-  int nEwhLoop = h_idata->cachedData->nEwhLoop;
-  assert(nEwhLoop <= NEWH);
-
-  size_t size;
-  if(largephase) size = n * sizeof(int);
-  else size = 0;
+/// @brief Launch the Ewald calculation on the GPU from the DataManager
+/// @param d_localParts Pointer to read-only particle data on the GPU
+/// @param d_localVars Pointer to modifiable particle data on the GPU
+/// @param _ewt Pointer to EwaldReadOnlyData on the host
+/// @param _cachedData Pointer to cachedData on the host
+/// @param nActive Number of particles to do the calculation for
+/// @param stream The CUDA stream to launch the calculation on
+/// @param cb Callback function after the kernel finishes
+void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_cachedData, int nActive, cudaStream_t stream, void *cb) {
+  int numBlocks = (int) ceilf((float)nActive/BLOCK_SIZE);
 
   HAPI_TRACE_BEGIN();
-  int *d_EwaldMarkers;
-  cudaChk(cudaMalloc(&d_EwaldMarkers, size));
 
-  cudaMemcpyAsync(d_EwaldMarkers, h_idata->EwaldMarkers, size, cudaMemcpyHostToDevice, stream);
-  cudaMemcpyToSymbolAsync(cachedData, h_idata->cachedData, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice, stream);
-  cudaMemcpyToSymbolAsync(ewt, h_idata->ewt, nEwhLoop * sizeof(EwtData), 0, cudaMemcpyHostToDevice, stream);
+  cudaMemcpyToSymbolAsync(ewt, _ewt, ((EwaldReadOnlyData *)_cachedData)->nEwhLoop * sizeof(EwtData), 0, cudaMemcpyHostToDevice, stream);
+  cudaMemcpyToSymbolAsync(cachedData, _cachedData, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice, stream);
 
-  if (largephase)
-      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>(d_localParts, 
-		                                         d_localVars,
-							 d_EwaldMarkers, 1,
-							 h_idata->EwaldRange[0], h_idata->EwaldRange[1]);
-  else
-      EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>(d_localParts, 
-                                                         d_localVars,
-							 NULL, 0,
-							 h_idata->EwaldRange[0], h_idata->EwaldRange[1]);
+  EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>((CompactPartData *)d_localParts,
+                                          (VariablePartData *)d_localVars,
+            1, 0, nActive);
+  cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_EWALD);
 
-#ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
-  printf("[%d] in EwaldHost, enqueued EwaldKernel\n", myIndex);
-#endif
-
   cudaChk(cudaPeekAtLastError());
-  hapiAddCallback(stream, cb);
-  cudaChk(cudaFree(d_EwaldMarkers));
+  CkCallback* callback = (CkCallback *)cb;
+  callback->send();
 }
 
 __global__ void EwaldKernel(CompactPartData *particleCores, 
                                VariablePartData *particleVars, 
-                               int *markers, int largephase,
+                               int largephase,
                                int First, int Last) {
   /////////////////////////////////////
   ////////////// Ewald TOP ////////////
@@ -1966,7 +1956,6 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
   if(largephase){
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id > Last) return;
-    id = markers[id];
   }else{
     id = First + blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id > Last) return;

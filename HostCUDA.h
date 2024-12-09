@@ -111,6 +111,9 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 				  cudaStream_t stream,
                                   void *callback);
 
+void DataManagerLocalTreeWalk(CudaRequest *data);
+void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_cachedData, int nActive, cudaStream_t stream, void *cb);
+
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb);
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);

@@ -77,9 +77,6 @@ protected:
 	/// A list of roots of the TreePieces in this node
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
-       /// Signal whether registeredTreePieces needs to be cleaned
-       /// when combining local trees
-       bool cleanupTreePieces;
 #ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
         /// @brief counter for the number of tree nodes that are
@@ -112,6 +109,8 @@ protected:
 
         // TreePiece counter for multi-threaded GPU host buffer copy
 	int treePiecesBufferFilled;
+
+        int treePiecesEwaldReady;
 
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
@@ -150,6 +149,10 @@ protected:
         size_t sCompactParts;
         size_t sVarParts;
 
+        EwaldData *h_idata;
+        EwtData *ewt;
+        EwaldReadOnlyData *cachedData;
+
 	int numStreams;
 	cudaStream_t *streams;
 
@@ -168,6 +171,8 @@ protected:
         Tree::NodeLookupType chunkRootTable;
 
 public:
+  CProxy_TreePiece getTreePieces() { return treePieces; }
+  CkVec<TreePieceDescriptor> getRegisteredTreePieces() { return registeredTreePieces; }
 
 	/* 
 	 ** Cooling 
@@ -185,11 +190,15 @@ public:
 	DataManager(CkMigrateMessage *);
 
         void startLocalWalk();
+        void finishLocalWalk();
         void resumeRemoteChunk();
 #ifdef CUDA
+        void startEwaldGPU(int largephase);
+        void finishEwaldGPU();
 	void createStreams(int _numStreams, const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
+        void assignCUDAStreams(const CkCallback& cb);
 
 #ifdef GPU_LOCAL_TREE_WALK
         void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
@@ -255,7 +264,6 @@ public:
         std::map<NodeKey, int> &getCachedPartsOnGpuTable(){
           return cachedPartsOnGpu;
         }
-        void unmarkTreePiecesForCleanup(const CkCallback& cb);
 #endif
 	// Functions used to create a tree inside the DataManager comprising
 	// all the trees in the TreePieces in the local node

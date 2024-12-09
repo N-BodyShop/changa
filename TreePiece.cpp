@@ -3940,28 +3940,16 @@ void TreePiece::doAllBuckets(){
 
     thisProxy[thisIndex].nextBucket(msg);
   }
-#ifdef GPU_LOCAL_TREE_WALK
-  else {
-    ListCompute *listcompute = (ListCompute *) sGravity;
-    DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
+}
 
-    listcompute->sendLocalTreeWalkTriggerToGpu(state, this, activeRung, 0, numBuckets);
-    //
-    // Set up the book keeping flags
-    bool useckloop = false;
-    for (int i = 0; i < numBuckets; i ++) {
-      sLocalGravityState->currentBucket = i;
-      GenericTreeNode *target = bucketList[i];
-      if(target->rungs >= activeRung){
-        doBookKeepingForTargetActive(i, i+1, -1, !useckloop, sLocalGravityState);
-      } else {
-        i += doBookKeepingForTargetInactive(-1, !useckloop, sLocalGravityState) - 1;
-      }
-    }
-    listcompute->resetCudaNodeState(state);
-    listcompute->resetCudaPartState(state);
+void TreePiece::cudaFinishAllBuckets(){
+  ListCompute *listcompute = (ListCompute *) sGravity;
+  DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
+
+  for (int i = 0; i < numBuckets; ++i) {
+    state->counterArrays[0][i]--;
+    this->finishBucket(i);
   }
-#endif
 }
 
 void TreePiece::nextBucket(dummyMsg *msg){
@@ -4212,7 +4200,7 @@ void TreePiece::calculateEwald(EwaldMsg *msg) {
 #ifdef SPCUDA
   else {
     if(!msg->fromInit){
-      thisProxy[thisIndex].EwaldGPU();
+      thisProxy[thisIndex].EwaldGPU((intptr_t)msg->h_idata, (intptr_t)msg->cachedData, (intptr_t)msg->ewt);
     }
     delete msg;
   }
@@ -5279,7 +5267,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
 
   // variable currentBucket masquerades as current chunk
-  initiatePrefetch(sPrefetchState->currentBucket);
+  //initiatePrefetch(sPrefetchState->currentBucket);
 
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
@@ -5295,7 +5283,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   if (!bUseCpu) {
       dm->serializeLocalTree();
   } else {
-      thisProxy[thisIndex].commenceCalculateGravityLocal(0, 0, 0, 0, 0, 0, 0, 0);
+      thisProxy[thisIndex].commenceCalculateGravityLocal();
   }
 #else
   thisProxy[thisIndex].commenceCalculateGravityLocal();
@@ -5348,32 +5336,28 @@ void TreePiece::initiatePrefetch(int chunk){
 
 }
 
-/// @brief Entry method wrapper for calculateGravityLocal
-/// If using the GPU, this TreePiece is assigned a cudaStream and given
-/// handles to device memory
 #ifdef CUDA
-void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments, 
-		                              intptr_t d_localParts, 
-					      intptr_t d_localVars,
-					      intptr_t streams, int numStreams,
-                                              size_t sMoments, size_t sCompactParts, size_t sVarParts) {
-    if (!bUseCpu) {
+/// @brief Used by the DataManager to assign device memory pointers to TreePieces
+void TreePiece::assignGPUGravityPtrs(intptr_t d_localMoments,
+                                     intptr_t d_localParts,
+                                     intptr_t d_localVars,
+                                     size_t sMoments, size_t sCompactParts, size_t sVarParts) {
       this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
       this->d_localParts = (CompactPartData *)d_localParts;
       this->d_localVars = (VariablePartData *)d_localVars;
-      this->stream = ((cudaStream_t *)streams)[thisIndex % numStreams];
       this->sMoments = sMoments;
       this->sCompactParts = sCompactParts;
       this->sVarParts = sVarParts;
-    }
-
-#else
-void TreePiece::commenceCalculateGravityLocal(){
+}
 #endif
+
+/// @brief Entry method wrapper for calculateGravityLocal
+void TreePiece::commenceCalculateGravityLocal(){
 #if INTERLIST_VER > 0 
   // must set placedRoots to false before starting local comp.
   DoubleWalkState *lstate = (DoubleWalkState *)sLocalGravityState;
   lstate->placedRoots[0] = false;
+  initiatePrefetch(sPrefetchState->currentBucket);
 #endif
   calculateGravityLocal();
 }

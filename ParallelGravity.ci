@@ -89,6 +89,11 @@ mainmodule ParallelGravity {
 
   message EwaldMsg{
     bool fromInit;
+#ifdef CUDA
+    EwaldData *h_idata;
+    EwtData *ewt;
+    EwaldReadOnlyData *cachedData;
+#endif
   };
 
   message ORBSplittersMsg{
@@ -255,9 +260,12 @@ mainmodule ParallelGravity {
     entry void combineLocalTrees(CkReductionMsg *m);
 #ifdef CUDA
     entry void startLocalWalk();
+    entry void finishLocalWalk();
+    entry void startEwaldGPU(int largephase);
+    entry void finishEwaldGPU();
     entry void resumeRemoteChunk();
     entry void createStreams(int _numStreams, const CkCallback& cb);
-    entry void unmarkTreePiecesForCleanup(const CkCallback& cb);
+    entry void assignCUDAStreams(const CkCallback& cb);
 #endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
@@ -291,8 +299,7 @@ mainmodule ParallelGravity {
     entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
     entry void calculateEwald(EwaldMsg *m);
-    entry [notrace] void EwaldGPUComplete(); 
-    entry void EwaldGPU();
+    entry void EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable);
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
     entry void loadNChilada(const std::string& filename, const double dTuFac,
@@ -518,16 +525,10 @@ mainmodule ParallelGravity {
       OrientedBox<double>& box, OrientedBox<double>& boxBall,
       unsigned int iParticleTypes, int64_t nSPH);
 
-#ifdef CUDA
-    entry void commenceCalculateGravityLocal(intptr_t d_localMoments, 
-                                             intptr_t d_localParts, 
-                                             intptr_t d_localVars,
-                                             intptr_t streams, int numStreams,
-                                             size_t sMoments, size_t sCompactParts, size_t sVarParts);
-#else
+
     entry void commenceCalculateGravityLocal();
-#endif
     entry void calculateGravityRemote(ComputeChunkMsg *msg);
+    entry void cudaFinishAllBuckets();
 
     entry [notrace] void calculateReSmoothLocal();
     entry [notrace] void calculateMarkSmoothLocal();
@@ -575,6 +576,11 @@ mainmodule ParallelGravity {
 
     // jetley
 #ifdef CUDA
+    entry void assignCUDAStream(intptr_t stream);
+    entry void assignGPUGravityPtrs(intptr_t d_localMoments,
+                                    intptr_t d_localParts,
+                                    intptr_t d_localVars,
+                                    size_t sMoments, size_t sCompactParts, size_t sVarParts);
     entry void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
     entry void fillGPUBuffer(intptr_t bufLocalParts,
                              intptr_t bufLocalMoments,
