@@ -1014,9 +1014,6 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
 #ifdef CUDA
-       void assignCUDAStream(intptr_t stream) {
-         this->stream = *((cudaStream_t *) stream);
-       }
        void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
        void fillGPUBuffer(intptr_t bufLocalParts,
                           intptr_t bufLocalMoments,
@@ -1872,6 +1869,7 @@ public:
 	void commenceCalculateGravityLocal(intptr_t d_localMoments,
                                            intptr_t d_localParts,
                                            intptr_t d_localVars,
+                                           intptr_t streams, int numStreams,
                                            size_t sMoments, size_t sCompactParts, size_t sVarParts);
 #else
 	void commenceCalculateGravityLocal();
