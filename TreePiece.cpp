@@ -5213,7 +5213,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 
 
   // variable currentBucket masquerades as current chunk
-  initiatePrefetch(sPrefetchState->currentBucket);
+  //initiatePrefetch(sPrefetchState->currentBucket);
 
 #if CHANGA_REFACTOR_DEBUG > 0
   CkPrintf("[%d]sending message to commence local gravity calculation\n", thisIndex);
@@ -5303,6 +5303,7 @@ void TreePiece::commenceCalculateGravityLocal(){
   // must set placedRoots to false before starting local comp.
   DoubleWalkState *lstate = (DoubleWalkState *)sLocalGravityState;
   lstate->placedRoots[0] = false;
+  initiatePrefetch(sPrefetchState->currentBucket);
 #endif
   calculateGravityLocal();
 }
