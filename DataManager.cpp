@@ -32,9 +32,10 @@ void DataManager::init() {
   root = NULL;
   oldNumChunks = 0;
   chunkRoots = NULL;
-  cleanupTreePieces = true;
 #ifdef CUDA
+  numGasParts = 0;
   treePiecesDone = 0;
+  treePiecesDoneUdot = 0;
   treePiecesDonePrefetch = 0;
   treePiecesDoneLocalComputation = 0;
   treePiecesDoneRemoteChunkComputation = 0;
@@ -44,6 +45,7 @@ void DataManager::init() {
 
 #endif
   Cool = CoolInit();
+  Cool_nv = COOL_NV;
   starLog = new StarLog();
   lockStarLog = CmiCreateLock();
 }
@@ -161,21 +163,21 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
 
 /// \brief Clear registeredTreePieces on this node.
 void DataManager::clearRegisteredPieces(const CkCallback& cb) {
+    CkPrintf("Clear registeredTreePieces\n");
     registeredTreePieces.removeAll();
-    cleanupTreePieces = true;
     contribute(cb);
 }
 
 #ifdef CUDA
-// This gets called before a tree build happens and ensures that
-// registeredTreePieces doesnt get cleared during combineLocalTrees
-// if we are about to do a gravity calculation on the GPU
-void DataManager::unmarkTreePiecesForCleanup(const CkCallback& cb) {
-    cleanupTreePieces = false;
-    contribute(cb);
+void DataManager::assignCUDAStreams(const CkCallback& cb) {
+  int tpIdx;
+  for(int i = 0; i < registeredTreePieces.size(); i++) {
+    tpIdx = registeredTreePieces[i].treePiece->getIndex();
+    treePieces[tpIdx].assignCUDAStream((intptr_t) &streams[tpIdx % numStreams]);
+  }
+  contribute(cb);
 }
 #endif
-
 
 /// \brief Build a local tree inside the node.
 ///
@@ -222,10 +224,6 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
       gtn.push_back(registeredTreePieces[i].root);
     }
     root = buildProcessorTree(totalChares, &gtn[0]);
-
-    if (cleanupTreePieces) {
-      registeredTreePieces.removeAll();
-    }
 
 #ifdef PRINT_MERGED_TREE
     ostringstream dmName;
@@ -500,6 +498,43 @@ void DataManager::serializeLocalTree(){
       CmiUnlock(__nodelock);
 }
 
+#ifndef COOLING_NONE
+/// @brief Assign TreePieces to GPU memory for udot calculation
+/// Count the number of gas particles per TreePiece, notify the TreePieces
+/// of their location in device memory for the calculation, and ensure the
+/// block of device memory is large enough for the gas particles
+void DataManager::setupuDot(int activeRung, int bAll, const CkCallback& cb){\
+  // Notify each tree piece of its bounds in GPU memory for cooling data
+  numTotalGasParts = 0;
+  for(int i = 0; i < registeredTreePieces.size(); i++){
+      treePieces[registeredTreePieces[i].treePiece->getIndex()].setudotMarkers(activeRung, bAll, numTotalGasParts, cb);
+      numTotalGasParts += registeredTreePieces[i].treePiece->getNumActiveGasParticles();
+      }
+}
+
+/// @brief Callback from setupuDot
+/// Ensure the gas particles fit in memory. If not, reallocate
+/// a larger block
+void DataManager::setupuDotDone(const CkCallback& cb){
+  CmiLock(__nodelock);
+  treePiecesDoneUdot++;
+  if(treePiecesDoneUdot == registeredTreePieces.size()){
+    if (numTotalGasParts > numGasParts) {
+      CkPrintf("Out of memory for cooling calculation...reallocating\n");
+      int newNumGasParts = numTotalGasParts*1.1;
+      allocCoolParticleBlock(newNumGasParts, numGasParts > 0);
+      numGasParts = newNumGasParts;
+    }
+    treePiecesDoneUdot = 0;
+    CmiUnlock(__nodelock);
+    contribute(cb);
+  }
+  else
+      CmiUnlock(__nodelock);
+}
+
+#endif
+
 /// @brief Callback from local data transfer to GPU
 /// Indicate the transfer is done, and start the local gravity walks
 /// on the treepieces on this node.
@@ -512,7 +547,6 @@ void DataManager::startLocalWalk() {
       treePieces[in].commenceCalculateGravityLocal((intptr_t)d_localMoments, 
 		                                   (intptr_t)d_localParts, 
 						   (intptr_t)d_localVars,
-						   (intptr_t)streams, numStreams,
 		                                   sMoments, sCompactParts, sVarParts);
       if(registeredTreePieces[0].treePiece->bEwald) {
           EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
@@ -1008,7 +1042,6 @@ void DataManager::transferParticleVarsBack(){
     cudaFree(d_localVars);
     cudaFree(d_remoteMoments);
     cudaFree(d_remoteParts); 
-    cleanupTreePieces = true;
 
 #ifdef CUDA_PRINT_ERRORS
     printf("transferParticleVarsBack: %s\n", cudaGetErrorString( cudaGetLastError() ) );
@@ -1069,7 +1102,6 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
         }
         delete (data->cb);
         delete data;
-        registeredTreePieces.length() = 0;
     }
     CmiUnlock(__nodelock);
 }

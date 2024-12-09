@@ -17,6 +17,14 @@
 #include "ckBIconfig.h"
 #endif
 
+#ifdef COOLING_MOLECULARH
+#define COOL_NV 5
+#elif defined(COOLING_METAL)
+#define COOL_NV 4
+#elif defined(COOLING_COSMO) || defined(COOLING_BOLEY)
+#define COOL_NV 1
+#endif
+
 /// @brief Information about TreePieces on an SMP node.
 struct TreePieceDescriptor{
 	TreePiece *treePiece;
@@ -77,15 +85,13 @@ protected:
 	/// A list of roots of the TreePieces in this node
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
-       /// Signal whether registeredTreePieces needs to be cleaned
-       /// when combining local trees
-       bool cleanupTreePieces;
 #ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
         /// @brief counter for the number of tree nodes that are
         /// replicated by TreePieces that share the same address space.
         int cumNumReplicatedNodes;
         int treePiecesDone;
+        int treePiecesDoneUdot;
         int savedChunk;
         int treePiecesDonePrefetch;
         int treePiecesDoneLocalComputation;
@@ -150,6 +156,44 @@ protected:
         size_t sCompactParts;
         size_t sVarParts;
 
+#ifndef COOLING_NONE
+  clDerivsData *h_CoolData;
+  STIFF *h_Stiff;
+	double *h_ymin;
+	double *h_y0;
+	double *h_y1;
+	double *h_q;
+	double *h_d;
+	double *h_rtau;
+	double *h_ys;
+	double *h_qs;
+	double *h_rtaus;
+	double *h_scrarray;
+#ifdef CUDA
+  // Pointers to cooling data on GPU
+  clDerivsData *d_CoolData;
+  STIFF *d_Stiff;
+  double *d_y;
+  double *d_dtg;
+	double *d_ymin;
+	double *d_y0;
+	double *d_y1;
+	double *d_q;
+	double *d_d;
+	double *d_rtau;
+	double *d_ys;
+	double *d_qs;
+	double *d_rtaus;
+	double *d_scrarray;
+
+  // Used to determine if memory needs to be reallocated
+  // Total number of gas particles on this node
+  int numTotalGasParts;
+  // Total number of gas particles allocated
+  int numGasParts;
+#endif // CUDA
+#endif // COOLING_NONE
+
 	int numStreams;
 	cudaStream_t *streams;
 
@@ -173,6 +217,26 @@ public:
 	 ** Cooling 
 	 */
 	COOL *Cool;
+	int Cool_nv; /// Number of variables for ODE solver
+#ifdef CUDA
+#ifndef COOLING_NONE
+	COOL *d_Cool;
+
+#ifdef COOLING_BOLEY
+  double *d_rossTab;
+  double *d_plckTab;
+#else
+	RATES_T *d_Rates_T;
+	UVSPECTRUM *d_Uvspectrum;
+#endif // COOLING_BOLEY
+
+#if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
+	float *d_MetalCoolln;
+	float *d_MetalHeatln;
+#endif // COOLING_MOLECULARH COOLING_METAL
+
+#endif // COOLING_NONE
+#endif // CUDA
 	/// @brief log of star formation events.
 	///
 	/// Star formation events are stored on the data manager since there
@@ -190,6 +254,9 @@ public:
 	void createStreams(int _numStreams, const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
+        void assignCUDAStreams(const CkCallback& cb);
+        void setupuDot(int activeRung, int bAll, const CkCallback& cb);
+        void setupuDotDone(const CkCallback& cb);
 
 #ifdef GPU_LOCAL_TREE_WALK
         void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
@@ -205,7 +272,7 @@ public:
         void updateParticles(UpdateParticlesStruct *data);
         void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
-        DataManager(){}
+        DataManager(){ }
 
 #endif
 
@@ -224,6 +291,38 @@ public:
 	    delete starLog;
 	    CmiDestroyLock(lockStarLog);
 #ifdef CUDA
+
+#ifdef COOLING_BOLEY
+  cudaFree(d_rossTab);
+  cudaFree(d_plckTab);
+#else
+	    cudaFree(d_Rates_T);
+	    cudaFree(d_Uvspectrum);
+#endif
+
+#if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
+	    cudaFree(d_MetalCoolln);
+	    cudaFree(d_MetalHeatln);
+#endif
+
+	    cudaFree(d_Cool);
+
+	    cudaFree(d_CoolData);
+	    cudaFree(d_Stiff);
+	    cudaFree(d_dtg);
+
+	    cudaFree(d_y);
+	    cudaFree(d_ymin);
+	    cudaFree(d_y0);
+	    cudaFree(d_q);
+	    cudaFree(d_d);
+	    cudaFree(d_rtau);
+	    cudaFree(d_ys);
+	    cudaFree(d_qs);
+	    cudaFree(d_rtaus);
+	    cudaFree(d_scrarray);
+	    cudaFree(d_y1);
+
             for (int i = 0; i < numStreams; i++) {
                 cudaStreamDestroy(streams[i]);
 	    }
@@ -255,7 +354,6 @@ public:
         std::map<NodeKey, int> &getCachedPartsOnGpuTable(){
           return cachedPartsOnGpu;
         }
-        void unmarkTreePiecesForCleanup(const CkCallback& cb);
 #endif
 	// Functions used to create a tree inside the DataManager comprising
 	// all the trees in the TreePieces in the local node
@@ -278,6 +376,10 @@ public:
       else return NULL;
     }
     inline Tree::GenericTreeNode *getRoot() { return root; }
+#ifdef CUDA
+    void allocCoolParticleBlock(int numParts, int bFree);
+    void coolDataToGPU(const CkCallback& cb);
+#endif
     void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);

@@ -889,6 +889,25 @@ class TreePiece : public CBase_TreePiece {
   GravityParticle *getParticles(){return myParticles;}
 
 
+#ifndef COOLING_NONE
+        // First and last indices of cooling particles
+        int FirstCoolParticleIndex;
+        int LastCoolParticleIndex;
+
+        clDerivsData *h_CoolData;
+        STIFF *h_Stiff;
+        double *h_ymin;
+        double *h_y0;
+        double *h_y1;
+        double *h_q;
+        double *h_d;
+        double *h_rtau;
+        double *h_ys;
+        double *h_qs;
+        double *h_rtaus;
+        double *h_scrarray;
+#endif
+
 #ifdef CUDA
         // this variable holds the number of buckets active at
         // the start of an iteration
@@ -901,6 +920,7 @@ class TreePiece : public CBase_TreePiece {
         // the list
         int numActiveBuckets; 
         int myNumActiveParticles;
+        int myNumActiveGasParticles;
         // First and Last indices of GPU particle
         int FirstGPUParticleIndex;
         int LastGPUParticleIndex;
@@ -917,6 +937,23 @@ class TreePiece : public CBase_TreePiece {
         size_t sCompactParts;
         size_t sVarParts;
 	cudaStream_t stream;
+
+#ifndef COOLING_NONE
+        clDerivsData *d_CoolData;
+        STIFF *d_Stiff;
+        double *d_y;
+        double *d_dtg;
+        double *d_ymin;
+        double *d_y0;
+        double *d_y1;
+        double *d_q;
+        double *d_d;
+        double *d_rtau;
+        double *d_ys;
+        double *d_qs;
+        double *d_rtaus;
+        double *d_scrarray;
+#endif
 
         int getNumBuckets(){
         	return numBuckets;
@@ -935,8 +972,24 @@ class TreePiece : public CBase_TreePiece {
           }
         }
 
+        int getNumActiveGasParticles() {
+          return myNumActiveGasParticles;
+        }
+
         int getNumActiveParticles(){
           return myNumActiveParticles;
+        }
+
+        void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb) {
+          myNumActiveGasParticles = 0;
+          for(unsigned int i = 1; i <= myNumParticles; ++i) {
+          GravityParticle *p = &myParticles[i];
+          if (TYPETest(p, TYPE_GAS)
+              && (p->rung == iActiveRung || (bAll && p->rung >= iActiveRung))) {
+                    myNumActiveGasParticles++;
+                }
+            }
+          contribute(cb);
         }
 
         void calculateNumActiveParticles(){ 
@@ -1022,10 +1075,14 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
 #ifdef CUDA
+       void assignCUDAStream(intptr_t stream) {
+         this->stream = *((cudaStream_t *) stream);
+       }
        void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
        void fillGPUBuffer(intptr_t bufLocalParts,
                           intptr_t bufLocalMoments,
                           intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
+        void setudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb);
         void updateParticles(intptr_t data, int partIndex);
 #else
         void continueStartRemoteChunk(int chunk);
@@ -1584,10 +1641,6 @@ public:
 	  if(boxes!= NULL ) delete[] boxes;
 	  if(splitDims != NULL) delete[] splitDims;
 
-#ifndef COOLING_NONE
-	  if(bGasCooling)
-	      CoolDerivsFinalize(CoolData);
-#endif
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
 
@@ -1819,9 +1872,21 @@ public:
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
 	void InitEnergy(double dTuFac, double z, double dTime, double gammam1,
 			const CkCallback& cb);
+#ifndef COOLING_NONE
+  void setCoolPtrs();
+  void integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector<COOLPARTICLE> &cp,
+                       std::vector<double> &E, std::vector<double> &ExternalHeating,
+                       std::vector<double> &fDensity, std::vector<double> &fMetals,
+                       std::vector<std::vector<double>> &r, std::vector<double> &dtUse,
+                       std::vector<double> &columnL);
+#endif
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, double gammam1, double dResolveJeans, const CkCallback& cb);
+			int bUpdateState, double gammam1, double dResolveJeans,
+#ifdef CUDA
+      int gpuGasMinParts,
+#endif
+      const CkCallback& cb);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
     void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
@@ -1906,7 +1971,6 @@ public:
 	void commenceCalculateGravityLocal(intptr_t d_localMoments,
                                            intptr_t d_localParts,
                                            intptr_t d_localVars,
-                                           intptr_t streams, int numStreams,
                                            size_t sMoments, size_t sCompactParts, size_t sVarParts);
 #else
 	void commenceCalculateGravityLocal();

@@ -3877,6 +3877,12 @@ void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
     dm->transferLocalToGPU(nParts, (GenericTreeNode *)node);
 }
 
+void TreePiece::setudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb) {
+    this->FirstCoolParticleIndex = pTPindex;
+    this->LastCoolParticleIndex = FirstCoolParticleIndex + myNumActiveGasParticles;
+    dm->setupuDotDone(cb);
+}
+
 /// @brief update particle accelerations with GPU results
 void TreePiece::updateParticles(intptr_t data, int partIndex) {
     VariablePartData *deviceParticles = ((UpdateParticlesStruct *)data)->buf;
@@ -5295,7 +5301,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   if (!bUseCpu) {
       dm->serializeLocalTree();
   } else {
-      thisProxy[thisIndex].commenceCalculateGravityLocal(0, 0, 0, 0, 0, 0, 0, 0);
+      thisProxy[thisIndex].commenceCalculateGravityLocal(0, 0, 0, 0, 0, 0);
   }
 #else
   thisProxy[thisIndex].commenceCalculateGravityLocal();
@@ -5355,13 +5361,11 @@ void TreePiece::initiatePrefetch(int chunk){
 void TreePiece::commenceCalculateGravityLocal(intptr_t d_localMoments, 
 		                              intptr_t d_localParts, 
 					      intptr_t d_localVars,
-					      intptr_t streams, int numStreams,
                                               size_t sMoments, size_t sCompactParts, size_t sVarParts) {
     if (!bUseCpu) {
       this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
       this->d_localParts = (CompactPartData *)d_localParts;
       this->d_localVars = (VariablePartData *)d_localVars;
-      this->stream = ((cudaStream_t *)streams)[thisIndex % numStreams];
       this->sMoments = sMoments;
       this->sCompactParts = sCompactParts;
       this->sVarParts = sVarParts;
@@ -5890,8 +5894,9 @@ void TreePiece::pup(PUP::er& p) {
 #ifndef COOLING_NONE
     if(!_inrestart) {           // not restarting from checkpoint
         dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-        if(bGasCooling)
-            CoolData = CoolDerivsInit(dm->Cool);
+        // TODO make sure removing this didnt break anything
+        /*if(bGasCooling)
+            CoolData = CoolDerivsInit(dm->Cool, dm->Cool_nv);*/
         }
 #endif
   }

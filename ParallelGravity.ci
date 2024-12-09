@@ -257,7 +257,10 @@ mainmodule ParallelGravity {
     entry void startLocalWalk();
     entry void resumeRemoteChunk();
     entry void createStreams(int _numStreams, const CkCallback& cb);
-    entry void unmarkTreePiecesForCleanup(const CkCallback& cb);
+    entry void setupuDot(int activeRung, int bAll, const CkCallback& cb);
+    entry void setupuDotDone(const CkCallback& cb);
+    entry void coolDataToGPU(const CkCallback& cb);
+    entry void assignCUDAStreams(const CkCallback& cb);
 #endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
@@ -440,7 +443,11 @@ mainmodule ParallelGravity {
 			const CkCallback& cb);
     entry void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
     	       		double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, double dResolveJeans, double gammam1, const CkCallback& cb);
+			int bUpdateState, double dResolveJeans, double gammam1,
+#ifdef CUDA
+      int gpuGasMinParts,
+#endif
+const CkCallback& cb);
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
 	const CkCallback& cb);
@@ -522,7 +529,6 @@ mainmodule ParallelGravity {
     entry void commenceCalculateGravityLocal(intptr_t d_localMoments, 
                                              intptr_t d_localParts, 
                                              intptr_t d_localVars,
-                                             intptr_t streams, int numStreams,
                                              size_t sMoments, size_t sCompactParts, size_t sVarParts);
 #else
     entry void commenceCalculateGravityLocal();
@@ -574,11 +580,13 @@ mainmodule ParallelGravity {
     entry void collectStatistics(const CkCallback &cb);
 
     // jetley
-#ifdef CUDA
+    entry void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb);
+    entry void assignCUDAStream(intptr_t stream);
     entry void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
     entry void fillGPUBuffer(intptr_t bufLocalParts,
                              intptr_t bufLocalMoments,
                              intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
+    entry void setudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb);
     entry void updateParticles(intptr_t data, int partIndex);
 #else
     entry void continueStartRemoteChunk(int chunk);
