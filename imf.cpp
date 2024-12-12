@@ -172,11 +172,19 @@ double Chabrier::DrawStar(double num){
 }
 double Kroupa01::DrawStar(double num){
     double mass;
-    if(num<0.760707){ // The number for which mass is 0.5 Msol
-        mass = pow(((1.7987009-num)/0.843113),(-1.0/0.3));
-        return mass;
+    double N0 = CumNumber(0);
+    double N2 = CumNumber(m2)/N0;
+    // The IMF (and the CDF) are both broken power
+    // laws at M=m2 (0.5 Msun), so we need to break our inverse
+    // CDF at N(m2).  Since we are normalized to the total mass
+    // being 1, we need to just normalize to N = 1 by dividing
+    // by CumNumber(0).
+    //
+    // Both the ICMF branches are nice clean power laws.
+    if(num<N2){ 
+        mass = pow(pow(m1, b1) + b1*N0*log(10.0)*num/a1, 1.0/b1);
     }
-    else mass = pow(((1.000244-num)/0.0972823),(-1.0/1.3));
+    else mass = pow(pow(mmax, b2) + (b2*N0*log(10.0)*(num-1.0)/a2,(1.0/b2);
 
     return mass;
 }
