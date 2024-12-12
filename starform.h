@@ -16,7 +16,7 @@
 #include "lymanwerner.h"
 
 /// Parameters and methods to implement star formation.
-class Stfm : public PUP::able  {
+class Stfm {
  private:
     Stfm& operator=(const Stfm& st);
     double dGmUnit;		/* system mass in grams */
@@ -58,14 +58,9 @@ class Stfm : public PUP::able  {
 			      double dDelta, double dCosmoFac, double *T, double *H2Fraction, LWDATA *LWData, Rand& rndGen);
     IMF *imf;
 
-    Stfm() {}
-    PUPable_decl(Stfm);
-    Stfm(const Stfm& st);
-    Stfm(CkMigrateMessage *m) : PUP::able(m) {}
     ~Stfm() {
         delete imf;
     }
-    inline void pup(PUP::er &p);
 
     };
 
@@ -223,7 +218,7 @@ class StarLog : public PUP::able
     };
 
 /** @brief Log of high mass stars in star formation events to be written out to a file */
-class HMStarLog : public PUP::able
+class HMStarLog 
 {
 public:
     int nOrdered;		/* The number of events that have been
@@ -231,16 +226,8 @@ public:
 				   pkdNewOrder() */
     std::string fileName;
     std::vector<HMStarLogEvent> seTab;		/* The actual table */
-HMStarLog() : nOrdered(0),fileName("hmstarlog") {}
+    HMStarLog() : nOrdered(0),fileName("hmstarlog") {}
     void flush();
-    PUPable_decl(HMStarLog);
-HMStarLog(CkMigrateMessage *m) : PUP::able(m) {}
-    void pup(PUP::er& p) {
-	PUP::able::pup(p);
-	p | nOrdered;
-	p | fileName;
-	p | seTab;
-    }
 };
 
 #endif

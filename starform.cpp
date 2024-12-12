@@ -237,21 +237,19 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		newParticle(starp);
                 p = &myParticles[i]; // newParticle can change pointers
 		CmiLock(dm->lockStarLog);
-            if(stfm.bUseStoch){
-                CmiLock(dm->lockHMStarLog);
-                CkAssert(dm->starLog->seTab.size()==dm->hmStarLog->seTab.size());
-                }
-                // Record current spot in seTab
-                iSeTab.push_back(dm->starLog->seTab.size());
+        if(stfm.bUseStoch) {
+            CkAssert(dm->starLog->seTab.size()==dm->hmStarLog->seTab.size());
+        }
+        // Record current spot in seTab
+        iSeTab.push_back(dm->starLog->seTab.size());
 #ifdef COOLING_MOLECULARH
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm,H2FractionForm));
 #else
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm));
 #endif
-        if(stfm.bUseStoch){
+        if(stfm.bUseStoch) {
             dm->hmStarLog->seTab.push_back(HMStarLogEvent(starp));
-            CmiUnlock(dm->lockHMStarLog);
-            }
+        }
 		CmiUnlock(dm->lockStarLog);
 		delete (extraStarData *)starp->extraData;
 		delete starp;
@@ -340,7 +338,6 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     else 
 	dDeltaM = p->mass*dStarEff;
 
-
     /* No negative or very tiny masses please! */
     if ( (dDeltaM > p->mass) ) dDeltaM = p->mass;
 
@@ -356,6 +353,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
      * dStarEff = 1/3, max no. stars formed = 6 (round up so
      * gas mass goes below min gas mass)
      */
+
     GravityParticle *starp = new GravityParticle();
     *starp = StarFromGasParticle(p); /* grab copy before
 				       possible deletion */
@@ -581,15 +579,15 @@ void TreePiece::flushStarLog(const CkCallback& cb) {
 /// \brief flush hmstarlog table to disk
 void TreePiece::flushHMStarLog(const CkCallback& cb) {
     if(verbosity > 3)
-	ckout << "TreePiece " << thisIndex << ": Writing hm output to disk" << endl;
+        ckout << "TreePiece " << thisIndex << ": Writing hm output to disk" << endl;
     CmiLock(dm->lockHMStarLog);
     dm->hmStarLog->flush();
     CmiUnlock(dm->lockHMStarLog);
 
     if(thisIndex!=(int)numTreePieces-1) {
-	pieces[thisIndex + 1].flushHMStarLog(cb);
-	return;
-	}
+        pieces[thisIndex + 1].flushHMStarLog(cb);
+        return;
+    }
 
     cb.send(); // We are done.
     return;
@@ -638,27 +636,27 @@ void StarLog::flush(void) {
 
 void HMStarLog::flush(void) {
     if (seTab.size() > 0) {
-	FILE* outfile;
-	XDR xdrs;
+        FILE* outfile;
+        XDR xdrs;
 
-	outfile = CmiFopen(fileName.c_str(), "a");
-	CkAssert(outfile != NULL);
-	xdrstdio_create(&xdrs,outfile,XDR_ENCODE);
+        outfile = CmiFopen(fileName.c_str(), "a");
+        CkAssert(outfile != NULL);
+        xdrstdio_create(&xdrs,outfile,XDR_ENCODE);
 
-	CkAssert(seTab.size() == nOrdered);
-    
-	for(int iLog = 0; iLog < seTab.size(); iLog++){
-	    HMStarLogEvent *pHMSfEv = &(seTab[iLog]);
-	    xdr_template(&xdrs, &(pHMSfEv->iOrdStar));
-        for(int i=0; i<ARRLENGTH; i++) xdr_double(&xdrs, &(pHMSfEv->HMStars[i]));
-	    }
-    xdr_destroy(&xdrs);
-    int result = CmiFclose(outfile);
-    if(result != 0) CkAbort("Bad close of hmstarlog");
-    seTab.clear();
-    nOrdered = 0;
+        CkAssert(seTab.size() == nOrdered);
+
+        for(int iLog = 0; iLog < seTab.size(); iLog++){
+            HMStarLogEvent *pHMSfEv = &(seTab[iLog]);
+            xdr_template(&xdrs, &(pHMSfEv->iOrdStar));
+            for(int i=0; i<ARRLENGTH; i++) xdr_double(&xdrs, &(pHMSfEv->HMStars[i]));
+        }
+        xdr_destroy(&xdrs);
+        int result = CmiFclose(outfile);
+        if(result != 0) CkAbort("Bad close of hmstarlog");
+        seTab.clear();
+        nOrdered = 0;
     }
-    }
+}
 
 /// @brief Print out metadata for the starlog.
 /// @param osfLog output file stream to write the metadata.

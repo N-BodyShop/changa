@@ -51,7 +51,6 @@ typedef struct parameters {
     double daSwitchTheta;
     int iOrder;
     int bConcurrentSph;
-    //int bUseStoch;
     double dFracNoDomainDecomp;
 #ifdef PUSH_GRAVITY
     double dFracPushParticles;
@@ -207,7 +206,6 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.daSwitchTheta;
     p|param.iOrder;
     p|param.bConcurrentSph;
-    //p|param.bUseStoch;
     p|param.dFracNoDomainDecomp;
 #ifdef PUSH_GRAVITY
     p|param.dFracPushParticles;

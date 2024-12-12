@@ -36,7 +36,7 @@ class SN
     double AGORAsnPerMass;      /* Number of supernovae to set off per solar mass of star particle */
     double dESN;		/* how much energy comes from a supernova */
     int bUseStoch;   /* use stochastic IMF */
-    double dStochCut;
+    double dStochCut;           /*  Mass boundary (in Msun) between the low-mass continuous IMF and the high-mass individually tracked stars */
     int iNSNIIQuantum;	/* minimum amount of supernovae */
     double dFracBinSNIa;	/* fraction of binary systems in mass
 				   range that go SNIa  (van den Bergh

@@ -1174,10 +1174,6 @@ Main::Main(CkArgMsg* m) {
 	    ckerr << "WARNING: ";
 	    ckerr << "bBulkViscosity parameter ignored." << endl;
 	    }
-//#ifndef STOCH
-//    if(param.bUseStoch)
-//    CkAbort("Stochastic IMF requested but not compiled in");
-//#endif
 #ifdef COOLING_NONE
         CkMustAssert(!param.bGasCooling, "Gas cooling requested but not compiled in");
 #endif
@@ -2597,15 +2593,15 @@ void Main::setupICs() {
       initStarLog();
       if(param.feedback->sn.bUseStoch)
         initHMStarLog();
-      }
+  }
 	
-  if(param.bFeedback){
-      param.feedback->CheckParams(prm, param);
+  if(param.bFeedback) {
+    param.feedback->CheckParams(prm, param);
 #ifdef COOLING_MOLECULARH
-      if(param.feedback->sn.bUseStoch)
-          initLWData();
+    if(param.feedback->sn.bUseStoch)
+      initLWData();
 #endif
-      }
+  }
   else
       param.feedback->NullFeedback();
 
@@ -2968,16 +2964,16 @@ Main::restart(CkCheckpointStatusMsg *msg)
         }
         treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                         CkCallbackResumeThread());
-	if(param.bGasCooling || param.bStarForm) 
-	    initCooling();
-	if(param.bStarForm) {
-	    initStarLog();
-    if(param.feedback->sn.bUseStoch)
+    if(param.bGasCooling || param.bStarForm) 
+        initCooling();
+    if(param.bStarForm) {
+        initStarLog();
+        if(param.feedback->sn.bUseStoch)
             initHMStarLog();
-        }
+    }
 #ifdef COOLING_MOLECULARH
     if(param.bFeedback && param.feedback->sn.bUseStoch)
-            initLWData();
+        initLWData();
 #endif
         if(param.bStarForm || param.bFeedback || param.iSIDMSelect)
             treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
@@ -3164,7 +3160,7 @@ Main::doSimulation()
 	writeOutput(iStep);
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
     if(param.feedback->sn.bUseStoch)
-    treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
+        treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
     }
 	  
     if(!iStop && param.iWallRunTime > 0) {
@@ -3195,7 +3191,7 @@ Main::doSimulation()
                         CkCallbackResumeThread());
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
     if(param.feedback->sn.bUseStoch)
-    treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
+        treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
         CkWaitQD(); // Be sure system is quiescent before checkpoint

@@ -466,14 +466,14 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     // methods in normal units (M_sun + seconds)
     
     /* Changed sfEvent to pointer to accomodate if else statement*/
-    SFEvent *sfEvent = NULL;
+    SFEvent sfEvent;
     if(sn.bUseStoch){
-        sfEvent = new SFEvent(p->fMassForm()*dGmUnit/MSOLG, 
+        sfEvent = SFEvent(p->fMassForm()*dGmUnit/MSOLG, 
                 p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
                 p->fStarMetals(), p->fStarMFracIron(),
                 p->fStarMFracOxygen(), p->fLowNorm(), p->rgfHMStars());
     } else {
-        sfEvent = new SFEvent(p->fMassForm()*dGmUnit/MSOLG, 
+        sfEvent = SFEvent(p->fMassForm()*dGmUnit/MSOLG, 
                 p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
                 p->fStarMetals(), p->fStarMFracIron(),
                 p->fStarMFracOxygen());
@@ -489,28 +489,28 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 	switch (j) {
 	case FB_SNII:
 	    if (bAGORAFeedback) break;
-	    sn.CalcSNIIFeedback(sfEvent, dTime, dDeltaYr, &fbEffects, rndGen);
+	    sn.CalcSNIIFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects, rndGen);
 	    if (sn.dESN > 0)
 		p->fNSN() = fbEffects.dEnergy*MSOLG*fbEffects.dMassLoss/sn.dESN;
 	    break;
 	case FB_SNIA:
 	    if (bAGORAFeedback) break;
-	    sn.CalcSNIaFeedback(sfEvent, dTime, dDeltaYr, &fbEffects);
+	    sn.CalcSNIaFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	    dSNIaMassStore=fbEffects.dMassLoss;
 	    break;
 	case FB_WIND:
 	    if (bAGORAFeedback) break;
-	    CalcWindFeedback(sfEvent, dTime, dDeltaYr, &fbEffects);
+	    CalcWindFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	    if(dSNIaMassStore < fbEffects.dMassLoss)
 		fbEffects.dMassLoss -= dSNIaMassStore;
 	    break;
 	case FB_UV:
 	    if (bAGORAFeedback) break;
-	    CalcUVFeedback(sfEvent, dTime, dDeltaYr, &fbEffects);
+	    CalcUVFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	break;
 	case FB_AGORA:
 	    if (!bAGORAFeedback) break;
-	    sn.CalcAGORAFeedback(sfEvent, dTime, dDeltaYr, &fbEffects);
+	    sn.CalcAGORAFeedback(&sfEvent, dTime, dDeltaYr, &fbEffects);
 	    p->fNSN() = 0.0;
         break;
 	default:
@@ -558,8 +558,6 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
 #ifdef COOLING_MOLECULARH /* Calculates LW radiation from a stellar particle of a given age and mass (assumes Kroupa IMF), CC */
     p->dStarLymanWerner() = CalcLWFeedback(sfEvent, dTime, dDeltaYr, LWData);
 #endif /*COOLING_MOLECULARH*/
-    
-    delete sfEvent;
 }
 
 void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in years */

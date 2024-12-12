@@ -46,7 +46,6 @@
 PUPbytes(InDumpFrame);
 PUPbytes(COOL);
 PUPbytes(COOLPARAM);
-PUPbytes(LWDATA);
 
 #ifdef HPM_COUNTER
 #include <libhpm.h>
@@ -138,7 +137,6 @@ class NewMaxOrder
     };
 
 #include "InOutput.h"
-//PUPbytes(LWDATA);
 
 #include "ParallelGravity.decl.h"
 

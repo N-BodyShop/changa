@@ -749,7 +749,6 @@ class CsOutputParams : public OutputParams
 	}
     };
 
-
 /// @brief Output the cooling rate.
 class EDotOutputParams : public OutputParams
 {

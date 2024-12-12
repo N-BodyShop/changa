@@ -159,13 +159,16 @@ since it has to be a probability density function. DrawStar returns
 * in practice
 */
 double MillerScalo::DrawStar(double num){
-    return NULL;
+    CkMustAssert(0, "Miller-Scalo IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
 }
 double Kroupa93::DrawStar(double num){
-    return NULL;
+    CkMustAssert(0, "Kroupa '93 IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
 }
 double Chabrier::DrawStar(double num){
-    return NULL;
+    CkMustAssert(0, "Chabrier IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
 }
 double Kroupa01::DrawStar(double num){
     double mass;
@@ -179,13 +182,16 @@ double Kroupa01::DrawStar(double num){
 }
 
 double MillerScalo::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
-    return NULL;
+    CkMustAssert(0, "Miller-Scalo IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
 }
 double Kroupa93::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
-    return NULL;
+    CkMustAssert(0, "Kroupa '93 IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
 }
 double Chabrier::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
-    return NULL;
+    CkMustAssert(0, "Chabrier IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
 }
 double Kroupa01::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
     double dCumN = 0;
@@ -214,13 +220,16 @@ double Kroupa01::CumNumberStoch(double mass, double lownorm, double *hmstars, do
 }
 
 double MillerScalo::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
-    return NULL;
+    CkMustAssert(0, "Miller-Scalo IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
 }
 double Kroupa93::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
-    return NULL;
+    CkMustAssert(0, "Kroupa '93 IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
 }
 double Chabrier::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
-    return NULL;
+    CkMustAssert(0, "Chabrier IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
 }
 double Kroupa01::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
 
