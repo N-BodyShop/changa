@@ -33,7 +33,6 @@ class Stfm {
 #ifdef SHIELDSF
     double dSigmad;      /* Dust optical depth coefficient */
     double dMinMetalShield;      /* Metallicity floor for dust shielding */
-    double dMinTShield;      /* Temperature floor for dust shielding */
 #endif
 #endif
     int bBHForm;		/* Form Black Holes */
@@ -75,7 +74,6 @@ inline void Stfm::pup(PUP::er &p) {
 #ifdef SHIELDSF
     p|dSigmad;
     p|dMinMetalShield;
-    p|dMinTShield;
 #endif
 #endif
     p|bBHForm;

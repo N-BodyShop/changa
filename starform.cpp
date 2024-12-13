@@ -75,10 +75,6 @@ void Stfm::AddParams(PRM prm)
     prmAddParam(prm,"dMinMetalShield", paramDouble, &dMinMetalShield,
                 sizeof(double), "dMinMetalShield",
                 "<Metallicity floor for scaling dust shielding> = 7e-5");
-    dMinTShield = 40; 
-    prmAddParam(prm,"dMinTShield", paramDouble, &dMinTShield,
-                sizeof(double), "dMinTShield",
-                "<Temperature floor for scaling dust shielding> = 40");
 #endif
 #endif
     // Blackhole formation parameters
@@ -326,10 +322,8 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     			    dStarFormEfficiencyH2*p->CoolParticle().f_H2);    
 #ifdef SHIELDSF
       /*Jeans Approx used for column length */
-    double rho = p->fDensity*(Cool->dMsolUnit*MSOLG/(pow((Cool->dKpcUnit*KPCCM * Cool->dExpand),3)));
-    double temp = *T;
-    if (temp > dMinTShield ) temp = dMinTShield; //Temperature floor 
-    double columnL = sqrt(15*KBOLTZ*temp/(4*M_PI*GCGS*rho*MHYDR))/(Cool->dKpcUnit*KPCCM * Cool->dExpand);
+    double columnL = sqrt(15*p->PoverRho2()/(4*M_PI));
+    if (*T > Cool->dMaxTShield) columnL *= sqrt(Cool->dMaxTShield/(*T)); // scale PoverRho2 to temp ceiling.
     double metallicity = p->fMetals();
     if (metallicity < dMinMetalShield) metallicity = dMinMetalShield; //Metallicity floor 
     /* Calculate shielding */
@@ -337,8 +331,8 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     double Y_H2 = COOL_ARRAY3(Cool, &p->CoolParticle(), metallicity);
     double yHI = (p->fDensity)*CL_B_gm*Y_HI;
     double yH2 = (p->fDensity)*CL_B_gm*Y_H2;
-    double column_denHI = columnL*yHI*(Cool->dMsolUnit*MSOLG/(pow((Cool->dKpcUnit*KPCCM * Cool->dExpand),2)));
-    double column_denH2 = columnL*yH2*(Cool->dMsolUnit*MSOLG/(pow((Cool->dKpcUnit*KPCCM * Cool->dExpand),2)));
+    double column_denHI = columnL*yHI;
+    double column_denH2 = columnL*yH2;
     // Dust optical depth coefficient
     double f_s = exp(-1.0*dSigmad*metallicity/(ZSOLAR)*(column_denHI + 2.0*column_denH2));
     //Adjust star formation recipe to make it depend on shielding

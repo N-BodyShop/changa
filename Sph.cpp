@@ -980,25 +980,20 @@ void TreePiece::updateuDot(int activeRung,
 		/*		cp.dLymanWerner = 52.0; for testing CC */
 		double columnL = sqrt(0.25)*p->fBall;
 
-#ifndef SUPERBUBBLE //Because of multiphase aspect of superbubble, this calculation of column length is not yet compatible with superbubble
-		if (1) { //Adjusted shielding calculation, Lindsey Byrne
-		  /*Jeans Approx used for column length */
-		  // DataManager *dm = (DataManager*) CkLocalNodeBranch(dataManagerID);
-                 double T = CoolCodeEnergyToTemperature(dm->Cool, &p->CoolParticle(),p->u(), p->fMetals());
-                 double rho = p->fDensity*(dm->Cool->dMsolUnit*MSOLG/(pow((dm->Cool->dKpcUnit*KPCCM * dm->Cool->dExpand),3)));
-                 double temp = T;
-                 if (temp > 40)
-                   temp = 40;
-                 double columnL = sqrt(15*KBOLTZ*temp/(4*M_PI*GCGS*rho*MHYDR))/(dm->Cool->dKpcUnit*KPCCM * dm->Cool->dExpand);
-		}
-#endif
-
-#ifdef SUPERBUBBLE
+#ifdef SHIELDSF 
+      /*Jeans Approx used for column length */
+        
+        // column length is much easier calculated in code units.
+        double columnL = sqrt(15*PoverRhoGas/(4*M_PI*p->fDensity));
+        if (*T > dm->Cool->dMaxTShield) columnL *= sqrt(dm->cool->dMaxTShield/(*T)); // scale PoverRho2 to temp ceiling.
+#elif defined(SUPERBUBBLE)
         // Assume the cold phase is a shell surrounding the hot phase,
         // which is a sphere
         assert(columnL > columnLHot);
         columnL = columnL - columnLHot;
 #endif
+#endif
+
 #ifdef COOLDEBUG
 		dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
