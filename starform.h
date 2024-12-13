@@ -30,6 +30,11 @@ class Stfm {
     int bGasCooling;		/* Can we call cooling for temperature */
 #ifdef COOLING_MOLECULARH
     double dStarFormEfficiencyH2; /*Multiplier of H2 when calculating star formation */
+#ifdef SHIELDSF
+    double dSigmad;      /* Dust optical depth coefficient */
+    double dMinMetalShield;      /* Metallicity floor for dust shielding */
+    double dMinTShield;      /* Temperature floor for dust shielding */
+#endif
 #endif
     int bBHForm;		/* Form Black Holes */
     double dBHFormProb;		/* Probability of Black Hole forming */
@@ -67,6 +72,11 @@ inline void Stfm::pup(PUP::er &p) {
     p|bGasCooling;
 #ifdef COOLING_MOLECULARH
     p|dStarFormEfficiencyH2;
+#ifdef SHIELDSF
+    p|dSigmad;
+    p|dMinMetalShield;
+    p|dMinTShield;
+#endif
 #endif
     p|bBHForm;
     p|dBHFormProb;
