@@ -516,34 +516,34 @@ void Main::initHMStarLog(){
     dMProxy.initHMStarLog(stLogFile,CkCallbackResumeThread());
 
     if(bIsRestarting) {
-	if(!stat(stLogFile.c_str(), &statbuf)) {
-	    /* file exists, check number */
-	    FILE *fpLog = CmiFopen(stLogFile.c_str(),"r");
-	    XDR xdrs;
+        if(!stat(stLogFile.c_str(), &statbuf)) {
+            /* file exists, check number */
+            FILE *fpLog = CmiFopen(stLogFile.c_str(),"r");
+            XDR xdrs;
             if(fpLog == NULL)
                 CkAbort("Bad open of hmstarlog file on restart");
 
-	    xdrstdio_create(&xdrs,fpLog,XDR_DECODE);
-	    xdr_int(&xdrs, &iSize);
+            xdrstdio_create(&xdrs,fpLog,XDR_DECODE);
+            xdr_int(&xdrs, &iSize);
             if(iSize != sizeof(HMStarLogEvent))
                 CkAbort("hmstarlog file format mismatch");
-	    xdr_destroy(&xdrs);
-	    CmiFclose(fpLog);
-	    } else {
-	    CkAbort("Simulation restarting with star formation, but hmstarlog file not found");
-	    }
-	} else {
-	FILE *fpLog = CmiFopen(stLogFile.c_str(),"w");
-	XDR xdrs;
+            xdr_destroy(&xdrs);
+            CmiFclose(fpLog);
+        } else {
+            CkAbort("Simulation restarting with star formation, but hmstarlog file not found");
+        }
+    } else {
+        FILE *fpLog = CmiFopen(stLogFile.c_str(),"w");
+        XDR xdrs;
 
         if(fpLog == NULL) 
             CkAbort("Can't create hmstarlog file");
-	xdrstdio_create(&xdrs,fpLog,XDR_ENCODE);
-	iSize = sizeof(HMStarLogEvent);
-	xdr_int(&xdrs, &iSize);
-	xdr_destroy(&xdrs);
-	CmiFclose(fpLog);
-	}
+        xdrstdio_create(&xdrs,fpLog,XDR_ENCODE);
+        iSize = sizeof(HMStarLogEvent);
+        xdr_int(&xdrs, &iSize);
+        xdr_destroy(&xdrs);
+        CmiFclose(fpLog);
+    }
 }
 
 void DataManager::initStarLog(std::string _fileName, const CkCallback &cb) {
@@ -645,7 +645,7 @@ void HMStarLog::flush(void) {
 
         CkAssert(seTab.size() == nOrdered);
 
-        for(int iLog = 0; iLog < seTab.size(); iLog++){
+        for(int iLog = 0; iLog < seTab.size(); iLog++) {
             HMStarLogEvent *pHMSfEv = &(seTab[iLog]);
             xdr_template(&xdrs, &(pHMSfEv->iOrdStar));
             for(int i=0; i<ARRLENGTH; i++) xdr_double(&xdrs, &(pHMSfEv->HMStars[i]));
