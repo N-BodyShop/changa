@@ -448,6 +448,7 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 /// @param dTime Current time in years.
 /// @param dDeltaYr Timestep in years.
 /// @param fbTotals pointer to total effects for bookkeeping
+/// @param LWData pointer to the table containing Lyman-Werner data if stochastic IMF sampling is used.
 /// @param rndGen Random number generator reference
 
 void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 

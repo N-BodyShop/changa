@@ -26,22 +26,20 @@ LWDATA *LymanWernerTableInit()
 
 void lwInitData(LWDATA *lwd)
 {
-    int nrows;
-    int ncols;
     int i, j;
     FILE *fp;
 
     fp = fopen("lwtable.txt", "r");
     assert(fp!=NULL);
-    fscanf(fp, "%d %d \n", &nrows, &ncols);
-    lwd->lwLuminosity = (float **)malloc(nrows*sizeof(float**));
-    for(i=0; i<nrows; i++){
-        lwd->lwLuminosity[i] = (float *)malloc(ncols*sizeof(float *));
+    fscanf(fp, "%d %d \n", &(lwd->nrows), &(lwd->ncols));
+    lwd->lwLuminosity = (float **)malloc(lwd->nrows*sizeof(float**));
+    for(i=0; i<lwd->nrows; i++){
+        lwd->lwLuminosity[i] = (float *)malloc(lwd->ncols*sizeof(float *));
     }
     
 
-    for(i=0; i<nrows; i++){
-        for(j=0; j<ncols; j++){
+    for(i=0; i<lwd->nrows; i++){
+        for(j=0; j<lwd->ncols; j++){
             fscanf(fp, "%f", &lwd->lwLuminosity[i][j]);
         }
     }
@@ -53,9 +51,16 @@ void lwInitData(LWDATA *lwd)
 void LymanWernerTableFinalize(LWDATA *lwd)
 {
     if (lwd->lwLuminosity != NULL) free(lwd->lwLuminosity);
+    for(i=0; i<lwd->nrows; i++){
+        if (lwd->lwLuminosity[i] != NULL) free(lwd->lwLuminosity[i]);
+    }
     free(lwd);
 }
 
+/// @brief Calculate LW flux from a set of HM stars
+/// @param dAgelog log10 age of stars in years
+/// @param rgdHMStars array of HM star masses
+/// @param lwd LW flux table
 double calcLogStochLymanWerner(double dAgelog, double *rgdHMStars, LWDATA *lwd)
 {
 /* Calculating the LW flux of individual high mass stars, by using the closest values
@@ -66,11 +71,15 @@ double calcLogStochLymanWerner(double dAgelog, double *rgdHMStars, LWDATA *lwd)
     double dAge = pow(10, dAgelog);
     int i;
     double fluxtot = 0.0;
+    double minAge = 1.e6; // Minimum age (gives tindex = 0)
+    double maxAge = 9.701e7; // Maximum age (gives tindex = lwd->ncols-1)
+    double tOff = 1.0e4; // Offset to align index in LWDATA table
+    double tStep = 2.0e6; // Step size in LWDATA table
     
     int tindex;
-    if (dAge < 1.0E6) tindex = 0;
-    else if (dAge >= 9.701E7) tindex = 49; // beyond ~10^7.5, all hmstars have constant LW flux
-    else tindex = (int)round((dAge-1.0E4)/2.0E6);
+    if (dAge < minAge) tindex = 0;
+    else if (dAge >= maxAge) tindex = lwd->ncols-1; // beyond ~10^7.5, all hmstars have constant LW flux
+    else tindex = (int)round((dAge-tOff)/tStep);
 
     for (i=0; i<ARRLENGTH; i++){
         if (rgdHMStars[i]>=8){
@@ -80,6 +89,8 @@ double calcLogStochLymanWerner(double dAgelog, double *rgdHMStars, LWDATA *lwd)
             if (dMass >= 98.5) mindex = 61;
             else if (dMass < 39.5) mindex = (int)round(dMass-8);
             else mindex = (int)round((dMass+23.0)/2.0);
+            CkAssert(mindex < lwd->nrows);
+            CkAssert(tindex < lwd->ncols);
             
             fluxtot += pow(10, lwd->lwLuminosity[mindex][tindex]);
         }

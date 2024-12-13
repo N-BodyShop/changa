@@ -15,6 +15,8 @@ extern "C" {
 
 typedef struct lwDataStruct {
     float **lwLuminosity;
+    int nrow; // rows in LW data table
+    int ncol; // columns in LW data table
 } LWDATA;
 
 LWDATA *LymanWernerTableInit( );
