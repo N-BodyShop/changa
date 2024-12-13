@@ -184,7 +184,7 @@ double Kroupa01::DrawStar(double num){
     if(num<N2){ 
         mass = pow(pow(m1, b1) + b1*N0*log(10.0)*num/a1, 1.0/b1);
     }
-    else mass = pow(pow(mmax, b2) + (b2*N0*log(10.0)*(num-1.0)/a2,(1.0/b2);
+    else mass = pow(pow(mmax, b2) + b2*N0*log(10.0)*(num-1.0)/a2, 1.0/b2);
 
     return mass;
 }

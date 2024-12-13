@@ -58,10 +58,12 @@ class Stfm {
 			      double dDelta, double dCosmoFac, double *T, double *H2Fraction, LWDATA *LWData, Rand& rndGen);
     IMF *imf;
 
+    Stfm() {};
+    Stfm(const Stfm& st);
     ~Stfm() {
         delete imf;
     }
-
+    inline void pup(PUP::er &p);
     };
 
 // "Deep copy" constructer is needed because of imf pointer
