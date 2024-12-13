@@ -283,6 +283,9 @@ fi
 if test "$FLAG_SUPERBUBBLE" = "-DSUPERBUBBLE" -a "$FLAG_COOLING" = "-DCOOLING_NONE" ; then
     AC_MSG_ERROR([SUPERBUBBLE requires cooling.  Enable it with --enable-cooling]);
 fi
+ 
+# Dust self-shielding for column length calculation with molecular hydrogen
+ARG_ENABLE([shieldsf], [Dust self-shielding star formation], [FLAG_SHIELDSF], [-DSHIELDSF], [no])
 
 # Calculate artificial viscosity from Cullen & Dehnen 2010
 ARG_ENABLE([cullenalpha], [Cullen Dehnen artificial viscosity], [FLAG_CULLENALPHA], [-DCULLENALPHA], [no])
