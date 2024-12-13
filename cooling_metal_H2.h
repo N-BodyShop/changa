@@ -65,7 +65,7 @@ typedef struct CoolingParametersStruct {
   double dClump;
   double dLymanWernerFrac; /* Fraction of Lyman Werner radiation that escapes birth cloud.  0.5 is a good value.*/
 #ifdef SHIELDSF
-  double dMaxTSheild; // Temperature ceiling for dust shielding.
+  double dMaxTShield; // Temperature ceiling for dust shielding.
 #endif
 } COOLPARAM;
 

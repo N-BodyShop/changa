@@ -964,6 +964,7 @@ class LWOutputParams : public OutputParams
 	}
     };
 
+#ifdef SHIELDSF
 class ShieldOutputParams : public OutputParams
 {
     virtual double dValue(GravityParticle *p) {
@@ -990,7 +991,9 @@ class ShieldOutputParams : public OutputParams
     virtual void pup(PUP::er &p) {
         OutputParams::pup(p);//Call base class
 	}
-    };
+};
+#endif
+
 
 #endif /*COOLING_MOLECULARH*/
 

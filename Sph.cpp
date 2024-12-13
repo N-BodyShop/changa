@@ -984,14 +984,14 @@ void TreePiece::updateuDot(int activeRung,
       /*Jeans Approx used for column length */
         
         // column length is much easier calculated in code units.
-        double columnL = sqrt(15*PoverRhoGas/(4*M_PI*p->fDensity));
-        if (*T > dm->Cool->dMaxTShield) columnL *= sqrt(dm->cool->dMaxTShield/(*T)); // scale PoverRho2 to temp ceiling.
+        columnL = sqrt(15*PoverRhoGas/(4*M_PI*p->fDensity));
+        double temp = CoolCodeEnergyToTemperature(dm->Cool, &cp, E, p->fMetals());
+        if (temp > dm->Cool->dMaxTShield) columnL *= sqrt(dm->Cool->dMaxTShield/temp); // scale PoverRho2 to temp ceiling.
 #elif defined(SUPERBUBBLE)
         // Assume the cold phase is a shell surrounding the hot phase,
         // which is a sphere
         assert(columnL > columnLHot);
         columnL = columnL - columnLHot;
-#endif
 #endif
 
 #ifdef COOLDEBUG
@@ -1455,11 +1455,11 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
         p->PoverRho2() = PoverRho/p->fDensity;
         double fThermalCond = dThermalCondCoeff*pow(p->uPred(),2.5);
         double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
-        double Tp = CoolCodeEnergyToTemperature(cl, &p->CoolParticle(), p->uPred(),
-#ifdef COOLING_GRACKLE
-                                                p->fDensity, /* GRACKLE needs density */
+        double tp = coolcodeenergytotemperature(cl, &p->coolparticle(), p->upred(),
+#ifdef cooling_grackle
+                                                p->fdensity, /* grackle needs density */
 #endif
-                                                p->fMetals());
+                                                p->fmetals());
         if (Tp < dEvapMinTemp) // Only allow conduction & evaporation for particles that are hot
         {
             fThermalCond = 0;
