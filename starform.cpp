@@ -403,7 +403,6 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
         // Sum of only HMStars, used to find fLowNorm
         double dSumHMStars=0.0;
         while(1){
-            //srand?
             /* (Should be very rare) If we form more HMStars than elements in array,
             * wipe everything and start over
             */
@@ -413,9 +412,8 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
                 iArrayLoc=0;
                 dSumHMStars=0.0;
             }
-            double num = (rand()/((double) RAND_MAX));
             /* DrawStar returns a mass in Msol, need to convert to system units */
-            double new_star = imf->DrawStar(num);
+            double new_star = imf->DrawStar(rndGen.dbl());
             //CkPrintf("new_star is %f\n",new_star);
             double new_star_unit = new_star/dMsolUnit;
             double test_mass = mass_tally + new_star_unit;
