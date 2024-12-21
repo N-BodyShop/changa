@@ -245,6 +245,7 @@ class NodePool;
       if(particleCount > 1)
 	  calculateRadiusFarthestParticle(moments, &part[firstParticle],
 					  &part[lastParticle+1]);
+      assert(moments.radius > 0.0);
     }
 
     /// @brief initialize an empty node
