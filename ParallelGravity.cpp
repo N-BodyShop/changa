@@ -104,8 +104,6 @@ unsigned int _yieldPeriod;
 DomainsDec domainDecomposition;
 double dExtraStore;		///< fraction of extra particle storage
 double dMaxBalance;		///< Max piece imbalance for load balancing
-double dFracLoadBalance;	///< Min fraction of particles active
-                                ///  for doing load balancing.
 double dGlassDamper;    // Damping inverse timescale for making glasses
 int iGasModel; 			///< For backward compatibility
 int peanoKey;
@@ -995,7 +993,6 @@ Main::Main(CkArgMsg* m) {
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
 	dMaxBalance = param.dMaxBalance;
-	dFracLoadBalance = param.dFracLoadBalance;
 	dGlassDamper = param.dGlassDamper;
 	_cacheLineDepth = param.cacheLineDepth;
 	verbosity = param.iVerbosity;
@@ -1947,14 +1944,25 @@ Main::loadBalance(int iPhase)
     }
     else {
         double startTime = CkWallTimer();
-        if(iPhase == PHASE_FEEDBACK) {
-            CkPrintf("Load balancer for star formation/feedback... ");
-        }
-        else {
-            CkPrintf("Load balancer ... ");
-        }
 
-        treeProxy.startlb(CkCallbackResumeThread(), iPhase);
+        bool bDoLB = true;
+        if(iPhase != -1) {
+            int64_t nActivePart;
+            if(iPhase == PHASE_FEEDBACK) {
+                CkPrintf("Load balancer for star formation/feedback... ");
+                nActivePart = nTotalSPH + nTotalStar;
+            }
+            else {
+                CkPrintf("Load balancer ... ");
+                nActivePart = nActiveGrav;
+                if(nActiveSPH > nActivePart) nActivePart = nActiveSPH;
+                }
+            bDoLB = ((float)nActivePart/nTotalParticles > param.dFracLoadBalance) ?
+                true : false;
+        }
+        else
+            CkPrintf("Load balancer ... ");
+        treeProxy.startlb(CkCallbackResumeThread(), iPhase, bDoLB);
         double tLB = CkWallTimer()-startTime;
         timings[iPhase].tLoadB += tLB;
         CkPrintf("took %g seconds.\n", tLB);
