@@ -652,8 +652,8 @@ FLAG_NSMOOTHINNER
 FLAG_TREE_BUILD
 FLAG_INTERLIST
 FLAG_DTADJUST
-FLAG_COLLISION
 FLAG_BIGKEYS
+FLAG_COLLISION
 FLAG_CHANGESOFT
 HEXADECAPOLE
 FLAG_FLOAT
@@ -706,6 +706,7 @@ infodir
 docdir
 oldincludedir
 includedir
+runstatedir
 localstatedir
 sharedstatedir
 sysconfdir
@@ -734,6 +735,7 @@ enable_arch
 enable_float
 enable_hexadecapole
 enable_changesoft
+enable_collision
 enable_bigkeys
 enable_dtadjust
 enable_interlist
@@ -743,7 +745,6 @@ enable_splitgas
 enable_wendland
 enable_m6kernel
 enable_sph_kernel
-enable_collision
 enable_cooling
 enable_damping
 enable_diffusion
@@ -814,6 +815,7 @@ datadir='${datarootdir}'
 sysconfdir='${prefix}/etc'
 sharedstatedir='${prefix}/com'
 localstatedir='${prefix}/var'
+runstatedir='${localstatedir}/run'
 includedir='${prefix}/include'
 oldincludedir='/usr/include'
 docdir='${datarootdir}/doc/${PACKAGE_TARNAME}'
@@ -1066,6 +1068,15 @@ do
   | -silent | --silent | --silen | --sile | --sil)
     silent=yes ;;
 
+  -runstatedir | --runstatedir | --runstatedi | --runstated \
+  | --runstate | --runstat | --runsta | --runst | --runs \
+  | --run | --ru | --r)
+    ac_prev=runstatedir ;;
+  -runstatedir=* | --runstatedir=* | --runstatedi=* | --runstated=* \
+  | --runstate=* | --runstat=* | --runsta=* | --runst=* | --runs=* \
+  | --run=* | --ru=* | --r=*)
+    runstatedir=$ac_optarg ;;
+
   -sbindir | --sbindir | --sbindi | --sbind | --sbin | --sbi | --sb)
     ac_prev=sbindir ;;
   -sbindir=* | --sbindir=* | --sbindi=* | --sbind=* | --sbin=* \
@@ -1203,7 +1214,7 @@ fi
 for ac_var in	exec_prefix prefix bindir sbindir libexecdir datarootdir \
 		datadir sysconfdir sharedstatedir localstatedir includedir \
 		oldincludedir docdir infodir htmldir dvidir pdfdir psdir \
-		libdir localedir mandir
+		libdir localedir mandir runstatedir
 do
   eval ac_val=\$$ac_var
   # Remove trailing slashes.
@@ -1356,6 +1367,7 @@ Fine tuning of the installation directories:
   --sysconfdir=DIR        read-only single-machine data [PREFIX/etc]
   --sharedstatedir=DIR    modifiable architecture-independent data [PREFIX/com]
   --localstatedir=DIR     modifiable single-machine data [PREFIX/var]
+  --runstatedir=DIR       modifiable per-process data [LOCALSTATEDIR/run]
   --libdir=DIR            object code libraries [EPREFIX/lib]
   --includedir=DIR        C header files [PREFIX/include]
   --oldincludedir=DIR     C header files for non-gcc [/usr/include]
@@ -1391,6 +1403,7 @@ Optional Features:
   --enable-float          use single-precision gravity calculations
   --enable-hexadecapole   hexadecapole expansions in gravity
   --enable-changesoft     physical softening
+  --enable-collision      collision detection
   --enable-bigkeys        128 bit hash keys
   --enable-dtadjust       emergency timestep adjust
   --enable-interlist      interaction list version
@@ -1404,7 +1417,6 @@ Optional Features:
                           (none,planet,cosmo,boley,metal,H2,grackle)
   --enable-damping        velocity damping in glasses
   --enable-diffusion      thermal and metal diffusion
-  --enable-collision      enable collision detection and response
   --enable-feedbacklimit  limit diffusion of feedback energy
   --enable-superbubble    superbubble feedback
   --enable-cullenalpha    Cullen Dehnen artificial viscosity
@@ -4443,19 +4455,6 @@ fi
 	if test x$val = xyes; then HEXADECAPOLE=-DHEXADECAPOLE; else HEXADECAPOLE=""; fi
 
 
-# solid-body collision detection
-	# Check whether --enable-collision was given.
-if test "${enable_collision+set}" = set; then :
-  enableval=$enable_collision; case "$enableval" in
-		  yes | no ) val=$enableval;;
-		  *) as_fn_error $? "invalid argument for '--enable-collision': $enableval" "$LINENO" 5;;
-	 esac
-else
-  val=no
-fi
-
-	if test x$val = xyes; then FLAG_COLLISION=-DCOLLISION; else FLAG_COLLISION=""; fi
-
 
 # physical softening in comoving coordinates
 	# Check whether --enable-changesoft was given.
@@ -4469,6 +4468,21 @@ else
 fi
 
 	if test x$val = xyes; then FLAG_CHANGESOFT=-DCHANGESOFT; else FLAG_CHANGESOFT=""; fi
+
+
+
+# collision detection
+	# Check whether --enable-collision was given.
+if test "${enable_collision+set}" = set; then :
+  enableval=$enable_collision; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-collision': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then FLAG_COLLISION=-DCOLLISION; else FLAG_COLLISION=""; fi
 
 
 
