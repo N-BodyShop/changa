@@ -162,7 +162,7 @@ ARG_ENABLE([hexadecapole], [hexadecapole expansions in gravity], [HEXADECAPOLE],
 ARG_ENABLE([changesoft], [physical softening], [FLAG_CHANGESOFT], [-DCHANGESOFT], [yes])
 
 # collision detection
-ARG_ENABLE([collision], [collision detection], [FLAG_COLLISION], [-DCOLLISION], [yes])
+ARG_ENABLE([collision], [collision detection], [FLAG_COLLISION], [-DCOLLISION], [no])
 
 # 128 bit keys:
 ARG_ENABLE([bigkeys], [128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [no])
