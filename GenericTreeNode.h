@@ -223,6 +223,10 @@ class NodePool;
       numBucketsBeneath = 1;
 #endif
       calculateRadiusBox(moments, boundingBox);	/* set initial size */
+      if(moments.radius <= 0.0) {
+          ckerr << "Tiny Box! " << boundingBox << endl;
+          ckerr << "Particles: " << particleCount << endl;
+      }
       boundingBox.reset();
       bndBoxBall.reset();
       iParticleTypes = 0;
