@@ -51,10 +51,10 @@ void lwInitData(LWDATA *lwd)
 void LymanWernerTableFinalize(LWDATA *lwd)
 {
     int i;
-    if (lwd->lwLuminosity != NULL) free(lwd->lwLuminosity);
     for(i=0; i<lwd->nrows; i++){
         if (lwd->lwLuminosity[i] != NULL) free(lwd->lwLuminosity[i]);
     }
+    if (lwd->lwLuminosity != NULL) free(lwd->lwLuminosity);
     free(lwd);
 }
 
