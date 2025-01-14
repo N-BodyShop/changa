@@ -72,7 +72,7 @@ class SN
 	dMOxexp = 2.721;
 	dMOxconst = 4.586e-4; 
 	dESN = 0.1e51;
-    bUseStoch = 1;
+    bUseStoch = 0;  //Stochastically sample the IMF.
     dStochCut= 8.0;
 	iNSNIIQuantum = 0;
 	dFracBinSNIa = 0.05; 	/* .05 is in line with chemical evolution
