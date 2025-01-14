@@ -984,6 +984,8 @@ void TreePiece::updateuDot(int activeRung,
       /*Jeans Approx used for column length */
         
         // column length is much easier calculated in code units.
+        // Calculated with equation 3 of Byrne et al. 2019
+        // doi:10.3847/1538-4357/aaf9aa
         columnL = sqrt(15*PoverRhoGas/(4*M_PI*p->fDensity));
         double temp = CoolCodeEnergyToTemperature(dm->Cool, &cp, E, p->fMetals());
         if (temp > dm->Cool->dMaxTShield) columnL *= sqrt(dm->Cool->dMaxTShield/temp); // scale PoverRho2 to temp ceiling.

@@ -334,6 +334,8 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     double column_denHI = columnL*yHI;
     double column_denH2 = columnL*yH2;
     // Dust optical depth coefficient
+    // Calculated with equation 1 and 6 of Byrne et al. 2019
+    // doi:10.3847/1538-4357/aaf9aa
     double f_s = exp(-1.0*dSigmad*metallicity/(ZSOLAR)*(column_denHI + 2.0*column_denH2));
     //Adjust star formation recipe to make it depend on shielding
     dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*(1.0-f_s));
