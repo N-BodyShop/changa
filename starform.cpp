@@ -322,6 +322,8 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     			    dStarFormEfficiencyH2*p->CoolParticle().f_H2);    
 #ifdef SHIELDSF
       /*Jeans Approx used for column length */
+      // Calculated with equation 3 of Byrne et al. 2019
+      // doi:10.3847/1538-4357/aaf9aa
     double columnL = sqrt(15*p->PoverRho2()/(4*M_PI));
     if (*T > Cool->dMaxTShield) columnL *= sqrt(Cool->dMaxTShield/(*T)); // scale PoverRho2 to temp ceiling.
     double metallicity = p->fMetals();
