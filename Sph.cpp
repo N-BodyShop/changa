@@ -1459,9 +1459,9 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
         double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
         double Tp = CoolCodeEnergyToTemperature(cl, &p->CoolParticle(), p->uPred(),
 #ifdef cooling_grackle
-                                                p->fdensity, /* grackle needs density */
+                                                p->fDensity, /* grackle needs density */
 #endif
-                                                p->fmetals());
+                                                p->fMetals());
         if (Tp < dEvapMinTemp) // Only allow conduction & evaporation for particles that are hot
         {
             fThermalCond = 0;
