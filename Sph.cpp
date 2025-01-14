@@ -1457,7 +1457,7 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
         p->PoverRho2() = PoverRho/p->fDensity;
         double fThermalCond = dThermalCondCoeff*pow(p->uPred(),2.5);
         double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
-        double tp = coolcodeenergytotemperature(cl, &p->coolparticle(), p->upred(),
+        double Tp = CoolCodeEnergyToTemperature(cl, &p->CoolParticle(), p->uPred(),
 #ifdef cooling_grackle
                                                 p->fdensity, /* grackle needs density */
 #endif
