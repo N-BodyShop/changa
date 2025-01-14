@@ -4849,6 +4849,10 @@ fi
 	if test x$val = xyes; then FLAG_SHIELDSF=-DSHIELDSF; else FLAG_SHIELDSF=""; fi
 
 
+if test "$FLAG_SHIELDSF" = "-DSHIELDSF" -a "$FLAG_COOLING" != "-DCOOLING_MOLECULARH" ; then
+    { $as_echo "$as_me:${as_lineno-$LINENO}: WARNING: SHIELDSF requires molecular hydrogen cooling.  Enable it with --enable-cooling=H2" >&5
+$as_echo "$as_me: WARNING: SHIELDSF requires molecular hydrogen cooling.  Enable it with --enable-cooling=H2" >&2;};
+fi
 
 # Calculate artificial viscosity from Cullen & Dehnen 2010
 	# Check whether --enable-cullenalpha was given.
