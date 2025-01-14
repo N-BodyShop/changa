@@ -974,7 +974,7 @@ class ShieldOutputParams : public OutputParams
     virtual Vector3D<double> vValue(GravityParticle *p)
 			    {CkAssert(0); return 0.0;}
     virtual void setDValue(GravityParticle *p, double val) {
-      if (TYPETest(p, TYPE_STAR))  p->dStarLymanWerner() = val;
+      if (TYPETest(p, TYPE_STAR))  p->fShieldForm() = val;
     }
     virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
     virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
@@ -985,7 +985,7 @@ class ShieldOutputParams : public OutputParams
         bVector = 0; fileName = _fileName; iBinaryOut = _iBinaryOut;
         sTipsyExt = "shieldform"; sNChilExt = "shieldform";
         dTime = _dTime;
-        iType = TYPE_GAS | TYPE_STAR; }
+        iType = TYPE_STAR; }
     PUPable_decl(ShieldOutputParams);
     ShieldOutputParams(CkMigrateMessage *m) {}
     virtual void pup(PUP::er &p) {

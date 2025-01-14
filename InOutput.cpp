@@ -799,6 +799,9 @@ static void load_NC_star(std::string filename, int64_t startParticle,
         myParts[i].fMassForm() = myParts[i].mass;
 #ifdef COOLING_MOLECULARH 
         myParts[i].dStarLymanWerner() = 0.0;
+#ifdef SHIELDSF
+        myParts[i].fShieldForm() = 0;
+#endif
 #endif
         }
 }
