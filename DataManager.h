@@ -78,9 +78,6 @@ protected:
 	/// A list of roots of the TreePieces in this node
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
-       /// Signal whether registeredTreePieces needs to be cleaned
-       /// when combining local trees
-       bool cleanupTreePieces;
 #ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
         /// @brief counter for the number of tree nodes that are
@@ -266,7 +263,6 @@ public:
         std::map<NodeKey, int> &getCachedPartsOnGpuTable(){
           return cachedPartsOnGpu;
         }
-        void unmarkTreePiecesForCleanup(const CkCallback& cb);
 #endif
 	// Functions used to create a tree inside the DataManager comprising
 	// all the trees in the TreePieces in the local node
