@@ -459,7 +459,6 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     // Particle properties that will be sent to feedback
     // methods in normal units (M_sun + seconds)
     
-    /* Changed sfEvent to pointer to accomodate if else statement*/
     SFEvent sfEvent;
     if(sn.bUseStoch){
         sfEvent = SFEvent(p->fMassForm()*dGmUnit/MSOLG, 
