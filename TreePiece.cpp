@@ -2286,7 +2286,7 @@ void TreePiece::colNParts(const CkCallback &cb)
  * Assign iOrders to recently added particles.
  * Also insure keys are OK
  */
-void TreePiece::newOrder(const NewMaxOrder *nStarts, const int n,
+void TreePiece::newOrder(const NewMaxOrder *nStarts, const int n, int bUseStoch,
 			  const CkCallback &cb)
 {
     unsigned int i;
@@ -2312,6 +2312,12 @@ void TreePiece::newOrder(const NewMaxOrder *nStarts, const int n,
 		dm->starLog->seTab[iSeTab[iNewStars]].iOrdStar = nStartStar;
 		dm->starLog->nOrdered++;
 		CmiUnlock(dm->lockStarLog);
+        if(bUseStoch){
+            CmiLock(dm->lockHMStarLog);
+            dm->hmStarLog->seTab[iSeTab[iNewStars]].iOrdStar = nStartStar;
+            dm->hmStarLog->nOrdered++;
+            CmiUnlock(dm->lockHMStarLog);
+        }
                 iNewStars++;
 		p->iOrder = nStartStar++;
 		}

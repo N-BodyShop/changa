@@ -261,6 +261,13 @@ class extraStarData
     double _fMOxygenOut;        /* Ejected oxygen */
     double _fMIronOut;          /* Ejected iron */
     int64_t _iGasOrder;		/* Gas from which this star formed */
+#ifdef STOCH12
+    double _rgfHMStars[12];     /* High mass stars (if using stochastic IMF) */
+    double _fLowNorm;       /* Normalization for low-mass imf */
+#elif STOCH24
+    double _rgfHMStars[24];     /* High mass stars (if using stochastic IMF) */
+    double _fLowNorm;       /* Normalization for low-mass imf */
+#endif
     int64_t _iEaterOrder;	/* iOrder for merging black holes */
     double _dMDot;		/* Accretion rate of black holes */
     double _dDeltaM;		/* Actual Mass Accreted on black holes */
@@ -280,6 +287,25 @@ class extraStarData
     inline double& fMOxygenOut() {return _fMOxygenOut;}
     inline double& fSNMetals() {return _fSNMetals;}
     inline int64_t& iGasOrder() {return _iGasOrder;}
+#ifdef STOCH12
+    inline double& rgfHMStars(int i) {
+        CkAssert(i<12);
+        return _rgfHMStars[i];
+    }
+    inline double* rgfHMStars() {return _rgfHMStars;}
+    inline double& fLowNorm() {return _fLowNorm;}
+#elif STOCH24
+    inline double& rgfHMStars(int i) {
+        CkAssert(i<24);
+        return _rgfHMStars[i];
+    }
+    inline double* rgfHMStars() {return _rgfHMStars;}
+    inline double& fLowNorm() {return _fLowNorm;}
+#else
+    inline double& rgfHMStars(int i) {CkAbort("Call rgfHMStars but stochasticity not built in"); return _fMetals;}
+    inline double* rgfHMStars() {CkAbort("Call rgfHMStars but stochasticity not built in"); return NULL;}
+    inline double& fLowNorm() {CkAbort("Call fLowNorm but stochasticity not built in"); return _fMetals;}
+#endif
     inline int64_t& iEaterOrder() {return _iEaterOrder;}
     inline double& dMDot() {return _dMDot;}
     inline double& dDeltaM() {return _dDeltaM;}
@@ -300,6 +326,13 @@ class extraStarData
 	p | _fMOxygenOut;
 	p | _fMIronOut;
 	p | _iGasOrder;
+#ifdef STOCH12
+    p | _fLowNorm;
+    PUParray(p,_rgfHMStars,12);
+#elif STOCH24
+    p | _fLowNorm;
+    PUParray(p,_rgfHMStars,24);
+#endif
 	p | _iEaterOrder;
 	p | _dMDot;
 	p | _dDeltaM;
@@ -507,6 +540,13 @@ public:
 	inline double& fMOxygenOut() {IMASTAR; return (((extraStarData*)extraData)->fMOxygenOut());}
 	inline double& fSNMetals() {IMASTAR; return (((extraStarData*)extraData)->fSNMetals());}
 	inline int64_t& iGasOrder() { IMASTAR; return (((extraStarData*)extraData)->iGasOrder());}
+    
+    /* The following three are not wrapped in a compiler macro because
+     * they call a function that is.*/
+    inline double& rgfHMStars(int i) { IMASTAR; return (((extraStarData*)extraData)->rgfHMStars(i));}
+    inline double* rgfHMStars() { IMASTAR; return (((extraStarData*)extraData)->rgfHMStars());}
+    inline double& fLowNorm() {IMASTAR; return (((extraStarData*)extraData)->fLowNorm());}
+
 	inline int64_t& iEaterOrder() { IMASTAR; return (((extraStarData*)extraData)->iEaterOrder());}
 	inline double& dDeltaM() { IMASTAR; return (((extraStarData*)extraData)->dDeltaM());}
 	inline double& dMDot() { IMASTAR; return (((extraStarData*)extraData)->dMDot());}

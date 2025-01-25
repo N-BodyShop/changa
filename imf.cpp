@@ -5,10 +5,21 @@
  * Algorithm was originally implemented in TREESPH but is heavily
  * modified.  Contributors include Neal Katz, Eric Hayashi, Greg Stinson
  */
+/**
+* Modified by Elaad Applebaum to implement a stochastic IMF.
+* Added DrawStar methods
+* NB: So far, only added for Kroupa01
+*/
 #include <math.h>
 #include "ParallelGravity.h"
 #include "imf.h"
 #include "romberg.h"
+
+#ifdef STOCH24
+#define ARRLENGTH 24
+#else
+#define ARRLENGTH 12
+#endif
 
 // Private function to return result of basic IMF
 double MillerScalo::returnimf(double mass) const
@@ -140,6 +151,127 @@ double Kroupa01::CumNumber(double mass)
     
     return dCumN;
     }
+
+/* NB: The ICDF for DrawStar uses an IMF with linear bins
+(not log bins) and normalized to 1 (instead of mass normalized to 1)
+since it has to be a probability density function. DrawStar returns
+* masses in uni units of Msol, which must be converted to system units
+* in practice
+*/
+double MillerScalo::DrawStar(double num){
+    CkMustAssert(0, "Miller-Scalo IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
+}
+double Kroupa93::DrawStar(double num){
+    CkMustAssert(0, "Kroupa '93 IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
+}
+double Chabrier::DrawStar(double num){
+    CkMustAssert(0, "Chabrier IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
+}
+double Kroupa01::DrawStar(double num){
+    double mass;
+    double N0 = CumNumber(0);
+    double N2 = CumNumber(m2)/N0;
+    // The IMF (and the CDF) are both broken power
+    // laws at M=m2 (0.5 Msun), so we need to break our inverse
+    // CDF at N(m2).  Since we are normalized to the total mass
+    // being 1, we need to just normalize to N = 1 by dividing
+    // by CumNumber(0).
+    //
+    // Both the ICMF branches are nice clean power laws.
+    if(num<N2){ 
+        mass = pow(pow(m1, b1) + b1*N0*log(10.0)*num/a1, 1.0/b1);
+    }
+    else mass = pow(pow(mmax, b2) + b2*N0*log(10.0)*(num-1.0)/a2, 1.0/b2);
+
+    return mass;
+}
+
+double MillerScalo::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
+    CkMustAssert(0, "Miller-Scalo IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
+}
+double Kroupa93::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
+    CkMustAssert(0, "Kroupa '93 IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
+}
+double Chabrier::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
+    CkMustAssert(0, "Chabrier IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
+}
+double Kroupa01::CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass){
+    double dCumN = 0;
+    if(mass > mmax) return 0;
+    if(mass > cutmass){
+        for(int i=0;i<ARRLENGTH;i++){
+            if(hmstars[i]>mass) dCumN += 1;
+        }
+        return dCumN;
+    } else {
+        for(int i=0;i<ARRLENGTH;i++){
+            if(hmstars[i]>cutmass) dCumN +=1;
+        }
+    }
+    if (mass > m2){
+        dCumN += lownorm*a2/b2*(pow(cutmass, b2) - pow(mass, b2))/log(10.0);
+    } else if(mass > m1){
+        dCumN += lownorm*a2/b2*(pow(cutmass, b2) - pow(m2, b2))/log(10.0);
+        dCumN += lownorm*a1/b1*(pow(m2, b1) - pow(mass, b1))/log(10.0);
+    } else {
+        dCumN += lownorm*a2/b2*(pow(cutmass, b2) - pow(m2, b2))/log(10.0);
+        dCumN += lownorm*a1/b1*(pow(m2, b1) - pow(m1, b1))/log(10.0);
+    }
+    
+    return dCumN;
+}
+
+double MillerScalo::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
+    CkMustAssert(0, "Miller-Scalo IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
+}
+double Kroupa93::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
+    CkMustAssert(0, "Kroupa '93 IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
+}
+double Chabrier::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
+    CkMustAssert(0, "Chabrier IMF is currently unimplemented for stochastic IMF sampling!");
+    return 0.0;
+}
+double Kroupa01::CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass){
+
+    double dCumM = 0.0;
+
+    if(mass > mmax) return 0;
+    if(mass > cutmass) {
+        for(int i=0;i<ARRLENGTH;i++){
+            if(hmstars[i]>mass) dCumM += hmstars[i];
+        }
+        return dCumM;
+    } else {
+        for(int i=0;i<ARRLENGTH;i++){
+            if(hmstars[i]>cutmass) dCumM += hmstars[i];
+        }
+    }
+    if(mass > m2){
+        dCumM += lownorm*a2/(b2 + 1)*(pow(cutmass, b2 + 1)
+                      - pow(mass, b2 + 1))/log(10.0);
+    }
+    else if(mass > m1) {
+        dCumM += lownorm*a2/(b2 + 1)*(pow(cutmass, b2 + 1)
+                      - pow(m2, b2 + 1))/log(10.0);
+        dCumM += lownorm*a1/(b1 + 1)*(pow(m2, b1 + 1)
+                      - pow(mass, b1 + 1))/log(10.0);
+    } else {
+        dCumM += lownorm*a2/(b2 + 1)*(pow(cutmass, b2 + 1)
+                      - pow(m2, b2 + 1))/log(10.0);
+        dCumM += lownorm*a1/(b1 + 1)*(pow(m2, b1 + 1)
+                      - pow(m1, b1 + 1))/log(10.0);
+    }
+
+    return dCumM;
+}
 
 MillerScalo* MillerScalo::clone() const
 {

@@ -43,8 +43,11 @@ void DataManager::init() {
 
 #endif
   Cool = CoolInit();
+  LWData = LymanWernerTableInit();
   starLog = new StarLog();
+  hmStarLog = new HMStarLog();
   lockStarLog = CmiCreateLock();
+  lockHMStarLog = CmiCreateLock();
 }
 
 #ifdef CUDA

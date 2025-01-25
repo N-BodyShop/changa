@@ -601,7 +601,9 @@ public:
 	void growMass(double dTime, double dDelta);
 	void initSph();
 	void initCooling();
+    void initLWData();
 	void initStarLog();
+	void initHMStarLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
@@ -1602,6 +1604,7 @@ public:
   void callBucketEwald(int id);
   void doParallelNextBucketWork(int id, LoopParData* lpdata);
 	void initCoolingData(const CkCallback& cb);
+    void initLWData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
 	void velScale(double dScale, const CkCallback& cb);
@@ -1807,7 +1810,7 @@ public:
   /// Count add/deleted particles, and compact main particle storage.
   void colNParts(const CkCallback &cb);
   /// Assign iOrders to recently added particles.
-  void newOrder(const NewMaxOrder *nStarts, const int n, const CkCallback &cb) ;
+  void newOrder(const NewMaxOrder *nStarts, const int n, int bUseStoch, const CkCallback &cb) ;
   
   /// Update total particle numbers
   void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
@@ -1834,13 +1837,15 @@ public:
 	void SplitGas(double dInitGasMass, const CkCallback& cb);
 #endif
 	inline COOL* Cool() {return dm->Cool;}
+    inline LWDATA* LWData() {return dm->LWData;}
 	/// @brief initialize random seed for star formation
 	void initRand(int iRand, const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void flushStarLog(const CkCallback& cb);
-        void Feedback(const Fdbk &fb, double dTime, double dDelta,
-                      const CkCallback& cb);
+	void flushHMStarLog(const CkCallback& cb);
+    void Feedback(const Fdbk &fb, double dTime, double dDelta,
+               const CkCallback& cb);
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
 #ifdef COLLISION
     void delEjected(double dDelDist, const CkCallback& cb);

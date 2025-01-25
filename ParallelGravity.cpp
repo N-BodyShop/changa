@@ -2576,11 +2576,19 @@ void Main::setupICs() {
       treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
   }
 
-  if(param.bStarForm)
+  if(param.bStarForm) {
       initStarLog();
+      if(param.feedback->sn.bUseStoch)
+        initHMStarLog();
+  }
 	
-  if(param.bFeedback)
-      param.feedback->CheckParams(prm, param);
+  if(param.bFeedback) {
+    param.feedback->CheckParams(prm, param);
+#ifdef COOLING_MOLECULARH
+    if(param.feedback->sn.bUseStoch)
+      initLWData();
+#endif
+  }
   else
       param.feedback->NullFeedback();
 
@@ -2943,10 +2951,17 @@ Main::restart(CkCheckpointStatusMsg *msg)
         }
         treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
                         CkCallbackResumeThread());
-	if(param.bGasCooling || param.bStarForm) 
-	    initCooling();
-	if(param.bStarForm)
-	    initStarLog();
+    if(param.bGasCooling || param.bStarForm) 
+        initCooling();
+    if(param.bStarForm) {
+        initStarLog();
+        if(param.feedback->sn.bUseStoch)
+            initHMStarLog();
+    }
+#ifdef COOLING_MOLECULARH
+    if(param.bFeedback && param.feedback->sn.bUseStoch)
+        initLWData();
+#endif
         if(param.bStarForm || param.bFeedback || param.iSIDMSelect)
             treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
         DumpFrameInit(dTime0, 0.0, bIsRestarting);
@@ -3131,6 +3146,8 @@ Main::doSimulation()
 	   || iStep%param.iOutInterval == 0)) {
 	writeOutput(iStep);
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
+    if(param.feedback->sn.bUseStoch)
+        treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
     }
 	  
     if(!iStop && param.iWallRunTime > 0) {
@@ -3160,6 +3177,8 @@ Main::doSimulation()
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy,
                         CkCallbackResumeThread());
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
+    if(param.feedback->sn.bUseStoch)
+        treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
 	bIsRestarting = 0;
         CkWaitQD(); // Be sure system is quiescent before checkpoint
@@ -3387,8 +3406,11 @@ Main::doSimulation()
 	  }
   }
 
-  if(param.bBenchmark == 0)
+  if(param.bBenchmark == 0) {
       treeProxy[0].flushStarLog(CkCallbackResumeThread());
+      if(param.feedback->sn.bUseStoch)
+          treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
+  }
 	
 #if COSMO_STATS > 0
   ckerr << "Outputting statistics ...";
@@ -3881,7 +3903,7 @@ void Main::writeOutput(int iStep)
 				     CkCallbackResumeThread());
 	    treeProxy[0].outputASCII(pESNRateOut, param.bParaWrite,
 				      CkCallbackResumeThread());
-	    }
+    }
 #ifndef COOLING_NONE
 	if(param.bGasCooling) {
 	    treeProxy[0].outputASCII(pCool0Out, param.bParaWrite,
@@ -4393,7 +4415,7 @@ void Main::addDelParticles()
 	nTotalStar += counts[iPiece].nAddStar - counts[iPiece].nDelStar;
 	}
     delete msg;
-    treeProxy.newOrder(nMaxOrders, numTreePieces, CkCallbackResumeThread());
+    treeProxy.newOrder(nMaxOrders, numTreePieces, param.feedback->sn.bUseStoch, CkCallbackResumeThread());
     delete[] nMaxOrders;
 
     nTotalParticles = nTotalSPH + nTotalDark + nTotalStar;
