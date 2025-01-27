@@ -12,6 +12,7 @@
 #include <string>
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
+#include "lymanwerner.h"
 
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
 #include "ckBIconfig.h"
@@ -77,9 +78,6 @@ protected:
 	/// A list of roots of the TreePieces in this node
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
-       /// Signal whether registeredTreePieces needs to be cleaned
-       /// when combining local trees
-       bool cleanupTreePieces;
 #ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
         /// @brief counter for the number of tree nodes that are
@@ -173,13 +171,20 @@ public:
 	 ** Cooling 
 	 */
 	COOL *Cool;
+    /*
+     * LW Feedback
+     */
+    LWDATA *LWData;
 	/// @brief log of star formation events.
 	///
 	/// Star formation events are stored on the data manager since there
 	/// is no need to migrate them with the TreePiece.
 	StarLog *starLog;
+    HMStarLog *hmStarLog;
 	/// @brief Lock for accessing starlog from TreePieces
 	CmiNodeLock lockStarLog;
+	/// @brief Lock for accessing hmstarlog from TreePieces
+    CmiNodeLock lockHMStarLog;
 
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
@@ -221,8 +226,11 @@ public:
     	    nodeTable.clear();
 
 	    CoolFinalize(Cool);
+        LymanWernerTableFinalize(LWData);
 	    delete starLog;
+        delete hmStarLog;
 	    CmiDestroyLock(lockStarLog);
+        CmiDestroyLock(lockHMStarLog);
 #ifdef CUDA
             for (int i = 0; i < numStreams; i++) {
                 cudaStreamDestroy(streams[i]);
@@ -255,7 +263,6 @@ public:
         std::map<NodeKey, int> &getCachedPartsOnGpuTable(){
           return cachedPartsOnGpu;
         }
-        void unmarkTreePiecesForCleanup(const CkCallback& cb);
 #endif
 	// Functions used to create a tree inside the DataManager comprising
 	// all the trees in the TreePieces in the local node
@@ -282,6 +289,8 @@ public:
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);
     void initStarLog(std::string _fileName, const CkCallback &cb);
+    void initLWData(const CkCallback& cb);
+    void initHMStarLog(std::string _fileName, const CkCallback &cb);
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time

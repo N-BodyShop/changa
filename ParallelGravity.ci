@@ -145,10 +145,17 @@ mainmodule ParallelGravity {
 #endif
   //SIDM
   PUPable SIDMSmoothParams;
+#ifdef COLLISION
+  PUPable CollisionSmoothParams;
+#endif
+
   PUPable MassOutputParams;
   PUPable PosOutputParams;
   PUPable VelOutputParams;
   PUPable PotOutputParams;
+#ifdef COLLISION
+  PUPable SpinOutputParams;
+#endif
   PUPable GasDenOutputParams;
   PUPable TempOutputParams;
   PUPable AccOutputParams;
@@ -253,7 +260,6 @@ mainmodule ParallelGravity {
     entry void startLocalWalk();
     entry void resumeRemoteChunk();
     entry void createStreams(int _numStreams, const CkCallback& cb);
-    entry void unmarkTreePiecesForCleanup(const CkCallback& cb);
 #endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
@@ -264,6 +270,8 @@ mainmodule ParallelGravity {
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
+    entry void initLWData(const CkCallback& cb);
+    entry void initHMStarLog(std::string _fileName, const CkCallback &cb);
   };
 
   array [1D] TreePiece {
@@ -286,6 +294,7 @@ mainmodule ParallelGravity {
                            int bComove, double dRhoFac);
     entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
+    entry [notrace] void initLWData(const CkCallback& cb);
     entry void calculateEwald(EwaldMsg *m);
     entry [notrace] void EwaldGPUComplete(); 
     entry void EwaldGPU();
@@ -378,20 +387,32 @@ mainmodule ParallelGravity {
         double dMultiPhaseMaxTime, double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
     entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
-    entry void externalGravity(int activeRung, const ExternalGravity exGrav,
+    entry void externalForce(int activeRung, const ExternalForce& exForce, int bKepStep,
                        const CkCallback& cb);
 #ifdef COOLING_MOLECULARH
     entry void distribLymanWerner(const CkCallback& cb);
 #endif
-    entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
-	      int bSphStep, int bViscosityLimitdt,
-	      double dEta, double dEtaCourant, double dEtauDot,
-              double dDiffCoeff, double dEtaDiffusion,
-	      double dDelta, double dAccFac,
-	      double dCosmoFac, double dhMinOverSoft,
-              double dResolveJeans,
+#ifdef COLLISION
+    entry void adjust(int iKickRung, int bCollStep, int bEpsAccStep,
+           int bGravStep, int bKepStep, int bSphStep,
+           int bViscosityLimitdt, double dEta, double dEtaCourant,
+           double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+           double dDelta, double dAccFac,
+           double dCosmoFac, double dhMinOverSoft,
+                   double dResolveJeans,
 	      int bDoGas,
 	      const CkCallback& cb);
+#else
+    entry void adjust(int iKickRung, int bEpsAccStep,
+           int bGravStep, int bSphStep,
+           int bViscosityLimitdt, double dEta, double dEtaCourant,
+           double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+           double dDelta, double dAccFac,
+           double dCosmoFac, double dhMinOverSoft,
+                   double dResolveJeans,
+	      int bDoGas,
+	      const CkCallback& cb);
+#endif
     entry void truncateRung(int iCurrMaxRung, const CkCallback& cb);
     entry void rungStats(const CkCallback& cb);
     entry void countActive(int activeRung, const CkCallback& cb);
@@ -412,7 +433,7 @@ mainmodule ParallelGravity {
     entry void starCenterOfMass(const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void colNParts(const CkCallback &cb);
-    entry [nokeep] void newOrder(const NewMaxOrder nStarts[n], const int n,
+    entry [nokeep] void newOrder(const NewMaxOrder nStarts[n], const int n, int bUseStoch,
 			  const CkCallback &cb);
     entry void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
 		 int64_t _nTotalStar, const CkCallback &cb);
@@ -441,9 +462,25 @@ mainmodule ParallelGravity {
     entry void FormStars(Stfm param, double dTime, double dDelta, 
     	       		 double dCosmoFac, const CkCallback& cb);
     entry void flushStarLog(const CkCallback& cb);
+    entry void flushHMStarLog(const CkCallback& cb);
     entry void Feedback(Fdbk fb, double dTime, double dDelta,
     	       		const CkCallback& cb);
     entry void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
+#ifdef COLLISION
+    entry void delEjected(double dDelDist, const CkCallback& cb);
+    entry void getNearCollPartners(const CkCallback& cb);
+    entry void logOverlaps(const CkCallback& cb);
+    entry void getCollInfo(const CkCallback& cb);
+    entry void getCollInfo(int64_t iOrder, const CkCallback& cb);
+    entry void resolveCollision(Collision coll, const ColliderInfo &c1, const ColliderInfo &c2,
+        double baseStep, double timeNow, double dCentMass, const CkCallback& cb);
+    entry void sameHigherRung(int64_t iord1, int rung1, int64_t iord2, int rung2, const CkCallback& cb);
+    entry void resolveWallCollision(Collision coll, const ColliderInfo &c1, const CkCallback& cb);
+    entry void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
+    entry void placeOnCollRung(int64_t iOrder, int collStepRung, const CkCallback& cb);
+    entry void resetRungs(const CkCallback& cb);
+    entry void getNeedCollStep(int collStepRung, const CkCallback& cb);
+#endif
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);

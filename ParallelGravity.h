@@ -515,6 +515,7 @@ class Main : public CBase_Main {
        public:
            int count;           ///< number of times on this rung
            double tGrav;        ///< Gravity time
+           double tColl;        ///< Collision detection
            double tuDot;        ///< Energy integration
            double tDD;          ///< Domain Decomposition
            double tLoadB;       ///< Load Balancing
@@ -528,7 +529,7 @@ class Main : public CBase_Main {
            ///@brief Zero out fields
            void clear() {
                count = 0;
-               tGrav = tuDot = tDD = tLoadB = tTBuild = tAdjust
+               tGrav = tColl = tuDot = tDD = tLoadB = tTBuild = tAdjust
                    = tEmergAdjust = tKick = tDrift = tCache = 0.0;
                }
            };
@@ -569,16 +570,19 @@ public:
         void buildTree(int iPhase);
         void startGravity(const CkCallback& cbGravity, int iActiveRung,
             double *startTime) ;
-        void externalGravity(int iActiveRung);
+        void externalForce(int iActiveRung);
         void updateuDot(int iActiveRung, const double duKick[],
             const double dStartTime[], int bUpdateState, int bAll);
         void kick(bool bClosing, int iActiveRung, int nextMaxRung,
             const CkCallback &cbGravity, double gravStartTime);
+        void advanceBigCollStep(int);
 	int adjust(int iKickRung);
 	void rungStats();
 	void countActive(int activeRung);
         void emergencyAdjust(int iRung);
 	void starCenterOfMass();
+	void logCollision(double, ColliderInfo*, int);
+        void writeCollLog(const char *);
 	void calcEnergy(double, double, const char *);
 	void getStartTime();
 	void getOutTimes();
@@ -597,11 +601,17 @@ public:
 	void growMass(double dTime, double dDelta);
 	void initSph();
 	void initCooling();
+    void initLWData();
 	void initStarLog();
+	void initHMStarLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
 	void AGORAfeedbackPreCheck(double dTime, double dDelta, double dTimeToSF);
+#ifdef COLLISION
+    void doCollisions(double dTime, double dDelta, int activeRung, int iStep, double dCentMass);
+    void doNearCollisions(double dTime, double dDelta, int activeRung);
+#endif
 	void FormStars(double dTime, double dDelta);
 	void StellarFeedback(double dTime, double dDelta);
 	void outputBlackHoles(double dTime);
@@ -1594,6 +1604,7 @@ public:
   void callBucketEwald(int id);
   void doParallelNextBucketWork(int id, LoopParData* lpdata);
 	void initCoolingData(const CkCallback& cb);
+    void initLWData(const CkCallback& cb);
 	// Scale velocities (needed to convert to canonical momenta for
 	// comoving coordinates.)
 	void velScale(double dScale, const CkCallback& cb);
@@ -1719,18 +1730,20 @@ public:
 
   void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
 /**
- * @brief Apply an external gravitational force
+ * @brief Apply an external force
  * @param activeRung The rung to apply the force.
- * @param exGravParams Parameters of the external force
+ * @param exForce The external force object
  * @param cb Callback function
  */
-  void externalGravity(int activeRung, const ExternalGravity exGrav,
+  void externalForce(int activeRung, const ExternalForce& exForce, int bKepStep,
                        const CkCallback& cb);
+
 /**
  * Adjust timesteps of active particles.
  * @param iKickRung The rung we are on.
  * @param bEpsAccStep Use sqrt(eps/acc) timestepping
  * @param bGravStep Use sqrt(r^3/GM) timestepping
+ * @param bKepStep Use stepping based on peri distance to central star
  * @param bSphStep Use Courant condition
  * @param bViscosityLimitdt Use viscosity in Courant condition
  * @param dEta Factor to use in determing timestep
@@ -1746,15 +1759,27 @@ public:
  * @param bDoGas We are calculating gas forces.
  * @param cb Callback function reduces currrent maximum rung
  */
-  void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
-	      int bSphStep, int bViscosityLimitdt,
-	      double dEta, double dEtaCourant, double dEtauDot,
-              double dDiffCoeff, double dEtaDiffusion,
-	      double dDelta, double dAccFac,
-	      double dCosmoFac, double dhMinOverSoft,
-              double dResolveJeans,
+#ifdef COLLISION
+  void adjust(int iKickRung, int bCollStep, int bEpsAccStep,
+          int bGravStep, int bKepStep, int bSphStep,
+          int bViscosityLimitdt, double dEta, double dEtaCourant,
+          double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+          double dDelta, double dAccFac,
+          double dCosmoFac, double dhMinOverSoft,
+                  double dResolveJeans,
 	      int bDoGas,
 	      const CkCallback& cb);
+#else
+  void adjust(int iKickRung, int bEpsAccStep,
+          int bGravStep, int bSphStep,
+          int bViscosityLimitdt, double dEta, double dEtaCourant,
+          double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+          double dDelta, double dAccFac,
+          double dCosmoFac, double dhMinOverSoft,
+                  double dResolveJeans,
+	      int bDoGas,
+	      const CkCallback& cb);
+#endif
   /**
    * @brief Truncate the highest rung
    * @param iCurrMaxRung new maximum rung.
@@ -1785,7 +1810,7 @@ public:
   /// Count add/deleted particles, and compact main particle storage.
   void colNParts(const CkCallback &cb);
   /// Assign iOrders to recently added particles.
-  void newOrder(const NewMaxOrder *nStarts, const int n, const CkCallback &cb) ;
+  void newOrder(const NewMaxOrder *nStarts, const int n, int bUseStoch, const CkCallback &cb) ;
   
   /// Update total particle numbers
   void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
@@ -1812,14 +1837,31 @@ public:
 	void SplitGas(double dInitGasMass, const CkCallback& cb);
 #endif
 	inline COOL* Cool() {return dm->Cool;}
+    inline LWDATA* LWData() {return dm->LWData;}
 	/// @brief initialize random seed for star formation
 	void initRand(int iRand, const CkCallback &cb);
 	void FormStars(Stfm param, double dTime, double dDelta, double dCosmoFac,
 		       const CkCallback& cb);
 	void flushStarLog(const CkCallback& cb);
-        void Feedback(const Fdbk &fb, double dTime, double dDelta,
-                      const CkCallback& cb);
+	void flushHMStarLog(const CkCallback& cb);
+    void Feedback(const Fdbk &fb, double dTime, double dDelta,
+               const CkCallback& cb);
 	void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
+#ifdef COLLISION
+    void delEjected(double dDelDist, const CkCallback& cb);
+    void getNearCollPartners(const CkCallback& cb);
+    void getCollInfo(const CkCallback& cb);
+    void getCollInfo(int64_t iOrder, const CkCallback& cb);
+    void logOverlaps(const CkCallback& cb);
+    void resolveCollision(Collision coll, const ColliderInfo &c1, const ColliderInfo &c2,
+                          double baseStep, double timeNow, double dCentMass, const CkCallback& cb);
+    void sameHigherRung(int64_t iord1, int rung1, int64_t iord2, int rung2, const CkCallback& cb);
+    void resolveWallCollision(Collision coll, const ColliderInfo &c1, const CkCallback& cb);
+    void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
+    void placeOnCollRung(int64_t iOrder, int collStepRung, const CkCallback& cb);
+    void resetRungs(const CkCallback& cb);
+    void getNeedCollStep(int collStepRung, const CkCallback& cb);
+#endif
 	void SetTypeFromFileSweep(int iSetMask, char *file,
 	   struct SortStruct *ss, int nss, int *pniOrder, int *pnSet);
 	void setTypeFromFile(int iSetMask, char *file, const CkCallback& cb);

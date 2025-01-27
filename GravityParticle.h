@@ -59,8 +59,10 @@ class extraSPHData
     double _fMFracIron;		/* Iron mass fraction  */
     double _fESNrate;		/* SN energy rate  */
     double _fTimeCoolIsOffUntil;/* time cooling is turned back on */
+#ifndef COLLISION
     Vector3D<cosmoType> _vPred;	/* Predicted velocities for velocity
 				   dependent forces */
+#endif
     double _uPred;		/* Predicted internal energy */
     double _divv;		/* Diverence of the velocity */
     Vector3D<double> _curlv;	/* Curl of the velocity */
@@ -123,7 +125,9 @@ class extraSPHData
     inline double& fMFracIron() {return _fMFracIron;}
     inline double& fESNrate() {return _fESNrate;}
     inline double& fTimeCoolIsOffUntil() {return _fTimeCoolIsOffUntil;}
+#ifndef COLLISION
     inline Vector3D<cosmoType>& vPred() {return _vPred;}
+#endif
     inline double& uPred() {return _uPred;}
     inline double& divv() {return _divv;}
     inline Vector3D<double>& curlv() {return _curlv;}
@@ -185,7 +189,9 @@ class extraSPHData
 	p | _fMFracOxygen;
 	p | _fESNrate;
 	p | _fTimeCoolIsOffUntil;
+#ifndef COLLISION
 	p | _vPred;
+#endif
 	p | _uPred;
 	p | _divv;
 	p | _curlv;
@@ -255,6 +261,13 @@ class extraStarData
     double _fMOxygenOut;        /* Ejected oxygen */
     double _fMIronOut;          /* Ejected iron */
     int64_t _iGasOrder;		/* Gas from which this star formed */
+#ifdef STOCH12
+    double _rgfHMStars[12];     /* High mass stars (if using stochastic IMF) */
+    double _fLowNorm;       /* Normalization for low-mass imf */
+#elif STOCH24
+    double _rgfHMStars[24];     /* High mass stars (if using stochastic IMF) */
+    double _fLowNorm;       /* Normalization for low-mass imf */
+#endif
     int64_t _iEaterOrder;	/* iOrder for merging black holes */
     double _dMDot;		/* Accretion rate of black holes */
     double _dDeltaM;		/* Actual Mass Accreted on black holes */
@@ -277,6 +290,25 @@ class extraStarData
     inline double& fMOxygenOut() {return _fMOxygenOut;}
     inline double& fSNMetals() {return _fSNMetals;}
     inline int64_t& iGasOrder() {return _iGasOrder;}
+#ifdef STOCH12
+    inline double& rgfHMStars(int i) {
+        CkAssert(i<12);
+        return _rgfHMStars[i];
+    }
+    inline double* rgfHMStars() {return _rgfHMStars;}
+    inline double& fLowNorm() {return _fLowNorm;}
+#elif STOCH24
+    inline double& rgfHMStars(int i) {
+        CkAssert(i<24);
+        return _rgfHMStars[i];
+    }
+    inline double* rgfHMStars() {return _rgfHMStars;}
+    inline double& fLowNorm() {return _fLowNorm;}
+#else
+    inline double& rgfHMStars(int i) {CkAbort("Call rgfHMStars but stochasticity not built in"); return _fMetals;}
+    inline double* rgfHMStars() {CkAbort("Call rgfHMStars but stochasticity not built in"); return NULL;}
+    inline double& fLowNorm() {CkAbort("Call fLowNorm but stochasticity not built in"); return _fMetals;}
+#endif
     inline int64_t& iEaterOrder() {return _iEaterOrder;}
     inline double& dMDot() {return _dMDot;}
     inline double& dDeltaM() {return _dDeltaM;}
@@ -300,6 +332,13 @@ class extraStarData
 	p | _fMOxygenOut;
 	p | _fMIronOut;
 	p | _iGasOrder;
+#ifdef STOCH12
+    p | _fLowNorm;
+    PUParray(p,_rgfHMStars,12);
+#elif STOCH24
+    p | _fLowNorm;
+    PUParray(p,_rgfHMStars,24);
+#endif
 	p | _iEaterOrder;
 	p | _dMDot;
 	p | _dDeltaM;
@@ -323,9 +362,23 @@ class ExternalSmoothParticle;
 /// Other classes of particles require this plus an "extra data" class.
 
 class GravityParticle : public ExternalGravityParticle {
+#ifdef COLLISION
+private:
+	// Necessary for gas drag forces on solid bodies
+	Vector3D<cosmoType> _vPred;
+#endif
+
 public:
         Vector3D<cosmoType> velocity;
 	Vector3D<cosmoType> treeAcceleration;
+#ifdef COLLISION
+	cosmoType dtCol;
+	int64_t iOrderCol;
+	Vector3D<cosmoType> w;
+	cosmoType dtKep;
+	// For consistency with non-collision version
+	inline Vector3D<cosmoType>& vPred() {return _vPred;}
+#endif
 	cosmoType potential;
         cosmoType dtGrav;       ///< timestep from gravity; N.B., this
                                 ///  is actually stored as (1/time^2)
@@ -374,6 +427,13 @@ public:
           p | key;
           p | velocity;
           p | treeAcceleration;
+#ifdef COLLISION
+          p | dtCol;
+          p | iOrderCol;
+          p | _vPred;
+          p | dtKep;
+          p | w;
+#endif
           p | dtGrav;
           p | fDensity;
           p | fBall;
@@ -421,7 +481,9 @@ public:
 	inline double& fMFracIron() {IMAGAS; return (((extraSPHData*)extraData)->fMFracIron());}
 	inline double& fESNrate() {IMAGAS; return (((extraSPHData*)extraData)->fESNrate());}
 	inline double& fTimeCoolIsOffUntil() {IMAGAS; return (((extraSPHData*)extraData)->fTimeCoolIsOffUntil());}
+#ifndef COLLISION
 	inline Vector3D<cosmoType>& vPred() { IMAGAS; return (((extraSPHData*)extraData)->vPred());}
+#endif
 	inline double& uPred() {IMAGAS;  return (((extraSPHData*)extraData)->uPred());}
 	inline double& divv() { IMAGAS; return (((extraSPHData*)extraData)->divv());}
 	inline Vector3D<double>& curlv() { IMAGAS; return (((extraSPHData*)extraData)->curlv());}
@@ -487,6 +549,13 @@ public:
 	inline double& fMOxygenOut() {IMASTAR; return (((extraStarData*)extraData)->fMOxygenOut());}
 	inline double& fSNMetals() {IMASTAR; return (((extraStarData*)extraData)->fSNMetals());}
 	inline int64_t& iGasOrder() { IMASTAR; return (((extraStarData*)extraData)->iGasOrder());}
+    
+    /* The following three are not wrapped in a compiler macro because
+     * they call a function that is.*/
+    inline double& rgfHMStars(int i) { IMASTAR; return (((extraStarData*)extraData)->rgfHMStars(i));}
+    inline double* rgfHMStars() { IMASTAR; return (((extraStarData*)extraData)->rgfHMStars());}
+    inline double& fLowNorm() {IMASTAR; return (((extraStarData*)extraData)->fLowNorm());}
+
 	inline int64_t& iEaterOrder() { IMASTAR; return (((extraStarData*)extraData)->iEaterOrder());}
 	inline double& dDeltaM() { IMASTAR; return (((extraStarData*)extraData)->dDeltaM());}
 	inline double& dMDot() { IMASTAR; return (((extraStarData*)extraData)->dMDot());}
@@ -592,6 +661,11 @@ class ExternalSmoothParticle {
   double dt;
   double dtNew;
 #endif
+#ifdef COLLISION  
+  double soft;
+  double dtCol;
+  int64_t iOrderCol;
+#endif
   Vector3D<cosmoType> vPred;
   Vector3D<cosmoType> treeAcceleration;
   double mumax;
@@ -654,6 +728,11 @@ class ExternalSmoothParticle {
 	  iType = p->iType;
 	  rung = p->rung;
 	  treeAcceleration = p->treeAcceleration;
+#ifdef COLLISION  
+      soft = p->soft;
+      dtCol = p->dtCol;
+      iOrderCol = p->iOrderCol;
+#endif
 	  if(TYPETest(p, TYPE_GAS)) {
 	      vPred = p->vPred();
 	      mumax = p->mumax();
@@ -723,6 +802,11 @@ class ExternalSmoothParticle {
       tmp->iType = iType;
       tmp->rung = rung;
       tmp->treeAcceleration = treeAcceleration;
+#ifdef COLLISION
+      tmp->soft = soft;
+      tmp->dtCol = dtCol;
+      tmp->iOrderCol = iOrderCol;
+#endif
       if(TYPETest(tmp, TYPE_GAS)) {
 	  tmp->vPred() = vPred;
 	  tmp->mumax() = mumax;
@@ -785,6 +869,7 @@ class ExternalSmoothParticle {
   void pup(PUP::er &p) {
     p | position;
     p | velocity;
+    p | vPred;
     p | mass;
     p | fBall;
     p | fDensity;
@@ -796,7 +881,6 @@ class ExternalSmoothParticle {
     p | dtNew;
 #endif
     p | treeAcceleration;
-    p | vPred;
     p | mumax;
     p | PdV;
     p | uDotPdV;
@@ -843,6 +927,11 @@ class ExternalSmoothParticle {
     p | iEaterOrder;
     p | dTimeFB;
     p | iBucketOff;
+#ifdef COLLISION
+    p | soft;
+    p | dtCol;
+    p | iOrderCol;
+#endif
   }
 #endif
 };

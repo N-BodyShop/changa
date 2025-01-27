@@ -6,6 +6,7 @@
 #include "imf.h"
 #include "starlifetime.h"
 #include "rand.h"
+#include "lymanwerner.h"
 #define NFEEDBACKS 5
 
 /**
@@ -37,8 +38,23 @@ class SFEvent {
     double dMetals;           /*  metallicity of stars in event */
     double dMFracOxygen;           /*  metallicity of stars in event */
     double dMFracIron;           /*  metallicity of stars in event */
- SFEvent() : dMass(0), dTimeForm(0), dMetals(0), dMFracIron(0), dMFracOxygen(0) { }
- SFEvent(double mass, double tform, double mets, double fefrac, double oxfrac) : 
+    double dLowNorm;         /* normalization constant for low mass IMF */
+#ifdef STOCH24
+    double rgdHMStars[24];      /* high mass stars in stochastic IMF */
+    SFEvent(double mass, double tform, double mets, double fefrac, double oxfrac, double lownorm, double *hmstars) : 
+    dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac), dLowNorm(lownorm) {
+        for(int i=0;i<24;i++) rgdHMStars[i]=hmstars[i];
+        }
+#else
+    double rgdHMStars[12];      /* high mass stars in stochastic IMF */
+    SFEvent(double mass, double tform, double mets, double fefrac, double oxfrac, double lownorm, double *hmstars) : 
+    dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac), dLowNorm(lownorm) {
+        for(int i=0;i<12;i++) rgdHMStars[i]=hmstars[i];
+        }
+#endif
+
+    SFEvent() : dMass(0), dTimeForm(0), dMetals(0), dMFracIron(0), dMFracOxygen(0) { }
+    SFEvent(double mass, double tform, double mets, double fefrac, double oxfrac) : 
     dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac) { }
     };
 
@@ -51,15 +67,15 @@ class Fdbk : public PUP::able {
     void CalcUVFeedback(SFEvent *sfEvent, double dTime, double dDelta,
                         FBEffects *fbEffects) const;
 #ifdef COOLING_MOLECULARH
-    double CalcLWFeedback(SFEvent *sfEvent, double dTime, double dDelta) const;
+    double CalcLWFeedback(SFEvent *sfEvent, double dTime, double dDelta, LWDATA *LWData) const;
 #endif /*COOLING_MOLECULARH*/
 
-    char achIMF[32];	        /* initial mass function */
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dErgUnit;		/* system energy in ergs */
     Padova pdva;
  public:
+    char achIMF[32];	        /* initial mass function */
     mutable SN sn;
     double dDeltaStarForm;
     double dErgPerGmUnit;	/* system specific energy in ergs/gm */
@@ -88,7 +104,7 @@ class Fdbk : public PUP::able {
     void CheckParams(PRM prm, struct parameters &param);
     void NullFeedback() { imf = new Kroupa01(); } /* Place holder */
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
-                    FBEffects *fbTotals, Rand& rndGen) const;
+                    FBEffects *fbTotals, LWDATA *LWData, Rand& rndGen) const;
     double NSNIa (double dMassT1, double dMassT2);
     Fdbk() { }
 
@@ -273,7 +289,7 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
 	    a = 1.0;
 	    }
 	}
-    /*    ~DistStellarFeedbackSmoothParams() {
+        /*~DistStellarFeedbackSmoothParams() {
 	delete fb;
 	}*/
     PUPable_decl(DistStellarFeedbackSmoothParams);
@@ -289,5 +305,4 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
     };
 
 #endif
-
     
