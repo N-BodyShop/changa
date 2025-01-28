@@ -66,6 +66,16 @@ void Stfm::AddParams(PRM prm)
     prmAddParam(prm,"dStarFormEfficiencyH2", paramDouble, &dStarFormEfficiencyH2,
 		sizeof(double), "dStarFormEfficiencyH2",
 		"<Star Formation efficiency as a function of H2> = 0");
+#ifdef SHIELDSF
+    dSigmad = 2e-21; 
+    prmAddParam(prm,"dSigmad", paramDouble, &dSigmad,
+                sizeof(double), "dSigmad",
+                "<Effective dust attenuation cross-section in cm^2> = 2e-21");
+    dMinMetalShield = 7e-5; 
+    prmAddParam(prm,"dMinMetalShield", paramDouble, &dMinMetalShield,
+                sizeof(double), "dMinMetalShield",
+                "<Metallicity floor for scaling dust shielding> = 7e-5");
+#endif
 #endif
     // Blackhole formation parameters
     bBHForm = 0;
@@ -316,6 +326,28 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
     if (!bGasCooling || dStarFormEfficiencyH2 == 0) dMprob  = 1.0 - exp(-dCStar*dTimeStarForm/tform);
     else dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*
     			    dStarFormEfficiencyH2*p->CoolParticle().f_H2);    
+#ifdef SHIELDSF
+      /*Jeans Approx used for column length */
+      // Calculated with equation 3 of Byrne et al. 2019
+      // doi:10.3847/1538-4357/aaf9aa
+    double columnL = sqrt(15*p->PoverRho2()/(4*M_PI));
+    if (*T > Cool->dMaxTShield) columnL *= sqrt(Cool->dMaxTShield/(*T)); // scale PoverRho2 to temp ceiling.
+    double metallicity = p->fMetals();
+    if (metallicity < dMinMetalShield) metallicity = dMinMetalShield; //Metallicity floor 
+    /* Calculate shielding */
+    double Y_HI = COOL_ARRAY0(Cool, &p->CoolParticle(), metallicity);
+    double Y_H2 = COOL_ARRAY3(Cool, &p->CoolParticle(), metallicity);
+    double yHI = (p->fDensity)*CL_B_gm*Y_HI;
+    double yH2 = (p->fDensity)*CL_B_gm*Y_H2;
+    double column_denHI = columnL*yHI;
+    double column_denH2 = columnL*yH2;
+    // Dust optical depth coefficient
+    // Calculated with equation 1 and 6 of Byrne et al. 2019
+    // doi:10.3847/1538-4357/aaf9aa
+    double f_s = exp(-1.0*dSigmad*metallicity/(ZSOLAR)*(column_denHI + 2.0*column_denH2));
+    //Adjust star formation recipe to make it depend on shielding
+    dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform*(1.0-f_s));
+#endif
     *H2FractionForm = p->CoolParticle().f_H2;
 #else /* COOLING_MOLECULARH */ 
     double dMprob = 1.0 - exp(-dCStar*dTimeStarForm/tform);
@@ -439,6 +471,9 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 	deleteParticle(p);
 	}
 #ifdef COOLING_MOLECULARH /*Initialize LW radiation for a star particle of that mass and 10^7 (the minimum) years old*/
+#ifdef SHIELDSF
+    starp->fShieldForm() = f_s;
+#endif
     if(!bUseStoch) starp->dStarLymanWerner() = calcLogSSPLymanWerner(7,log10(dDeltaM));
     else{
         double dLogContPart, dLogStochPart;

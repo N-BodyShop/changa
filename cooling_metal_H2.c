@@ -169,7 +169,9 @@ void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit
   cl->bShieldHI = CoolParam.bShieldHI;
   cl->dClump = CoolParam.dClump;
   cl->dLymanWernerFrac = CoolParam.dLymanWernerFrac;
-
+#ifdef SHIELDSF
+  cl->dMaxTShield = CoolParam.dMaxTShield;
+#endif
 }
 
 /* caculate the number fraction YH, YHe as a function of metalicity. Cosmic 
@@ -3183,6 +3185,12 @@ void CoolAddParams( COOLPARAM *CoolParam, PRM prm ) {
 	/*	strcpy(CoolParam->CoolInFile,"cooltable_xdr\0");
 	prmAddParam(prm,"CoolInFile",3,&CoolParam->CoolInFile,256,"coolin",
 	"<cooling table file> (file in xdr binary format)"); */
+#ifdef SHIELDSF
+    CoolParam->dMaxTShield = 40; 
+    prmAddParam(prm,"dMaxTShield", paramDouble, &CoolParam->dMaxTShield,
+                sizeof(double), "dMaxTShield",
+                "<Temperature ceiling for scaling dust shielding> = 40");
+#endif
 
 	}
 	
