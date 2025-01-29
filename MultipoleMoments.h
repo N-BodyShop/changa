@@ -420,6 +420,10 @@ public:
 						const ParticleType * end);
 	friend void calculateRadiusBox(MultipoleMoments& m,
 				       const OrientedBox<double>& box);
+	template<typename ParticleType>
+        friend void calculateRadiusFirstParticle(MultipoleMoments& m,
+                                                 const ParticleType* begin,
+                                                 const ParticleType* end);
 };
 
 #ifdef __CHARMC__
@@ -503,4 +507,25 @@ inline void calculateRadiusFarthestParticle(MultipoleMoments& m, const ParticleT
             }
 }
 
+/// Given list of particles, get a radius based on the first
+/// particle.  N.B. this is a failover in case the box size is tiny.
+/// We assume the multipole moments have not been calculated.
+template<typename ParticleType>
+inline void calculateRadiusFirstParticle(MultipoleMoments& m,
+                                         const ParticleType* begin,
+                                         const ParticleType* end) {
+    const ParticleType* iter = begin;
+    Vector3D<cosmoType> pos1 = iter->position;
+    cosmoType newradius = 0.0;
+    iter++;
+    for(; iter != end; ++iter) {
+        cosmoType d = (pos1 - iter->position).lengthSquared();
+        if(d > newradius)
+            newradius = d;
+    }
+    if(newradius > 0.0) {
+        newradius = sqrt(newradius);
+        m.radius = newradius;
+    }
+}
 #endif //MULTIPOLEMOMENTS_H
