@@ -11,7 +11,7 @@
 #include "starform.h"
 #include "smooth.h"
 #include "Sph.h"
-#include "lymanwerner.h"
+
 
 ///
 /// @brief initialize parameters for star formation
@@ -84,6 +84,11 @@ void Stfm::AddParams(PRM prm)
  */
 void Stfm::CheckParams(PRM prm, Parameters &param) 
 {
+    if(strcmp(param.feedback->achIMF, "MillerScalo") == 0) imf = new MillerScalo();
+    else if(strcmp(param.feedback->achIMF, "Chabrier") == 0) imf = new Chabrier();
+    else if(strcmp(param.feedback->achIMF, "Kroupa93") == 0) imf = new Kroupa93();
+    else if(strcmp(param.feedback->achIMF, "Kroupa01") == 0) imf = new Kroupa01();
+
     if(param.bStarForm) {
 	CkAssert(prmSpecified(prm, "dMsolUnit")
 		 && prmSpecified(prm, "dKpcUnit"));
@@ -109,7 +114,10 @@ void Stfm::CheckParams(PRM prm, Parameters &param)
 		
 #include "physconst.h"
 
+    bUseStoch = param.feedback->sn.bUseStoch;
+    dStochCut = param.feedback->sn.dStochCut;
     dSecUnit = param.dSecUnit;
+    dMsolUnit = param.dMsolUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;
     dGmUnit = param.dMsolUnit*MSOLG;
     dErgUnit = GCGS*pow(param.dMsolUnit*MSOLG, 2.0)
@@ -186,11 +194,6 @@ void Main::FormStars(double dTime, double dDelta)
 	}
 
     treeProxy.finishNodeCache(CkCallbackResumeThread());
-#ifdef CUDA
-    // We didn't do gravity where the registered TreePieces on the
-    // DataManager normally get cleared.  Clear them here instead.
-    dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
-#endif
 
     addDelParticles();
     double tSF = CkWallTimer() - startTime;
@@ -218,10 +221,8 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
     for(unsigned int i = 1; i <= myNPartTmp; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if(p->isGas()) {
-	    GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime,
-                                                   dDelta, dCosmoFac, 
-                                                   &TempForm,&H2FractionForm,
-                                                   rndGen);
+        GravityParticle *starp = stfm.FormStar(p, dm->Cool, dTime, dDelta,
+                dCosmoFac, &TempForm,&H2FractionForm, dm->LWData, rndGen);
 	    
 	    if(starp != NULL) {
 		nFormed++;
@@ -229,13 +230,19 @@ void TreePiece::FormStars(Stfm stfm, double dTime,  double dDelta,
 		newParticle(starp);
                 p = &myParticles[i]; // newParticle can change pointers
 		CmiLock(dm->lockStarLog);
-                // Record current spot in seTab
-                iSeTab.push_back(dm->starLog->seTab.size());
+        if(stfm.bUseStoch) {
+            CkAssert(dm->starLog->seTab.size()==dm->hmStarLog->seTab.size());
+        }
+        // Record current spot in seTab
+        iSeTab.push_back(dm->starLog->seTab.size());
 #ifdef COOLING_MOLECULARH
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm,H2FractionForm));
 #else
 		dm->starLog->seTab.push_back(StarLogEvent(starp,dCosmoFac,TempForm));
 #endif
+        if(stfm.bUseStoch) {
+            dm->hmStarLog->seTab.push_back(HMStarLogEvent(starp));
+        }
 		CmiUnlock(dm->lockStarLog);
 		delete (extraStarData *)starp->extraData;
 		delete starp;
@@ -262,6 +269,7 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
                                 double dDelta,  // drift timestep
                                 double dCosmoFac, double *T,
                                 double *H2FractionForm,
+                                LWDATA *LWData,
                                 Rand& rndGen
                                 ) 
 {
@@ -365,6 +373,64 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 	}
 
 
+    /* Stochastically populating from IMF up to target mass 
+    *  You end up with an array of individual high mass stars and
+    * a normalization constant for the continuous, low mass IMF
+    */
+    if(bUseStoch && newbh == 0){ /*Make sure this is a star, not a BH*/
+        /* Setting all high mass stars to default (0) */
+        for(int i=0;i<ARRLENGTH;i++){
+            starp->rgfHMStars(i)=0.0;
+            }
+        /* Stochastically populate star particle
+        * Keep running tally of total mass, but only keep high mass stars. Stars
+        * are drawn from the IMF until the running tally exceeds the dDeltaM, then
+        * the last star is kept only if the total is closer to dDeltaM with it
+        *
+        * DrawStar returns stars in units of Msol. HMStars is filled with masses in
+        * units of Msol, but depending on context this needs to be converted to
+        * system units
+        */
+        int iArrayLoc = 0;
+        double mass_tally = 0.0;
+        // Sum of only HMStars, used to find fLowNorm
+        double dSumHMStars=0.0;
+        while(1){
+            /* (Should be very rare) If we form more HMStars than elements in array,
+            * wipe everything and start over
+            */
+            if(iArrayLoc>=ARRLENGTH){
+                mass_tally=0.0;
+                for(int i=0;i<ARRLENGTH;i++) starp->rgfHMStars(i)=0;
+                iArrayLoc=0;
+                dSumHMStars=0.0;
+            }
+            /* DrawStar returns a mass in Msol, need to convert to system units */
+            double new_star = imf->DrawStar(rndGen.dbl());
+            //CkPrintf("new_star is %f\n",new_star);
+            double new_star_unit = new_star/dMsolUnit;
+            double test_mass = mass_tally + new_star_unit;
+            if(test_mass < dDeltaM){
+                mass_tally += new_star_unit;
+                if(new_star > dStochCut){
+                    //CkPrintf("HMStar with mass: %f\n",new_star);
+                    starp->rgfHMStars(iArrayLoc)=new_star;
+                    dSumHMStars += new_star_unit;
+                    iArrayLoc+=1;
+                }
+            } else if(fabs(dDeltaM - test_mass) < fabs(dDeltaM - mass_tally) && (dSumHMStars + new_star_unit < dDeltaM)) {
+                mass_tally += new_star;
+                if(new_star > dStochCut){
+                    starp->rgfHMStars(iArrayLoc)=new_star;
+                    dSumHMStars += new_star_unit;
+                }
+                break;
+            } else break;
+        }
+        double dTotLowMass=imf->CumMass(0.0)-imf->CumMass(dStochCut);
+        starp->fLowNorm()=dMsolUnit*(dDeltaM-dSumHMStars)/dTotLowMass;
+    }
+
     p->mass -= dDeltaM;
     CkAssert(p->mass >= 0.0);
     starp->mass = dDeltaM;
@@ -373,7 +439,16 @@ GravityParticle *Stfm::FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 	deleteParticle(p);
 	}
 #ifdef COOLING_MOLECULARH /*Initialize LW radiation for a star particle of that mass and 10^7 (the minimum) years old*/
-    starp->dStarLymanWerner() = calcLogSSPLymanWerner(7,log10(dDeltaM));
+    if(!bUseStoch) starp->dStarLymanWerner() = calcLogSSPLymanWerner(7,log10(dDeltaM));
+    else{
+        double dLogContPart, dLogStochPart;
+        double rgdHMStarsTemp[ARRLENGTH];
+        for(int i=0; i<ARRLENGTH; i++) rgdHMStarsTemp[i] = starp->rgfHMStars(i); // need to pass entire array at once (as pointer) to dLogStochPart
+        dLogContPart = calcLogMax8LymanWerner(7, log10(starp->fLowNorm()*MSOLG/dGmUnit));
+        dLogStochPart = calcLogStochLymanWerner(7, rgdHMStarsTemp, LWData);
+        dLogStochPart += log10(MSOLG/dGmUnit); // converting stoch portion to system units
+        starp->dStarLymanWerner() = log10(pow(10, dLogContPart) + pow(10, dLogStochPart));
+    }
 #endif /*COOLING_MOLECULARH*/
 
     /* NB: It is important that the star inherit special
@@ -425,8 +500,50 @@ void Main::initStarLog(){
 
     }
 
+void Main::initHMStarLog(){
+    struct stat statbuf;
+    int iSize;
+    std::string stLogFile = std::string(param.achOutName) + ".hmstarlog";
+    dMProxy.initHMStarLog(stLogFile,CkCallbackResumeThread());
+
+    if(bIsRestarting) {
+        if(!stat(stLogFile.c_str(), &statbuf)) {
+            /* file exists, check number */
+            FILE *fpLog = CmiFopen(stLogFile.c_str(),"r");
+            XDR xdrs;
+            if(fpLog == NULL)
+                CkAbort("Bad open of hmstarlog file on restart");
+
+            xdrstdio_create(&xdrs,fpLog,XDR_DECODE);
+            xdr_int(&xdrs, &iSize);
+            if(iSize != sizeof(HMStarLogEvent))
+                CkAbort("hmstarlog file format mismatch");
+            xdr_destroy(&xdrs);
+            CmiFclose(fpLog);
+        } else {
+            CkAbort("Simulation restarting with star formation, but hmstarlog file not found");
+        }
+    } else {
+        FILE *fpLog = CmiFopen(stLogFile.c_str(),"w");
+        XDR xdrs;
+
+        if(fpLog == NULL) 
+            CkAbort("Can't create hmstarlog file");
+        xdrstdio_create(&xdrs,fpLog,XDR_ENCODE);
+        iSize = sizeof(HMStarLogEvent);
+        xdr_int(&xdrs, &iSize);
+        xdr_destroy(&xdrs);
+        CmiFclose(fpLog);
+    }
+}
+
 void DataManager::initStarLog(std::string _fileName, const CkCallback &cb) {
     starLog->fileName = _fileName;
+    contribute(cb);
+    }
+
+void DataManager::initHMStarLog(std::string _fileName, const CkCallback &cb) {
+    hmStarLog->fileName = _fileName;
     contribute(cb);
     }
 
@@ -449,6 +566,23 @@ void TreePiece::flushStarLog(const CkCallback& cb) {
     cb.send(); // We are done.
     return;
     }
+
+/// \brief flush hmstarlog table to disk
+void TreePiece::flushHMStarLog(const CkCallback& cb) {
+    if(verbosity > 3)
+        ckout << "TreePiece " << thisIndex << ": Writing hm output to disk" << endl;
+    CmiLock(dm->lockHMStarLog);
+    dm->hmStarLog->flush();
+    CmiUnlock(dm->lockHMStarLog);
+
+    if(thisIndex!=(int)numTreePieces-1) {
+        pieces[thisIndex + 1].flushHMStarLog(cb);
+        return;
+    }
+
+    cb.send(); // We are done.
+    return;
+}
 
 /// @brief Flush starlog data to a file
 /// If the file format is changed remember to change logMetaData()
@@ -491,6 +625,30 @@ void StarLog::flush(void) {
 	}
     }
 
+void HMStarLog::flush(void) {
+    if (seTab.size() > 0) {
+        FILE* outfile;
+        XDR xdrs;
+
+        outfile = CmiFopen(fileName.c_str(), "a");
+        CkAssert(outfile != NULL);
+        xdrstdio_create(&xdrs,outfile,XDR_ENCODE);
+
+        CkAssert(seTab.size() == nOrdered);
+
+        for(int iLog = 0; iLog < seTab.size(); iLog++) {
+            HMStarLogEvent *pHMSfEv = &(seTab[iLog]);
+            xdr_template(&xdrs, &(pHMSfEv->iOrdStar));
+            for(int i=0; i<ARRLENGTH; i++) xdr_double(&xdrs, &(pHMSfEv->HMStars[i]));
+        }
+        xdr_destroy(&xdrs);
+        int result = CmiFclose(outfile);
+        if(result != 0) CkAbort("Bad close of hmstarlog");
+        seTab.clear();
+        nOrdered = 0;
+    }
+}
+
 /// @brief Print out metadata for the starlog.
 /// @param osfLog output file stream to write the metadata.
 /// Note: This needs to match the format in StarLog::flush() above.
@@ -510,7 +668,7 @@ void StarLog::logMetaData(std::ofstream &osfLog)
     osfLog << "# rhoForm f" << sizeof(double) << endl;
     osfLog << "# TForm f" << sizeof(double) << endl;
 #ifdef COOLING_MOLECULARH 
-    osfLog <<" #  H2FracForm f" << sizeof(double) << endl;
+    osfLog << "# H2FracForm f" << sizeof(double) << endl;
 #endif
     osfLog << "# end starlog data\n";
 }

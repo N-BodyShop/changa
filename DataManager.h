@@ -12,11 +12,11 @@
 #include <string>
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
+#include "lymanwerner.h"
 
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
 #include "ckBIconfig.h"
 #endif
-
 
 /// @brief Information about TreePieces on an SMP node.
 struct TreePieceDescriptor{
@@ -104,16 +104,16 @@ protected:
         // * either do not concern yourself with cached particles
         // * or for each entry, get key, find bucket node in CM, DM or TPs and get number
         // for now, the former
-
         std::map<NodeKey, int> cachedPartsOnGpu;
         // local particles that have been copied to the gpu
         //std::map<NodeKey, int> localPartsOnGpu;
 
+        // TreePiece counter for multi-threaded GPU host buffer copy
+	int treePiecesBufferFilled;
+
         // can the gpu accept a chunk of remote particles/nodes?
         bool gpuFree;
 
-        // This var will indicate if particle data has been loaded to the GPU
-        bool gputransfer;
         /// Callback pointer to pass to HAPI.
         CkCallback *localTransferCallback;
 
@@ -129,6 +129,8 @@ protected:
         /// host buffer to transfer remote particles to GPU
         CompactPartData *bufRemoteParts;
 
+        /// Vector to accumulate localMoments for transfering to GPU
+        CkVec<CudaMultipoleMoments> localMoments;
         /// host buffer to transfer local moments to GPU
         CudaMultipoleMoments *bufLocalMoments;
         /// host buffer to transfer local particles to GPU
@@ -136,10 +138,19 @@ protected:
         /// host buffer to transfer initial accelerations to GPU
         VariablePartData *bufLocalVars;
 
-#ifdef HAPI_INSTRUMENT_WRS
-        int activeRung;
-        int treePiecesDoneInitInstrumentation;
-#endif
+	// Pointers to particle and tree data on GPU
+	CudaMultipoleMoments *d_localMoments;
+        CudaMultipoleMoments *d_remoteMoments;
+        CompactPartData *d_localParts;
+	CompactPartData *d_remoteParts;
+        VariablePartData *d_localVars;
+        size_t sMoments;
+        size_t sCompactParts;
+        size_t sVarParts;
+
+	int numStreams;
+	cudaStream_t *streams;
+
 #endif
 	/// The root of the combined trees
 	Tree::GenericTreeNode * root;
@@ -160,13 +171,20 @@ public:
 	 ** Cooling 
 	 */
 	COOL *Cool;
+    /*
+     * LW Feedback
+     */
+    LWDATA *LWData;
 	/// @brief log of star formation events.
 	///
 	/// Star formation events are stored on the data manager since there
 	/// is no need to migrate them with the TreePiece.
 	StarLog *starLog;
+    HMStarLog *hmStarLog;
 	/// @brief Lock for accessing starlog from TreePieces
 	CmiNodeLock lockStarLog;
+	/// @brief Lock for accessing hmstarlog from TreePieces
+    CmiNodeLock lockHMStarLog;
 
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
@@ -174,6 +192,7 @@ public:
         void startLocalWalk();
         void resumeRemoteChunk();
 #ifdef CUDA
+	void createStreams(int _numStreams, const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
 
@@ -184,18 +203,16 @@ public:
         // actual serialization methods
         PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
+	void transferLocalToGPU(int nParts, GenericTreeNode *node);
         void freeLocalTreeMemory();
         void freeRemoteChunkMemory(int chunk);
         void transferParticleVarsBack();
         void updateParticles(UpdateParticlesStruct *data);
         void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
-#ifdef HAPI_INSTRUMENT_WRS
-        int initInstrumentation();
+        DataManager(){}
+
 #endif
-        DataManager(){} 
-#endif
-        void clearInstrument(CkCallback const& cb);
 
 private:
         void init();
@@ -209,8 +226,17 @@ public:
     	    nodeTable.clear();
 
 	    CoolFinalize(Cool);
+        LymanWernerTableFinalize(LWData);
 	    delete starLog;
+        delete hmStarLog;
 	    CmiDestroyLock(lockStarLog);
+        CmiDestroyLock(lockHMStarLog);
+#ifdef CUDA
+            for (int i = 0; i < numStreams; i++) {
+                cudaStreamDestroy(streams[i]);
+	    }
+	    delete[] streams;
+#endif
 	    }
 
 	/// Called by ORB Sorter, save the list of which TreePiece is
@@ -263,6 +289,8 @@ public:
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);
     void initStarLog(std::string _fileName, const CkCallback &cb);
+    void initLWData(const CkCallback& cb);
+    void initHMStarLog(std::string _fileName, const CkCallback &cb);
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time
@@ -298,6 +326,15 @@ inline static void setBIconfig()
 class ProjectionsControl : public CBase_ProjectionsControl { 
   public: 
   ProjectionsControl() {
+#ifdef CUDA
+    // GPUs are assigned to nodes in a round-robin fashion. This allows the user to define
+    // one virtual node per device and utilize multiple GPUs on a single node
+    // Beacuse devices are assigned per-PE, this is a convenient place to call setDevice
+    // Note that this code has nothing to do with initalizing projections
+    int numGpus;
+    cudaGetDeviceCount(&numGpus);
+    cudaSetDevice(CmiMyNode() % numGpus);
+#endif
     setBIconfig();
     LBTurnCommOff();
 #ifndef LB_MANAGER_VERSION

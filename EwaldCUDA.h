@@ -3,22 +3,8 @@
 
 #include "HostCUDA.h"
 
-/* defines for Hybrid API buffer indices */ 
-
-#define EWALD_READ_ONLY_DATA  0
-#define EWALD_TABLE           1
-
-/* Defines for place in the hapiBufferInfo array */
-#define PARTICLE_TABLE_IDX    0 
-#define EWALD_READ_ONLY_DATA_IDX  1
-#define EWALD_TABLE_IDX           2
-
 #define NEWH 80
 #define BLOCK_SIZE 128
-
-/* See "defines for Hybrid API buffer indices" in HostCUDA.h for this
- * number. */
-#define NUM_GRAVITY_BUFS 5
 
 /** @brief Data for the Ewald h loop in the CUDA kernel
  */
@@ -72,11 +58,8 @@ typedef struct {
 
 void EwaldHostMemorySetup(EwaldData *h_idata, int size, int nEwhLoop, int largephase); 
 void EwaldHostMemoryFree(EwaldData *h_idata, int largephase); 
-#ifdef HAPI_INSTRUMENT_WRS
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, char phase, int largephase); 
-#else
-void EwaldHost(EwaldData *h_idata, void *cb, int myIndex, int largephase); 
-#endif
+void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
+               EwaldData *h_idata, cudaStream_t stream, void *cb, int myIndex, int largephase);
 
 __global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
 

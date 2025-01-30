@@ -35,8 +35,9 @@ class MultistepLB_notopo : public CBase_MultistepLB_notopo, public Orb3dCommon {
 private:
   void init();
   bool QueryBalanceNow(int step);
+#ifdef MCLBMSV
   void makeActiveProcessorList(BaseLB::LDStats *stats, int numActiveObjs);
-
+#endif
 
 public:
   MultistepLB_notopo(const CkLBOptions &);
