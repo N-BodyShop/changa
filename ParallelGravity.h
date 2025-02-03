@@ -149,7 +149,6 @@ extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;
-extern double dFracLoadBalance;
 extern double dGlassDamper;
 extern int bUseCkLoopPar;
 extern GenericTrees useTree;
@@ -2014,8 +2013,7 @@ public:
 	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
 	void processReqSmoothParticles();
 
-	void getParticleInfoForLB(int64_t active_part, int64_t total_part);
-        void startlb(const CkCallback &cb, int activeRung);
+    void startlb(const CkCallback &cb, int activeRung, bool bDoLB);
   void setTreePieceLoad(int activeRung);
   void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
   bool havePhaseData(int phase);
@@ -2076,7 +2074,6 @@ public:
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
         void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
-        void doAtSync();
 
         void balanceBeforeInitialForces(const CkCallback &cb);
 
