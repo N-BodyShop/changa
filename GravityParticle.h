@@ -282,6 +282,9 @@ class extraStarData
     double _dDeltaM;		/* Actual Mass Accreted on black holes */
 #ifdef COOLING_MOLECULARH
     double _dStarLymanWerner;	/* Lyman Werner radiation emmited from star particles */
+#ifdef SHIELDSF 
+    double _fShieldForm; /* Fraction of gas particle unshielded at time of formation*/
+#endif
 #endif /*COOLING_MOLECULARH*/
  public:
     inline double& fMetals() {return _fMetals;}
@@ -321,6 +324,9 @@ class extraStarData
 #ifdef COOLING_MOLECULARH
     inline double dStarLymanWerner() const {return _dStarLymanWerner;}
     inline double& dStarLymanWerner() {return _dStarLymanWerner;}
+#ifdef SHIELDSF
+    inline double& fShieldForm() {return _fShieldForm;}
+#endif
 #endif /*COOLING_MOLECULARH*/
     void pup(PUP::er &p) {
 	p | _fMetals;
@@ -347,6 +353,9 @@ class extraStarData
 	p | _dDeltaM;
 #ifdef COOLING_MOLECULARH
 	p | _dStarLymanWerner;
+#ifdef SHIELDSF
+	p | _fShieldForm;
+#endif
 #endif /*COOLINg_MOLECULARH*/
 	}
     };
@@ -571,6 +580,9 @@ public:
 #ifdef COOLING_MOLECULARH
         inline double dStarLymanWerner() const { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());}
         inline double& dStarLymanWerner() { IMASTAR; return (((extraStarData*)extraData)->dStarLymanWerner());}
+#ifdef SHIELDSF
+        inline double& fShieldForm() { IMASTAR; return (((extraStarData*)extraData)->fShieldForm());}
+#endif
 #endif /*COOLING_MOLECULARH*/
 
 // See above debugging macros
