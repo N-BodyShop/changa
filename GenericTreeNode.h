@@ -226,8 +226,12 @@ class NodePool;
       if(moments.radius <= 0.0) {
           ckerr << "Tiny Box! " << boundingBox << endl;
           ckerr << "Particles: " << particleCount << endl;
-          calculateRadiusFirstParticle(moments, &part[firstParticle],
-                                       &part[lastParticle+1]);
+          if(particleCount > 1)
+              calculateRadiusFirstParticle(moments, &part[firstParticle],
+                                           &part[lastParticle+1]);
+          else
+              moments.radius = 1.0; // single particle boxes don't
+                                    // need scaling.
           assert(moments.radius > 0.0);
       }
       boundingBox.reset();
