@@ -2572,6 +2572,8 @@ void Main::setupICs() {
       if(param.sinks.bBHSink)
 	  param.sinks.dDeltaStarForm = param.stfm->dDeltaStarForm;
       }
+  else
+      param.stfm->NullStarForm();
   if(param.bStarForm || param.bFeedback || param.iSIDMSelect) {
       treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
   }
