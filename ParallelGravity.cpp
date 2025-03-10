@@ -1695,7 +1695,7 @@ void Main::advanceBigCollStep(int iStep) {
   ckout << "Checking for near collisions ...";
      
   double startTime = CkWallTimer();
-  treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+  treeProxy.buildTree(bucketSize, dTime, CkCallbackResumeThread());
   timings[activeRung].tTBuild += CkWallTimer() - startTime;
 
   startTime = CkWallTimer();
@@ -1775,7 +1775,7 @@ void Main::advanceBigCollStep(int iStep) {
           if (param.bCollision) {
               CkPrintf("Starting collision detection and response\n");
 
-              treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+              treeProxy.buildTree(bucketSize, dTime, CkCallbackResumeThread());
               startTime = CkWallTimer();
               doCollisions(dTime, param.dDelta, activeRung, iStep, param.externalForce.dCentMass);
               double tColl = CkWallTimer() - startTime;
@@ -1795,7 +1795,7 @@ void Main::advanceBigCollStep(int iStep) {
 	      bool bBuildTree = (iSub + 1 == driftSteps);
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
 			      dKickFac, dTimeSub, nGrowMassDrift, bBuildTree,
-                              param.dMaxEnergy,
+                              param.dMaxEnergy, dTime,
 			      CkCallbackResumeThread());
               double tDrift = CkWallTimer() - startTime;
               timings[activeRung].tDrift += tDrift;
@@ -1973,9 +1973,9 @@ void Main::buildTree(int iPhase)
     CkPrintf("Building trees ... ");
     double startTime = CkWallTimer();
 #ifdef PUSH_GRAVITY
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
+    treeProxy.buildTree(bucketSize, dTime, CkCallbackResumeThread(),!bDoPush);
 #else
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+    treeProxy.buildTree(bucketSize, dTime, CkCallbackResumeThread());
 #endif
     double tTB =  CkWallTimer()-startTime;
     timings[iPhase].tTBuild += tTB;
@@ -2247,7 +2247,7 @@ void Main::advanceBigStep(int iStep) {
           if (param.bCollision) {
               CkPrintf("Starting collision detection and response\n");
 
-              treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
+              treeProxy.buildTree(bucketSize, dTime, CkCallbackResumeThread());
               startTime = CkWallTimer();
               doCollisions(dTime, param.dDelta, activeRung, iStep, param.externalForce.dCentMass);
               double tColl = CkWallTimer() - startTime;
@@ -2268,7 +2268,7 @@ void Main::advanceBigStep(int iStep) {
 	      bool bBuildTree = (iSub + 1 == driftSteps);
 	      treeProxy.drift(dDriftFac, param.bDoGas, param.bGasIsothermal,
 			      dKickFac, dTimeSub, nGrowMassDrift, bBuildTree,
-                              param.dMaxEnergy,
+                              param.dMaxEnergy, dTime,
 			      CkCallbackResumeThread());
               double tDrift = CkWallTimer() - startTime;
               timings[activeRung].tDrift += tDrift;
@@ -2463,7 +2463,8 @@ void Main::setupICs() {
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,
-                        0.5*param.csm->dHubble0*param.csm->dHubble0*param.csm->dOmega0);
+                        0.5*param.csm->dHubble0*param.csm->dHubble0*param.csm->dOmega0,
+                        param.externalForce.dOrbFreq);
 
   /******** Particles Loading ********/
   CkPrintf("Loading particles ...");
@@ -2751,6 +2752,12 @@ void Main::setupICs() {
 #ifdef DAMPING
   ofsLog << " DAMPING";
 #endif
+#ifdef SLIDING_PATCH
+  ofsLog << " SLIDING_PATCH";
+#endif
+#ifdef NO_HILL
+  ofsLog << " NO_HILL";
+#endif
   ofsLog << endl;
   ofsLog << "# Key sizes: " << sizeof(KeyType) << " bytes particle "
          << sizeof(NodeKey) << " bytes node" << endl;
@@ -2813,7 +2820,7 @@ void Main::setupICs() {
 	
 // for periodic, puts all particles within the boundary
 // Also assigns keys and sorts.
-  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, dTime,
                   CkCallbackResumeThread());
 
   initialForces();
@@ -2951,7 +2958,7 @@ Main::restart(CkCheckpointStatusMsg *msg)
         } else {
             CkPrintf("Not Using CkLoop %d\n", param.bUseCkLoopPar);
         }
-        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, dTime,
                         CkCallbackResumeThread());
     if(param.bGasCooling || param.bStarForm) 
         initCooling();
@@ -3176,7 +3183,7 @@ Main::doSimulation()
 	    }
 	// The following drift is called because it deletes the tree
 	// so it won't be saved on disk.
-	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy,
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy, dTime,
                         CkCallbackResumeThread());
 	treeProxy[0].flushStarLog(CkCallbackResumeThread());
     if(param.feedback->sn.bUseStoch)
@@ -3368,7 +3375,7 @@ Main::doSimulation()
       if(param.bDoGas && param.bDoDensity) {
 	  // The following call is to get the particles in key order
 	  // before the sort.
-	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+          treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0,
                           CkCallbackResumeThread());
           domainDecomp(0);
           buildTree(0);
@@ -3986,8 +3993,8 @@ void Main::writeOutput(int iStep)
     if(param.nSteps != 0 && param.bDoDensity) {
         // The following call is to get the particles in key order
         // before the sort.
-        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
-                        CkCallbackResumeThread());
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0,
+            CkCallbackResumeThread());
         domainDecomp(0);
         buildTree(0);
 
@@ -4026,7 +4033,7 @@ void Main::writeOutput(int iStep)
 	    startTime = CkWallTimer();
 	    // The following call is to get the particles in key order
 	    // before the sort.
-	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+	    treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, 0,
                             CkCallbackResumeThread());
             domainDecomp(0);
             buildTree(0);
@@ -4044,11 +4051,10 @@ void Main::writeOutput(int iStep)
                                 // processors for continuing the simulation.
         // The following call is to get the particles in key order
         // before the sort.
-        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
+        treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy, dTime,
                         CkCallbackResumeThread());
         domainDecomp(0);
     }
-        
     if(param.iBinaryOut == 6)
         writeNCXML(achFile);
     }
