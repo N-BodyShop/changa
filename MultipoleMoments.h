@@ -164,8 +164,8 @@ class MultipoleMoments {
 	friend class CudaMultipoleMoments;
 	/// A physical size for this multipole expansion, calculated
 	/// by an external function using some other information
-public:
 	cosmoType radius;
+public:
 	cosmoType soft;		/* Effective softening */
 
 	/// The total mass represented by this expansion
@@ -245,8 +245,6 @@ public:
 		zzgas += m.zzgas + m.totalgas*drgas[2]*drgas[2];
 #endif /*COOLING_MOLECULARH*/
 #ifdef HEXADECAPOLE
-                assert(radius > 0.0);
-                assert(m.radius > 0.0);
 		Vector3D<cosmoType> dr = cm1 - cm;
 		momShiftFmomr(&mom, radius, dr.x, dr.y, dr.z);
 		FMOMR mom2 = m.mom;
@@ -324,7 +322,6 @@ public:
 		// you could first determine the center of mass, then
 		// do a momMakeMomr(); momAddMomr() for each particle.
 		Vector3D<cosmoType> dr = cm1 - cm;
-                assert(radius > 0.0);
 		momShiftFmomr(&mom, radius, dr.x, dr.y, dr.z);
 		dr = p.position - cm;
 		FMOMR momPart;
@@ -370,8 +367,6 @@ public:
 #ifdef HEXADECAPOLE
 		Vector3D<cosmoType> dr = cm - newMoments.cm;
 		newMoments.mom = mom;
-                assert(radius > 0.0);
-                assert(m.radius > 0.0);
 		momShiftFmomr(&mom, radius, dr.x, dr.y, dr.z);
 		FMOMR mom2 = m.mom;
 		dr = m.cm - newMoments.cm;
@@ -411,6 +406,7 @@ public:
 #endif
 	}
 	inline cosmoType getRadius() const {return radius;}
+	inline void setRadius(cosmoType r) {radius = r;}
 	friend void operator|(PUP::er& p, MultipoleMoments& m);
 	friend void calculateRadiusFarthestCorner(MultipoleMoments& m,
 					      const OrientedBox<double>& box);
