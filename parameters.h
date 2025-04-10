@@ -44,6 +44,7 @@ typedef struct parameters {
     double fPeriod;
     Vector3D<double> vPeriod;
     int bEwald;
+    int bEwald2D;
     double dEwCut;
     double dEwhCut;
     double dTheta;
@@ -199,6 +200,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.fPeriod;
     p|param.vPeriod;
     p|param.bEwald;
+    p|param.bEwald2D;
     p|param.dEwCut;
     p|param.dEwhCut;
     p|param.dTheta;
