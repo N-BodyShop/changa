@@ -37,7 +37,7 @@ void DataManager::init() {
   treePiecesDonePrefetch = 0;
   treePiecesDoneLocalComputation = 0;
   treePiecesDoneRemoteChunkComputation = 0;
-  treePiecesWantParticlesBack = 0;
+  PEsWantParticlesBack = 0;
   treePiecesParticlesUpdated = 0;
   gpuFree = true;
 
@@ -530,6 +530,8 @@ void DataManager::finishEwaldGPU() {
   }
 }
 
+
+#ifdef GPU_LOCAL_TREE_WALK
 /// @brief Callback from local tree walk on GPU
 /// Call finishBucket for all buckets and TreePieces
 /// Start Ewald calculation if enabled
@@ -563,6 +565,7 @@ void DataManager::finishLocalWalk() {
     pidx += registeredTreePieces[i].treePiece->getNumActiveParticles();
   }
 }
+#endif
 
 /// @brief Callback from local data transfer to GPU
 /// Indicate the transfer is done, and start the local gravity walk
@@ -580,6 +583,8 @@ void DataManager::startLocalWalk() {
       treePieces[in].commenceCalculateGravityLocal();
     }
 
+
+#ifdef GPU_LOCAL_TREE_WALK
     localTransferCallback
       = new CkCallback(CkIndex_DataManager::finishLocalWalk(), CkMyNode(), dMProxy);
 
@@ -618,6 +623,7 @@ void DataManager::startLocalWalk() {
     request->numInteractions = 0;
 
     DataManagerLocalTreeWalk(request);
+#endif
 
     freePinnedHostMemory(bufLocalMoments);
     freePinnedHostMemory(bufLocalParts);
@@ -1069,9 +1075,9 @@ void updateParticlesCallback(void *, void *);
 void DataManager::transferParticleVarsBack(){
   UpdateParticlesStruct *data;
   CmiLock(__nodelock);
-  treePiecesWantParticlesBack++;
-  if(treePiecesWantParticlesBack == registeredTreePieces.length()){
-    treePiecesWantParticlesBack = 0; 
+  PEsWantParticlesBack++;
+  if(PEsWantParticlesBack == CkMyNodeSize()){
+    PEsWantParticlesBack = 0;
     VariablePartData *buf;
     
     if(savedNumTotalParticles > 0){

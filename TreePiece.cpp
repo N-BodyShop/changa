@@ -44,6 +44,8 @@
 #include "ckmulticast.h"
 #endif
 
+#include "PEList.h"
+
 using namespace std;
 using namespace SFC;
 using namespace TreeStuff;
@@ -3720,6 +3722,22 @@ void TreePiece::startNextBucket() {
 }
 
 /*inline*/
+void TreePiece::finishWalkCb() {
+  finishWalkCbCount += 1;
+  // dont check in with DM until local, remote and RR finish
+  if (finishWalkCbCount == 6) {
+    dm->transferParticleVarsBack();
+    bUseCpu = 1;
+    finishWalkCbCount = 0;
+    peNodeLocalListProxy.ckLocalBranch()->reset();
+    peNodeRemoteListProxy.ckLocalBranch()->reset();
+    peNodeRemoteResumeListProxy.ckLocalBranch()->reset();
+    pePartLocalListProxy.ckLocalBranch()->reset();
+    pePartRemoteListProxy.ckLocalBranch()->reset();
+    pePartRemoteResumeListProxy.ckLocalBranch()->reset();
+  }
+}
+
 void TreePiece::finishBucket(int iBucket) {
   BucketGravityRequest *req = &bucketReqs[iBucket];
   int remaining;
@@ -3741,6 +3759,14 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
 
     if(sLocalGravityState->myNumParticlesPending == 0) {
+      CkCallback cb(CkIndex_TreePiece::finishWalkCb(), thisProxy[thisIndex]);
+      peNodeLocalListProxy.ckLocalBranch()->finishWalk(this, cb);
+      peNodeRemoteListProxy.ckLocalBranch()->finishWalk(this, cb);
+      peNodeRemoteResumeListProxy.ckLocalBranch()->finishWalk(this, cb);
+      pePartLocalListProxy.ckLocalBranch()->finishWalk(this, cb);
+      pePartRemoteListProxy.ckLocalBranch()->finishWalk(this, cb);
+      pePartRemoteResumeListProxy.ckLocalBranch()->finishWalk(this, cb);
+
       if(verbosity>1){
 #if COSMO_STATS > 0
         CkPrintf("[%d] TreePiece %d finished with bucket %d , openCriterions:%lld\n",CkMyPe(),thisIndex,iBucket,numOpenCriterionCalls);
@@ -3749,26 +3775,7 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
       }
 
-      if (bUseCpu)
-      {
-        continueWrapUp();
-      }
-#if defined CUDA
-      else {
-        // in cuda version, must wait till particle accels.
-        // are copied back from gpu; can markwalkdone only
-        // after this, otherwise there is a race condition
-        // between the start of the next iteration, wherein
-        // the treepiece registers itself afresh with the 
-        // data manager. if during this time the particles
-        // haven't been copied (and updateParticles hasn't
-        // been called), the registeredTreePieces list will
-        // not be reset, so that the data manager gets 
-        // confused.
-        dm->transferParticleVarsBack();
-        bUseCpu = 1;
-      }
-#endif
+      if (bUseCpu) continueWrapUp();
     }
   }
 }
@@ -3895,6 +3902,20 @@ void TreePiece::cudaFinishAllBuckets(){
   for (int i = 0; i < numBuckets; ++i) {
     state->counterArrays[0][i]--;
     this->finishBucket(i);
+  }
+}
+
+void TreePiece::cudaFinishBuckets(int *affectedBuckets, int numBuckets, int bRemote) {
+  DoubleWalkState *state;
+  if (bRemote) state = (DoubleWalkState *)sRemoteGravityState;
+  else state = (DoubleWalkState *)sLocalGravityState;
+
+  int bucket;
+
+  for (int i = 0; i < numBuckets; ++i) {
+    bucket = affectedBuckets[i];
+    state->counterArrays[0][bucket]--;
+    this->finishBucket(bucket);
   }
 }
 
@@ -4544,7 +4565,7 @@ int TreePiece::doBookKeepingForTargetActive(int curbucket, int end,
       // initialize in startiteration: +1
       // for request sent to gpu: +1
       // initial walk completed: -1 (this is where we are in the code currently) 
-      // for each request completed: -1 (this happens in cudaCallback)
+      // for each request completed: -1 (this happens in cudaFinishAllBuckets)
       gravityState->counterArrays[0][j]--;
 #if COSMO_PRINT_BK > 1
       CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", thisIndex, j, sRemoteGravityState->counterArrays[0][j], sLocalGravityState->counterArrays[0][j]);
@@ -5815,6 +5836,7 @@ void TreePiece::pup(PUP::er& p) {
   p | myPlace;
 
   p | bGasCooling;
+  p | finishWalkCbCount;
   if(p.isUnpacking()){
     dm = NULL;
 #ifndef COOLING_NONE

@@ -169,6 +169,12 @@ extern int nIOProcessor;
 
 extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
+extern CProxy_PEList peNodeLocalListProxy;
+extern CProxy_PEList peNodeRemoteListProxy;
+extern CProxy_PEList peNodeRemoteResumeListProxy;
+extern CProxy_PEList pePartLocalListProxy;
+extern CProxy_PEList pePartRemoteListProxy;
+extern CProxy_PEList pePartRemoteResumeListProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
@@ -1429,6 +1435,7 @@ private:
 	 */
 	void doAllBuckets();
 	void cudaFinishAllBuckets();
+	void cudaFinishBuckets(int *affectedBuckets, int numBuckets, int bRemote);
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
@@ -1451,6 +1458,7 @@ public:
 	  completedActiveWalks = 0;
 	  myPlace = -1;
 	  nSetupWriteStage = -1;
+	  finishWalkCbCount = 0;
     //openingDiffCount=0;
     chunkRootLevel=0;
     //splitters = NULL;
@@ -1945,6 +1953,9 @@ public:
 	const GenericTreeNode* lookupNode(Tree::NodeKey key);
 	/// Find the particles starting at "begin", and return a pointer to it
 	const GravityParticle* lookupParticles(int begin);
+
+	int finishWalkCbCount;
+	void finishWalkCb();
 
 	/// @brief Check if we have done with the treewalk on a specific bucket,
 	/// and if we have, check also if we are done with all buckets

@@ -67,6 +67,7 @@ typedef struct _CudaRequest{
 	/// these buckets were finished in this work request
 	int *affectedBuckets;
         void *cb;               /**< Callback  */
+	CkCallback *callback;
         void *state;            /**< Pointer to state of walk that
                                  * created this request  */
         cudatype fperiod;       /**< Size of periodic volume  */
@@ -112,19 +113,15 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
                                   void *callback);
 
 void DataManagerLocalTreeWalk(CudaRequest *data);
+void PEListPartListDataTransferLocal(CudaRequest *data);
+void PEListNodeListDataTransferLocal(CudaRequest *data);
+void PEListNodeListDataTransferRemote(CudaRequest *data);
+void PEListNodeListDataTransferRemoteResume(CudaRequest *data);
+void PEListPartListDataTransferRemote(CudaRequest *data);
+void PEListPartListDataTransferRemoteResume(CudaRequest *data);
 void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_cachedData, int nActive, cudaStream_t stream, void *cb);
 
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb);
-
-void TreePieceCellListDataTransferLocal(CudaRequest *data);
-void TreePieceCellListDataTransferRemote(CudaRequest *data);
-void TreePieceCellListDataTransferRemoteResume(CudaRequest *data);
-
-
-void TreePiecePartListDataTransferLocal(CudaRequest *data);
-void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPartData *parts, int len);
-void TreePiecePartListDataTransferRemote(CudaRequest *data);
-void TreePiecePartListDataTransferRemoteResume(CudaRequest *data);
 
 void DummyKernel(void *cb);
 

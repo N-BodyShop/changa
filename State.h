@@ -168,6 +168,7 @@ class DoubleWalkState : public State {
   std::unordered_map<NodeKey,int> nodeMap;
   std::unordered_map<NodeKey,int> partMap;
 
+  // TODO do these need to be shut off (no restriction)?
   bool nodeOffloadReady(){
     return nodeLists.totalNumInteractions >= nodeThreshold;
   }

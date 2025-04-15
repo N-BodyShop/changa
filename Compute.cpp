@@ -8,6 +8,7 @@
 #include "State.h"
 #include "Space.h"
 #include "gravity.h"
+#include "PEList.h"
 
 int decodeReqID(int reqID);
 
@@ -1102,6 +1103,7 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     request->affectedBuckets = affectedBuckets;
     request->tp = (void *)tp;
     request->fperiod = tp->fPeriod.x;
+    request->callback = NULL;
 
 #ifdef HAPI_TRACE
     traceUserBracketEvent(CUDA_SER_LIST, starttime, CmiWallTimer());
@@ -1134,8 +1136,6 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
         }
       }
     }
-
-    //CkPrintf("[%d] Offloading %d particle interactions\n", tp->getIndex(), numParticleInteractions);
 
     // create flat lists and associated data structures
     // allocate memory and flatten lists only if there
@@ -1209,6 +1209,7 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
     request->affectedBuckets = affectedBuckets;
     request->tp = (void *)tp;
     request->fperiod = tp->fPeriod.x;
+    request->callback = NULL;
 
 #ifdef HAPI_TRACE
     traceUserBracketEvent(CUDA_SER_LIST, starttime, CmiWallTimer());
@@ -1855,72 +1856,6 @@ void ListCompute::resetCudaPartState(DoubleWalkState *state){
   }
 }
 
-/// A group of node or particle interactions has been completed by the GPU.
-void cudaCallback(void *param, void *msg){
-  CudaRequest *data = (CudaRequest *)param;
-  // Paranoid about data corruption here.
-  CkAssert(((CkCallback *)data->cb)->type == CkCallback::callbackType::callCFn);
-  CkAssert(((CkCallback *)data->cb)->d.cfn.fn == cudaCallback);
-  CkAssert(data->numBucketsPlusOne > 0);
-  CkAssert(data->numInteractions >= 0);
-
-  int *affectedBuckets = data->affectedBuckets;
-  TreePiece *tp = (TreePiece*)data->tp;
-  DoubleWalkState *state = (DoubleWalkState *)data->state;
-  int bucket;
-
-  int numBucketsDone = data->numBucketsPlusOne-1;
-  
-#if COSMO_PRINT_BK > 1
-  CkPrintf("[%d] CUDACALLBACK(node/part: %d, remote: %d, resume: %d), numBucketsDone: %d\n", 
-                                  tp->getIndex(),
-                                  data->node, data->remote, state->resume,
-                                  numBucketsDone);
-#endif
-  // bucket computations finished
-  //
-#ifdef CHANGA_REFACTOR_MEMCHECK
-  CkPrintf("memcheck before cudaCallback\n");
-  CmiMemoryCheck();
-#endif
-  for(int i = 0; i < numBucketsDone; i++){
-    bucket = affectedBuckets[i];
-    state->counterArrays[0][bucket]--;
-#if COSMO_PRINT_BK > 1
-    CkPrintf("[%d] bucket %d numAddReq: %d,%d\n", tp->getIndex(), bucket, tp->getSRemoteGravityState()->counterArrays[0][bucket], tp->getSLocalGravityState()->counterArrays[0][bucket]);
-#endif
-    //CkPrintf("[%d] bucket %d numAddReq: %d\n", tp->getIndex(), bucket, state->counterArrays[0][bucket]);
-    tp->finishBucket(bucket);
-  }
-
-#ifdef CHANGA_REFACTOR_MEMCHECK
-  CkPrintf("memcheck before cudaCallback freeing\n");
-  CmiMemoryCheck();
-#endif
-
-  // free data structures 
-  if(numBucketsDone > 0){
-    delete [] data->affectedBuckets;
-  }
-  freePinnedHostMemory(data->list);
-  freePinnedHostMemory(data->bucketMarkers);
-  freePinnedHostMemory(data->bucketStarts);
-  freePinnedHostMemory(data->bucketSizes);
-  if(data->missedNodes) {
-      freePinnedHostMemory(data->missedNodes);
-  }
-  if(data->missedParts) {
-      freePinnedHostMemory(data->missedParts);
-  }
-  
-  delete ((CkCallback *)data->cb);
-  delete data; 
-#ifdef CHANGA_REFACTOR_MEMCHECK
-  CkPrintf("memcheck after cudaCallback freeing\n");
-  CmiMemoryCheck();
-#endif
-}
-
 void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
                                             TreePiece *tp){
 
@@ -1979,25 +1914,18 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
 #endif
 
   OptType type = getOptType();
-  data->cb = new CkCallback(cudaCallback, data);
-
-  if(data->numBucketsPlusOne == 1) { // Nothing for the GPU to do
-      cudaCallback(data, NULL);     // Clean up
-      return;
-  }
 
   if(type == Local){
 #ifdef HAPI_TRACE
     tp->localNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
-    // TODO does this ever trigger when GPU_LOCAL_TREE_WALK is defined?
-    TreePieceCellListDataTransferLocal(data);
+    peNodeLocalListProxy.ckLocalBranch()->sendList(tp, data);
   }
   else if(type == Remote && !state->resume){
 #ifdef HAPI_TRACE
     tp->remoteNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
-    TreePieceCellListDataTransferRemote(data);
+    peNodeRemoteListProxy.ckLocalBranch()->sendList(tp, data);
   }
   else if(type == Remote && state->resume){
     CudaMultipoleMoments *missedNodes = state->nodes->getVec();
@@ -2009,7 +1937,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
 #ifdef HAPI_TRACE
     tp->remoteResumeNodeInteractions += state->nodeLists.totalNumInteractions;
 #endif
-    TreePieceCellListDataTransferRemoteResume(data);
+    peNodeRemoteResumeListProxy.ckLocalBranch()->sendList(tp, data);
   }
   else {CkAssert(0);}
 #ifdef CHANGA_REFACTOR_MEMCHECK
@@ -2074,24 +2002,18 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 #endif
 
   OptType type = getOptType();
-  data->cb = new CkCallback(cudaCallback, data);
-
-  if(data->numBucketsPlusOne == 1) { // Nothing for the GPU to do
-      cudaCallback(data, NULL);     // Clean up
-      return;
-  }
 
   if(type == Local){
 #ifdef HAPI_TRACE
     tp->localPartInteractions += state->particleLists.totalNumInteractions;
 #endif
     if(tp->largePhase()){
-      TreePiecePartListDataTransferLocal(data);
+      pePartLocalListProxy.ckLocalBranch()->sendList(tp, data);
     }
     else{
       CompactPartData *parts = state->particles->getVec();
       int leng = state->particles->length();
-      TreePiecePartListDataTransferLocalSmallPhase(data, parts, leng);
+      //TreePiecePartListDataTransferLocalSmallPhase(data, parts, leng);
       tp->clearMarkedBuckets(state->markedBuckets);
     }
   }
@@ -2099,7 +2021,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 #ifdef HAPI_TRACE
     tp->remotePartInteractions += state->particleLists.totalNumInteractions;
 #endif
-    TreePiecePartListDataTransferRemote(data);
+    pePartRemoteListProxy.ckLocalBranch()->sendList(tp, data);
   }
   else if(type == Remote && state->resume){
     CompactPartData *missedParts = state->particles->getVec();
@@ -2111,7 +2033,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
 #ifdef HAPI_TRACE
     tp->remoteResumePartInteractions += state->particleLists.totalNumInteractions;
 #endif
-    TreePiecePartListDataTransferRemoteResume(data);
+    pePartRemoteResumeListProxy.ckLocalBranch()->sendList(tp, data);
   }
   else {CkAssert(0);}
 #ifdef CHANGA_REFACTOR_MEMCHECK

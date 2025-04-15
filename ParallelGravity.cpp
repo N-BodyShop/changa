@@ -45,6 +45,7 @@
 #include "externalGravity.h"
 #include "formatted_string.h"
 #include "PETreeMerger.h"
+#include "PEList.h"
 
 #ifdef CUDA
 // for default per-list parameters
@@ -85,7 +86,12 @@ CProxy_DumpFrameData dfDataProxy;
 /// @brief Proxy for the PETreeMerger group.
 CProxy_PETreeMerger peTreeMergerProxy;
 
-
+CProxy_PEList peNodeLocalListProxy;
+CProxy_PEList peNodeRemoteListProxy;
+CProxy_PEList peNodeRemoteResumeListProxy;
+CProxy_PEList pePartLocalListProxy;
+CProxy_PEList pePartRemoteListProxy;
+CProxy_PEList pePartRemoteResumeListProxy;
 
 /// @brief Use the cache (always on)
 bool _cache;
@@ -1374,6 +1380,21 @@ Main::Main(CkArgMsg* m) {
 
         peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
         dfDataProxy = CProxy_DumpFrameData::ckNew();
+
+	// TODO something breaks when I try to pass
+	// the setType arguments to a constructor
+	peNodeLocalListProxy = CProxy_PEList::ckNew();
+	peNodeLocalListProxy.setType(1, 0, 0);
+	peNodeRemoteListProxy = CProxy_PEList::ckNew();
+	peNodeRemoteListProxy.setType(1, 1, 0);
+	peNodeRemoteResumeListProxy = CProxy_PEList::ckNew();
+	peNodeRemoteResumeListProxy.setType(1, 1, 1);
+	pePartLocalListProxy = CProxy_PEList::ckNew();
+	pePartLocalListProxy.setType(0, 0, 0);
+	pePartRemoteListProxy = CProxy_PEList::ckNew();
+	pePartRemoteListProxy.setType(0, 1, 0);
+	pePartRemoteResumeListProxy = CProxy_PEList::ckNew();
+	pePartRemoteResumeListProxy.setType(0, 1, 1);
 	
 	// create CacheManagers
 	// Gravity particles

@@ -89,7 +89,7 @@ protected:
         // XXX - assumes that only one chunk can be on the gpu
         // at a given time
         int treePiecesDoneRemoteChunkComputation;
-        int treePiecesWantParticlesBack;
+        int PEsWantParticlesBack;
         /// Reference count for Pieces that have finished updating
         /// their acclerations.
         int treePiecesParticlesUpdated;
@@ -190,7 +190,9 @@ public:
 	DataManager(CkMigrateMessage *);
 
         void startLocalWalk();
+#ifdef GPU_LOCAL_TREE_WALK
         void finishLocalWalk();
+#endif
         void resumeRemoteChunk();
 #ifdef CUDA
         void startEwaldGPU(int largephase);
