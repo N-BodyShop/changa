@@ -522,6 +522,7 @@ void DataManager::finishEwaldGPU() {
   freePinnedHostMemory(ewt);
   freePinnedHostMemory(cachedData);
 
+  // Can I get rid of this?
   for(int i = 0; i < registeredTreePieces.length(); i++){
       for (int j = 0; j < registeredTreePieces[i].treePiece->getNumBuckets(); j++) {
         registeredTreePieces[i].treePiece->bucketReqs[j].finished = 1;
@@ -535,6 +536,7 @@ void DataManager::finishEwaldGPU() {
 /// @brief Callback from local tree walk on GPU
 /// Call finishBucket for all buckets and TreePieces
 /// Start Ewald calculation if enabled
+// TODO does Ewald still trigger if GPU_LOCAL_TREE_WALK is disabled?
 void DataManager::finishLocalWalk() {
   delete localTransferCallback;
 
@@ -542,13 +544,14 @@ void DataManager::finishLocalWalk() {
     registeredTreePieces[i].treePiece->cudaFinishAllBuckets();
   }
 
-  allocatePinnedHostMemory((void **)&h_idata, sizeof(EwaldData)*savedNumTotalParticles-1);
-  allocatePinnedHostMemory((void **)&ewt, sizeof(EwtData)*NEWH);
-  allocatePinnedHostMemory((void **)&cachedData, sizeof(EwaldReadOnlyData));
+  if (registeredTreePieces[0].treePiece->bEwald) {
+    allocatePinnedHostMemory((void **)&h_idata, sizeof(EwaldData)*savedNumTotalParticles-1);
+    allocatePinnedHostMemory((void **)&ewt, sizeof(EwtData)*NEWH);
+    allocatePinnedHostMemory((void **)&cachedData, sizeof(EwaldReadOnlyData));
+  }
 
   treePiecesEwaldReady = 0;
   int numTotalParts = 0;
-  int pidx = 0;
   for(int i = 0; i < registeredTreePieces.length(); i++){
       int in = registeredTreePieces[i].treePiece->getIndex();
       if(registeredTreePieces[0].treePiece->bEwald) {
@@ -562,7 +565,6 @@ void DataManager::finishLocalWalk() {
         msg->ewt = ewt;
         treePieces[in].calculateEwald(msg);
     }
-    pidx += registeredTreePieces[i].treePiece->getNumActiveParticles();
   }
 }
 #endif

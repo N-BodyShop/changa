@@ -3759,13 +3759,15 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
 
     if(sLocalGravityState->myNumParticlesPending == 0) {
-      CkCallback cb(CkIndex_TreePiece::finishWalkCb(), thisProxy[thisIndex]);
-      peNodeLocalListProxy.ckLocalBranch()->finishWalk(this, cb);
-      peNodeRemoteListProxy.ckLocalBranch()->finishWalk(this, cb);
-      peNodeRemoteResumeListProxy.ckLocalBranch()->finishWalk(this, cb);
-      pePartLocalListProxy.ckLocalBranch()->finishWalk(this, cb);
-      pePartRemoteListProxy.ckLocalBranch()->finishWalk(this, cb);
-      pePartRemoteResumeListProxy.ckLocalBranch()->finishWalk(this, cb);
+      if (!bUseCpu) {
+        CkCallback cb(CkIndex_TreePiece::finishWalkCb(), thisProxy[thisIndex]);
+        peNodeLocalListProxy.ckLocalBranch()->finishWalk(this, cb);
+        peNodeRemoteListProxy.ckLocalBranch()->finishWalk(this, cb);
+        peNodeRemoteResumeListProxy.ckLocalBranch()->finishWalk(this, cb);
+        pePartLocalListProxy.ckLocalBranch()->finishWalk(this, cb);
+        pePartRemoteListProxy.ckLocalBranch()->finishWalk(this, cb);
+        pePartRemoteResumeListProxy.ckLocalBranch()->finishWalk(this, cb);
+      }
 
       if(verbosity>1){
 #if COSMO_STATS > 0
