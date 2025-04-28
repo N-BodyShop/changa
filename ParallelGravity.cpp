@@ -3410,7 +3410,6 @@ Main::doSimulation()
 
   if(param.bBenchmark == 0) {
       dMProxy[0].flushStarLog(CkCallbackResumeThread());
-      treeProxy[0].flushStarLog(CkCallbackResumeThread());
       if(param.feedback->sn.bUseStoch)
           treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
   }
