@@ -3727,7 +3727,6 @@ void TreePiece::finishWalkCb() {
   // dont check in with DM until local, remote and RR finish
   if (finishWalkCbCount == 6) {
     dm->transferParticleVarsBack();
-    bUseCpu = 1;
     finishWalkCbCount = 0;
     peNodeLocalListProxy.ckLocalBranch()->reset();
     peNodeRemoteListProxy.ckLocalBranch()->reset();
@@ -3897,17 +3896,18 @@ void TreePiece::doAllBuckets(){
   }
 }
 
-void TreePiece::cudaFinishAllBuckets(){
+void TreePiece::cudaFinishAllBuckets(int fromEwald){
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
 
   for (int i = 0; i < numBuckets; ++i) {
-    state->counterArrays[0][i]--;
-    this->finishBucket(i);
+    if (fromEwald) bucketReqs[i].finished = 1;
+    else state->counterArrays[0][i]--;
+    finishBucket(i);
   }
 }
 
-void TreePiece::cudaFinishBuckets(int *affectedBuckets, int numBuckets, int bRemote) {
+void TreePiece::cudaFinishAffectedBuckets(int *affectedBuckets, int numBuckets, int bRemote) {
   DoubleWalkState *state;
   if (bRemote) state = (DoubleWalkState *)sRemoteGravityState;
   else state = (DoubleWalkState *)sLocalGravityState;
@@ -3917,7 +3917,7 @@ void TreePiece::cudaFinishBuckets(int *affectedBuckets, int numBuckets, int bRem
   for (int i = 0; i < numBuckets; ++i) {
     bucket = affectedBuckets[i];
     state->counterArrays[0][bucket]--;
-    this->finishBucket(bucket);
+    finishBucket(bucket);
   }
 }
 

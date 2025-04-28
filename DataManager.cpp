@@ -522,12 +522,9 @@ void DataManager::finishEwaldGPU() {
   freePinnedHostMemory(ewt);
   freePinnedHostMemory(cachedData);
 
-  // Can I get rid of this?
   for(int i = 0; i < registeredTreePieces.length(); i++){
-      for (int j = 0; j < registeredTreePieces[i].treePiece->getNumBuckets(); j++) {
-        registeredTreePieces[i].treePiece->bucketReqs[j].finished = 1;
-        registeredTreePieces[i].treePiece->finishBucket(j);
-      }
+      int in = registeredTreePieces[i].treePiece->getIndex();
+      treePieces[in].cudaFinishAllBuckets(1);
   }
 }
 
@@ -541,7 +538,8 @@ void DataManager::finishLocalWalk() {
   delete localTransferCallback;
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
-    registeredTreePieces[i].treePiece->cudaFinishAllBuckets();
+    int in = registeredTreePieces[i].treePiece->getIndex();
+    treePieces[in].cudaFinishAllBuckets(0);
   }
 
   if (registeredTreePieces[0].treePiece->bEwald) {

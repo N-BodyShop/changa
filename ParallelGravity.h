@@ -1434,8 +1434,8 @@ private:
 	 * to trigger nextBucket() which will loop over all the buckets.
 	 */
 	void doAllBuckets();
-	void cudaFinishAllBuckets();
-	void cudaFinishBuckets(int *affectedBuckets, int numBuckets, int bRemote);
+	void cudaFinishAllBuckets(int fromEwald);
+	void cudaFinishAffectedBuckets(int *affectedBuckets, int numBuckets, int bRemote);
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
