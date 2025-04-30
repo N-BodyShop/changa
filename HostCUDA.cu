@@ -268,8 +268,7 @@ void PEListNodeListDataTransferLocal(CudaRequest *data){
     HAPI_TRACE_END(CUDA_GRAV_LOCAL);
   }
 
-  if (data->callback) data->callback->send();
-  else hapiAddCallback(stream, data->cb);
+  hapiAddCallback(stream, data->callback);
 }
 
 /// @brief Initiate a local gravity calculation on the GPU between particles
@@ -310,8 +309,7 @@ void PEListPartListDataTransferLocal(CudaRequest *data){
     HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL);
   }
 
-  if (data->callback) data->callback->send();
-  else hapiAddCallback(stream, data->cb);
+  hapiAddCallback(stream, data->callback);
 }
 
 void PEListNodeListDataTransferRemote(CudaRequest *data){
@@ -339,8 +337,7 @@ void PEListNodeListDataTransferRemote(CudaRequest *data){
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
   }
 
-  if (data->callback) data->callback->send();
-  else hapiAddCallback(stream, data->cb);
+  hapiAddCallback(stream, data->callback);
 }
 
 void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
@@ -373,8 +370,7 @@ void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
   }
 
-  if (data->callback) data->callback->send();
-  else hapiAddCallback(stream, data->cb);
+  hapiAddCallback(stream, data->callback);
 }
 
 void PEListPartListDataTransferRemote(CudaRequest *data){
@@ -414,8 +410,7 @@ void PEListPartListDataTransferRemote(CudaRequest *data){
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
   }
 
-  if (data->callback) data->callback->send();
-  else hapiAddCallback(stream, data->cb);
+  hapiAddCallback(stream, data->callback);
 }
 
 void PEListPartListDataTransferRemoteResume(CudaRequest *data){
@@ -461,8 +456,7 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
   }
 
-  if (data->callback) data->callback->send();
-  else hapiAddCallback(stream, data->cb);
+  hapiAddCallback(stream, data->callback);
 }
 
 /// @brief Allocate space and copy bucket and interaction list data to
