@@ -7,11 +7,13 @@
 #include "DataManager.h"
 #include "Reductions.h"
 #include "formatted_string.h"
+#include "memlog.h"
 
 #ifdef CUDA
 #include "hapi.h"
 #include "cuda_typedef.h"
 #include "SFC.h"
+#include "GPUMemoryPool.h"
 #endif
 
 #include "Compute.h"
@@ -45,6 +47,8 @@ void DataManager::init() {
   Cool = CoolInit();
   starLog = new StarLog();
   lockStarLog = CmiCreateLock();
+  memLog = new MemLog();
+  lockMemLog = CmiCreateLock();
 }
 
 #ifdef CUDA
@@ -1104,11 +1108,11 @@ void DataManager::transferParticleVarsBack(){
 			     streams[0],
                              data->cb);
     
-    cudaFree(d_localMoments);
-    cudaFree(d_localParts);
-    cudaFree(d_localVars);
-    cudaFree(d_remoteMoments);
-    cudaFree(d_remoteParts); 
+    gpuFreeHelper(d_localMoments);   
+    gpuFreeHelper(d_localParts);    
+    gpuFreeHelper(d_localVars);     
+    gpuFreeHelper(d_remoteMoments); 
+    gpuFreeHelper(d_remoteParts);   
 
 #ifdef CUDA_PRINT_ERRORS
     printf("transferParticleVarsBack: %s\n", cudaGetErrorString( cudaGetLastError() ) );

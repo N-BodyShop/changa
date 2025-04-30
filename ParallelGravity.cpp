@@ -2336,6 +2336,8 @@ void Main::setupICs() {
 
   if(param.bStarForm)
       initStarLog();
+
+  initMemLog(); // Initialize memory logging immediately after star log
 	
   if(param.bFeedback)
       param.feedback->CheckParams(prm, param);
@@ -2856,6 +2858,9 @@ Main::doSimulation()
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
 	  << endl;
     writeTimings(iStep);
+
+    // Flush memory log
+    dMProxy[0].flushMemLog(CkCallbackResumeThread());
 
     if(iStep%param.iOrbitOutInterval == 0) {
 	outputBlackHoles(dTime);

@@ -18,6 +18,7 @@
 #include "CUDAMoments.cu"
 #include "HostCUDA.h"
 #include "EwaldCUDA.h"
+#include "GPUMemoryPool.h" 
 
 #include "hapi.h"
 #include "cuda_typedef.h"
@@ -130,9 +131,9 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 
   HAPI_TRACE_BEGIN();
 
-  cudaChk(cudaMalloc(d_localMoments, sMoments));
-  cudaChk(cudaMalloc(d_compactParts, sCompactParts));
-  cudaChk(cudaMalloc(d_varParts, sVarParts));
+  cudaChk(gpuMallocHelper(d_localMoments, sMoments));
+  cudaChk(gpuMallocHelper(d_compactParts, sCompactParts));
+  cudaChk(gpuMallocHelper(d_varParts, sVarParts));
 
   cudaChk(cudaMemcpyAsync(*d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(*d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, stream));
@@ -172,8 +173,8 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 
   HAPI_TRACE_BEGIN();
 
-  cudaChk(cudaMalloc(d_remoteMoments, sMoments));
-  cudaChk(cudaMalloc(d_remoteParts, sRemoteParts));
+  cudaChk(gpuMallocHelper(d_remoteMoments, sMoments));
+  cudaChk(gpuMallocHelper(d_remoteParts, sRemoteParts));
   cudaChk(cudaMemcpyAsync(*d_remoteMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(*d_remoteParts, remoteParts, sRemoteParts, cudaMemcpyHostToDevice, stream));
 
@@ -372,7 +373,7 @@ void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
   if (data->numInteractions > 0) {
     DataTransferBasic(data, &devPtr);
 
-    cudaChk(cudaMalloc(&d_missedNodes, data->sMissed));
+    cudaChk(gpuMallocHelper(&d_missedNodes, data->sMissed));
     cudaChk(cudaMemcpyAsync(d_missedNodes, data->missedNodes, data->sMissed, cudaMemcpyHostToDevice, stream));
 
     HAPI_TRACE_BEGIN();
@@ -394,6 +395,7 @@ void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
 #endif
 
     DataTransferBasicCleanup(&devPtr);
+    cudaChk(gpuFreeHelper(d_missedNodes)); 
     cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
   }
@@ -467,7 +469,7 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
     printf("(%d) TRANSFER REMOTE RESUME PART\n", CmiMyPe());
 #endif
 
-    cudaChk(cudaMalloc(&d_missedParts, data->sMissed));
+    cudaChk(gpuMallocHelper(&d_missedParts, data->sMissed));
     cudaChk(cudaMemcpyAsync(d_missedParts, data->missedParts, data->sMissed, cudaMemcpyHostToDevice, stream));
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
@@ -507,7 +509,7 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
 #endif
 #endif
     DataTransferBasicCleanup(&devPtr);
-    cudaChk(cudaFree(d_missedParts));
+    cudaChk(gpuFreeHelper(d_missedParts)); 
     cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
   }
@@ -529,10 +531,10 @@ void DataTransferBasic(CudaRequest *data, CudaDevPtr *ptr){
   size_t markerSize = (numBucketsPlusOne) * sizeof(int);
   size_t startSize = (numBuckets) * sizeof(int);
 
-  cudaChk(cudaMalloc(&ptr->d_list, listSize));
-  cudaChk(cudaMalloc(&ptr->d_bucketMarkers, markerSize));
-  cudaChk(cudaMalloc(&ptr->d_bucketStarts, startSize));
-  cudaChk(cudaMalloc(&ptr->d_bucketSizes, startSize));
+  cudaChk(gpuMallocHelper(&ptr->d_list, listSize));           
+  cudaChk(gpuMallocHelper(&ptr->d_bucketMarkers, markerSize)); 
+  cudaChk(gpuMallocHelper(&ptr->d_bucketStarts, startSize));   
+  cudaChk(gpuMallocHelper(&ptr->d_bucketSizes, startSize));    
   cudaChk(cudaMemcpyAsync(ptr->d_list, data->list, listSize, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(ptr->d_bucketMarkers, data->bucketMarkers, markerSize, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(ptr->d_bucketStarts, data->bucketStarts, startSize, cudaMemcpyHostToDevice, stream));
@@ -551,10 +553,10 @@ void DataTransferBasic(CudaRequest *data, CudaDevPtr *ptr){
 /// @brief Free device memory used for interaction list and bucket data
 /// @param ptr CudaDevPtr object that stores handles to device memory
 void DataTransferBasicCleanup(CudaDevPtr *ptr){
-  cudaChk(cudaFree(ptr->d_list));
-  cudaChk(cudaFree(ptr->d_bucketMarkers));
-  cudaChk(cudaFree(ptr->d_bucketStarts));
-  cudaChk(cudaFree(ptr->d_bucketSizes));
+  cudaChk(gpuFreeHelper(ptr->d_list));           
+  cudaChk(gpuFreeHelper(ptr->d_bucketMarkers)); 
+  cudaChk(gpuFreeHelper(ptr->d_bucketStarts));  
+  cudaChk(gpuFreeHelper(ptr->d_bucketSizes));   
 }
 
 /** @brief Transfer forces from the GPU back to the host. Also schedules

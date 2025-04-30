@@ -12,6 +12,7 @@
 #include <string>
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
+#include "memlog.h"
 
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
 #include "ckBIconfig.h"
@@ -186,6 +187,11 @@ public:
 	/// @brief Lock for accessing starlog from TreePieces
 	CmiNodeLock lockStarLog;
 
+	/// @brief log of CUDA memory events.
+	MemLog *memLog;
+	/// @brief Lock for accessing memlog from CUDA wrappers
+	CmiNodeLock lockMemLog;
+
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
@@ -234,6 +240,8 @@ public:
 	    CoolFinalize(Cool);
 	    delete starLog;
 	    CmiDestroyLock(lockStarLog);
+	    delete memLog;
+	    CmiDestroyLock(lockMemLog);
 #ifdef CUDA
             for (int i = 0; i < numStreams; i++) {
                 cudaStreamDestroy(streams[i]);
@@ -292,6 +300,7 @@ public:
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);
     void initStarLog(std::string _fileName, const CkCallback &cb);
+    void initMemLog(std::string _fileName, const CkCallback &cb);
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time
