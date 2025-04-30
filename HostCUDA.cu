@@ -225,10 +225,7 @@ void DataManagerNodeListDataTransferLocal(CudaRequest *data){
   DataTransferBasic(data, &devPtr);
   HAPI_TRACE_BEGIN();
 
-  dim3 dimensions = THREADS_PER_BLOCK;
- #ifdef CUDA_2D_TB_KERNEL
-    dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
- #endif
+  dim3 dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
   nodeGravityComputation<<<dim3(data->numBucketsPlusOne-1), dimensions, 0, stream>>> (
     data->d_localParts,
     data->d_localVars,
@@ -254,10 +251,7 @@ void PEListNodeListDataTransferLocal(CudaRequest *data){
     DataTransferBasic(data, &devPtr);
     HAPI_TRACE_BEGIN();
 
-    dim3 dimensions = THREADS_PER_BLOCK;
-   #ifdef CUDA_2D_TB_KERNEL
-      dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
-   #endif
+    dim3 dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
     nodeGravityComputation<<<dim3(data->numBucketsPlusOne-1), dimensions, 0, stream>>> (
       data->d_localParts,
       data->d_localVars,
@@ -300,7 +294,6 @@ void PEListPartListDataTransferLocal(CudaRequest *data){
 
     HAPI_TRACE_BEGIN();
 #ifndef CUDA_NO_KERNELS
-#ifdef CUDA_2D_TB_KERNEL
     particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
       data->d_localParts,
       data->d_localVars,
@@ -311,18 +304,6 @@ void PEListPartListDataTransferLocal(CudaRequest *data){
       devPtr.d_bucketSizes,
       data->fperiod
       );
-#else
-    particleGravityComputation<<<data->numBucketsPlusOne-1, THREADS_PER_BLOCK, 0, stream>>> (
-      data->d_localParts,
-      data->d_localVars,
-      data->d_localParts,
-      (ILPart *)devPtr.d_list,
-      devPtr.d_bucketMarkers,
-      devPtr.d_bucketStarts,
-      devPtr.d_bucketSizes,
-      data->fperiod
-      );
-#endif
 #endif
     DataTransferBasicCleanup(&devPtr);
     cudaChk(cudaPeekAtLastError());
@@ -341,10 +322,7 @@ void PEListNodeListDataTransferRemote(CudaRequest *data){
 
     HAPI_TRACE_BEGIN();
 #ifndef CUDA_NO_KERNELS
-    dim3 dimensions = THREADS_PER_BLOCK;
-#ifdef CUDA_2D_TB_KERNEL
-    dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
-#endif
+    dim3 dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
     nodeGravityComputation<<<data->numBucketsPlusOne-1, dimensions, 0, stream>>> (
       data->d_localParts,
       data->d_localVars,
@@ -377,10 +355,7 @@ void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
 
     HAPI_TRACE_BEGIN();
 #ifndef CUDA_NO_KERNELS
-      dim3 dimensions = THREADS_PER_BLOCK;
-#ifdef CUDA_2D_TB_KERNEL
-      dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
-#endif
+      dim3 dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
       nodeGravityComputation<<<data->numBucketsPlusOne-1, dimensions, 0, stream>>> (
 	data->d_localParts,
 	data->d_localVars,
@@ -423,7 +398,6 @@ void PEListPartListDataTransferRemote(CudaRequest *data){
 
     HAPI_TRACE_BEGIN();
 #ifndef CUDA_NO_KERNELS
-#ifdef CUDA_2D_TB_KERNEL
     particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
       data->d_localParts,
       data->d_localVars,
@@ -434,18 +408,6 @@ void PEListPartListDataTransferRemote(CudaRequest *data){
       devPtr.d_bucketSizes,
       data->fperiod
       );
-#else
-    particleGravityComputation<<<data->numBucketsPlusOne-1, THREADS_PER_BLOCK, 0, stream>>> (
-      data->d_localParts,
-      data->d_localVars,
-      data->d_remoteParts,
-      (ILPart *)devPtr.d_list,
-      devPtr.d_bucketMarkers,
-      devPtr.d_bucketStarts,
-      devPtr.d_bucketSizes,
-      data->fperiod
-      );
-#endif
 #endif
     DataTransferBasicCleanup(&devPtr);
     cudaChk(cudaPeekAtLastError());
@@ -482,7 +444,6 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
 
     HAPI_TRACE_BEGIN();
 #ifndef CUDA_NO_KERNELS
-#ifdef CUDA_2D_TB_KERNEL
     particleGravityComputation<<<data->numBucketsPlusOne-1, dim3(NODES_PER_BLOCK_PART, PARTS_PER_BLOCK_PART), 0, stream>>> (
       data->d_localParts,
       data->d_localVars,
@@ -493,18 +454,6 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
       devPtr.d_bucketSizes,
       data->fperiod
       );
-#else
-    particleGravityComputation<<<data->numBucketsPlusOne-1, THREADS_PER_BLOCK, 0, stream>>> (
-      data->d_localParts,
-      data->d_localVars,
-      (CompactPartData *)d_missedParts,
-      (ILPart *)devPtr.d_list,
-      devPtr.d_bucketMarkers,
-      devPtr.d_bucketStarts,
-      devPtr.d_bucketSizes,
-      data->fperiod
-      );
-#endif
 #endif
     DataTransferBasicCleanup(&devPtr);
     cudaChk(cudaFree(d_missedParts));
@@ -902,9 +851,7 @@ __global__ void gpuLocalTreeWalk(
  */
 
 // 2d thread blocks 
-#ifdef CUDA_2D_TB_KERNEL
 #define TRANSLATE(x,y) (y*NODES_PER_BLOCK+x)
-#ifndef CUDA_2D_FLAT
 __device__ __forceinline__ void ldg_moments(CudaMultipoleMoments &m, CudaMultipoleMoments *ptr)
 {
   m.radius = __ldg(&(ptr->radius));
@@ -1150,337 +1097,6 @@ __global__ void nodeGravityComputation(
   }// end for each PARTICLE group
 }
 
-#else 
-__global__ void nodeGravityComputation(
-		CompactPartData *particleCores,
-		VariablePartData *particleVars,
-		CudaMultipoleMoments *moments,
-		ILCell *ils,
-		int *ilmarks,
-		int *bucketStarts,
-		int *bucketSizes,
-		cudatype fperiod){
-  
-  __shared__ cudatype accx[THREADS_PER_BLOCK];
-  __shared__ cudatype accy[THREADS_PER_BLOCK];
-  __shared__ cudatype accz[THREADS_PER_BLOCK];
-  __shared__ cudatype pot[THREADS_PER_BLOCK];
-  __shared__ cudatype idt2[THREADS_PER_BLOCK];
-  //__shared__ cudatype mr[NODES_PER_BLOCK];
-  __shared__ cudatype ms[NODES_PER_BLOCK];
-  __shared__ cudatype mt[NODES_PER_BLOCK];
-  __shared__ cudatype mcmx[NODES_PER_BLOCK];
-  __shared__ cudatype mcmy[NODES_PER_BLOCK];
-  __shared__ cudatype mcmz[NODES_PER_BLOCK];
-  __shared__ cudatype mxx[NODES_PER_BLOCK];
-  __shared__ cudatype mxy[NODES_PER_BLOCK];
-  __shared__ cudatype mxz[NODES_PER_BLOCK];
-  __shared__ cudatype myy[NODES_PER_BLOCK];
-  __shared__ cudatype myz[NODES_PER_BLOCK];
-  __shared__ cudatype mzz[NODES_PER_BLOCK];
-  __shared__ int offsetID[NODES_PER_BLOCK];
-  __shared__ CompactPartData shared_particle_cores[PARTS_PER_BLOCK];
-
-  int start = ilmarks[blockIdx.x];
-  int end = ilmarks[blockIdx.x+1];
-  int bucketStart = bucketStarts[blockIdx.x];
-  int bucketSize = bucketSizes[blockIdx.x];
-
-  /*
-  __shared__ int start;
- __shared__ int end;
- __shared__ int bucketStart;
- __shared__ int bucketSize;
- */
-
-  int tx, ty;
-
-/*
-  if(threadIdx.x == 0 && threadIdx.y == 0){
-    start = ilmarks[blockIdx.x];
-    end = ilmarks[blockIdx.x+1];
-    bucketStart = bucketStarts[blockIdx.x];
-    bucketSize = bucketSizes[blockIdx.x];
-  }
-  __syncthreads();
-  */
-
-  int xstart;
-  int ystart;
-  tx = threadIdx.x;
-  ty = threadIdx.y;
-
-  for(ystart = 0; ystart < bucketSize; ystart += PARTS_PER_BLOCK){
-  
-
-    int my_particle_idx = ystart + ty;
-    if(tx == 0 && my_particle_idx < bucketSize){
-      shared_particle_cores[ty] = particleCores[bucketStart+my_particle_idx];
-    }
-    
-    __syncthreads(); // wait for leader threads to finish using acc's, pot's of other threads
-    accx[TRANSLATE(tx,ty)] = 0.0;
-    accy[TRANSLATE(tx,ty)] = 0.0;
-    accz[TRANSLATE(tx,ty)] = 0.0;
-    pot[TRANSLATE(tx,ty)] = 0.0;
-    idt2[TRANSLATE(tx,ty)] = 0.0;
-    
-    
-    for(xstart = start; xstart < end; xstart += NODES_PER_BLOCK){
-      int my_cell_idx = xstart + tx;
-      ILCell ilc;
-
-      __syncthreads(); // wait for all threads to finish using 
-                       // previous iteration's nodes before reloading
-      
-      if(ty == 0 && my_cell_idx < end){
-        ilc = ils[my_cell_idx];
-        //mr[tx] = moments[ilc.index].radius;
-        ms[tx] = moments[ilc.index].soft;
-        mt[tx] = moments[ilc.index].totalMass;
-        mcmx[tx] = moments[ilc.index].cm.x;
-        mcmy[tx] = moments[ilc.index].cm.y;
-        mcmz[tx] = moments[ilc.index].cm.z;
-        mxx[tx] = moments[ilc.index].xx;
-        mxy[tx] = moments[ilc.index].xy;
-        mxz[tx] = moments[ilc.index].xz;
-        myy[tx] = moments[ilc.index].yy;
-        myz[tx] = moments[ilc.index].yz;
-        mzz[tx] = moments[ilc.index].zz;
-        offsetID[tx] = ilc.offsetID;
-      }
-      
-      __syncthreads(); // wait for nodes to be loaded before using them
-      
-      if(my_particle_idx < bucketSize && my_cell_idx < end){ // INTERACT
-        CudaVector3D r;
-        cudatype rsq;
-        cudatype twoh, a, b, c, d;
-
-        r.x = shared_particle_cores[ty].position.x -
-          ((((offsetID[tx] >> 22) & 0x7)-3)*fperiod + mcmx[tx]);
-        r.y = shared_particle_cores[ty].position.y -
-          ((((offsetID[tx] >> 25) & 0x7)-3)*fperiod + mcmy[tx]);
-        r.z = shared_particle_cores[ty].position.z -
-          ((((offsetID[tx] >> 28) & 0x7)-3)*fperiod + mcmz[tx]);
-
-        rsq = r.x*r.x + r.y*r.y + r.z*r.z;        
-        twoh = ms[tx] + shared_particle_cores[ty].soft;
-        if(rsq != 0){
-          cudatype dir = 1.0/sqrt(rsq);
-          // SPLINEQ(dir, rsq, twoh, a, b, c, d);
-          // expansion of function below:
-          cudatype u,dih;
-          if (rsq < twoh*twoh) {
-            dih = 2.0/twoh;
-            u = dih/dir;
-            if (u < 1.0) {
-              a = dih*(7.0/5.0 - 2.0/3.0*u*u + 3.0/10.0*u*u*u*u
-                  - 1.0/10.0*u*u*u*u*u);
-              b = dih*dih*dih*(4.0/3.0 - 6.0/5.0*u*u + 1.0/2.0*u*u*u);
-              c = dih*dih*dih*dih*dih*(12.0/5.0 - 3.0/2.0*u);
-              d = 3.0/2.0*dih*dih*dih*dih*dih*dih*dir;
-            }
-            else {
-              a = -1.0/15.0*dir + dih*(8.0/5.0 - 4.0/3.0*u*u + u*u*u
-                  - 3.0/10.0*u*u*u*u + 1.0/30.0*u*u*u*u*u);
-              b = -1.0/15.0*dir*dir*dir + dih*dih*dih*(8.0/3.0 - 3.0*u
-                  + 6.0/5.0*u*u - 1.0/6.0*u*u*u);
-              c = -1.0/5.0*dir*dir*dir*dir*dir + 3.0*dih*dih*dih*dih*dir
-                + dih*dih*dih*dih*dih*(-12.0/5.0 + 1.0/2.0*u);
-              d = -dir*dir*dir*dir*dir*dir*dir
-                + 3.0*dih*dih*dih*dih*dir*dir*dir
-                - 1.0/2.0*dih*dih*dih*dih*dih*dih*dir;
-            }
-          }
-          else {
-            a = dir;
-            b = a*a*a;
-            c = 3.0*b*a*a;
-            d = 5.0*c*a*a;
-          }
-
-          cudatype qirx = mxx[tx]*r.x + mxy[tx]*r.y + mxz[tx]*r.z;
-          cudatype qiry = mxy[tx]*r.x + myy[tx]*r.y + myz[tx]*r.z;
-          cudatype qirz = mxz[tx]*r.x + myz[tx]*r.y + mzz[tx]*r.z;
-          cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
-          cudatype tr = 0.5*(mxx[tx] + myy[tx] + mzz[tx]);
-          cudatype qir3 = b*mt[tx] + d*qir - c*tr;
-
-          pot[TRANSLATE(tx, ty)] -= mt[tx] * a + c*qir - b*tr;
-
-          accx[TRANSLATE(tx, ty)] -= qir3*r.x - c*qirx;
-          accy[TRANSLATE(tx, ty)] -= qir3*r.y - c*qiry;
-          accz[TRANSLATE(tx, ty)] -= qir3*r.z - c*qirz;
-          idt2[TRANSLATE(tx, ty)] = fmax(idt2[TRANSLATE(tx, ty)],
-                                    (shared_particle_cores[ty].mass + mt[tx]) * b);
-        }// end if rsq != 0
-      }// end INTERACT
-    }// end for each NODE group
-
-    __syncthreads(); // wait for all threads to finish before results become available
-
-    cudatype sumx, sumy, sumz, poten, idt2max;
-    sumx = sumy = sumz = poten = idt2max = 0.0;
-    // accumulate forces, potential in global memory data structure
-    if(tx == 0 && my_particle_idx < bucketSize){
-      for(int i = 0; i < NODES_PER_BLOCK; i++){
-        sumx += accx[TRANSLATE(i,ty)];
-        sumy += accy[TRANSLATE(i,ty)];
-        sumz += accz[TRANSLATE(i,ty)];
-        poten += pot[TRANSLATE(i,ty)];
-        idt2max = fmax(idt2[TRANSLATE(i,ty)], idt2max);
-      }
-      particleVars[bucketStart+my_particle_idx].a.x += sumx;
-      particleVars[bucketStart+my_particle_idx].a.y += sumy;
-      particleVars[bucketStart+my_particle_idx].a.z += sumz;
-      particleVars[bucketStart+my_particle_idx].potential += poten;
-      particleVars[bucketStart+my_particle_idx].dtGrav = fmax(idt2max,  particleVars[bucketStart+my_particle_idx].dtGrav);
-    }
-
-  }// end for each PARTICLE group
-}
-#endif
-#else
-__global__ void nodeGravityComputation(
-		CompactPartData *particleCores,
-		VariablePartData *particleVars,
-		CudaMultipoleMoments *moments,
-		ILCell *ils,
-		int *ilmarks,
-		int *bucketStarts,
-		int *bucketSizes,
-		cudatype fperiod){
-
-  // each thread has its own storage for these
-  __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
-  __shared__ cudatype pot[THREADS_PER_BLOCK];
-  __shared__ cudatype idt2[THREADS_PER_BLOCK];
-  __shared__ CudaMultipoleMoments m[THREADS_PER_BLOCK];
-
-  __shared__ CompactPartData shared_particle_core;
-
-
-  // each block is given a bucket to compute
-  // each thread in the block computes an interaction of a particle with a node
-  // threads must iterate through the interaction lists and sync.
-  // then, block leader (first rank in each block) reduces the forces and commits 
-  // values to global memory.
-  int bucket = blockIdx.x;
-  int start = ilmarks[bucket];
-  int end = ilmarks[bucket+1];
-  int bucketSize = bucketSizes[bucket];
-  int bucketStart = bucketStarts[bucket];
-  int thread = threadIdx.x;
-
-  CudaVector3D r;
-  cudatype rsq;
-  cudatype twoh, a, b, c, d;
-
-  for(int particle = 0; particle < bucketSize; particle++){
-    if(thread == 0){
-      // load shared_particle_core
-      shared_particle_core = particleCores[bucketStart+particle];
-    }
-    __syncthreads();
-
-    acc[thread].x = 0;
-    acc[thread].y = 0;
-    acc[thread].z = 0;
-    pot[thread] = 0;
-    idt2[thread] = 0;
-
-    for(int node = start+thread; node < end; node+=THREADS_PER_BLOCK){
-      ILCell ilc = ils[node];
-      m[thread] = moments[ilc.index];
-      int offsetID = ilc.offsetID;
-
-      r.x = shared_particle_core.position.x -
-        ((((offsetID >> 22) & 0x7)-3)*fperiod + m[thread].cm.x);
-      r.y = shared_particle_core.position.y -
-        ((((offsetID >> 25) & 0x7)-3)*fperiod + m[thread].cm.y);
-      r.z = shared_particle_core.position.z -
-        ((((offsetID >> 28) & 0x7)-3)*fperiod + m[thread].cm.z);
-
-      rsq = r.x*r.x + r.y*r.y + r.z*r.z;        
-      twoh = m[thread].soft + shared_particle_core.soft;
-      if(rsq != 0){
-        cudatype dir = 1.0/sqrt(rsq);
-        // SPLINEQ(dir, rsq, twoh, a, b, c, d);
-        // expansion of function below:
-        cudatype u,dih;
-        if (rsq < twoh*twoh) {
-          dih = 2.0/twoh;
-          u = dih/dir;
-          if (u < 1.0) {
-            a = dih*(7.0/5.0 - 2.0/3.0*u*u + 3.0/10.0*u*u*u*u
-                - 1.0/10.0*u*u*u*u*u);
-            b = dih*dih*dih*(4.0/3.0 - 6.0/5.0*u*u + 1.0/2.0*u*u*u);
-            c = dih*dih*dih*dih*dih*(12.0/5.0 - 3.0/2.0*u);
-            d = 3.0/2.0*dih*dih*dih*dih*dih*dih*dir;
-          }
-          else {
-            a = -1.0/15.0*dir + dih*(8.0/5.0 - 4.0/3.0*u*u + u*u*u
-                - 3.0/10.0*u*u*u*u + 1.0/30.0*u*u*u*u*u);
-            b = -1.0/15.0*dir*dir*dir + dih*dih*dih*(8.0/3.0 - 3.0*u
-                + 6.0/5.0*u*u - 1.0/6.0*u*u*u);
-            c = -1.0/5.0*dir*dir*dir*dir*dir + 3.0*dih*dih*dih*dih*dir
-              + dih*dih*dih*dih*dih*(-12.0/5.0 + 1.0/2.0*u);
-            d = -dir*dir*dir*dir*dir*dir*dir
-              + 3.0*dih*dih*dih*dih*dir*dir*dir
-              - 1.0/2.0*dih*dih*dih*dih*dih*dih*dir;
-          }
-        }
-        else {
-          a = dir;
-          b = a*a*a;
-          c = 3.0*b*a*a;
-          d = 5.0*c*a*a;
-        }
-
-        cudatype qirx = m[thread].xx*r.x + m[thread].xy*r.y + m[thread].xz*r.z;
-        cudatype qiry = m[thread].xy*r.x + m[thread].yy*r.y + m[thread].yz*r.z;
-        cudatype qirz = m[thread].xz*r.x + m[thread].yz*r.y + m[thread].zz*r.z;
-        cudatype qir = 0.5*(qirx*r.x + qiry*r.y + qirz*r.z);
-        cudatype tr = 0.5*(m[thread].xx + m[thread].yy + m[thread].zz);
-        cudatype qir3 = b*m[thread].totalMass + d*qir - c*tr;
-
-        pot[thread] -= m[thread].totalMass * a + c*qir - b*tr;
-
-        acc[thread].x -= qir3*r.x - c*qirx;
-        acc[thread].y -= qir3*r.y - c*qiry;
-        acc[thread].z -= qir3*r.z - c*qirz;
-        idt2[thread] = fmax(idt2[thread], (shared_particle_core.mass + m[thread].totalMass)*b);
-      }// end if rsq != 0
-    }// for each node in list
-    __syncthreads();
-    // at this point, the total force on particle is distributed among
-    // all active threads;
-    // reduce.
-    // TODO: make this a parallel reduction
-
-    cudatype sumx, sumy, sumz, poten, idt2max;
-    sumx = sumy = sumz = poten = idt2max = 0.0;
-    if(thread == 0){
-      for(int i = 0; i < THREADS_PER_BLOCK; i++){
-        sumx += acc[i].x;
-        sumy += acc[i].y;
-        sumz += acc[i].z;
-        poten += pot[i];
-        idt2max = fmax(idt2[i], idt2max);
-      }
-      particleVars[bucketStart+particle].a.x += sumx;
-      particleVars[bucketStart+particle].a.y += sumy;
-      particleVars[bucketStart+particle].a.z += sumz;
-      particleVars[bucketStart+particle].potential += poten;
-      particleVars[bucketStart+particle].dtGrav = fmax(idt2max,  particleVars[bucketStart+particle].dtGrav);
-    }
-  }// for each particle in bucket
-
-      
-}
-#endif
-
 /**
  * @brief interaction between source particles and buckets of particles.
  * @param particleCores Read-only properties of target particles.
@@ -1502,7 +1118,6 @@ __device__ __forceinline__ void ldg_cPartData(CompactPartData &m, CompactPartDat
   m.position.z   = __ldg(&(ptr->position.z));
 }
 
-#ifdef CUDA_2D_TB_KERNEL
 #define TRANSLATE_PART(x,y) (y*NODES_PER_BLOCK_PART+x)
 //__launch_bounds__(maxThreadsPerBlock, minBlocksPerMultiprocessor)
 //maxThreadsPerBlock needs to be a multiple of 128, this can be used 
@@ -1696,136 +1311,6 @@ __global__ void particleGravityComputation(
 
   }// end for each PARTICLE group
 }
-#else
-__launch_bounds__(896, 1)
-__global__ void particleGravityComputation(
-                                   CompactPartData *targetCores,
-                                   VariablePartData *targetVars,
-                                   CompactPartData *sourceCores,
-                                   ILPart *ils,
-                                   int *ilmarks,
-		                   int *bucketStarts,
-		                   int *bucketSizes,
-		                   cudatype fperiod){
-
-  // each thread has its own storage for these
-  __shared__ CudaVector3D acc[THREADS_PER_BLOCK];
-  __shared__ cudatype pot[THREADS_PER_BLOCK];
-  __shared__ cudatype idt2[THREADS_PER_BLOCK];
-  __shared__ CompactPartData source_cores[THREADS_PER_BLOCK];
-
-  __shared__ CompactPartData shared_target_core;
-
-
-  // each block is given a bucket to compute
-  // each thread in the block computes an interaction of a particle with a node
-  // threads must iterate through the interaction lists and sync.
-  // then, block leader (first rank in each block) reduces the forces and commits 
-  // values to global memory.
-  int bucket = blockIdx.x;
-  int start = ilmarks[bucket];
-  int end = ilmarks[bucket+1];
-  int bucketSize = bucketSizes[bucket];
-  int bucketStart = bucketStarts[bucket];
-  int thread = threadIdx.x;
-
-  CudaVector3D r;
-  cudatype rsq;
-  cudatype twoh, a, b;
-
-  for(int target = 0; target < bucketSize; target++){
-    if(thread == 0){
-      shared_target_core = targetCores[bucketStart+target];
-    }
-    __syncthreads();
-
-    acc[thread].x = 0;
-    acc[thread].y = 0;
-    acc[thread].z = 0;
-    pot[thread] = 0;
-    idt2[thread] = 0;
-
-    for(int source = start+thread; source < end; source += THREADS_PER_BLOCK){
-      ILPart ilp = ils[source]; 
-      int oid = ilp.off;
-      int num = ilp.num;
-      int ilpindex = ilp.index;
-
-      for(int particle = 0; particle < num; particle++){
-        source_cores[thread] = sourceCores[ilpindex+particle];
-
-        r.x = (((oid >> 22) & 0x7)-3)*fperiod +
-          source_cores[thread].position.x -
-          shared_target_core.position.x;
-
-        r.y = (((oid >> 25) & 0x7)-3)*fperiod +
-          source_cores[thread].position.y -
-          shared_target_core.position.y;
-
-        r.z = (((oid >> 28) & 0x7)-3)*fperiod +
-          source_cores[thread].position.z -
-          shared_target_core.position.z;
-
-        rsq = r.x*r.x + r.y*r.y + r.z*r.z;
-        twoh = source_cores[thread].soft + shared_target_core.soft;
-        if(rsq != 0){
-          cudatype r1, u,dih,dir;
-          r1 = sqrt(rsq);
-          if (r1 < (twoh)) {
-            dih = 2.0/(twoh);
-            u = r1*dih;
-            if (u < 1.0) {
-              a = dih*(7.0/5.0 - 2.0/3.0*u*u + 3.0/10.0*u*u*u*u
-                  - 1.0/10.0*u*u*u*u*u);
-              b = dih*dih*dih*(4.0/3.0 - 6.0/5.0*u*u
-                  + 1.0/2.0*u*u*u);
-            }
-            else {
-              dir = 1.0/r1;
-              a = -1.0/15.0*dir + dih*(8.0/5.0 - 4.0/3.0*u*u +
-                  u*u*u - 3.0/10.0*u*u*u*u + 1.0/30.0*u*u*u*u*u);
-              b = -1.0/15.0*dir*dir*dir +
-                dih*dih*dih*(8.0/3.0 - 3.0*u +
-                    6.0/5.0*u*u - 1.0/6.0*u*u*u);
-            }
-          }
-          else {
-            a = 1.0/r1;
-            b = a*a*a;
-          }
-
-          pot[thread] -= source_cores[thread].mass * a;
-
-          acc[thread].x += r.x*b*source_cores[thread].mass;
-          acc[thread].y += r.y*b*source_cores[thread].mass;
-          acc[thread].z += r.z*b*source_cores[thread].mass;
-          idt2[thread] = fmax(idt2[thread], (shared_target_core.mass + source_cores[thread].mass) * b);
-        }// if rsq != 0
-      }// for each particle in source bucket
-    }// for each source bucket 
-
-    __syncthreads();
-  
-    cudatype sumx, sumy, sumz, poten, idt2max;
-    sumx = sumy = sumz = poten = idt2max = 0.0;
-    if(thread == 0){
-      for(int i = 0; i < THREADS_PER_BLOCK; i++){
-        sumx += acc[i].x;
-        sumy += acc[i].y;
-        sumz += acc[i].z;
-        poten += pot[i];
-        idt2max = fmax(idt2[i], idt2max);
-      }
-      targetVars[bucketStart+target].a.x += sumx;
-      targetVars[bucketStart+target].a.y += sumy;
-      targetVars[bucketStart+target].a.z += sumz;
-      targetVars[bucketStart+target].potential += poten;
-      targetVars[bucketStart+target].dtGrav = fmax(idt2max,  targetVars[bucketStart+target].dtGrav);
-    }
-
-  }// for each target part
-}
-#endif
 
 __global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int First, int Last);
 
