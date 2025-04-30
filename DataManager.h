@@ -195,7 +195,7 @@ public:
 #endif
         void resumeRemoteChunk();
 #ifdef CUDA
-        void startEwaldGPU(int largephase);
+        void startEwaldGPU();
         void finishEwaldGPU();
 	void createStreams(int _numStreams, const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper

@@ -496,7 +496,7 @@ void DataManager::serializeLocalTree(){
 
 /// @brief Record when all TreePieces have finished their Ewald initilization
 /// Launch the Ewald kernel on the GPU
-void DataManager::startEwaldGPU(int largephase) {
+void DataManager::startEwaldGPU() {
     CmiLock(__nodelock);
     treePiecesEwaldReady++;
     if(treePiecesEwaldReady == registeredTreePieces.length()){

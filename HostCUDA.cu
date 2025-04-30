@@ -1827,7 +1827,7 @@ __global__ void particleGravityComputation(
 }
 #endif
 
-__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int largephase, int First, int Last);
+__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int First, int Last);
 
 extern unsigned int timerHandle; 
 
@@ -1849,7 +1849,7 @@ void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_
 
   EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>((CompactPartData *)d_localParts,
                                           (VariablePartData *)d_localVars,
-            1, 0, nActive);
+            0, nActive);
   cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_EWALD);
 
@@ -1860,19 +1860,13 @@ void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_
 
 __global__ void EwaldKernel(CompactPartData *particleCores, 
                                VariablePartData *particleVars, 
-                               int largephase,
                                int First, int Last) {
   /////////////////////////////////////
   ////////////// Ewald TOP ////////////
   /////////////////////////////////////
   int id;
-  if(largephase){
-    id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if(id > Last) return;
-  }else{
-    id = First + blockIdx.x * BLOCK_SIZE + threadIdx.x;
-    if(id > Last) return;
-  }
+  id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+  if(id > Last) return;
 
   CompactPartData *p;
 

@@ -145,10 +145,6 @@ int localPartsPerReq;
 int remotePartsPerReq;
 int remoteResumePartsPerReq;
 
-// multi-stepping particle transfer strategy 
-// switch threshold
-double largePhaseThreshold;
-
 cosmoType theta;                   ///< BH-like opening criterion
 cosmoType thetaMono;               ///< Criterion of excepting monopole
                                 ///  only cells.
@@ -898,10 +894,6 @@ Main::Main(CkArgMsg* m) {
           prmAddParam(prm, "remoteResumePartsPerReq", paramDouble, &remoteResumePartsPerReqDouble,
               sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request (in millions)");
 
-          largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
-//          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
-//              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
-
 #endif
 
         int processSimfile = 1;
@@ -1107,9 +1099,6 @@ Main::Main(CkArgMsg* m) {
           ckout << "remoteParts: " << remotePartsPerReqDouble << endl;
           ckout << "INFO: ";
           ckout << "remoteResumeParts: " << remoteResumePartsPerReqDouble << endl;
-
-          ckout << "INFO: largePhaseThreshold: " << largePhaseThreshold << endl;
-
 #endif
 
 	if(prmSpecified(prm, "bGeometric")) {

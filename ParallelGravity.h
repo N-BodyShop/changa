@@ -208,8 +208,6 @@ extern int localPartsPerReq;
 extern int remotePartsPerReq;
 extern int remoteResumePartsPerReq;
 
-extern double largePhaseThreshold;
-
 extern cosmoType theta;
 extern cosmoType thetaMono;
 
@@ -930,12 +928,7 @@ class TreePiece : public CBase_TreePiece {
         // depending on fraction of active particles to their
         // total count.
         int getDMNumParticles(){
-          if(largePhase()){
-            return myNumParticles;
-          }
-          else{
-            return myNumActiveParticles; 
-          }
+          return myNumParticles;
         }
 
         int getNumActiveParticles(){
@@ -951,48 +944,20 @@ class TreePiece : public CBase_TreePiece {
           }
         }
 
-        bool largePhase(){
-          return (1.0*myNumActiveParticles/myNumParticles) >= largePhaseThreshold;
-        }
-
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
           NumberOfGPUParticles = 0;
           FirstGPUParticleIndex = fillIndex;//This is for the GPU Ewald
-          if(largePhase()){
-            for(int b = 0; b < numBuckets; b++){
-              GenericTreeNode *bucket = bucketList[b];
-              int buckstart = bucket->firstParticle;
-              int buckend = bucket->lastParticle;
-              GravityParticle *buckparts = bucket->particlePointer;
-              bucket->bucketArrayIndex = fillIndex;
-              for(int i = buckstart; i <= buckend; i++){
-                fillArray[fillIndex] = buckparts[i-buckstart];
-                fillIndex++;
-              }
-            }
-          }
-          else{
-            for(int b = 0; b < numBuckets; b++){
-              GenericTreeNode *bucket = bucketList[b];
-              if(bucket->rungs < activeRung){
-                continue;
-              }
-              BucketActiveInfo *binfo = &(bucketActiveInfo[b]);
-              
-              int buckstart = bucket->firstParticle;
-              int buckend = bucket->lastParticle;
-              GravityParticle *buckparts = bucket->particlePointer;
-
-              binfo->start = fillIndex;
-              for(int i = buckstart; i <= buckend; i++){
-                if(buckparts[i-buckstart].rung >= activeRung){
-                  fillArray[fillIndex] = buckparts[i-buckstart];
-                  fillIndex++;
-                }
-              }
-              binfo->size = fillIndex-binfo->start;
-            }
-          }
+	  for(int b = 0; b < numBuckets; b++){
+	    GenericTreeNode *bucket = bucketList[b];
+	    int buckstart = bucket->firstParticle;
+	    int buckend = bucket->lastParticle;
+	    GravityParticle *buckparts = bucket->particlePointer;
+	    bucket->bucketArrayIndex = fillIndex;
+	    for(int i = buckstart; i <= buckend; i++){
+	      fillArray[fillIndex] = buckparts[i-buckstart];
+	      fillIndex++;
+	    }
+	  }
           //This is for the GPU Ewald
           if(FirstGPUParticleIndex == fillIndex){
             //This means no particle is on GPU
