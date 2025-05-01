@@ -18,6 +18,7 @@ enum MemLogOpType {
 /** @brief Holds information about a single CUDA memory event */
 class MemLogEvent {
 public:
+    int nodeId;               // ID of the node where the event occurred (CkMyNode())
     MemLogOpType opType;      // Type of memory operation
     size_t size;              // Size of memory block (for alloc/alloc_fail)
     uintptr_t address;        // Memory address (device pointer)
@@ -26,11 +27,11 @@ public:
     std::string tag;          // User-provided tag for the operation
 
     // Default constructor
-    MemLogEvent() : opType(MEMLOG_ALLOC), size(0), address(0), timestamp(0.0) {}
+    MemLogEvent() : nodeId(-1), opType(MEMLOG_ALLOC), size(0), address(0), timestamp(0.0) {}
 
     // Constructor
-    MemLogEvent(MemLogOpType _opType, size_t _size, uintptr_t _address, double _timestamp, const char* _file, int _line, const char* _tag)
-        : opType(_opType), size(_size), address(_address), timestamp(_timestamp), tag(_tag ? _tag : "") {
+    MemLogEvent(int _nodeId, MemLogOpType _opType, size_t _size, uintptr_t _address, double _timestamp, const char* _file, int _line, const char* _tag)
+        : nodeId(_nodeId), opType(_opType), size(_size), address(_address), timestamp(_timestamp), tag(_tag ? _tag : "") {
         // Combine file and line into location string
         location = std::string(_file ? _file : "unknown") + ":" + std::to_string(_line);
     }

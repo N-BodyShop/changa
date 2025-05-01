@@ -27,7 +27,7 @@ cudaError_t gpuMallocTracked(void** devPtr, size_t size, const char* tag, const 
     if (dm && dm->memLog) { // Check if dm and memLog are valid
         MemLogOpType opType = (result == cudaSuccess) ? MEMLOG_ALLOC : MEMLOG_ALLOC_FAIL;
         uintptr_t address = (result == cudaSuccess && *devPtr != NULL) ? (uintptr_t)(*devPtr) : 0;
-        MemLogEvent event(opType, size, address, timestamp_after, file, line, tag);
+        MemLogEvent event(CkMyNode(), opType, size, address, timestamp_after, file, line, tag);
 
         CmiLock(dm->lockMemLog);
         dm->memLog->meTab.push_back(event);
@@ -51,7 +51,7 @@ cudaError_t gpuFreeTracked(void* devPtr, const char* tag, const char* file, int 
         // fflush(stdout);
         opType = MEMLOG_FREE_SKIP;
         if (dm && dm->memLog) {
-             MemLogEvent event(opType, 0, address, timestamp, file, line, tag);
+             MemLogEvent event(CkMyNode(), opType, 0, address, timestamp, file, line, tag);
              CmiLock(dm->lockMemLog);
              dm->memLog->meTab.push_back(event);
              CmiUnlock(dm->lockMemLog);
@@ -69,7 +69,7 @@ cudaError_t gpuFreeTracked(void* devPtr, const char* tag, const char* file, int 
     opType = (result == cudaSuccess) ? MEMLOG_FREE : MEMLOG_FREE_FAIL;
 
     if (dm && dm->memLog) {
-        MemLogEvent event(opType, 0, address, timestamp_after, file, line, tag); // Size is 0 for free operations
+        MemLogEvent event(CkMyNode(), opType, 0, address, timestamp_after, file, line, tag); // Size is 0 for free operations
         CmiLock(dm->lockMemLog);
         dm->memLog->meTab.push_back(event);
         CmiUnlock(dm->lockMemLog);
@@ -95,9 +95,14 @@ void DataManager::initMemLog(std::string _fileName, const CkCallback &cb) {
 /// @brief Initializes the memory log file on PE 0 and distributes the filename.
 /// Mimics the Main::initStarLog pattern.
 void Main::initMemLog() {
-    std::string memLogFile = ".memlog"; // Hardcoded filename
+    std::string memLogFile = "memlog.out"; // Hardcoded filename
 
-    // PE 0 creates/truncates the file and writes a header
+    // Create a callback to wait for all DMs to receive the filename
+    // Call the init function on the DataManager on all PEs
+    dMProxy.initMemLog(memLogFile, CkCallbackResumeThread());
+    // Implicit wait for all PEs to finish DataManager::initMemLog happens here
+
+    // PE 0 creates/truncates the file and writes a header AFTER the barrier completes
     if (CkMyPe() == 0) {
         FILE* fpLog = CmiFopen(memLogFile.c_str(), "w");
         if (fpLog == NULL) {
@@ -107,19 +112,13 @@ void Main::initMemLog() {
             // For now, print and continue, logging might just fail silently later.
         } else {
             fprintf(fpLog, "# ChaNGa Memory Log v1.0\n");
-            fprintf(fpLog, "# OpType Size Address Timestamp File:Line Tag\n");
+            fprintf(fpLog, "# NodeID OpType Size Address Timestamp File:Line Tag\n");
             int close_err = CmiFclose(fpLog);
              if (close_err != 0) {
                  CkPrintf("ERROR: PE 0 failed to close memlog file: %s (Error %d)\n", memLogFile.c_str(), close_err);
              }
         }
     }
-
-    // Create a callback to wait for all DMs to receive the filename
-    CkCallback cb = CkCallbackResumeThread();
-    // Call the init function on the DataManager on all PEs
-    dMProxy.initMemLog(memLogFile, cb);
-    // Implicit wait for all PEs to finish DataManager::initMemLog happens here due to CkCallbackResumeThread
 }
 
 /// @brief Flush memlog table to disk sequentially across nodes.
@@ -173,10 +172,11 @@ void MemLog::flush() {
             default:                opTypeStr = "UNKNOWN";    break;
         }
 
-        // Format: OpType Size Address Timestamp File:Line Tag
-        // Use %zu for size_t, %p for pointer (address), %.6f for timestamp
+        // Format: NodeID OpType Size Address Timestamp File:Line Tag
+        // Use %d for NodeID, %zu for size_t, %p for pointer (address), %.6f for timestamp
         // Ensure tag does not contain problematic characters if needed (currently assuming ok)
-        fprintf(outfile, "%s %zu %p %.6f %s %s\n",
+        fprintf(outfile, "%d %s %zu %p %.6f %s %s\n",
+                event.nodeId,
                 opTypeStr,
                 event.size,
                 (void*)event.address, // Cast uintptr_t back to void* for %p
