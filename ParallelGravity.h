@@ -609,6 +609,7 @@ public:
 	void initSph();
 	void initCooling();
 	void initStarLog();
+  void initMemLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);

@@ -301,6 +301,7 @@ public:
 		     COOLPARAM inParam, const CkCallback& cb);
     void initStarLog(std::string _fileName, const CkCallback &cb);
     void initMemLog(std::string _fileName, const CkCallback &cb);
+    void flushMemLog(const CkCallback& cb);
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time
