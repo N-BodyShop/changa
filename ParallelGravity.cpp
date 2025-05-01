@@ -119,10 +119,6 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 /// @brief Number of pieces into which to divide the tree.
 unsigned int numTreePieces;
-#ifdef CUDA
-    /// @brief Number of CUDA streams to use
-    unsigned int numStreams;
-#endif
 /// @brief Number of particles per TreePiece.  Used to determine the
 /// number of TreePieces.
 unsigned int particlesPerChare;
@@ -756,9 +752,6 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
 		    sizeof(int),"p", "Number of TreePieces (default: 8*procs)");
 #ifdef CUDA
-        numStreams = 100;
-        prmAddParam(prm, "nStreams", paramInt, &numStreams,
-                    sizeof(int),"str", "Number of CUDA streams (default: 100)");
         param.nGpuMinParts = 1000;
         prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
                     sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
@@ -1739,9 +1732,6 @@ void Main::buildTree(int iPhase)
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
 
-#ifdef CUDA
-    dMProxy.assignCUDAStreams(CkCallbackResumeThread());
-#endif
     double tTB =  CkWallTimer()-startTime;
     timings[iPhase].tTBuild += tTB;
     CkPrintf("took %g seconds.\n", tTB);
@@ -2204,9 +2194,6 @@ void Main::advanceBigStep(int iStep) {
 void Main::setupICs() {
   double startTime;
 
-#ifdef CUDA
-  dMProxy.createStreams(numStreams, CkCallbackResumeThread());
-#endif
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,

@@ -126,7 +126,6 @@ void PEList::sendList(TreePiece *treePiece, CudaRequest* data) {
     d_localVars = data->d_localVars;
     d_remoteParts = data->d_remoteParts;
     d_remoteMoments = data->d_remoteMoments;
-    stream = data->stream;
     fperiod = data->fperiod;
 
     treePiece->cudaFinishAffectedBuckets(data->affectedBuckets, numBuckets, bRemote);

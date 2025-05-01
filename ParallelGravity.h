@@ -990,9 +990,6 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
 #ifdef CUDA
-       void assignCUDAStream(intptr_t stream) {
-         this->stream = *((cudaStream_t *) stream);
-       }
        void assignGPUGravityPtrs(intptr_t d_localMoments,
                                  intptr_t d_localParts,
                                  intptr_t d_localVars,

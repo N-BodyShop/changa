@@ -27,8 +27,6 @@
 /** @brief Data and parameters for requesting gravity calculations on
  * the GPU. */
 typedef struct _CudaRequest{
-        /// CUDA stream to handle memory operations and kernel launches for this request
-        /// Allocation and deallocation of the stream is handled by the DataManager
 	cudaStream_t stream;
 
 	/// for accessing device memory
