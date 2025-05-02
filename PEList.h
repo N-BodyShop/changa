@@ -3,6 +3,24 @@
 
 #include "ParallelGravity.h"
 
+// To use pinned host memory with a std::vector
+template <typename T>
+struct PinnedHostAllocator
+{
+	typedef T value_type;
+
+	T* allocate(size_t n) {
+            size_t size = n*sizeof(T);
+	    void *ptr = NULL;
+	    allocatePinnedHostMemory(&ptr, size);
+	    return reinterpret_cast<T*>(ptr);
+	}
+
+	void deallocate(T* p, size_t n) {
+            freePinnedHostMemory(p);
+	}
+};
+
 // Need a separate class for each type of request (particle, node, local, remote)
 class PEList : public CBase_PEList
 {
@@ -11,15 +29,15 @@ class PEList : public CBase_PEList
     /// Count of TreePieces with particles on this PE
     NonEmptyTreePieceCounter cTreePieces;
 
-    CkVec<ILCell> iList;
+    vector<ILCell, PinnedHostAllocator<ILCell>> iList;
 
-    CkVec<int> bucketMarkers;
+    vector<int, PinnedHostAllocator<int>> bucketMarkers;
     int finalBucketMarker;
-    CkVec<int> bucketStarts;
-    CkVec<int> bucketSizes;
+    vector<int, PinnedHostAllocator<int>> bucketStarts;
+    vector<int, PinnedHostAllocator<int>> bucketSizes;
 
-    CkVec<CompactPartData> missedParts;
-    CkVec<CudaMultipoleMoments> missedNodes;
+    vector<CompactPartData, PinnedHostAllocator<CompactPartData>> missedParts;
+    vector<CudaMultipoleMoments, PinnedHostAllocator<CudaMultipoleMoments>> missedNodes;
 
     /// Type of request
     int bNode;
