@@ -24,14 +24,15 @@ public:
     uintptr_t address;        // Memory address (device pointer)
     double timestamp;         // Timestamp of the event (e.g., CkWallTimer())
     std::string location;     // Code location ("file:line")
-    std::string tag;          // User-provided tag for the operation
+    std::string pointerId;    // User-provided tag for the operation (usually variable name)
+    std::string functionTag;  // Tag indicating the calling function/context
 
     // Default constructor
     MemLogEvent() : nodeId(-1), opType(MEMLOG_ALLOC), size(0), address(0), timestamp(0.0) {}
 
     // Constructor
-    MemLogEvent(int _nodeId, MemLogOpType _opType, size_t _size, uintptr_t _address, double _timestamp, const char* _file, int _line, const char* _tag)
-        : nodeId(_nodeId), opType(_opType), size(_size), address(_address), timestamp(_timestamp), tag(_tag ? _tag : "") {
+    MemLogEvent(int _nodeId, MemLogOpType _opType, size_t _size, uintptr_t _address, double _timestamp, const char* _file, int _line, const char* _pointerId, const char* _functionTag)
+        : nodeId(_nodeId), opType(_opType), size(_size), address(_address), timestamp(_timestamp), pointerId(_pointerId ? _pointerId : ""), functionTag(_functionTag ? _functionTag : "") {
         // Combine file and line into location string
         location = std::string(_file ? _file : "unknown") + ":" + std::to_string(_line);
     }
@@ -44,7 +45,8 @@ public:
         p | address;
         p | timestamp;
         p | location;
-        p | tag;
+        p | pointerId;
+        p | functionTag;
     }
     */
 };

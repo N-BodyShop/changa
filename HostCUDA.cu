@@ -131,9 +131,10 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 
   HAPI_TRACE_BEGIN();
 
-  cudaChk(gpuMallocHelper(d_localMoments, sMoments));
-  cudaChk(gpuMallocHelper(d_compactParts, sCompactParts));
-  cudaChk(gpuMallocHelper(d_varParts, sVarParts));
+  const char* funcTag = "DataManagerTransferLocalTree";
+  cudaChk(gpuMallocHelper(d_localMoments, sMoments, funcTag));
+  cudaChk(gpuMallocHelper(d_compactParts, sCompactParts, funcTag));
+  cudaChk(gpuMallocHelper(d_varParts, sVarParts, funcTag));
 
   cudaChk(cudaMemcpyAsync(*d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(*d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, stream));
@@ -173,8 +174,9 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 
   HAPI_TRACE_BEGIN();
 
-  cudaChk(gpuMallocHelper(d_remoteMoments, sMoments));
-  cudaChk(gpuMallocHelper(d_remoteParts, sRemoteParts));
+  const char* funcTag = "DataManagerTransferRemoteChunk";
+  cudaChk(gpuMallocHelper(d_remoteMoments, sMoments, funcTag));
+  cudaChk(gpuMallocHelper(d_remoteParts, sRemoteParts, funcTag));
   cudaChk(cudaMemcpyAsync(*d_remoteMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(*d_remoteParts, remoteParts, sRemoteParts, cudaMemcpyHostToDevice, stream));
 
@@ -223,7 +225,8 @@ void DataManagerLocalTreeWalk(CudaRequest *data){
 void DataManagerNodeListDataTransferLocal(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr devPtr;
-  DataTransferBasic(data, &devPtr);
+  const char* funcTag = "DataManagerNodeListDataTransferLocal";
+  DataTransferBasic(data, &devPtr, funcTag);
   HAPI_TRACE_BEGIN();
 
   dim3 dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
@@ -238,7 +241,7 @@ void DataManagerNodeListDataTransferLocal(CudaRequest *data){
     data->fperiod
     );
 
-  DataTransferBasicCleanup(&devPtr);
+  DataTransferBasicCleanup(&devPtr, funcTag);
   cudaChk(cudaPeekAtLastError());
   HAPI_TRACE_END(CUDA_GRAV_LOCAL);
 
@@ -248,8 +251,9 @@ void DataManagerNodeListDataTransferLocal(CudaRequest *data){
 void PEListNodeListDataTransferLocal(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr devPtr;
+  const char* funcTag = "PEListNodeListDataTransferLocal";
   if (data->numInteractions > 0) {
-    DataTransferBasic(data, &devPtr);
+    DataTransferBasic(data, &devPtr, funcTag);
     HAPI_TRACE_BEGIN();
 
     dim3 dimensions = dim3(NODES_PER_BLOCK, PARTS_PER_BLOCK);
@@ -264,7 +268,7 @@ void PEListNodeListDataTransferLocal(CudaRequest *data){
       data->fperiod
       );
 
-    DataTransferBasicCleanup(&devPtr);
+    DataTransferBasicCleanup(&devPtr, funcTag);
     cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_GRAV_LOCAL);
   }
@@ -277,8 +281,9 @@ void PEListNodeListDataTransferLocal(CudaRequest *data){
 void PEListPartListDataTransferLocal(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr devPtr;
+  const char* funcTag = "PEListPartListDataTransferLocal";
   if (data->numInteractions > 0) {
-    DataTransferBasic(data, &devPtr);
+    DataTransferBasic(data, &devPtr, funcTag);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
     printf("(%d) TRANSFER LOCAL LARGEPHASE PART\n", CmiMyPe());
@@ -305,7 +310,7 @@ void PEListPartListDataTransferLocal(CudaRequest *data){
       data->fperiod
       );
 #endif
-    DataTransferBasicCleanup(&devPtr);
+    DataTransferBasicCleanup(&devPtr, funcTag);
     cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_PART_GRAV_LOCAL);
   }
@@ -316,8 +321,9 @@ void PEListPartListDataTransferLocal(CudaRequest *data){
 void PEListNodeListDataTransferRemote(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr devPtr;
+  const char* funcTag = "PEListNodeListDataTransferRemote";
   if (data->numInteractions > 0) {
-    DataTransferBasic(data, &devPtr);
+    DataTransferBasic(data, &devPtr, funcTag);
 
     HAPI_TRACE_BEGIN();
 #ifndef CUDA_NO_KERNELS
@@ -333,7 +339,7 @@ void PEListNodeListDataTransferRemote(CudaRequest *data){
       data->fperiod
       );
 #endif
-    DataTransferBasicCleanup(&devPtr);
+    DataTransferBasicCleanup(&devPtr, funcTag);
     cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
   }
@@ -345,10 +351,11 @@ void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr devPtr;
   void* d_missedNodes;
+  const char* funcTag = "PEListNodeListDataTransferRemoteResume";
   if (data->numInteractions > 0) {
-    DataTransferBasic(data, &devPtr);
+    DataTransferBasic(data, &devPtr, funcTag);
 
-    cudaChk(gpuMallocHelper(&d_missedNodes, data->sMissed));
+    cudaChk(gpuMallocHelper(&d_missedNodes, data->sMissed, funcTag));
     cudaChk(cudaMemcpyAsync(d_missedNodes, data->missedNodes, data->sMissed, cudaMemcpyHostToDevice, stream));
 
     HAPI_TRACE_BEGIN();
@@ -366,8 +373,8 @@ void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
 	);
 #endif
 
-    DataTransferBasicCleanup(&devPtr);
-    cudaChk(gpuFreeHelper(d_missedNodes)); 
+    DataTransferBasicCleanup(&devPtr, funcTag);
+    cudaChk(gpuFreeHelper(d_missedNodes, funcTag)); 
     cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
   }
@@ -378,8 +385,9 @@ void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
 void PEListPartListDataTransferRemote(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr devPtr;
+  const char* funcTag = "PEListPartListDataTransferRemote";
   if (data->numInteractions > 0) {
-    DataTransferBasic(data, &devPtr);
+    DataTransferBasic(data, &devPtr, funcTag);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
     printf("(%d) TRANSFER REMOTE PART\n", CmiMyPe());
@@ -407,7 +415,7 @@ void PEListPartListDataTransferRemote(CudaRequest *data){
       data->fperiod
       );
 #endif
-    DataTransferBasicCleanup(&devPtr);
+    DataTransferBasicCleanup(&devPtr, funcTag);
     cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
   }
@@ -419,14 +427,15 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
   cudaStream_t stream = data->stream;
   CudaDevPtr devPtr;
   void* d_missedParts;
+  const char* funcTag = "PEListPartListDataTransferRemoteResume";
   if (data->numInteractions > 0) {
-    DataTransferBasic(data, &devPtr);
+    DataTransferBasic(data, &devPtr, funcTag);
 
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
     printf("(%d) TRANSFER REMOTE RESUME PART\n", CmiMyPe());
 #endif
 
-    cudaChk(gpuMallocHelper(&d_missedParts, data->sMissed));
+    cudaChk(gpuMallocHelper(&d_missedParts, data->sMissed, funcTag));
     cudaChk(cudaMemcpyAsync(d_missedParts, data->missedParts, data->sMissed, cudaMemcpyHostToDevice, stream));
 
 #ifdef CUDA_NOTIFY_DATA_TRANSFER_DONE
@@ -452,8 +461,8 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
       data->fperiod
       );
 #endif
-    DataTransferBasicCleanup(&devPtr);
-    cudaChk(gpuFreeHelper(d_missedParts)); 
+    DataTransferBasicCleanup(&devPtr, funcTag);
+    cudaChk(gpuFreeHelper(d_missedParts, funcTag)); 
     cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_PART_GRAV_REMOTE);
   }
@@ -465,7 +474,8 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
 ///         device memory
 /// @param data CudaRequest object containing parameters for the calculation
 /// @param ptr CudaDevPtr object that stores handles to device memory
-void DataTransferBasic(CudaRequest *data, CudaDevPtr *ptr){
+/// @param functionTag String literal identifying the calling function context.
+void DataTransferBasic(CudaRequest *data, CudaDevPtr *ptr, const char* functionTag){
   cudaStream_t stream = data->stream;
 
   int numBucketsPlusOne = data->numBucketsPlusOne;
@@ -474,10 +484,10 @@ void DataTransferBasic(CudaRequest *data, CudaDevPtr *ptr){
   size_t markerSize = (numBucketsPlusOne) * sizeof(int);
   size_t startSize = (numBuckets) * sizeof(int);
 
-  cudaChk(gpuMallocHelper(&ptr->d_list, listSize));           
-  cudaChk(gpuMallocHelper(&ptr->d_bucketMarkers, markerSize)); 
-  cudaChk(gpuMallocHelper(&ptr->d_bucketStarts, startSize));   
-  cudaChk(gpuMallocHelper(&ptr->d_bucketSizes, startSize));    
+  cudaChk(gpuMallocHelper(&ptr->d_list, listSize, functionTag));           
+  cudaChk(gpuMallocHelper(&ptr->d_bucketMarkers, markerSize, functionTag)); 
+  cudaChk(gpuMallocHelper(&ptr->d_bucketStarts, startSize, functionTag));   
+  cudaChk(gpuMallocHelper(&ptr->d_bucketSizes, startSize, functionTag));    
   cudaChk(cudaMemcpyAsync(ptr->d_list, data->list, listSize, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(ptr->d_bucketMarkers, data->bucketMarkers, markerSize, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(ptr->d_bucketStarts, data->bucketStarts, startSize, cudaMemcpyHostToDevice, stream));
@@ -495,11 +505,12 @@ void DataTransferBasic(CudaRequest *data, CudaDevPtr *ptr){
 
 /// @brief Free device memory used for interaction list and bucket data
 /// @param ptr CudaDevPtr object that stores handles to device memory
-void DataTransferBasicCleanup(CudaDevPtr *ptr){
-  cudaChk(gpuFreeHelper(ptr->d_list));           
-  cudaChk(gpuFreeHelper(ptr->d_bucketMarkers)); 
-  cudaChk(gpuFreeHelper(ptr->d_bucketStarts));  
-  cudaChk(gpuFreeHelper(ptr->d_bucketSizes));   
+/// @param functionTag String literal identifying the calling function context.
+void DataTransferBasicCleanup(CudaDevPtr *ptr, const char* functionTag){
+  cudaChk(gpuFreeHelper(ptr->d_list, functionTag));           
+  cudaChk(gpuFreeHelper(ptr->d_bucketMarkers, functionTag)); 
+  cudaChk(gpuFreeHelper(ptr->d_bucketStarts, functionTag));  
+  cudaChk(gpuFreeHelper(ptr->d_bucketSizes, functionTag));   
 }
 
 /** @brief Transfer forces from the GPU back to the host. Also schedules

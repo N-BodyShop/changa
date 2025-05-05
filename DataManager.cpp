@@ -1085,11 +1085,12 @@ void DataManager::transferParticleVarsBack(){
 			     stream,
                              data->cb);
     
-    gpuFreeHelper(d_localMoments);   
-    gpuFreeHelper(d_localParts);    
-    gpuFreeHelper(d_localVars);     
-    gpuFreeHelper(d_remoteMoments); 
-    gpuFreeHelper(d_remoteParts);   
+    const char* funcTag = "DataManager::transferParticleVarsBack"; // Define the function tag
+    gpuFreeHelper(d_localMoments, funcTag);   
+    gpuFreeHelper(d_localParts, funcTag);    
+    gpuFreeHelper(d_localVars, funcTag);     
+    gpuFreeHelper(d_remoteMoments, funcTag); 
+    gpuFreeHelper(d_remoteParts, funcTag);   
 
 #ifdef CUDA_PRINT_ERRORS
     printf("transferParticleVarsBack: %s\n", cudaGetErrorString( cudaGetLastError() ) );

@@ -13,7 +13,7 @@
 #include "memlog.h"          // Needs basic types, maybe string
 #include "ParallelGravity.decl.h" // Generated header, include AFTER dependencies
 
-cudaError_t gpuMallocTracked(void** devPtr, size_t size, const char* tag, const char* file, int line) {
+cudaError_t gpuMallocTracked(void** devPtr, size_t size, const char* tag, const char* functionTag, const char* file, int line) {
     // Comment out old logging
     // fprintf(stdout, "[GPU Memory][Alloc] %s:%d - %s (%zu bytes)\n", file, line, tag, size);
     // fflush(stdout);
@@ -27,7 +27,7 @@ cudaError_t gpuMallocTracked(void** devPtr, size_t size, const char* tag, const 
     if (dm && dm->memLog) { // Check if dm and memLog are valid
         MemLogOpType opType = (result == cudaSuccess) ? MEMLOG_ALLOC : MEMLOG_ALLOC_FAIL;
         uintptr_t address = (result == cudaSuccess && *devPtr != NULL) ? (uintptr_t)(*devPtr) : 0;
-        MemLogEvent event(CkMyNode(), opType, size, address, timestamp_after, file, line, tag);
+        MemLogEvent event(CkMyNode(), opType, size, address, timestamp_after, file, line, tag, functionTag);
 
         CmiLock(dm->lockMemLog);
         dm->memLog->meTab.push_back(event);
@@ -37,7 +37,7 @@ cudaError_t gpuMallocTracked(void** devPtr, size_t size, const char* tag, const 
     return result;
 }
 
-cudaError_t gpuFreeTracked(void* devPtr, const char* tag, const char* file, int line) {
+cudaError_t gpuFreeTracked(void* devPtr, const char* tag, const char* functionTag, const char* file, int line) {
     double timestamp = CkWallTimer();
     MemLogOpType opType;
     uintptr_t address = (uintptr_t)devPtr;
@@ -51,7 +51,7 @@ cudaError_t gpuFreeTracked(void* devPtr, const char* tag, const char* file, int 
         // fflush(stdout);
         opType = MEMLOG_FREE_SKIP;
         if (dm && dm->memLog) {
-             MemLogEvent event(CkMyNode(), opType, 0, address, timestamp, file, line, tag);
+             MemLogEvent event(CkMyNode(), opType, 0, address, timestamp, file, line, tag, functionTag);
              CmiLock(dm->lockMemLog);
              dm->memLog->meTab.push_back(event);
              CmiUnlock(dm->lockMemLog);
@@ -69,7 +69,7 @@ cudaError_t gpuFreeTracked(void* devPtr, const char* tag, const char* file, int 
     opType = (result == cudaSuccess) ? MEMLOG_FREE : MEMLOG_FREE_FAIL;
 
     if (dm && dm->memLog) {
-        MemLogEvent event(CkMyNode(), opType, 0, address, timestamp_after, file, line, tag); // Size is 0 for free operations
+        MemLogEvent event(CkMyNode(), opType, 0, address, timestamp_after, file, line, tag, functionTag);
         CmiLock(dm->lockMemLog);
         dm->memLog->meTab.push_back(event);
         CmiUnlock(dm->lockMemLog);
@@ -111,8 +111,8 @@ void Main::initMemLog() {
             // Decide on error handling: CkAbort? or just print warning?
             // For now, print and continue, logging might just fail silently later.
         } else {
-            fprintf(fpLog, "# ChaNGa Memory Log v1.0\n");
-            fprintf(fpLog, "# NodeID OpType Size Address Timestamp File:Line Tag\n");
+            fprintf(fpLog, "# ChaNGa Memory Log v1.1\n");
+            fprintf(fpLog, "# NodeID OpType Size Address Timestamp File:Line PointerID FunctionTag\n");
             int close_err = CmiFclose(fpLog);
              if (close_err != 0) {
                  CkPrintf("ERROR: PE 0 failed to close memlog file: %s (Error %d)\n", memLogFile.c_str(), close_err);
@@ -175,14 +175,15 @@ void MemLog::flush() {
         // Format: NodeID OpType Size Address Timestamp File:Line Tag
         // Use %d for NodeID, %zu for size_t, %p for pointer (address), %.6f for timestamp
         // Ensure tag does not contain problematic characters if needed (currently assuming ok)
-        fprintf(outfile, "%d %s %zu %p %.6f %s %s\n",
+        fprintf(outfile, "%d %s %zu %p %.6f %s %s %s\n",
                 event.nodeId,
                 opTypeStr,
                 event.size,
                 (void*)event.address, // Cast uintptr_t back to void* for %p
                 event.timestamp,
                 event.location.c_str(),
-                event.tag.c_str());
+                event.pointerId.c_str(),
+                event.functionTag.c_str());
     }
 
     int result = CmiFclose(outfile);
