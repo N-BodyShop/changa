@@ -1,3 +1,5 @@
+#ifdef CUDA
+
 #include "PEList.h"
 #include "HostCUDA.h"
 
@@ -150,3 +152,5 @@ void PEList::reset() {
     vtpLocal.length() = 0;
     finalBucketMarker = -1;
 }
+
+#endif

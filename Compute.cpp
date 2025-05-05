@@ -8,7 +8,10 @@
 #include "State.h"
 #include "Space.h"
 #include "gravity.h"
+
+#ifdef CUDA
 #include "PEList.h"
+#endif
 
 int decodeReqID(int reqID);
 

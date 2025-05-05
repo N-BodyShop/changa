@@ -23,12 +23,15 @@ mainmodule ParallelGravity {
   readonly CProxy_PETreeMerger peTreeMergerProxy;
   readonly CProxy_DumpFrameData dfDataProxy;
   readonly CProxy_IntraNodeLBManager nodeLBMgrProxy;
+
+#ifdef CUDA
   readonly CProxy_PEList peNodeLocalListProxy;
   readonly CProxy_PEList peNodeRemoteListProxy;
   readonly CProxy_PEList peNodeRemoteResumeListProxy;
   readonly CProxy_PEList pePartLocalListProxy;
   readonly CProxy_PEList pePartRemoteListProxy;
   readonly CProxy_PEList pePartRemoteResumeListProxy;
+#endif
 
   readonly bool _cache;
   readonly int _nocache;
@@ -364,7 +367,6 @@ mainmodule ParallelGravity {
     entry void acceptSortedParticles(ParticleShuffleMsg *);
     entry void unshuffleParticlesWoDD(const CkCallback& cb);
     entry void shuffleAfterQD();
-    entry void finishWalkCb();
     entry void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
 
     //ORB
@@ -557,6 +559,7 @@ mainmodule ParallelGravity {
                              intptr_t bufLocalMoments,
                              intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
     entry void updateParticles(intptr_t data, int partIndex);
+    entry void finishWalkCb();
 #else
     entry void continueStartRemoteChunk(int chunk);
 #endif
@@ -587,10 +590,12 @@ mainmodule ParallelGravity {
     entry [local] void finishedTPWork();
   };
 
+#ifdef CUDA
   group [migratable] PEList {
     entry PEList();
     entry void setType(int _bNode, int _bRemote, int _bResume);
   };
+#endif
 
 
 

@@ -44,7 +44,9 @@
 #include "ckmulticast.h"
 #endif
 
+#ifdef CUDA
 #include "PEList.h"
+#endif
 
 using namespace std;
 using namespace SFC;
@@ -3722,6 +3724,7 @@ void TreePiece::startNextBucket() {
 }
 
 /*inline*/
+#ifdef CUDA
 void TreePiece::finishWalkCb() {
   finishWalkCbCount += 1;
   // dont check in with DM until local, remote and RR finish
@@ -3736,6 +3739,7 @@ void TreePiece::finishWalkCb() {
     pePartRemoteResumeListProxy.ckLocalBranch()->reset();
   }
 }
+#endif
 
 void TreePiece::finishBucket(int iBucket) {
   BucketGravityRequest *req = &bucketReqs[iBucket];
@@ -3758,6 +3762,7 @@ void TreePiece::finishBucket(int iBucket) {
 #endif
 
     if(sLocalGravityState->myNumParticlesPending == 0) {
+#ifdef CUDA
       if (!bUseCpu) {
         CkCallback cb(CkIndex_TreePiece::finishWalkCb(), thisProxy[thisIndex]);
         peNodeLocalListProxy.ckLocalBranch()->finishWalk(this, cb);
@@ -3767,6 +3772,7 @@ void TreePiece::finishBucket(int iBucket) {
         pePartRemoteListProxy.ckLocalBranch()->finishWalk(this, cb);
         pePartRemoteResumeListProxy.ckLocalBranch()->finishWalk(this, cb);
       }
+#endif
 
       if(verbosity>1){
 #if COSMO_STATS > 0
@@ -5809,7 +5815,9 @@ void TreePiece::pup(PUP::er& p) {
   p | myPlace;
 
   p | bGasCooling;
+#ifdef CUDA
   p | finishWalkCbCount;
+#endif
   if(p.isUnpacking()){
     dm = NULL;
 #ifndef COOLING_NONE

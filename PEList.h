@@ -1,6 +1,7 @@
 #ifndef PE_LIST_H
 #define PE_LIST_H
 
+#ifdef CUDA
 #include "ParallelGravity.h"
 
 // To use pinned host memory with a std::vector
@@ -66,4 +67,5 @@ class PEList : public CBase_PEList
     void reset();
 };
 
+#endif
 #endif
