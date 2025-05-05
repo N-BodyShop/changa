@@ -154,8 +154,7 @@ protected:
         EwtData *ewt;
         EwaldReadOnlyData *cachedData;
 
-	int numStreams;
-	cudaStream_t *streams;
+	cudaStream_t stream; // For data transfers and local tree walk
 
 #endif
 	/// The root of the combined trees
@@ -201,12 +200,10 @@ public:
 #endif
         void resumeRemoteChunk();
 #ifdef CUDA
-        void startEwaldGPU(int largephase);
+        void startEwaldGPU();
         void finishEwaldGPU();
-	void createStreams(int _numStreams, const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
-        void assignCUDAStreams(const CkCallback& cb);
 
 #ifdef GPU_LOCAL_TREE_WALK
         void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
@@ -237,17 +234,15 @@ public:
     		}
     	    nodeTable.clear();
 
+#ifdef CUDA
+	    cudaStreamDestroy(stream);
+#endif
+
 	    CoolFinalize(Cool);
 	    delete starLog;
 	    CmiDestroyLock(lockStarLog);
 	    delete memLog;
 	    CmiDestroyLock(lockMemLog);
-#ifdef CUDA
-            for (int i = 0; i < numStreams; i++) {
-                cudaStreamDestroy(streams[i]);
-	    }
-	    delete[] streams;
-#endif
 	    }
 
 	/// Called by ORB Sorter, save the list of which TreePiece is

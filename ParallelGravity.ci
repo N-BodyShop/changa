@@ -58,7 +58,6 @@ mainmodule ParallelGravity {
   readonly int localPartsPerReq;
   readonly int remotePartsPerReq;
   readonly int remoteResumePartsPerReq;
-  readonly double largePhaseThreshold;
 
   readonly int START_REG;
   readonly int START_IB;
@@ -262,11 +261,9 @@ mainmodule ParallelGravity {
 #ifdef GPU_LOCAL_TREE_WALK
     entry void finishLocalWalk();
 #endif
-    entry void startEwaldGPU(int largephase);
+    entry void startEwaldGPU();
     entry void finishEwaldGPU();
     entry void resumeRemoteChunk();
-    entry void createStreams(int _numStreams, const CkCallback& cb);
-    entry void assignCUDAStreams(const CkCallback& cb);
 #endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
@@ -553,7 +550,6 @@ mainmodule ParallelGravity {
 
     // jetley
 #ifdef CUDA
-    entry void assignCUDAStream(intptr_t stream);
     entry void assignGPUGravityPtrs(intptr_t d_localMoments,
                                     intptr_t d_localParts,
                                     intptr_t d_localVars,

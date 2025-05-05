@@ -43,13 +43,13 @@ void PEList::finishWalk(TreePiece *treePiece, CkCallback &cb) {
 
     request->fperiod = fperiod;
 
-    request->list = iList.getVec();
-    request->missedParts = missedParts.getVec();
-    request->missedNodes = missedNodes.getVec();
+    request->list = iList.data();
+    request->missedParts = missedParts.data();
+    request->missedNodes = missedNodes.data();
     request->sMissed = missedParts.size() > 0 ? missedParts.size()*sizeof(CompactPartData) : missedNodes.size()*sizeof(CudaMultipoleMoments);
-    request->bucketMarkers = bucketMarkers.getVec();
-    request->bucketStarts = bucketStarts.getVec();
-    request->bucketSizes = bucketSizes.getVec();
+    request->bucketMarkers = bucketMarkers.data();
+    request->bucketStarts = bucketStarts.data();
+    request->bucketSizes = bucketSizes.data();
     request->numInteractions = iList.size();
 
     CProxy_PEList proxy;
@@ -126,7 +126,6 @@ void PEList::sendList(TreePiece *treePiece, CudaRequest* data) {
     d_localVars = data->d_localVars;
     d_remoteParts = data->d_remoteParts;
     d_remoteMoments = data->d_remoteMoments;
-    stream = data->stream;
     fperiod = data->fperiod;
 
     treePiece->cudaFinishAffectedBuckets(data->affectedBuckets, numBuckets, bRemote);

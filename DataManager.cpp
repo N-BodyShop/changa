@@ -42,6 +42,7 @@ void DataManager::init() {
   PEsWantParticlesBack = 0;
   treePiecesParticlesUpdated = 0;
   gpuFree = true;
+  cudaStreamCreate(&stream);
 
 #endif
   Cool = CoolInit();
@@ -50,19 +51,6 @@ void DataManager::init() {
   memLog = new MemLog();
   lockMemLog = CmiCreateLock();
 }
-
-#ifdef CUDA
-/// @brief Initialize CUDA streams
-/// @param _numStreams Total number of streams to create
-void DataManager::createStreams(int _numStreams, const CkCallback& cb) {
-  numStreams = _numStreams;
-  streams = new cudaStream_t[numStreams];
-  for (int i = 0; i < numStreams; i++) {
-      hapiCheck(cudaStreamCreate(&streams[i]));
-  }
-  contribute(cb);
-}
-#endif
 
 /**
  * Fill in responsibleIndex after ORB decomposition
@@ -167,17 +155,6 @@ void DataManager::clearRegisteredPieces(const CkCallback& cb) {
     registeredTreePieces.removeAll();
     contribute(cb);
 }
-
-#ifdef CUDA
-void DataManager::assignCUDAStreams(const CkCallback& cb) {
-  int tpIdx;
-  for(int i = 0; i < registeredTreePieces.size(); i++) {
-    tpIdx = registeredTreePieces[i].treePiece->getIndex();
-    treePieces[tpIdx].assignCUDAStream((intptr_t) &streams[tpIdx % numStreams]);
-  }
-  contribute(cb);
-}
-#endif
 
 /// \brief Build a local tree inside the node.
 ///
@@ -500,7 +477,7 @@ void DataManager::serializeLocalTree(){
 
 /// @brief Record when all TreePieces have finished their Ewald initilization
 /// Launch the Ewald kernel on the GPU
-void DataManager::startEwaldGPU(int largephase) {
+void DataManager::startEwaldGPU() {
     CmiLock(__nodelock);
     treePiecesEwaldReady++;
     if(treePiecesEwaldReady == registeredTreePieces.length()){
@@ -515,7 +492,7 @@ void DataManager::startEwaldGPU(int largephase) {
     localTransferCallback
       = new CkCallback(CkIndex_DataManager::finishEwaldGPU(), CkMyNode(), dMProxy);
 
-    DataManagerEwald(d_localParts, d_localVars, ewt, cachedData, savedNumTotalParticles-1, streams[0], localTransferCallback);
+    DataManagerEwald(d_localParts, d_localVars, ewt, cachedData, savedNumTotalParticles-1, stream, localTransferCallback);
 }
 
 /// @brief Callback from Ewald kernel launch on GPU
@@ -600,7 +577,7 @@ void DataManager::startLocalWalk() {
     request->sMoments = sMoments;
     request->sCompactParts = sCompactParts;
     request->sVarParts = sVarParts;
-    request->stream = streams[0];
+    request->stream = stream;
 
     request->numBucketsPlusOne = 0;
     request->affectedBuckets = 0;
@@ -709,7 +686,7 @@ void DataManager::donePrefetch(int chunk){
       DataManagerTransferRemoteChunk(bufRemoteMoments, sRemMoments,
                                      bufRemoteParts, sRemParts,
                                      (void **)&d_remoteMoments,  (void **)&d_remoteParts,
-				     streams[0],
+				     stream,
                                      remoteChunkTransferCallback);
 
     }
@@ -1022,7 +999,7 @@ void DataManager::transferLocalToGPU(int numParticles, GenericTreeNode *node)
   DataManagerTransferLocalTree(bufLocalMoments, sLocalMoments, bufLocalParts,
                                sLocalParts, bufLocalVars, sLocalVars,
 			       (void **)&d_localMoments, (void **)&d_localParts, (void **)&d_localVars,
-			       streams[0], numParticles,
+			       stream, numParticles,
                                localTransferCallback);
 }
 
@@ -1105,7 +1082,7 @@ void DataManager::transferParticleVarsBack(){
     TransferParticleVarsBack(buf, 
                              savedNumTotalParticles*sizeof(VariablePartData),
 			     d_localVars,
-			     streams[0],
+			     stream,
                              data->cb);
     
     gpuFreeHelper(d_localMoments);   

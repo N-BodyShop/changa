@@ -13,14 +13,12 @@
 #define WARP_INDEX (threadIdx.x >> 5)
 #endif //GPU_LOCAL_TREE_WALK
 
-#ifdef CUDA_2D_TB_KERNEL
 #define PARTS_PER_BLOCK 16
 #define NODES_PER_BLOCK (THREADS_PER_BLOCK/PARTS_PER_BLOCK)
 
 #define THREADS_PER_BLOCK_PART 128
 #define PARTS_PER_BLOCK_PART 16
 #define NODES_PER_BLOCK_PART (THREADS_PER_BLOCK_PART/PARTS_PER_BLOCK_PART)
-#endif
 
 // FIXME - find appropriate values
 #define NUM_INIT_MOMENT_INTERACTIONS_PER_BUCKET 100
@@ -29,8 +27,6 @@
 /** @brief Data and parameters for requesting gravity calculations on
  * the GPU. */
 typedef struct _CudaRequest{
-        /// CUDA stream to handle memory operations and kernel launches for this request
-        /// Allocation and deallocation of the stream is handled by the DataManager
 	cudaStream_t stream;
 
 	/// for accessing device memory

@@ -36,7 +36,6 @@ __global__ void nodeGravityComputation(
 
 __global__ void ZeroVars(VariablePartData *particleVars, int nVars);
 
-#ifdef CUDA_2D_TB_KERNEL
 __global__ void particleGravityComputation(
                 CompactPartData *targetCores,
                 VariablePartData *targetVars,
@@ -46,18 +45,6 @@ __global__ void particleGravityComputation(
 		int *bucketStarts,
 		int *bucketSizes,
 		cudatype fperiod);
-#else
-__global__ void particleGravityComputation(
-                CompactPartData *targetCores,
-                VariablePartData *targetVars,
-                CompactPartData *sourceCores,
-                ILPart *ils,
-                int *ilmarks,
-		int *bucketStarts,
-		int *bucketSizes,
-		cudatype fperiod);
-#endif
-
 #endif
 
 #endif

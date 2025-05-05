@@ -390,12 +390,11 @@ void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtT
   */
 
 #ifdef SPCUDA
-  int largephase = largePhase();
   if(NumberOfGPUParticles == 0 || myNumActiveParticles == 0){
         for (int i=0; i<numBuckets; i++){
             finishBucket(i);
             }
-        dm->startEwaldGPU(largephase);
+        dm->startEwaldGPU();
         return;
   }
 
@@ -413,31 +412,23 @@ void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtT
 		roData = (EwaldReadOnlyData*)_cachedData;
 
   int nActive = 0;
-  if(largephase){
-  	int IDX = 0;
-  	int IDXend = 0;
-  	int IDXstart = 0;
-  	for(int b = 0; b < numBuckets; b++){
-  		GenericTreeNode *bucketNode = bucketList[b];
-  		GravityParticle *buckparts = bucketNode->particlePointer;
-  		IDXstart = bucketNode->firstParticle; 
-	    IDXend = bucketNode->lastParticle;
-	    IDX = bucketNode->bucketArrayIndex; /*First particle index on GPU*/
-	    for(int j = IDXstart; j <= IDXend; j++){ /*Go through all particles in bucket*/
-	    	if(buckparts[j - IDXstart].rung < activeRung){IDX++; continue;}
-	    	IDX++;
-	    	nActive++;
-		}
-  	}
-  	h_idata->EwaldRange[0] = 0;
- 	h_idata->EwaldRange[1] = nActive - 1;
- 	assert(nActive <= NumberOfGPUParticles);
- 	assert(nActive == myNumActiveParticles);
-  }else{
-  	nActive = NumberOfGPUParticles;
-  	h_idata->EwaldRange[0] = FirstGPUParticleIndex;
-  	h_idata->EwaldRange[1] = LastGPUParticleIndex; 
+  int IDX = 0;
+  int IDXend = 0;
+  int IDXstart = 0;
+  for(int b = 0; b < numBuckets; b++){
+	  GenericTreeNode *bucketNode = bucketList[b];
+	  GravityParticle *buckparts = bucketNode->particlePointer;
+	  IDXstart = bucketNode->firstParticle; 
+      IDXend = bucketNode->lastParticle;
+      IDX = bucketNode->bucketArrayIndex; /*First particle index on GPU*/
+      for(int j = IDXstart; j <= IDXend; j++){ /*Go through all particles in bucket*/
+	  if(buckparts[j - IDXstart].rung < activeRung){IDX++; continue;}
+	  IDX++;
+	  nActive++;
+	  }
   }
+  assert(nActive <= NumberOfGPUParticles);
+  assert(nActive == myNumActiveParticles);
 
   for (int i=0; i<nEwhLoop; i++) {
     ewtTable[i].hx = (cudatype) ewt[i].hx; 
@@ -520,6 +511,6 @@ void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtT
       myLocalIndex++);
   CkAssert(myLocalIndex < dm->registeredTreePieces.length());
 
-		dm->startEwaldGPU(largephase);
+		dm->startEwaldGPU();
 #endif
 }

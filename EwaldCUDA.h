@@ -49,13 +49,11 @@ typedef struct {
 
 /// @brief structure to hold information specific to GPU Ewald
 typedef struct {
-  int EwaldRange[2];            /**< First and last particle on the
-                                 * GPU; only used for small phase  */
   EwtData *ewt;                 /**< h-loop table  */
   EwaldReadOnlyData *cachedData; /**< Root moment and other Ewald parameters  */
 } EwaldData; 
 
-__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int largephase, int First, int Last);
+__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int First, int Last);
 
 #endif
 

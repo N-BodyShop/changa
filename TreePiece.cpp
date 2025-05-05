@@ -3801,21 +3801,12 @@ void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
     getDMParticles(aLocalParts, partIndex);
 #ifdef GPU_LOCAL_TREE_WALK
     // set the bucketStart and bucketSize for each bucket Node
-    if (largePhase()) {
-        for (int j = 0; j < numBuckets; ++j) {
-            GenericTreeNode *bucketNode = bucketList[j];
-            int id = bucketNode->nodeArrayIndex;
-            aLocalMoments[id].bucketStart = bucketNode->bucketArrayIndex;
-            aLocalMoments[id].bucketSize = bucketNode->lastParticle
-                - bucketNode->firstParticle + 1;
-        }
-    } else {
-        for (int j = 0; j < numBuckets; ++j) {
-            GenericTreeNode *bucketNode = bucketList[j];
-            int id = bucketNode->nodeArrayIndex;
-            aLocalMoments[id].bucketStart = bucketActiveInfo[id].start;
-            aLocalMoments[id].bucketSize =  bucketActiveInfo[id].size;
-        }
+    for (int j = 0; j < numBuckets; ++j) {
+	GenericTreeNode *bucketNode = bucketList[j];
+	int id = bucketNode->nodeArrayIndex;
+	aLocalMoments[id].bucketStart = bucketNode->bucketArrayIndex;
+	aLocalMoments[id].bucketSize = bucketNode->lastParticle
+	    - bucketNode->firstParticle + 1;
     }
     // tell each particle which node it belongs to
     for (int j = 0; j < numBuckets; ++j) {
@@ -3845,9 +3836,8 @@ void TreePiece::updateParticles(intptr_t data, int partIndex) {
             myParticles[j].dtGrav = fmax(myParticles[j].dtGrav,
                                          deviceParticles[partIndex].dtGrav);
 #endif
-            if(!largePhase()) partIndex++;
             }
-        if(largePhase()) partIndex++;
+        partIndex++;
         }
 
     dm->updateParticlesFreeMemory((UpdateParticlesStruct *)data);
@@ -5151,26 +5141,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
           // ditto
           lstate->nodes = NULL;
           // allocate space for local particles 
-          // if this is a small phase; we do not transfer
-          // all particles owned by this processor in small
-          // phases and so refer to particles inside an 
-          // auxiliary array shipped with computation requests.
-          // this auxiliary array is 'particles', below:
-          if(largePhase()){
-            lstate->particles = NULL;
-          }     
-          else{
-            // allocate an amount of space that 
-            // depends on the rung
-            lstate->particles = new CkVec<CompactPartData>(AVG_SOURCE_PARTICLES_PER_ACTIVE*myNumActiveParticles);
-            lstate->particles->length() = 0;
-            // need to allocate memory for data structure that stores bucket
-            // active info (where in the gpu's target particle memory this
-            // bucket starts, and its size; strictly speaking, we don't need
-            // the size attribute.)
-            // XXX - no need to allocate/delete every iteration
-            bucketActiveInfo = new BucketActiveInfo[numBuckets];
-          }
+          lstate->particles = NULL;
       }
       {
 	  DoubleWalkState *state = (DoubleWalkState *)sInterListStateRemoteResume;
@@ -6306,11 +6277,6 @@ void TreePiece::freeWalkObjects(){
         delete state->particles;
         delete rstate->nodes;
         delete rstate->particles;
-        if(!largePhase()){
-          DoubleWalkState *lstate = (DoubleWalkState *) sLocalGravityState;
-          delete lstate->particles;
-          delete [] bucketActiveInfo;
-        }
       }
 #endif
     // remote-no-resume state
