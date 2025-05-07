@@ -126,7 +126,8 @@ defines := $(strip @HEXADECAPOLE@ @FLAG_GDFORCE@ @FLAG_ARCH@  \
           @FLAG_JEANSSOFTONLY@ @FLAG_FLOAT@ @FLAG_COLLISION@ \
           @FLAG_TREE_BUILD@ $(debug_defines) @FLAG_INTERLIST@ \
           @FLAG_NSMOOTHINNER@ @FLAG_SPLITGAS@ @FLAG_SIDMINTERACT@ \
-          @FLAG_SUPERBUBBLE@ @FLAG_SHIELDSF@ @FLAG_STOCH@ \
+          @FLAG_THERMALDIFFONLY@ @FLAG_ACCZERO@  \
+          @FLAG_SUPERBUBBLE@ @FLAG_HYPCOND@ @FLAG_SHIELDSF@ @FLAG_STOCH@ \
           $(cuda_defines) -DREDUCTION_HELPER)
 
 modules := $(strip -language charm++ -balancer @DEFAULT_LB@   \

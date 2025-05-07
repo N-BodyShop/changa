@@ -640,6 +640,9 @@ FLAG_VSIGVISC
 FLAG_CULLENALPHA
 FLAG_SHIELDSF
 FLAG_SUPERBUBBLE
+FLAG_HYPCOND
+FLAG_ACCZERO
+FLAG_THERMALDIFFONLY
 FLAG_DIFFHARMONIC
 FLAG_FEEDBACKDIFFLIMIT
 FLAG_DIFFUSION
@@ -753,6 +756,9 @@ enable_damping
 enable_diffusion
 enable_feedbacklimit
 enable_superbubble
+enable_hypcond
+enable_thermaldiffonly
+enable_acczero
 enable_shieldsf
 enable_cullenalpha
 enable_vsigvisc
@@ -1424,6 +1430,10 @@ Optional Features:
   --enable-diffusion      thermal and metal diffusion
   --enable-feedbacklimit  limit diffusion of feedback energy
   --enable-superbubble    superbubble feedback
+  --enable-hypcond        use hyperbolic conduction
+  --enable-acczero        force zero acceleration
+  --enable-thermaldiffonly
+                          set all thermaldiffusion values to 1
   --enable-shieldsf       Dust self-shielding star formation
   --enable-cullenalpha    Cullen Dehnen artificial viscosity
   --enable-vsigvisc       alternative Monahan artificial viscosity
@@ -4872,6 +4882,57 @@ if test "$FLAG_SUPERBUBBLE" = "-DSUPERBUBBLE" -a "$FLAG_COOLING" = "-DCOOLING_NO
     as_fn_error $? "SUPERBUBBLE requires cooling.  Enable it with --enable-cooling" "$LINENO" 5;
 fi
 
+
+# HYPERBOLIC CONDUCTION
+        # Check whether --enable-hypcond was given.
+if test "${enable_hypcond+set}" = set; then :
+  enableval=$enable_hypcond; case "$enableval" in
+                  yes | no ) val=$enableval;;
+                  *) as_fn_error $? "invalid argument for '--enable-hypcond': $enableval" "$LINENO" 5;;
+         esac
+else
+  val=no
+fi
+
+        if test x$val = xyes; then FLAG_HYPCOND=-DHYPCOND; else FLAG_HYPCOND=""; fi
+
+
+if test "$FLAG_HYPCOND" = "-DHYPCOND" -a x"$FLAG_SUPERBUBBLE" = x ; then
+    as_fn_error $? "HYPCOND requires superbubble.  Enable it with --enable-superbubble" "$LINENO" 5;
+fi
+
+# THERMALDIFFONLY
+        # Check whether --enable-thermaldiffonly was given.
+if test "${enable_thermaldiffonly+set}" = set; then :
+  enableval=$enable_thermaldiffonly; case "$enableval" in
+                  yes | no ) val=$enableval;;
+                  *) as_fn_error $? "invalid argument for '--enable-thermaldiffonly': $enableval" "$LINENO" 5;;
+         esac
+else
+  val=no
+fi
+
+        if test x$val = xyes; then FLAG_THERMALDIFFONLY=-DTHERMALDIFFONLY; else FLAG_THERMALDIFFONLY=""; fi
+
+
+if test "$FLAG_THERMALDIFFONLY" = "-DTHERMALDIFFONLY" -a x"$FLAG_SUPERBUBBLE" = x ; then
+    as_fn_error $? "THERMALDIFFONLY requires superbubble.  Enable it with --enable-superbubble" "$LINENO" 5;
+fi
+
+# ACCZERO
+        # Check whether --enable-acczero was given.
+if test "${enable_acczero+set}" = set; then :
+  enableval=$enable_acczero; case "$enableval" in
+                  yes | no ) val=$enableval;;
+                  *) as_fn_error $? "invalid argument for '--enable-acczero': $enableval" "$LINENO" 5;;
+         esac
+else
+  val=no
+fi
+
+        if test x$val = xyes; then FLAG_ACCZERO=-DACCZERO; else FLAG_ACCZERO=""; fi
+
+
 # Dust self-shielding for column length calculation with molecular hydrogen
 	# Check whether --enable-shieldsf was given.
 if test "${enable_shieldsf+set}" = set; then :
@@ -7016,7 +7077,7 @@ echo "    "Charm compiler"   " $CHARMC
 echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
-echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
+echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE $FLAG_HYPCOND $FLAG_ACCZERO $FLAG_THERMALDIFFONLY
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
