@@ -212,6 +212,76 @@ class PressureSmoothParams : public SmoothParams
 	}
     };
 
+
+
+/// @Brief respmooth to get gradients
+class HypGrads : public SmoothParams
+{
+    double dTime;
+    double a, H; // Cosmological parameters
+    double alpha, beta; // SPH viscosity parameters
+    double dThermalDiffusionCoeff;
+    double dMetalDiffusionCoeff;
+    double dtFacCourant; // Courant timestep factor
+    double dtFacDiffusion; // Diffusion timestep factor
+    virtual void fcnSmooth(GravityParticle *p, int nSmooth,
+                           pqSmoothNode *nList);
+    virtual void fcnPost(GravityParticle *p, int nSmooth, pqSmoothNode *nList) {}
+    virtual int isSmoothActive(GravityParticle *p);
+    virtual void initTreeParticle(GravityParticle *p) {}
+    virtual void postTreeParticle(GravityParticle *p) {}
+    virtual void initSmoothParticle(GravityParticle *p);
+    virtual void initSmoothCache(GravityParticle *p);
+    virtual void combSmoothCache(GravityParticle *p1,
+                                 ExternalSmoothParticle *p2);
+ public:
+    HypGrads() {}
+    /// @param _iType Type of particles to smooth
+    /// @param am Active rung
+    /// @param csm Cosmological parameters
+    /// @param dTime Current time
+    /// @param _alpha Artificial viscosity parameter
+    /// @param _beta Artificial viscosity parameter
+    HypGrads(int _iType, int am, CSM csm, double _dTime,
+                         double _alpha, double _beta,
+                         double _dThermalDiff, double _dMetalDiff,
+                         double dEtaCourant, double dEtaDiffusion) {
+        iType = _iType;
+        activeRung = am;
+        dTime = _dTime;
+        if(csm->bComove) {
+            H = csmTime2Hub(csm,dTime);
+            a = csmTime2Exp(csm,dTime);
+            }
+        else {
+            H = 0.0;
+            a = 1.0;
+            }
+        alpha = _alpha;
+        beta = _beta;
+        dThermalDiffusionCoeff = _dThermalDiff;
+        dMetalDiffusionCoeff = _dMetalDiff;
+        dtFacCourant = dEtaCourant*a*2.0/1.6;
+        dtFacDiffusion = 2.0*dEtaDiffusion;
+    }
+    PUPable_decl(HypGrads);
+    HypGrads(CkMigrateMessage *m) : SmoothParams(m) {}
+    virtual void pup(PUP::er &p) {
+        SmoothParams::pup(p);//Call base class
+        p|dTime;
+        p|a;
+        p|H;
+        p|alpha;
+        p|beta;
+        p|dThermalDiffusionCoeff;
+        p|dMetalDiffusionCoeff;
+        p|dtFacCourant;
+        p|dtFacDiffusion;
+        }
+    };
+
+
+
 ///
 /// @brief SmoothParams class for distributing deleted gas to neighboring
 /// particles.

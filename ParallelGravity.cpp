@@ -2508,6 +2508,10 @@ void Main::setupICs() {
 
           treeProxy.loadTipsy(basefilename, dTuFac, bInDPos, bInDVel,
               CkCallbackResumeThread());
+#ifdef HYPCOND
+          nTotalParticles = treeProxy[0].ckLocal()->nTotalParticles;
+          initQCond();
+#endif
           }
   }
   catch (std::ios_base::failure e) {
@@ -3268,6 +3272,9 @@ Main::doSimulation()
            * Write out additional variables when using superbubble
            * (multiphase properties and effective temperature)
            */
+#ifdef HYPCOND
+              HypCondOutputParams pdQCondOut(achFile,param.iBinaryOut,0.0);
+#endif
 	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, 0.0);
 	      uOutputParams puOut(achFile, param.iBinaryOut, 0.0);
 	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, 0.0);
@@ -3284,6 +3291,10 @@ Main::doSimulation()
 	      CsOutputParams pCsOut(achFile, param.iBinaryOut, 0.0);
               if (param.iBinaryOut) {
 #ifdef SUPERBUBBLE
+#ifdef HYPCOND
+                  outputBinary(pdQCondOut,param.bParaWrite,
+                      CkCallbackResumeThread());
+#endif
                   outputBinary(puHotOut, param.bParaWrite,
                       CkCallbackResumeThread());
                   outputBinary(puOut, param.bParaWrite,
@@ -3315,6 +3326,9 @@ Main::doSimulation()
                   }
               else {
 #ifdef SUPERBUBBLE
+#ifdef HYPCOND
+                  treeProxy[0].outputASCII(pdQCondOut, param.bParaWrite, CkCallbackResumeThread());
+#endif
                   treeProxy[0].outputASCII(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
                   treeProxy[0].outputASCII(puHotOut, param.bParaWrite, CkCallbackResumeThread());
                   treeProxy[0].outputASCII(puOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3792,6 +3806,9 @@ void Main::writeOutput(int iStep)
            * Write out additional variables when using superbubble
            * (multiphase properties and effective temperature)
            */
+#ifdef HYPCOND
+              HypCondOutputParams pdQCondOut(achFile,param.iBinaryOut,0.0);
+#endif
 	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, 0.0);
 	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, 0.0);
 	      uOutputParams puOut(achFile, param.iBinaryOut, 0.0);
@@ -3816,6 +3833,9 @@ void Main::writeOutput(int iStep)
 #endif
         if (param.bStarForm || param.bFeedback) {
 #ifdef SUPERBUBBLE
+#ifdef HYPCOND
+      outputBinary(pdQCondOut,param.bParaWrite,CkCallbackResumeThread());
+#endif
       outputBinary(puHotOut, param.bParaWrite, CkCallbackResumeThread());
       outputBinary(puOut, param.bParaWrite, CkCallbackResumeThread());
       outputBinary(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3894,6 +3914,9 @@ void Main::writeOutput(int iStep)
 #endif
 	if (param.bStarForm || param.bFeedback) {
 #ifdef SUPERBUBBLE
+#ifdef HYPCOND
+      treeProxy[0].outputASCII(pdQCondOut, param.bParaWrite, CkCallbackResumeThread());
+#endif
       treeProxy[0].outputASCII(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
       treeProxy[0].outputASCII(puHotOut, param.bParaWrite, CkCallbackResumeThread());
       treeProxy[0].outputASCII(puOut, param.bParaWrite, CkCallbackResumeThread());

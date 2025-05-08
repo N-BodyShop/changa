@@ -1465,7 +1465,9 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               }
           }
 #endif
-
+#ifdef ACCZERO
+          p->treeAcceleration=0; /*ACCZERO NAO*/
+#endif
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
 		  p->vPred() = p->velocity
@@ -1598,6 +1600,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                   
 #endif
 		      }
+#ifdef HYPCOND
+      p->dQCond() +=  p->dQCondDot()*duDelta[p->rung];
+      p->dQCondPred() = p->dQCond();
+#endif
 #ifdef DIFFUSION
 		  p->fMetals() += p->fMetalsDot()*duDelta[p->rung];
 		  p->fMetalsPred() = p->fMetals();
@@ -1649,6 +1655,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  }
 #endif
 		      }
+#ifdef HYPCOND
+        p->dQCondPred() = p->dQCond();
+        p->dQCond() +=  p->dQCondDot()*duDelta[p->rung];
+#endif
 #ifdef DIFFUSION
 		  p->fMetalsPred() = p->fMetals();
 		  p->fMetals() += p->fMetalsDot()*duDelta[p->rung];
@@ -1985,6 +1995,9 @@ void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
             p->velocity = p->vPred();
 #ifndef COOLING_NONE
             p->u() = p->uPred();
+#ifdef HYPCOND
+            p->dQCond() = p->dQCondPred();
+#endif
 #ifdef SUPERBUBBLE
             p->uHot() = p->uHotPred();
 #endif
@@ -2086,6 +2099,9 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  else p->uPred() = uold*exp(p->uDot()*duDelta/uold);
 		  }
 #ifdef SUPERBUBBLE
+#ifdef HYPCOND
+              p->dQCondPred() += p->dQCondDot()*duDelta;
+#endif
               p->uHotPred() += p->uHotDot()*duDelta;
 	      if (p->uHotPred() < 0) {
 		  // Backout the update to upred
