@@ -14,16 +14,8 @@
 #include "formatted_string.h"
 
 #ifdef CUDA
+#include "PECool.h"
 #include "CudaFunctions.h"
-#define cudaChk(code) cudaErrorDie(code, #code, __FILE__, __LINE__)
-inline void cudaErrorDie(cudaError_t retCode, const char* code,
-                                              const char* file, int line) {
-  if (retCode != cudaSuccess) {
-    fprintf(stderr, "Fatal CUDA Error %s at %s:%d.\nReturn value %d from '%s'.",
-        cudaGetErrorString(retCode), file, line, retCode, code);
-    abort();
-  }
-}
 #endif
 
 #include <float.h>
@@ -59,10 +51,6 @@ Main::initSph()
 	if(param.bGasCooling) {
 	    // Update cooling on the datamanager
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-#ifdef CUDA
-    treeProxy.calculateNumActiveGasParticles(1, 0, CkCallbackResumeThread());
-    dMProxy.setupuDot(0, 1, CkCallbackResumeThread());
-#endif // CUDA
 	    if(!bIsRestarting)  // Energy is already OK from checkpoint.
 		treeProxy.InitEnergy(dTuFac, z, dTime, (param.dConstGamma-1), CkCallbackResumeThread());
 	    }
@@ -251,81 +239,6 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 #endif //COOLING_NONE
     contribute(cb);
     }
-
-/**
- * Allocate space for ODE solver
- * @param numParts Number of particles to allocate memory for
- * @param bFree Free the previous device pointers if reallocating
- */
-void
-DataManager::allocCoolParticleBlock(int numParts, int bFree) {
-    if (bFree) {
-        free(h_CoolData);
-        free(h_Stiff);
-        free(h_ymin);
-        free(h_y0);
-        free(h_y1);
-        free(h_q);
-        free(h_d);
-        free(h_rtau);
-        free(h_ys);
-        free(h_qs);
-        free(h_rtaus);
-        free(h_scrarray);
-
-#ifdef CUDA
-        cudaChk(cudaFree(d_CoolData));
-        cudaChk(cudaFree(d_Stiff));
-        cudaChk(cudaFree(d_dtg));
-
-        cudaChk(cudaFree(d_y));
-        cudaChk(cudaFree(d_ymin));
-        cudaChk(cudaFree(d_y0));
-        cudaChk(cudaFree(d_q));
-        cudaChk(cudaFree(d_d));
-        cudaChk(cudaFree(d_rtau));
-        cudaChk(cudaFree(d_ys));
-        cudaChk(cudaFree(d_qs));
-        cudaChk(cudaFree(d_rtaus));
-        cudaChk(cudaFree(d_scrarray));
-        cudaChk(cudaFree(d_y1));
-#endif
-    }
-
-    int nv = COOL_NV;
-
-    h_CoolData = (clDerivsData *) malloc(numParts*sizeof(clDerivsData));
-    h_Stiff = (STIFF *) malloc(numParts*sizeof(STIFF));
-    h_ymin = (double *) malloc(numParts*nv*sizeof(double));
-    h_y0 = (double *) malloc(numParts*nv*sizeof(double));
-    h_y1 = (double *) malloc(numParts*nv*sizeof(double));
-    h_q = (double *) malloc(numParts*nv*sizeof(double));
-    h_d = (double *) malloc(numParts*nv*sizeof(double));
-    h_rtau = (double *) malloc(numParts*nv*sizeof(double));
-    h_ys = (double *) malloc(numParts*nv*sizeof(double));
-    h_qs = (double *) malloc(numParts*nv*sizeof(double));
-    h_rtaus = (double *) malloc(numParts*nv*sizeof(double));
-    h_scrarray = (double *) malloc(numParts*nv*sizeof(double));
-
-#ifdef CUDA
-    cudaChk(cudaMalloc(&d_CoolData, numParts*sizeof(clDerivsData)));
-    cudaChk(cudaMalloc(&d_Stiff, numParts*sizeof(STIFF)));
-    cudaChk(cudaMalloc(&d_dtg, numParts*sizeof(double)));
-
-    cudaChk(cudaMalloc(&d_y, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_ymin, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_y0, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_q, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_d, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_rtau, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_ys, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_qs, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_rtaus, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_scrarray, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_y1, numParts*nv*sizeof(double)));
-#endif
-}
-
 
 /**
  * Per thread initialization
@@ -1029,162 +942,11 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
     smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
-#ifndef COOLING_NONE
-void TreePiece::setCoolPtrs() {
-    int offset = FirstCoolParticleIndex;
-    h_CoolData = &dm->h_CoolData[offset];
-    h_Stiff = &dm->h_Stiff[offset];
-
-    offset *= dm->Cool_nv;
-    h_ymin = &dm->h_ymin[offset];
-    h_y0 = &dm->h_y0[offset];
-    h_y1 = &dm->h_y1[offset];
-    h_q = &dm->h_q[offset];
-    h_d = &dm->h_d[offset];
-    h_rtau = &dm->h_rtau[offset];
-    h_ys = &dm->h_ys[offset];
-    h_qs = &dm->h_qs[offset];
-    h_rtaus = &dm->h_rtaus[offset];
-    h_scrarray = &dm->h_scrarray[offset];
-
-#ifdef CUDA
-    offset = FirstCoolParticleIndex;
-    d_CoolData = &dm->d_CoolData[offset];
-    d_Stiff = &dm->d_Stiff[offset];
-    d_dtg = &dm->d_dtg[offset];
-
-    offset *= dm->Cool_nv;
-    d_ymin = &dm->d_ymin[offset];
-    d_y = &dm->d_y[offset];
-    d_y0 = &dm->d_y0[offset];
-    d_y1 = &dm->d_y1[offset];
-    d_q = &dm->d_q[offset];
-    d_d = &dm->d_d[offset];
-    d_rtau = &dm->d_rtau[offset];
-    d_ys = &dm->d_ys[offset];
-    d_qs = &dm->d_qs[offset];
-    d_rtaus = &dm->d_rtaus[offset];
-    d_scrarray = &dm->d_scrarray[offset];
-#endif
-}
-
-void TreePiece::integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector<COOLPARTICLE> &cp,
-                                std::vector<double> &E, std::vector<double> &ExternalHeating,
-                                std::vector<double> &fDensity, std::vector<double> &fMetals,
-                                std::vector<std::vector<double>> &r, std::vector<double> &dtUse,
-                                std::vector<double> &columnL) {
-    std::vector<PERBARYON> Y(numSelParts);
-    std::vector<double> Ecgs(numSelParts);
-
-    // Cooling functions require C-style array
-    double *y = new double[numSelParts*COOL_NV];
-    for(unsigned int i = 0; i < numSelParts; ++i) {
-        Ecgs[i] = 0.0;
-
-        h_Stiff[i].ymin = &h_ymin[i*COOL_NV];
-        h_Stiff[i].y0 = &h_y0[i*COOL_NV];
-        h_Stiff[i].y1 = &h_y1[i*COOL_NV];
-        h_Stiff[i].q = &h_q[i*COOL_NV];
-        h_Stiff[i].d = &h_d[i*COOL_NV];
-        h_Stiff[i].rtau = &h_rtau[i*COOL_NV];
-        h_Stiff[i].ys = &h_ys[i*COOL_NV];
-        h_Stiff[i].qs = &h_qs[i*COOL_NV];
-        h_Stiff[i].rtaus = &h_rtaus[i*COOL_NV];
-        h_Stiff[i].scrarray = &h_scrarray[i*COOL_NV];
-
-        h_Stiff[i].Data = &h_CoolData[i];
-        h_Stiff[i].derivs = clDerivs;
-
-        h_Stiff[i].epsmax = EPSMAX;
-
-        h_CoolData[i].IntegratorContext = &h_Stiff[i];
-        CoolDerivsInit(dm->Cool, &h_CoolData[i], COOL_NV);
-
-#ifdef COOLING_MOLECULARH
-        CoolIntegrateEnergyCodeStart(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
-                                    ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
-                                    dtUse[i], columnL[i], &y[i*COOL_NV]);
-#else
-        CoolIntegrateEnergyCodeStart(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
-                                    ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
-                                    dtUse[i], &y[i*COOL_NV]);
-#endif
-    }
-    double t;
-#ifdef CUDA
-    if (numSelParts > gpuGasMinParts) {
-        CkPrintf("%d solving ODE on the GPU with %d particles\n", thisIndex, numSelParts);
-        cudaChk(cudaMemcpy(d_ymin, h_ymin, COOL_NV*numSelParts*sizeof(double), cudaMemcpyHostToDevice));
-
-        std::vector<STIFF> Stiff(numSelParts);
-        for (int i = 0; i < numSelParts; i++) {
-            h_CoolData[i].cl = dm->d_Cool;
-            h_CoolData[i].IntegratorContext = &d_Stiff[i];
-            
-            Stiff[i] = h_Stiff[i];
-
-            Stiff[i].ymin = &d_ymin[i*COOL_NV];
-            Stiff[i].y0 = &d_y0[i*COOL_NV];
-            Stiff[i].q = &d_q[i*COOL_NV];
-            Stiff[i].d = &d_d[i*COOL_NV];
-            Stiff[i].rtau = &d_rtau[i*COOL_NV];
-            Stiff[i].ys = &d_ys[i*COOL_NV];
-            Stiff[i].qs = &d_qs[i*COOL_NV];
-            Stiff[i].rtaus = &d_rtaus[i*COOL_NV];
-            Stiff[i].scrarray = &d_scrarray[i*COOL_NV];
-            Stiff[i].y1 = &d_y1[i*COOL_NV];
-            Stiff[i].Data = &d_CoolData[i];
-            Stiff[i].derivs = clDerivs;
-        }
-
-        cudaChk(cudaMemcpyAsync(d_CoolData, h_CoolData, numSelParts*sizeof(clDerivsData), cudaMemcpyHostToDevice, this->stream));
-        cudaChk(cudaMemcpyAsync(d_Stiff, Stiff.data(), sizeof(STIFF)*numSelParts, cudaMemcpyHostToDevice, this->stream));
-
-        t = 0.0;
-        TreePieceODESolver(d_Stiff, d_y, d_dtg, y, t, dtUse, numSelParts, COOL_NV, this->stream);
-
-        cudaChk(cudaMemcpyAsync(h_CoolData, d_CoolData, numSelParts*sizeof(clDerivsData), cudaMemcpyDeviceToHost, this->stream));
-        cudaStreamSynchronize(this->stream);
-
-        for (int i = 0; i < numSelParts; i++) {
-            h_CoolData[i].cl = dm->Cool;
-            h_CoolData[i].IntegratorContext = &h_Stiff[i];
-        }
-    }
-    else {
-        CkPrintf("%d solving ODE on the CPU with %d particles\n", thisIndex, numSelParts);
-        for(unsigned int i = 0; i < numSelParts; ++i) {
-           t = 0.0;
-           StiffStep( h_CoolData[i].IntegratorContext, &y[i*COOL_NV], t, dtUse[i]);
-        }
-    }
-#else
-        for(unsigned int i = 0; i < numSelParts; ++i) {
-           t = 0.0;
-           StiffStep( h_CoolData[i].IntegratorContext, &y[i*COOL_NV], t, dtUse[i]);
-        }
-#endif
-        for(unsigned int i = 0; i < numSelParts; ++i) {
-#ifdef COOLING_MOLECULARH
-            CoolIntegrateEnergyCodeFinish(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
-                                          ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
-                                          dtUse[i], columnL[i], &y[i*COOL_NV]);
-#else
-            CoolIntegrateEnergyCodeFinish(dm->Cool, &h_CoolData[i], &Y[i], &Ecgs[i], &cp[i], &E[i],
-                                          ExternalHeating[i], fDensity[i], fMetals[i], r[i].data(),
-                                          dtUse[i], &y[i*COOL_NV]);
-#endif
-        }
-    delete[] y;
-}
-
-#endif // COOLING_NONE
-
 /**
  * @brief Update the cooling rate (uDot)
  *
  * @param activeRung (minimum) rung being updated
- * @param duDelta    array of timesteps of length MAXRUNG+1
+ * @param duDelta array of timesteps of length MAXRUNG+1
  * @param dStartTime array of start times of length MAXRUNG+1
  * @param bCool      Whether cooling is on
  * @param bUpdateState Whether the ionization factions need updating
@@ -1207,50 +969,44 @@ void TreePiece::updateuDot(int activeRung,
 #endif
                const CkCallback& cb)
 {
+    this->bCool = bCool;
+    this->bUpdateState = bUpdateState;
 #ifndef COOLING_NONE
 
-    setCoolPtrs();
-
-    int numSelParts = myNumActiveGasParticles;
-
-    // TODO is this necessary?
-    if (numSelParts == 0) {
-        smoothProxy[thisIndex].ckLocal()->contribute(cb);
-        return;
-    }
-
-    double dt; // time in seconds
     double PoverRho;
     double PoverRhoGas;
     double PoverRhoJeans;
     double cGas;
-    double r1[3];  // For conversion to C
 
-    std::vector<GravityParticle *> pPtr(numSelParts);
-    std::vector<double> ExternalHeating(numSelParts);
-    std::vector<double> dtUse(numSelParts);
-    std::vector<double> fDensity(numSelParts);
-    std::vector<double> E(numSelParts);
-    std::vector<double> fMetals(numSelParts);
-    std::vector<std::vector<double>> r(numSelParts, std::vector<double>(3));
-    std::vector<double> columnL(numSelParts);
-    std::vector<COOLPARTICLE> cp(numSelParts);
+    double dtCur; // time in seconds
+    double duDeltaCur;
+    double Ecur;
+    double ExternalHeatingCur;
+    double fDensityCur;
+    double fMetalsCur;
+    double columnLcur;
+    double rCur[3];
+    COOLPARTICLE cpCur;
 
-    int pIdx;
+    PERBARYON YbaryonCur;
+    double EcgsCur;
+    // Cool functions require C-style array
+    // TODO free this somewhere
+    double *yIntCur = new double[COOL_NV];
+    int pIdx = 0;
 
-    pIdx = 0;
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)
 	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
-	    pPtr[pIdx] = p;
+	    myPartIdx.push_back(i);
 
-	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
-        fDensity[pIdx] = p->fDensity;
-        fMetals[pIdx] = p->fMetals();
+        dtCur = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
+        fDensityCur = p->fDensity;
+        fMetalsCur = p->fMetals();
         if (bCool) {
              CoolCodePressureOnDensitySoundSpeed(dm->Cool, &p->CoolParticle(),
-                     p->uPred(), fDensity[pIdx],
+                     p->uPred(), fDensityCur,
                      gammam1+1, gammam1, &PoverRhoGas,
                      &cGas);
         }
@@ -1265,14 +1021,11 @@ void TreePiece::updateuDot(int activeRung,
         PoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
         PoverRho = PoverRhoGas;
         if(PoverRho < PoverRhoJeans) PoverRho = PoverRhoJeans;
-        ExternalHeating[pIdx] = p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
+        ExternalHeatingCur = p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
 
         if (bCool) {
-            cp[pIdx] = p->CoolParticle();
-	    p->position.array_form(r1);
-	    r[pIdx][0] = r1[0];//std::vector<double>(r1, r1 + 3);
-	    r[pIdx][1] = r1[1];
-	    r[pIdx][2] = r1[2];
+            cpCur = p->CoolParticle();
+            p->position.array_form(rCur);
             CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
             CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
 #ifdef SUPERBUBBLE
@@ -1285,27 +1038,27 @@ void TreePiece::updateuDot(int activeRung,
             * If we have mass in the hot phase, we need to cool it appropriately.
             */
             if (p->massHot() > 0) { 
-                ExternalHeating[pIdx] = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
+                ExternalHeatingCur = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
                 if (p->uHot() > 0) { 
-                    E[pIdx] = p->uHot();
-                    fDensityHot = fDensity[pIdx]*(p->uHot()*frac+p->u()*(1-frac))/p->uHot();
-                    cp[pIdx] = p->CoolParticleHot();
+                    Ecur = p->uHot();
+                    fDensityHot = fDensity*(p->uHot()*frac+p->u()*(1-frac))/p->uHot();
+                    cpCur = p->CoolParticleHot();
 #ifdef COOLING_MOLECULARH
                     // Assume the cold phase is a shell surrounding the hot phase,
                     // which is a sphere
-                    double columnLHot =  pow((p->massHot()/fDensityHot)*(fDensity[pIdx]/p->mass), 1./3.)*(0.5*p->fBall);
+                    double columnLHot =  pow((p->massHot()/fDensityHot)*(fDensity/p->mass), 1./3.)*(0.5*p->fBall);
 #ifdef COOLDEBUG
                     dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif /*COOLDEBUG*/
-                    CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp[pIdx], &E[pIdx],
-                                ExternalHeating[pIdx], fDensityHot,
-                                fMetals[pIdx], r[pIdx].data(), dt, columnLHot);
+                    CoolIntegrateEnergyCode(dm->Cool, CoolData, cpCur, Ecur,
+                                ExternalHeatingCur, fDensityHot,
+                                fMetalsCur, &r1, dtCur, columnLHot);
 #else /*COOLING_MOLECULARH*/
-                    CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp[pIdx], &E[pIdx], ExternalHeating[pIdx], fDensityHot,
-                            fMetals[pIdx], r[pIdx].data(), dt);
+                    CoolIntegrateEnergyCode(dm->Cool, CoolData, cpCur, Ecur, ExternalHeatingCur, fDensityHot,
+                            fMetalsCur, &r1, dtCur);
 #endif /*COOLING_MOLECULARH*/
-                    p->uHotDot() = (E[pIdx] - p->uHot())/duDelta[p->rung];
-                    if(bUpdateState) p->CoolParticleHot() = cp[pIdx];
+                    p->uHotDot() = (Ecur - p->uHot())/duDelta[p->rung];
+                    if(bUpdateState) p->CoolParticleHot() = cpCur;
                 }
                 else if(p->cpHotInit() == 0) {
                     /* If we just got feedback, only set up the uDot */
@@ -1313,68 +1066,144 @@ void TreePiece::updateuDot(int activeRung,
                     * gotten feedback, but the particle (presumably on a long
                     * timestep has yet to do a updateuDot() with it.  Leave
                     * uDotHot() at its current value in that case. */
-                    p->uHotDot() = ExternalHeating[pIdx];
+                    p->uHotDot() = ExternalHeatingCur;
                     p->cpHotInit() = 1;
-                    CkAssert(ExternalHeating[pIdx] >= 0.0);
+                    CkAssert(ExternalHeatingCur >= 0.0);
                 }
-                ExternalHeating[pIdx] = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
+                ExternalHeatingCur = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
             }
             else { /* We have a single phase particle, treat it normally*/
                 p->uHotDot() = 0;
-                ExternalHeating[pIdx] =  p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
+                ExternalHeatingCur =  p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
             }
-            fDensity[pIdx] = fDensity[pIdx]*PoverRho/(gammam1*p->u());
-            if (p->fDensityU() < fDensity[pIdx]) fDensity[pIdx] = p->fDensityU()*PoverRho/(gammam1*p->u());
-            CkAssert(fDensity[pIdx] > 0);
-            cp[pIdx] = p->CoolParticle();
+            fDensityCur = fDensityCur*PoverRho/(gammam1*p->u());
+            if (p->fDensityU() < fDensityCur) fDensityCur = p->fDensityU()*PoverRho/(gammam1*p->u());
+            CkAssert(fDensityCur > 0);
+            cpCur = p->CoolParticle();
 #endif // SUPERBUBBLE
 
-            E[pIdx]  = p->u();
+            Ecur  = p->u();
 #ifdef COOLING_BOLEY
-	    cp[pIdx].mrho = pow(p->mass/fDensity[pIdx], 1./3.);
+	    cpCur.mrho = pow(p->mass/fDensityCur, 1./3.);
 #endif
-	    dtUse[pIdx] = dt;
 		
             if(dStartTime[p->rung] + 0.5*duDelta[p->rung]
 	       < p->fTimeCoolIsOffUntil()) {
 	        /* This flags cooling shutoff (e.g., from SNe) to
 	           the cooling functions. */
-		//dtUse[pIdx] = -dt;
+		//dtCur = -dtCur;
 #if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
-               h_CoolData[pIdx].bCool = 0;
+               h_CoolData[pIdx].bCool = 0; // TODO fix
 #endif
-		p->uDot() = ExternalHeating[pIdx];
+		p->uDot() = ExternalHeatingCur;
 		}
-            columnL[pIdx] = sqrt(0.25)*p->fBall;
+            columnLcur = sqrt(0.25)*p->fBall;
+
+	    duDeltaCur = duDelta[p->rung];
+
+            clDerivsData *CoolData = CoolDerivsInit(dm->Cool, COOL_NV);
+	    // TODO make sure this function allocates CoolData for the other modules
+
+#ifdef COOLING_MOLECULARH
+            CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &YbaryonCur, &EcgsCur, &cpCur, &Ecur,
+                                        ExternalHeatingCur, fDensityCur, fMetalsCur, rCur,
+                                        dtCur, columnLcur, yIntCur);
+#else
+            CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &YbaryonCur, &EcgsCur, &cpCur, &Ecur,
+                                        ExternalHeatingCur, fDensityCur, fMetalsCur, rCur,
+                                        dtCur, yIntCur);
+#endif
+
+            CoolRequest cReq;
+            cReq.coolData = CoolData;
+            cReq.y = yIntCur;
+            cReq.dtg = dtCur;
+            cReq.d_Cool = dm->d_Cool;
+            peIdx.push_back(peCoolProxy.ckLocalBranch()->sendData(cReq));
+
+            CoolDerivsFinalize(CoolData);
             }
         pIdx++;
+
+	// These quantities are needed in the callback, so save them
+	dt.push_back(dtCur);
+	Einteg.push_back(Ecur);
+	duDeltaVals.push_back(duDeltaCur);
+	ExternalHeating.push_back(ExternalHeatingCur);
+	fDensity.push_back(fDensityCur);
+	fMetals.push_back(fMetalsCur);
+	Ybaryon.push_back(YbaryonCur);
+	Ecgs.push_back(EcgsCur);
+	yInt.insert(yInt.end(), yIntCur, yIntCur + COOL_NV);
+	rVec.insert(rVec.end(), rCur, rCur + 3);
+#ifdef COOLING_MOLECULARH
+	columnL.push_back(columnLcur);
+#endif
+	cp.push_back(cpCur);
         }
     }
 
-    if (bCool) {
-        integrateEnergy(numSelParts, gpuGasMinParts, cp, E, ExternalHeating, fDensity,
-                        fMetals, r, dtUse, columnL);
+#ifdef CUDA
+    CkCallback integrateCb(CkIndex_TreePiece::finishIntegrateCb(), thisProxy[thisIndex]);
+    peCoolProxy.ckLocalBranch()->finish(this, integrateCb);
+#else
+    // TODO integration on CPU here (StiffStep)
+    finishuDot();
+#endif
+
+#endif
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
-    for(unsigned int i = 0; i < numSelParts; ++i) {
-	GravityParticle *p = pPtr[i];
+void TreePiece::finishuDot() {
+    clDerivsData *coolDataPE = peCoolProxy.ckLocalBranch()->getCoolData();
+    double *yIntPE = peCoolProxy.ckLocalBranch()->getYInt();
+
+    for(unsigned int i = 0; i < myPartIdx.size(); ++i) {
+	GravityParticle *p = &myParticles[myPartIdx[i]];
         if (bCool) {
-            CkAssert(E[i] > 0.0);
-            if(dtUse[i] > 0 || ExternalHeating[i]*duDelta[p->rung] + p->u() < 0)
+#ifdef COOLING_MOLECULARH
+            CoolIntegrateEnergyCodeFinish(dm->Cool, &coolDataPE[peIdx[i]], &Ybaryon[i], &Ecgs[i], &cp[i], &Einteg[i],
+                                          ExternalHeating[i], fDensity[i], fMetals[i], &rVec[i*3],
+                                          dt[i], columnL[i], &yIntPE[peIdx[i]*COOL_NV]);
+#else
+            CoolIntegrateEnergyCodeFinish(dm->Cool, &coolDataPE[peIdx[i]], &Ybaryon[i], &Ecgs[i], &cp[i], &Einteg[i],
+                                          ExternalHeating[i], fDensity[i], fMetals[i], &rVec[i*3],
+                                          dt[i], &yIntPE[peIdx[i]*COOL_NV]);
+#endif
+            CkAssert(Einteg[i] > 0.0);
+            if(dt[i] > 0 || ExternalHeating[i]*duDeltaVals[i] + p->u() < 0) {
                 // linear interpolation over interval
-                p->uDot() = (E[i] - p->u())/duDelta[p->rung];
-                //CkPrintf("%g\n", p->uDot()); // E[i] and p->u are identical
+                p->uDot() = (Einteg[i] - p->u())/duDeltaVals[i];
                 if (bUpdateState) p->CoolParticle() = cp[i];
             } else {
                 p->uDot() = ExternalHeating[i];
                 }
             CkAssert(isfinite(p->uDot()));
         }
-
-#endif
-    // Use shadow array to avoid reduction conflict
-    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
+    myPartIdx.clear();
+    dt.clear();
+    duDeltaVals.clear();
+    Einteg.clear();
+    ExternalHeating.clear();
+    fDensity.clear();
+    fMetals.clear();
+    Ybaryon.clear();
+    Ecgs.clear();
+    yInt.clear();
+    rVec.clear();
+#ifdef COOLING_MOLECULARH
+    columnL.clear();
+#endif
+    cp.clear();
+}
+
+void TreePiece::finishIntegrateCb() {
+    finishuDot();
+    peCoolProxy.ckLocalBranch()->reset();
+}
 
 /* Set a maximum ball for inverse Nearest Neighbor searching */
 void TreePiece::ballMax(int activeRung, double dhFac, const CkCallback& cb)

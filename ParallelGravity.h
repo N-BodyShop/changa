@@ -169,6 +169,7 @@ extern int nIOProcessor;
 
 extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
+extern CProxy_PECool peCoolProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
@@ -880,6 +881,8 @@ class TreePiece : public CBase_TreePiece {
   /// Return the pointer to the particles on this TreePiece.
   GravityParticle *getParticles(){return myParticles;}
 
+  int bCool;
+  int bUpdateState;
 
 #ifndef COOLING_NONE
         // First and last indices of cooling particles
@@ -912,7 +915,6 @@ class TreePiece : public CBase_TreePiece {
         // the list
         int numActiveBuckets; 
         int myNumActiveParticles;
-        int myNumActiveGasParticles;
         // First and Last indices of GPU particle
         int FirstGPUParticleIndex;
         int LastGPUParticleIndex;
@@ -964,24 +966,8 @@ class TreePiece : public CBase_TreePiece {
           }
         }
 
-        int getNumActiveGasParticles() {
-          return myNumActiveGasParticles;
-        }
-
         int getNumActiveParticles(){
           return myNumActiveParticles;
-        }
-
-        void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb) {
-          myNumActiveGasParticles = 0;
-          for(unsigned int i = 1; i <= myNumParticles; ++i) {
-          GravityParticle *p = &myParticles[i];
-          if (TYPETest(p, TYPE_GAS)
-              && (p->rung == iActiveRung || (bAll && p->rung >= iActiveRung))) {
-                    myNumActiveGasParticles++;
-                }
-            }
-          contribute(cb);
         }
 
         void calculateNumActiveParticles(){ 
@@ -1074,7 +1060,6 @@ class TreePiece : public CBase_TreePiece {
        void fillGPUBuffer(intptr_t bufLocalParts,
                           intptr_t bufLocalMoments,
                           intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
-        void setudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb);
         void updateParticles(intptr_t data, int partIndex);
 #else
         void continueStartRemoteChunk(int chunk);
@@ -1183,6 +1168,23 @@ private:
         int64_t nStartRead;
 	/// particle count for output
 	int myIOParticles;
+
+	std::vector<int> myPartIdx;
+	std::vector<int> peIdx;
+	std::vector<double> dt;
+	std::vector<double> duDeltaVals;
+	std::vector<double> Einteg;
+	std::vector<double> ExternalHeating;
+	std::vector<double> fDensity;
+	std::vector<double> fMetals;
+	std::vector<PERBARYON> Ybaryon;
+	std::vector<double> Ecgs;
+	std::vector<double> yInt;
+	std::vector<double> rVec;
+#ifdef COOLING_MOLECULARH
+	std::vector<double> columnL;
+#endif
+	std::vector<COOLPARTICLE> cp;
 
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
@@ -1850,21 +1852,15 @@ public:
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
 	void InitEnergy(double dTuFac, double z, double dTime, double gammam1,
 			const CkCallback& cb);
-#ifndef COOLING_NONE
-  void setCoolPtrs();
-  void integrateEnergy(int numSelParts, int gpuGasMinParts, std::vector<COOLPARTICLE> &cp,
-                       std::vector<double> &E, std::vector<double> &ExternalHeating,
-                       std::vector<double> &fDensity, std::vector<double> &fMetals,
-                       std::vector<std::vector<double>> &r, std::vector<double> &dtUse,
-                       std::vector<double> &columnL);
-#endif
-	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
+	void updateuDot(int activeRung, double duDeltaCur[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
 			int bUpdateState, double gammam1, double dResolveJeans,
 #ifdef CUDA
       int gpuGasMinParts,
 #endif
       const CkCallback& cb);
+	void finishIntegrateCb();
+	void finishuDot();
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
     void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,

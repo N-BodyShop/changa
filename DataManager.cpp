@@ -498,43 +498,6 @@ void DataManager::serializeLocalTree(){
       CmiUnlock(__nodelock);
 }
 
-#ifndef COOLING_NONE
-/// @brief Assign TreePieces to GPU memory for udot calculation
-/// Count the number of gas particles per TreePiece, notify the TreePieces
-/// of their location in device memory for the calculation, and ensure the
-/// block of device memory is large enough for the gas particles
-void DataManager::setupuDot(int activeRung, int bAll, const CkCallback& cb){\
-  // Notify each tree piece of its bounds in GPU memory for cooling data
-  numTotalGasParts = 0;
-  for(int i = 0; i < registeredTreePieces.size(); i++){
-      treePieces[registeredTreePieces[i].treePiece->getIndex()].setudotMarkers(activeRung, bAll, numTotalGasParts, cb);
-      numTotalGasParts += registeredTreePieces[i].treePiece->getNumActiveGasParticles();
-      }
-}
-
-/// @brief Callback from setupuDot
-/// Ensure the gas particles fit in memory. If not, reallocate
-/// a larger block
-void DataManager::setupuDotDone(const CkCallback& cb){
-  CmiLock(__nodelock);
-  treePiecesDoneUdot++;
-  if(treePiecesDoneUdot == registeredTreePieces.size()){
-    if (numTotalGasParts > numGasParts) {
-      CkPrintf("Out of memory for cooling calculation...reallocating\n");
-      int newNumGasParts = numTotalGasParts*1.1;
-      allocCoolParticleBlock(newNumGasParts, numGasParts > 0);
-      numGasParts = newNumGasParts;
-    }
-    treePiecesDoneUdot = 0;
-    CmiUnlock(__nodelock);
-    contribute(cb);
-  }
-  else
-      CmiUnlock(__nodelock);
-}
-
-#endif
-
 /// @brief Callback from local data transfer to GPU
 /// Indicate the transfer is done, and start the local gravity walks
 /// on the treepieces on this node.

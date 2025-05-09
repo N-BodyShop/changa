@@ -52,6 +52,16 @@
 #define CL_Eerg_gm_ev       CL_Eerg_gm_degK/CL_ev_degK
 #define CL_Eerg_gm_degK3_2  1.5*CL_Eerg_gm_degK /* 1.23741e8*/
 
+#define cudaChk(code) cudaErrorDie(code, #code, __FILE__, __LINE__)
+inline void cudaErrorDie(cudaError_t retCode, const char* code,
+                                              const char* file, int line) {
+  if (retCode != cudaSuccess) {
+    fprintf(stderr, "Fatal CUDA Error %s at %s:%d.\nReturn value %d from '%s'.",
+        cudaGetErrorString(retCode), file, line, retCode, code);
+    abort();
+  }
+}
+
 /** @brief Data and parameters for requesting gravity calculations on
  * the GPU. */
 typedef struct _CudaRequest{
@@ -115,10 +125,10 @@ typedef struct _CudaRequest{
 }CudaRequest;
 
 typedef struct _CoolRequest{
-  cudaStream_t stream;
   double *y;
-  double *d_y;
-  size_t ySize;
+  double dtg;
+  COOL *d_Cool;
+  clDerivsData *coolData;
 }CoolRequest;
 
 /// Device memory pointers used by most functions in HostCUDA
@@ -157,7 +167,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 void TreePiecePartListDataTransferRemote(CudaRequest *data);
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data);
 
-void TreePieceODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double  *y, double tstart, std::vector<double> dtg, int numParts, int nv, cudaStream_t stream);
+void PeODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double tstart, int numParts, cudaStream_t stream);
 
 void DummyKernel(void *cb);
 

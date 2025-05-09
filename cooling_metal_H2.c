@@ -41,7 +41,7 @@
    */
 #define Y_EMIN 1e-7
 
-#define TESTRATE 1e-3
+//#define TESTRATE 1e-3
 /* #define CUBICTABLEINTERP   */
 #define USETABLE
 
@@ -110,16 +110,18 @@ COOL *CoolInit( )
 /**
  * Per thread initialization of cooling
  * @param cl Initialized COOL structure.
- * @param Data Initialized clDerivsData structure.
- * @param nv Number of independent variable for ODE solver
  */
-void CoolDerivsInit(COOL *cl, clDerivsData *Data, int nv)
+clDerivsData *CoolDerivsInit(COOL *cl, int nv)
 {
+    clDerivsData *Data;
 
     assert(cl != NULL);
+    Data = (clDerivsData *) malloc(sizeof(clDerivsData));
     assert(Data != NULL);
-    StiffInit(Data->IntegratorContext, EPSINTEG, nv, Data, clDerivs);
+    Data->IntegratorContext = StiffInit(EPSINTEG, nv, Data, clDerivs); /*Change array length to 5 to include H2*/
     Data->cl = cl;
+
+    return Data;
     }
 
 void CoolFinalize(COOL *cl ) 
@@ -130,6 +132,15 @@ void CoolFinalize(COOL *cl )
   if (cl->MetalHeatln != NULL) free (cl->MetalHeatln); 
   free(cl);
 }
+
+/**
+ * Deallocate memory for per-thread data.
+ */
+void CoolDerivsFinalize(clDerivsData *clData)
+{
+    StiffFinalize(clData->IntegratorContext );
+    free(clData);
+    }
 
 void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit, 
 		      double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam) 
@@ -1135,7 +1146,7 @@ CUDA_DH  void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, doubl
 // MetalCoolln and MetalHeatln are flattened 1d arrays on the GPU
 // and 3d arrays on the CPU. This code can be called from host or
 // device so make sure the data is read correctly
-#ifdef __CUDA_ARCH__
+/*#ifdef __CUDA_ARCH__
   int nnH = cl->nnHMetalTable;
   int nt = cl->nTMetalTable;
   Cool000 = ((float *)cl->MetalCoolln)[(iz * nnH * nt) + (inHlog * nt) + iTlog];
@@ -1155,7 +1166,7 @@ CUDA_DH  void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, doubl
   Heat101 = ((float *)cl->MetalHeatln)[((iz + 1) * nnH * nt) + (inHlog * nt) + (iTlog + 1)];
   Heat110 = ((float *)cl->MetalHeatln)[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + iTlog];
   Heat111 = ((float *)cl->MetalHeatln)[((iz + 1) * nnH * nt) + ((inHlog + 1) * nt) + (iTlog + 1)];
-#else
+#else*/
   Cool000 = cl->MetalCoolln[iz][inHlog][iTlog];
   Cool001 = cl->MetalCoolln[iz][inHlog][iTlog+1];
   Cool010 = cl->MetalCoolln[iz][inHlog+1][iTlog];
@@ -1173,7 +1184,7 @@ CUDA_DH  void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, doubl
   Heat101 = cl->MetalHeatln[iz+1][inHlog][iTlog+1];
   Heat110 = cl->MetalHeatln[iz+1][inHlog+1][iTlog];
   Heat111 = cl->MetalHeatln[iz+1][inHlog+1][iTlog+1];
-#endif // __CUDA_ARCH__
+//#endif // __CUDA_ARCH__
 
   xz = xz - iz; 
   wz1 = xz; 

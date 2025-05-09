@@ -43,8 +43,7 @@ typedef struct StiffContextStructure {
  * Integrator Step Headers
  */
 
-void StiffInit(STIFF *s,
-         double eps, 	/* relative accuracy parameter */
+STIFF *StiffInit(double eps, 	/* relative accuracy parameter */
 		 int nv,	/* number of dependent variables */
 		 void *Data, 	/* pointer to extra data */
 		 void (*derivs)(double t, const double yin[],  /* input */
@@ -55,6 +54,7 @@ void StiffInit(STIFF *s,
 				void *Data)
 		 );
 
+void StiffFinalize( STIFF *s );
 void StiffStep(STIFF *s, double y[], double tstart, double htry) ;
 void StiffSetYMin(STIFF *s, const double *ymin);
 

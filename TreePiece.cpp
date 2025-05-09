@@ -3823,12 +3823,6 @@ void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
     dm->transferLocalToGPU(nParts, (GenericTreeNode *)node);
 }
 
-void TreePiece::setudotMarkers(int activeRung, int bAll, int pTPindex, const CkCallback& cb) {
-    this->FirstCoolParticleIndex = pTPindex;
-    this->LastCoolParticleIndex = FirstCoolParticleIndex + myNumActiveGasParticles;
-    dm->setupuDotDone(cb);
-}
-
 /// @brief update particle accelerations with GPU results
 void TreePiece::updateParticles(intptr_t data, int partIndex) {
     VariablePartData *deviceParticles = ((UpdateParticlesStruct *)data)->buf;

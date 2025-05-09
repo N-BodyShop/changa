@@ -36,16 +36,6 @@
 #  define HAPI_TRACE_END(ID) /* */
 #endif
 
-#define cudaChk(code) cudaErrorDie(code, #code, __FILE__, __LINE__)
-inline void cudaErrorDie(cudaError_t retCode, const char* code,
-                                              const char* file, int line) {
-  if (retCode != cudaSuccess) {
-    fprintf(stderr, "Fatal CUDA Error %s at %s:%d.\nReturn value %d from '%s'.",
-        cudaGetErrorString(retCode), file, line, retCode, code);
-    abort();
-  }
-}
-
 #ifdef CUDA_VERBOSE_KERNEL_ENQUEUE
 #include "converse.h"
 #endif
@@ -2204,19 +2194,10 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].dtGrav = 0.0;
 }
 
-void TreePieceODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double  *y, double tstart, std::vector<double> dtg, int numParts, int nv, cudaStream_t stream) {
-
-    if (numParts == 0) return;
-
-    size_t ySize = numParts * nv * sizeof(double);
-    size_t dtgSize = dtg.size() * sizeof(double);
-
-    cudaChk(cudaMemcpyAsync(d_y, y, ySize, cudaMemcpyHostToDevice, stream));
-    cudaChk(cudaMemcpyAsync(d_dtg, dtg.data(), dtgSize, cudaMemcpyHostToDevice, stream));
-
+void PeODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double tstart, int numParts, cudaStream_t stream) {
     CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_Stiff, d_y, tstart, d_dtg, numParts);
-
-    cudaChk(cudaMemcpyAsync(y, d_y, ySize, cudaMemcpyDeviceToHost, stream));
+    cudaStreamSynchronize(stream);
+    // TODO this should be a HAPI callback instead
 }
 
 __device__ double sign(double a, double b)
