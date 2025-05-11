@@ -40,13 +40,20 @@ void DataManager::init() {
   PEsWantParticlesBack = 0;
   treePiecesParticlesUpdated = 0;
   gpuFree = true;
-  cudaStreamCreate(&stream);
 
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
   lockStarLog = CmiCreateLock();
 }
+
+#ifdef CUDA
+/// @brief Initialize CUDA stream for this DataManager
+void DataManager::createStream(const CkCallback& cb) {
+  cudaStreamCreate(&stream);
+  contribute(cb);
+}
+#endif
 
 /**
  * Fill in responsibleIndex after ORB decomposition

@@ -267,6 +267,7 @@ mainmodule ParallelGravity {
     entry void startEwaldGPU();
     entry void finishEwaldGPU();
     entry void resumeRemoteChunk();
+    entry void createStream(const CkCallback& cb);
 #endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
