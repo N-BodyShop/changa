@@ -169,7 +169,6 @@ extern int nIOProcessor;
 
 extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
-extern CProxy_PECool peCoolProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
@@ -885,22 +884,7 @@ class TreePiece : public CBase_TreePiece {
   int bUpdateState;
 
 #ifndef COOLING_NONE
-        // First and last indices of cooling particles
         int FirstCoolParticleIndex;
-        int LastCoolParticleIndex;
-
-        clDerivsData *h_CoolData;
-        STIFF *h_Stiff;
-        double *h_ymin;
-        double *h_y0;
-        double *h_y1;
-        double *h_q;
-        double *h_d;
-        double *h_rtau;
-        double *h_ys;
-        double *h_qs;
-        double *h_rtaus;
-        double *h_scrarray;
 #endif
 
 #ifdef CUDA
@@ -915,6 +899,7 @@ class TreePiece : public CBase_TreePiece {
         // the list
         int numActiveBuckets; 
         int myNumActiveParticles;
+        int myNumActiveGasParticles;
         // First and Last indices of GPU particle
         int FirstGPUParticleIndex;
         int LastGPUParticleIndex;
@@ -977,6 +962,22 @@ class TreePiece : public CBase_TreePiece {
               myNumActiveParticles++;
             }
           }
+        }
+
+	int getNumActiveGasParticles() {
+          return myNumActiveGasParticles;
+        }
+
+	void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb) {
+          myNumActiveGasParticles = 0;
+          for(unsigned int i = 1; i <= myNumParticles; ++i) {
+          GravityParticle *p = &myParticles[i];
+          if (TYPETest(p, TYPE_GAS)
+              && (p->rung == iActiveRung || (bAll && p->rung >= iActiveRung))) {
+                    myNumActiveGasParticles++;
+                }
+            }
+          contribute(cb);
         }
 
         bool largePhase(){
@@ -1060,6 +1061,8 @@ class TreePiece : public CBase_TreePiece {
        void fillGPUBuffer(intptr_t bufLocalParts,
                           intptr_t bufLocalMoments,
                           intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
+
+        void setudotMarkers(int activeRung, int bAll, int pTPindex);
         void updateParticles(intptr_t data, int partIndex);
 #else
         void continueStartRemoteChunk(int chunk);
@@ -1170,7 +1173,6 @@ private:
 	int myIOParticles;
 
 	std::vector<int> myPartIdx;
-	std::vector<int> peIdx;
 	std::vector<double> dt;
 	std::vector<double> duDeltaVals;
 	std::vector<double> Einteg;
@@ -1179,12 +1181,17 @@ private:
 	std::vector<double> fMetals;
 	std::vector<PERBARYON> Ybaryon;
 	std::vector<double> Ecgs;
-	std::vector<double> yInt;
 	std::vector<double> rVec;
 #ifdef COOLING_MOLECULARH
 	std::vector<double> columnL;
 #endif
 	std::vector<COOLPARTICLE> cp;
+
+	std::vector<clDerivsData> coolData;
+	std::vector<STIFF> stiff;
+	std::vector<double> yMin;
+	std::vector<double> yInt;
+	std::vector<double> dtg;
 
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;

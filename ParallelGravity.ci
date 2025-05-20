@@ -23,7 +23,6 @@ mainmodule ParallelGravity {
   readonly CProxy_PETreeMerger peTreeMergerProxy;
   readonly CProxy_DumpFrameData dfDataProxy;
   readonly CProxy_IntraNodeLBManager nodeLBMgrProxy;
-  readonly CProxy_PECool peCoolProxy;
 
   readonly bool _cache;
   readonly int _nocache;
@@ -251,6 +250,7 @@ mainmodule ParallelGravity {
     entry void startLocalWalk();
     entry void resumeRemoteChunk();
     entry void createStreams(int _numStreams, const CkCallback& cb);
+    entry void setupuDot(int activeRung, int bAll, const CkCallback& cb);
     entry void coolDataToGPU(const CkCallback& cb);
     entry void assignCUDAStreams(const CkCallback& cb);
 #endif
@@ -547,11 +547,13 @@ const CkCallback& cb);
 
     // jetley
 #ifdef CUDA
+    entry void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb);
     entry void assignCUDAStream(intptr_t stream);
     entry void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
     entry void fillGPUBuffer(intptr_t bufLocalParts,
                              intptr_t bufLocalMoments,
                              intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
+    entry void setudotMarkers(int activeRung, int bAll, int pTPindex);
     entry void updateParticles(intptr_t data, int partIndex);
 #else
     entry void continueStartRemoteChunk(int chunk);
@@ -570,12 +572,6 @@ const CkCallback& cb);
   group [migratable] PETreeMerger {
     entry PETreeMerger();
   };
-
-#ifdef CUDA
-  group [migratable] PECool {
-    entry PECool();
-  };
-#endif
 
   group [migratable] DumpFrameData {
     entry DumpFrameData();

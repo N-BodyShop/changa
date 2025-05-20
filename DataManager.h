@@ -92,6 +92,8 @@ protected:
         int cumNumReplicatedNodes;
         int treePiecesDone;
         int treePiecesDoneUdot;
+        int treePiecesReadyCleanupUdot;
+        int treePiecesDoneFinishUdot;
         int savedChunk;
         int treePiecesDonePrefetch;
         int treePiecesDoneLocalComputation;
@@ -157,40 +159,29 @@ protected:
         size_t sVarParts;
 
 #ifndef COOLING_NONE
-  clDerivsData *h_CoolData;
-  STIFF *h_Stiff;
-	double *h_ymin;
-	double *h_y0;
-	double *h_y1;
-	double *h_q;
-	double *h_d;
-	double *h_rtau;
-	double *h_ys;
-	double *h_qs;
-	double *h_rtaus;
-	double *h_scrarray;
+  clDerivsData *coolData;
+  STIFF *stiff;
+  double *yMin;
+  double *yInt;
+  double *dtg;
 #ifdef CUDA
   // Pointers to cooling data on GPU
   clDerivsData *d_CoolData;
   STIFF *d_Stiff;
   double *d_y;
   double *d_dtg;
-	double *d_ymin;
-	double *d_y0;
-	double *d_y1;
-	double *d_q;
-	double *d_d;
-	double *d_rtau;
-	double *d_ys;
-	double *d_qs;
-	double *d_rtaus;
-	double *d_scrarray;
+  double *d_ymin;
+  double *d_y0;
+  double *d_y1;
+  double *d_q;
+  double *d_d;
+  double *d_rtau;
+  double *d_ys;
+  double *d_qs;
+  double *d_rtaus;
+  double *d_scrarray;
 
-  // Used to determine if memory needs to be reallocated
-  // Total number of gas particles on this node
   int numTotalGasParts;
-  // Total number of gas particles allocated
-  int numGasParts;
 #endif // CUDA
 #endif // COOLING_NONE
 
@@ -255,6 +246,12 @@ public:
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
         void assignCUDAStreams(const CkCallback& cb);
+        void setupuDot(int activeRung, int bAll, const CkCallback& cb);
+        void sendCoolData(clDerivsData *_coolData, STIFF *_stiff, double *_yMin, double *_yInt, double *_dtg, int i, int numParts);
+        void finishCool(const CkCallback& cb);
+        void cleanupCool();
+        clDerivsData* getCoolData(int idx);
+        double* getYInt(int idx);
 
 #ifdef GPU_LOCAL_TREE_WALK
         void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);

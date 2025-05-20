@@ -127,7 +127,6 @@ typedef struct _CudaRequest{
 typedef struct _CoolRequest{
   double *y;
   double dtg;
-  COOL *d_Cool;
   clDerivsData *coolData;
 }CoolRequest;
 
@@ -167,7 +166,7 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 void TreePiecePartListDataTransferRemote(CudaRequest *data);
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data);
 
-void PeODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double tstart, int numParts, cudaStream_t stream);
+void DataManagerODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double tstart, int numParts, cudaStream_t stream);
 
 void DummyKernel(void *cb);
 

@@ -14,7 +14,6 @@
 #include "formatted_string.h"
 
 #ifdef CUDA
-#include "PECool.h"
 #include "CudaFunctions.h"
 #endif
 
@@ -51,6 +50,10 @@ Main::initSph()
 	if(param.bGasCooling) {
 	    // Update cooling on the datamanager
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+#ifdef CUDA
+            treeProxy.calculateNumActiveGasParticles(1, 0, CkCallbackResumeThread());
+            dMProxy.setupuDot(0, 1, CkCallbackResumeThread());
+#endif // CUDA
 	    if(!bIsRestarting)  // Energy is already OK from checkpoint.
 		treeProxy.InitEnergy(dTuFac, z, dTime, (param.dConstGamma-1), CkCallbackResumeThread());
 	    }
@@ -973,6 +976,25 @@ void TreePiece::updateuDot(int activeRung,
     this->bUpdateState = bUpdateState;
 #ifndef COOLING_NONE
 
+    dt.clear();
+    duDeltaVals.clear();
+    Einteg.clear();
+    ExternalHeating.clear();
+    fDensity.clear();
+    fMetals.clear();
+    Ybaryon.clear();
+    Ecgs.clear();
+    rVec.clear();
+#ifdef COOLING_MOLECULARH
+    columnL.clear();
+#endif
+    cp.clear();
+    coolData.clear();
+    stiff.clear();
+    yMin.clear();
+    yInt.clear();
+    dtg.clear();
+
     double PoverRho;
     double PoverRhoGas;
     double PoverRhoJeans;
@@ -991,15 +1013,12 @@ void TreePiece::updateuDot(int activeRung,
     PERBARYON YbaryonCur;
     double EcgsCur;
     // Cool functions require C-style array
-    // TODO free this somewhere
     double *yIntCur = new double[COOL_NV];
-    int pIdx = 0;
 
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)
 	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
-	    myPartIdx.push_back(i);
 
         dtCur = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
         fDensityCur = p->fDensity;
@@ -1091,9 +1110,10 @@ void TreePiece::updateuDot(int activeRung,
 	       < p->fTimeCoolIsOffUntil()) {
 	        /* This flags cooling shutoff (e.g., from SNe) to
 	           the cooling functions. */
+         	// TODO fix
 		//dtCur = -dtCur;
 #if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
-               h_CoolData[pIdx].bCool = 0; // TODO fix
+               //h_CoolData[pIdx].bCool = 0; // TODO fix
 #endif
 		p->uDot() = ExternalHeatingCur;
 		}
@@ -1114,16 +1134,17 @@ void TreePiece::updateuDot(int activeRung,
                                         dtCur, yIntCur);
 #endif
 
-            CoolRequest cReq;
-            cReq.coolData = CoolData;
-            cReq.y = yIntCur;
-            cReq.dtg = dtCur;
-            cReq.d_Cool = dm->d_Cool;
-            peIdx.push_back(peCoolProxy.ckLocalBranch()->sendData(cReq));
+	    // Accumulate all data going to the GPU on this TreePiece before shipping it to
+	    // the DataManager. Sending particles one by one saturates the cache and kills performance
+	    CoolData->IntegratorContext->iord = p->iOrder;
+	    coolData.push_back(*CoolData);
+	    stiff.push_back(*CoolData->IntegratorContext);
+	    yMin.insert(yMin.end(), CoolData->IntegratorContext->ymin, CoolData->IntegratorContext->ymin + COOL_NV);
+	    yInt.insert(yInt.end(), yIntCur, yIntCur + COOL_NV);
+	    dtg.push_back(dtCur);
 
             CoolDerivsFinalize(CoolData);
             }
-        pIdx++;
 
 	// These quantities are needed in the callback, so save them
 	dt.push_back(dtCur);
@@ -1134,7 +1155,6 @@ void TreePiece::updateuDot(int activeRung,
 	fMetals.push_back(fMetalsCur);
 	Ybaryon.push_back(YbaryonCur);
 	Ecgs.push_back(EcgsCur);
-	yInt.insert(yInt.end(), yIntCur, yIntCur + COOL_NV);
 	rVec.insert(rVec.end(), rCur, rCur + 3);
 #ifdef COOLING_MOLECULARH
 	columnL.push_back(columnLcur);
@@ -1142,10 +1162,17 @@ void TreePiece::updateuDot(int activeRung,
 	cp.push_back(cpCur);
         }
     }
+    delete[] yIntCur;
 
 #ifdef CUDA
     CkCallback integrateCb(CkIndex_TreePiece::finishIntegrateCb(), thisProxy[thisIndex]);
-    peCoolProxy.ckLocalBranch()->finish(this, integrateCb);
+    // signal to data manager this tree piece is done, send integrateCb
+    // note that the DataManager expects all TreePieces with particles (not just active gas)
+    // to check in
+    if (myNumParticles > 0) {
+	    dMProxy.ckLocalBranch()->sendCoolData(coolData.data(), stiff.data(), yMin.data(), yInt.data(), dtg.data(), FirstCoolParticleIndex, coolData.size());
+            dMProxy.ckLocalBranch()->finishCool(integrateCb);
+        }
 #else
     // TODO integration on CPU here (StiffStep)
     finishuDot();
@@ -1157,52 +1184,48 @@ void TreePiece::updateuDot(int activeRung,
     }
 
 void TreePiece::finishuDot() {
-    clDerivsData *coolDataPE = peCoolProxy.ckLocalBranch()->getCoolData();
-    double *yIntPE = peCoolProxy.ckLocalBranch()->getYInt();
+    int bAll = 1; // TODO set bAll from updateuDot params
+    clDerivsData *coolDataTP = dMProxy.ckLocalBranch()->getCoolData(FirstCoolParticleIndex);
+    double *yIntTP = dMProxy.ckLocalBranch()->getYInt(FirstCoolParticleIndex);
 
-    for(unsigned int i = 0; i < myPartIdx.size(); ++i) {
-	GravityParticle *p = &myParticles[myPartIdx[i]];
-        if (bCool) {
+    int pIdx = 0;
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+	GravityParticle *p = &myParticles[i];
+	 if (TYPETest(p, TYPE_GAS)                                                                                                                && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
+	    if (bCool) {
+		/*if (p->iOrder == 4) {
+			//CkPrintf("%.15g\n", Einteg[pIdx]);
+		}
 #ifdef COOLING_MOLECULARH
-            CoolIntegrateEnergyCodeFinish(dm->Cool, &coolDataPE[peIdx[i]], &Ybaryon[i], &Ecgs[i], &cp[i], &Einteg[i],
-                                          ExternalHeating[i], fDensity[i], fMetals[i], &rVec[i*3],
-                                          dt[i], columnL[i], &yIntPE[peIdx[i]*COOL_NV]);
+		CoolIntegrateEnergyCodeFinish(dm->Cool, &coolDataTP[pIdx], &Ybaryon[pIdx], &Ecgs[pIdx], &cp[pIdx], &Einteg[pIdx],
+					      ExternalHeating[pIdx], fDensity[pIdx], fMetals[pIdx], &rVec[pIdx*3],
+					      dt[pIdx], columnL[pIdx], &yIntTP[pIdx*COOL_NV]);
 #else
-            CoolIntegrateEnergyCodeFinish(dm->Cool, &coolDataPE[peIdx[i]], &Ybaryon[i], &Ecgs[i], &cp[i], &Einteg[i],
-                                          ExternalHeating[i], fDensity[i], fMetals[i], &rVec[i*3],
-                                          dt[i], &yIntPE[peIdx[i]*COOL_NV]);
+		CoolIntegrateEnergyCodeFinish(dm->Cool, &coolDataTP[pIdx], &Ybaryon[pIdx], &Ecgs[pIdx], &cp[pIdx], &Einteg[pIdx],
+					      ExternalHeating[pIdx], fDensity[pIdx], fMetals[pIdx], &rVec[pIdx*3],
+					      dt[pIdx], &yIntTP[pIdx*COOL_NV]);
 #endif
-            CkAssert(Einteg[i] > 0.0);
-            if(dt[i] > 0 || ExternalHeating[i]*duDeltaVals[i] + p->u() < 0) {
-                // linear interpolation over interval
-                p->uDot() = (Einteg[i] - p->u())/duDeltaVals[i];
-                if (bUpdateState) p->CoolParticle() = cp[i];
-            } else {
-                p->uDot() = ExternalHeating[i];
-                }
-            CkAssert(isfinite(p->uDot()));
-        }
+		if (p->iOrder == 4) {
+			CkPrintf("%.15g\n", Einteg[pIdx]);
+		}
+		if(dt[pIdx] > 0 || ExternalHeating[pIdx]*duDeltaVals[pIdx] + p->u() < 0) {
+		    // linear interpolation over interval
+		    p->uDot() = (Einteg[pIdx] - p->u())/duDeltaVals[pIdx];
+		    //CkPrintf("%d %.15g, %.15g %.15g %.15g\n", p->iOrder, p->uDot(), Einteg[pIdx], p->u(), duDeltaVals[pIdx]);
+		    if (bUpdateState) p->CoolParticle() = cp[pIdx];
+		} else {
+		    p->uDot() = ExternalHeating[pIdx];
+		    }
+		CkAssert(isfinite(p->uDot()));*/
+	    }
+	 }
+	 pIdx++;
     }
-    myPartIdx.clear();
-    dt.clear();
-    duDeltaVals.clear();
-    Einteg.clear();
-    ExternalHeating.clear();
-    fDensity.clear();
-    fMetals.clear();
-    Ybaryon.clear();
-    Ecgs.clear();
-    yInt.clear();
-    rVec.clear();
-#ifdef COOLING_MOLECULARH
-    columnL.clear();
-#endif
-    cp.clear();
 }
 
 void TreePiece::finishIntegrateCb() {
     finishuDot();
-    peCoolProxy.ckLocalBranch()->reset();
+    dMProxy.ckLocalBranch()->cleanupCool();
 }
 
 /* Set a maximum ball for inverse Nearest Neighbor searching */

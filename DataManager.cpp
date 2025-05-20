@@ -33,9 +33,10 @@ void DataManager::init() {
   oldNumChunks = 0;
   chunkRoots = NULL;
 #ifdef CUDA
-  numGasParts = 0;
   treePiecesDone = 0;
   treePiecesDoneUdot = 0;
+  treePiecesReadyCleanupUdot = 0;
+  treePiecesDoneFinishUdot = 0;
   treePiecesDonePrefetch = 0;
   treePiecesDoneLocalComputation = 0;
   treePiecesDoneRemoteChunkComputation = 0;
@@ -497,6 +498,165 @@ void DataManager::serializeLocalTree(){
   else
       CmiUnlock(__nodelock);
 }
+
+#ifndef COOLING_NONE
+void DataManager::setupuDot(int activeRung, int bAll, const CkCallback& cb){
+  numTotalGasParts = 0;
+  CkPrintf("setupuDot\n");
+
+  for(int i = 0; i < registeredTreePieces.size(); i++){
+      registeredTreePieces[i].treePiece->setudotMarkers(activeRung, bAll, numTotalGasParts);
+      numTotalGasParts += registeredTreePieces[i].treePiece->getNumActiveGasParticles();
+      }
+
+  int nv = COOL_NV;
+  // Allocate pinned host and gpu memory for gas particles 
+  if (numTotalGasParts > 0) {
+    CkPrintf("allocating %d parts\n", numTotalGasParts);
+    allocatePinnedHostMemory((void **)&coolData, numTotalGasParts*sizeof(clDerivsData));
+    allocatePinnedHostMemory((void **)&stiff, numTotalGasParts*sizeof(STIFF));
+    allocatePinnedHostMemory((void **)&yMin, numTotalGasParts*nv*sizeof(double));
+    allocatePinnedHostMemory((void **)&yInt, numTotalGasParts*nv*sizeof(double));
+    allocatePinnedHostMemory((void **)&dtg, numTotalGasParts*sizeof(double));
+
+    cudaChk(cudaMalloc(&d_CoolData, numTotalGasParts*sizeof(clDerivsData)));
+    cudaChk(cudaMalloc(&d_Stiff, numTotalGasParts*sizeof(STIFF)));
+    cudaChk(cudaMalloc(&d_dtg, numTotalGasParts*sizeof(double)));
+
+    cudaChk(cudaMalloc(&d_y, numTotalGasParts*nv*sizeof(double)));
+    cudaChk(cudaMalloc(&d_ymin, numTotalGasParts*nv*sizeof(double)));
+    cudaChk(cudaMalloc(&d_y0, numTotalGasParts*nv*sizeof(double)));
+    cudaChk(cudaMalloc(&d_y1, numTotalGasParts*nv*sizeof(double)));
+    cudaChk(cudaMalloc(&d_q, numTotalGasParts*nv*sizeof(double)));
+    cudaChk(cudaMalloc(&d_d, numTotalGasParts*nv*sizeof(double)));
+    cudaChk(cudaMalloc(&d_rtau, numTotalGasParts*nv*sizeof(double)));
+    cudaChk(cudaMalloc(&d_ys, numTotalGasParts*nv*sizeof(double)));
+    cudaChk(cudaMalloc(&d_qs, numTotalGasParts*nv*sizeof(double)));
+    cudaChk(cudaMalloc(&d_rtaus, numTotalGasParts*nv*sizeof(double)));
+    cudaChk(cudaMalloc(&d_scrarray, numTotalGasParts*nv*sizeof(double)));
+  }
+
+  contribute(cb);
+}
+
+void DataManager::sendCoolData(clDerivsData *_coolData, STIFF *_stiff, double *_yMin, double *_yInt, double *_dtg, int i, int numParts) {
+  if (numParts == 0) return;
+  int nv = COOL_NV;
+  memcpy(&coolData[i], _coolData, numParts*sizeof(clDerivsData));
+  memcpy(&stiff[i], _stiff, numParts*sizeof(STIFF));
+  memcpy(&yMin[i*nv], _yMin, numParts*nv*sizeof(double));
+  memcpy(&yInt[i*nv], _yInt, numParts*nv*sizeof(double));
+  memcpy(&dtg[i], _dtg, numParts*sizeof(double));
+}
+
+/*void DataManager::sendCoolData(CoolRequest data, int i) {
+  coolData[i] = *data.coolData;
+  stiff[i] = *data.coolData->IntegratorContext;
+  int nv = COOL_NV;
+  for (int j = 0; j < nv; j++) {
+    yMin[i*nv + j] = data.coolData->IntegratorContext->ymin[j];
+    yInt[i*nv + j] = data.y[j];
+  }
+
+  dtg[i] = data.dtg;
+}*/
+
+clDerivsData* DataManager::getCoolData(int idx) {
+  return &coolData[idx];
+}
+
+double* DataManager::getYInt(int idx) {
+  return &yInt[idx];
+}
+
+void DataManager::finishCool(const CkCallback& cb) {
+  CmiLock(__nodelock);
+  treePiecesDoneUdot++;
+  if(treePiecesDoneUdot == registeredTreePieces.size()){
+      // Copy data and launch kernel
+      int numParts = numTotalGasParts;
+      int nv = COOL_NV;
+
+      for (int i = 0; i < numParts; i++) {
+	  coolData[i].IntegratorContext = &d_Stiff[i];
+	  coolData[i].cl = d_Cool;
+
+	  stiff[i].ymin = &d_ymin[i*nv];
+	  stiff[i].y0 = &d_y0[i*nv];
+	  stiff[i].y1 = &d_y1[i*nv];
+	  stiff[i].q = &d_q[i*nv];
+	  stiff[i].d = &d_d[i*nv];
+	  stiff[i].rtau = &d_rtau[i*nv];
+	  stiff[i].ys = &d_ys[i*nv];
+	  stiff[i].qs = &d_qs[i*nv];
+	  stiff[i].rtaus = &d_rtaus[i*nv];
+	  stiff[i].scrarray = &d_scrarray[i*nv];
+	  stiff[i].Data = &d_CoolData[i];
+      }
+
+      cudaChk(cudaMemcpy(d_CoolData, coolData, numParts*sizeof(clDerivsData), cudaMemcpyHostToDevice));
+      cudaChk(cudaMemcpy(d_Stiff, stiff, sizeof(STIFF)*numParts, cudaMemcpyHostToDevice));
+      cudaChk(cudaMemcpy(d_ymin, yMin, numParts*nv*sizeof(double), cudaMemcpyHostToDevice));
+      cudaChk(cudaMemcpy(d_y, yInt, numParts*nv*sizeof(double), cudaMemcpyHostToDevice));
+      cudaChk(cudaMemcpy(d_dtg, dtg, numParts*sizeof(double), cudaMemcpyHostToDevice));
+
+      double t = 0.0;
+      DataManagerODESolver(d_Stiff, d_y, d_dtg, t, numParts, streams[0]);
+
+      cudaChk(cudaMemcpy(yInt, d_y, numParts*nv*sizeof(double), cudaMemcpyDeviceToHost));
+      cudaChk(cudaMemcpy(coolData, d_CoolData, numParts*sizeof(clDerivsData), cudaMemcpyDeviceToHost));
+
+      // TODO hapi callback
+      //cb.send();
+      // callback needs to trigger on all of the TreePieces
+      for(int i = 0; i < registeredTreePieces.length(); i++){
+        int in = registeredTreePieces[i].treePiece->getIndex();
+	//CkPrintf("sending callback to %d\n", in);
+        treePieces[in].finishIntegrateCb();
+      }
+
+      treePiecesDoneUdot = 0;
+      CmiUnlock(__nodelock);
+      }
+    else {
+      CmiUnlock(__nodelock);
+      }
+}
+
+void DataManager::cleanupCool() {
+  CmiLock(__nodelock);
+  treePiecesReadyCleanupUdot++;
+  if(treePiecesReadyCleanupUdot == registeredTreePieces.size()){
+      CkPrintf("cleanup cool\n");
+      freePinnedHostMemory(coolData);
+      freePinnedHostMemory(stiff);
+      freePinnedHostMemory(yMin);
+      freePinnedHostMemory(yInt);
+      freePinnedHostMemory(dtg);
+
+      cudaChk(cudaFree(d_CoolData));
+      cudaChk(cudaFree(d_Stiff));
+      cudaChk(cudaFree(d_dtg));
+      cudaChk(cudaFree(d_y));
+      cudaChk(cudaFree(d_ymin));
+      cudaChk(cudaFree(d_y0));
+      cudaChk(cudaFree(d_y1));
+      cudaChk(cudaFree(d_q));
+      cudaChk(cudaFree(d_d));
+      cudaChk(cudaFree(d_rtau));
+      cudaChk(cudaFree(d_ys));
+      cudaChk(cudaFree(d_qs));
+      cudaChk(cudaFree(d_rtaus));
+      cudaChk(cudaFree(d_scrarray));
+      treePiecesReadyCleanupUdot = 0;
+      CmiUnlock(__nodelock);
+      }
+    else {
+      CmiUnlock(__nodelock);
+      }
+
+}
+#endif // COOLING_NONE
 
 /// @brief Callback from local data transfer to GPU
 /// Indicate the transfer is done, and start the local gravity walks

@@ -49,7 +49,6 @@
 #ifdef CUDA
 // for default per-list parameters
 #include "cuda_typedef.h"
-#include "PECool.h"
 #endif
 
 extern char *optarg;
@@ -85,8 +84,6 @@ CProxy_IntraNodeLBManager nodeLBMgrProxy;
 CProxy_DumpFrameData dfDataProxy;
 /// @brief Proxy for the PETreeMerger group.
 CProxy_PETreeMerger peTreeMergerProxy;
-
-CProxy_PECool peCoolProxy;
 
 /// @brief Use the cache (always on)
 bool _cache;
@@ -1379,8 +1376,6 @@ Main::Main(CkArgMsg* m) {
         peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
         dfDataProxy = CProxy_DumpFrameData::ckNew();
 
-        peCoolProxy = CProxy_PECool::ckNew();
-	
 	// create CacheManagers
 	// Gravity particles
 	cacheGravPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
@@ -1855,6 +1850,11 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
     double a = csmTime2Exp(param.csm,dTime);
     if(param.bGasCooling)
         dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+
+#ifdef CUDA
+    treeProxy.calculateNumActiveGasParticles(bAll, iActiveRung, CkCallbackResumeThread());
+    dMProxy.setupuDot(iActiveRung, bAll, CkCallbackResumeThread());
+#endif // CUDA
 
     treeProxy.updateuDot(iActiveRung, duKick, dStartTime,
                          param.bGasCooling, bUpdateState, bAll,

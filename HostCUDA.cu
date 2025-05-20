@@ -2194,9 +2194,11 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].dtGrav = 0.0;
 }
 
-void PeODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double tstart, int numParts, cudaStream_t stream) {
+void DataManagerODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double tstart, int numParts, cudaStream_t stream) {
+    CkPrintf("Launching kernel with %d particles\n", numParts);
     CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_Stiff, d_y, tstart, d_dtg, numParts);
     cudaStreamSynchronize(stream);
+    CkPrintf("Kernel finished\n");
     // TODO this should be a HAPI callback instead
 }
 
