@@ -7,11 +7,13 @@
 #include "DataManager.h"
 #include "Reductions.h"
 #include "formatted_string.h"
+#include "memlog.h"
 
 #ifdef CUDA
 #include "hapi.h"
 #include "cuda_typedef.h"
 #include "SFC.h"
+#include "GPUMemoryPool.h"
 #endif
 
 #include "Compute.h"
@@ -49,6 +51,8 @@ void DataManager::init() {
   Cool_nv = COOL_NV;
   starLog = new StarLog();
   lockStarLog = CmiCreateLock();
+  memLog = new MemLog();
+  lockMemLog = CmiCreateLock();
 }
 
 #ifdef CUDA
@@ -519,21 +523,22 @@ void DataManager::setupuDot(int activeRung, int bAll, const CkCallback& cb){
     allocatePinnedHostMemory((void **)&yInt, numTotalGasParts*nv*sizeof(double));
     allocatePinnedHostMemory((void **)&dtg, numTotalGasParts*sizeof(double));
 
-    cudaChk(cudaMalloc(&d_CoolData, numTotalGasParts*sizeof(clDerivsData)));
-    cudaChk(cudaMalloc(&d_Stiff, numTotalGasParts*sizeof(STIFF)));
-    cudaChk(cudaMalloc(&d_dtg, numTotalGasParts*sizeof(double)));
+    const char* funcTag = "setupuDot";
+    cudaChk(gpuMallocHelper(&d_CoolData, numTotalGasParts*sizeof(clDerivsData), funcTag));
+    cudaChk(gpuMallocHelper(&d_Stiff, numTotalGasParts*sizeof(STIFF), funcTag));
+    cudaChk(gpuMallocHelper(&d_dtg, numTotalGasParts*sizeof(double), funcTag));
 
-    cudaChk(cudaMalloc(&d_y, numTotalGasParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_ymin, numTotalGasParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_y0, numTotalGasParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_y1, numTotalGasParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_q, numTotalGasParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_d, numTotalGasParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_rtau, numTotalGasParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_ys, numTotalGasParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_qs, numTotalGasParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_rtaus, numTotalGasParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_scrarray, numTotalGasParts*nv*sizeof(double)));
+    cudaChk(gpuMallocHelper(&d_y, numTotalGasParts*nv*sizeof(double), funcTag));
+    cudaChk(gpuMallocHelper(&d_ymin, numTotalGasParts*nv*sizeof(double), funcTag));
+    cudaChk(gpuMallocHelper(&d_y0, numTotalGasParts*nv*sizeof(double), funcTag));
+    cudaChk(gpuMallocHelper(&d_y1, numTotalGasParts*nv*sizeof(double), funcTag));
+    cudaChk(gpuMallocHelper(&d_q, numTotalGasParts*nv*sizeof(double), funcTag));
+    cudaChk(gpuMallocHelper(&d_d, numTotalGasParts*nv*sizeof(double), funcTag));
+    cudaChk(gpuMallocHelper(&d_rtau, numTotalGasParts*nv*sizeof(double), funcTag));
+    cudaChk(gpuMallocHelper(&d_ys, numTotalGasParts*nv*sizeof(double), funcTag));
+    cudaChk(gpuMallocHelper(&d_qs, numTotalGasParts*nv*sizeof(double), funcTag));
+    cudaChk(gpuMallocHelper(&d_rtaus, numTotalGasParts*nv*sizeof(double), funcTag));
+    cudaChk(gpuMallocHelper(&d_scrarray, numTotalGasParts*nv*sizeof(double), funcTag));
   }
 
   contribute(cb);
@@ -634,20 +639,21 @@ void DataManager::cleanupCool() {
       freePinnedHostMemory(yInt);
       freePinnedHostMemory(dtg);
 
-      cudaChk(cudaFree(d_CoolData));
-      cudaChk(cudaFree(d_Stiff));
-      cudaChk(cudaFree(d_dtg));
-      cudaChk(cudaFree(d_y));
-      cudaChk(cudaFree(d_ymin));
-      cudaChk(cudaFree(d_y0));
-      cudaChk(cudaFree(d_y1));
-      cudaChk(cudaFree(d_q));
-      cudaChk(cudaFree(d_d));
-      cudaChk(cudaFree(d_rtau));
-      cudaChk(cudaFree(d_ys));
-      cudaChk(cudaFree(d_qs));
-      cudaChk(cudaFree(d_rtaus));
-      cudaChk(cudaFree(d_scrarray));
+      const char* funcTag = "setupuDot";
+      cudaChk(gpuFreeHelper(d_CoolData, funcTag));
+      cudaChk(gpuFreeHelper(d_Stiff, funcTag));
+      cudaChk(gpuFreeHelper(d_dtg, funcTag));
+      cudaChk(gpuFreeHelper(d_y, funcTag));
+      cudaChk(gpuFreeHelper(d_ymin, funcTag));
+      cudaChk(gpuFreeHelper(d_y0, funcTag));
+      cudaChk(gpuFreeHelper(d_y1, funcTag));
+      cudaChk(gpuFreeHelper(d_q, funcTag));
+      cudaChk(gpuFreeHelper(d_d, funcTag));
+      cudaChk(gpuFreeHelper(d_rtau, funcTag));
+      cudaChk(gpuFreeHelper(d_ys, funcTag));
+      cudaChk(gpuFreeHelper(d_qs, funcTag));
+      cudaChk(gpuFreeHelper(d_rtaus, funcTag));
+      cudaChk(gpuFreeHelper(d_scrarray, funcTag));
       treePiecesReadyCleanupUdot = 0;
       CmiUnlock(__nodelock);
       }
