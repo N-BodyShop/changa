@@ -298,7 +298,23 @@ fi
 if test "$FLAG_SUPERBUBBLE" = "-DSUPERBUBBLE" -a "$FLAG_COOLING" = "-DCOOLING_NONE" ; then
     AC_MSG_ERROR([SUPERBUBBLE requires cooling.  Enable it with --enable-cooling]);
 fi
- 
+
+#HYPCOND
+ARG_ENABLE([hypcond], [hypcond diffusion], [FLAG_HYPCOND], [-DHYPCOND], [no])
+if test "$FLAG_HYPCOND" = "-DHYPCOND" -a x"$FLAG_SUPERBUBBLE" = x ; then
+    AC_MSG_ERROR([HYPCOND requires SUPERBUBBLE.  Enable it with --enable-superbubble]);
+fi
+
+#ACCZERO
+ARG_ENABLE([acczero], [zero acceleration], [FLAG_ACCZERO], [-DACCZERO], [no])
+
+
+#THERMALDIFFONLY
+ARG_ENABLE([thermaldiffonly], [only thermal diffusion], [FLAG_THERMALDIFFONLY], [-DTHERMALDIFFONLY], [no])
+if test "$FLAG_THERMALDIFFONLY" = "-DTHERMALDIFFONLY" -a x"$FLAG_SUPERBUBBLE" = x ; then
+    AC_MSG_ERROR([THERMALDIFFONLY requires SUPERBUBBLE.  Enable it with --enable-superbubble]);
+fi
+
 # Dust self-shielding for column length calculation with molecular hydrogen
 ARG_ENABLE([shieldsf], [Dust self-shielding star formation], [FLAG_SHIELDSF], [-DSHIELDSF], [no])
 if test "$FLAG_SHIELDSF" = "-DSHIELDSF" -a "$FLAG_COOLING" != "-DCOOLING_MOLECULARH" ; then
@@ -383,7 +399,7 @@ echo "    "Charm compiler"   " $CHARMC
 echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
-echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
+echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE $FLAG_HYPCOND $FLAG_THERMALDIFFONLY $FLAG_ACCZERO
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH

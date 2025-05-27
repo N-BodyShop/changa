@@ -600,6 +600,7 @@ public:
 	void growMass(double dTime, double dDelta);
 	void initSph();
 	void initCooling();
+    void initQCond();
     void initLWData();
 	void initStarLog();
 	void initHMStarLog();

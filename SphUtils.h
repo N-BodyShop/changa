@@ -124,6 +124,14 @@ typedef struct PressSmoothUpdateStruct {
 //        #else
             #ifndef NODIFFUSIONTHERMAL /* compile-time flag */
                 double diffu;
+#ifdef HYPCOND
+                double diffuHypCond;
+                Vector3D<double> gradU1;
+                Vector3D<double> diffq;
+                Vector3D<double> gradQ1x;
+                Vector3D<double> gradQ1y;
+                Vector3D<double> gradQ1z;
+#endif
             #endif
 //        #endif //DIFFUSIONPRICE
         /* not implemented */
@@ -150,5 +158,11 @@ typedef struct PressSmoothParticleStruct {
 void updateParticle(GravityParticle *a, GravityParticle *b, 
                     PressSmoothUpdate *params, PressSmoothParticle *aParams, 
                     PressSmoothParticle *bParams, int sign);
+
+void getInitialGrad(GravityParticle *a, GravityParticle *b,
+                    PressSmoothUpdate *params, PressSmoothParticle *aParams,
+                    PressSmoothParticle *bParams, int sign);
+
+void minMod(double val1, double val2, double &slope_1, double &slope_2);
 
 #endif // SPHUTILS_H

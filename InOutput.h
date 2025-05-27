@@ -58,6 +58,42 @@ class OutputParams : public PUP::able
 	}
     };
 
+#ifdef HYPCOND
+/*NAO HYPCOND*/
+/// @brief Output HYPCOND
+class HypCondOutputParams : public OutputParams
+{
+ public:
+  virtual double dValue(GravityParticle *p){CkAssert(0); return 0.0;}
+  virtual Vector3D<double> vValue(GravityParticle *p){ return (p->isGas() ? p->dQCond() : 0.0);}
+  virtual void setDValue(GravityParticle *p, double val) {CkAssert(0);}
+  virtual void setVValue(GravityParticle *p, Vector3D<double> val) {
+    if(p->isGas()){
+      p->dQCond() = val;
+      p->dQCondPred() = p->dQCond();}
+  }
+  virtual int64_t iValue(GravityParticle *p) {CkAssert(0); return 0.0;}
+  virtual void setIValue(GravityParticle *p, int64_t iValue) {CkAssert(0);}
+ public:
+  HypCondOutputParams() {}
+  HypCondOutputParams(std::string _fileName) { bFloat = 1; bVector = 1; fileName = _fileName;}
+  HypCondOutputParams(std::string _fileName, int _iBinaryOut, double _dTime) {
+    bFloat = 1;
+    bVector = 1; fileName = _fileName; iBinaryOut = _iBinaryOut;
+    sTipsyExt = "dQCond"; sNChilExt = "dQCond";
+    dTime = _dTime;
+    iType = TYPE_GAS; }
+  PUPable_decl(HypCondOutputParams);
+  HypCondOutputParams(CkMigrateMessage *m) {}
+  virtual void pup(PUP::er &p) {
+    OutputParams::pup(p);//Call base class
+  }
+};
+/*NAO HYPCOND*/
+#endif
+
+
+
 #ifdef SUPERBUBBLE
 /// @brief Output particle hot phase internal energy
 class uHotOutputParams : public OutputParams
