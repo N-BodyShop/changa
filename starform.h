@@ -16,9 +16,8 @@
 #include "lymanwerner.h"
 
 /// Parameters and methods to implement star formation.
-class Stfm {
- private:
-    Stfm& operator=(const Stfm& st);
+class Stfm_Shallow {
+ protected:
     double dGmUnit;		/* system mass in grams */
     double dMsolUnit;    /* system mass unit in Msol */
     double dGmPerCcUnit;	/* system density in gm/cc */
@@ -55,60 +54,39 @@ class Stfm {
     double dMinGasMass;		/* minimum mass gas before we delete
 				   the particle. */
     double dDeltaStarForm;	/* timestep in system units */
+    };
+
+/// @ brief Derived class to handle the deep copy for the IMF pointer.
+/// N.B.  All attributes except imf need to be in Stfm_Shallow.
+class Stfm : public Stfm_Shallow {
+private:
+    Stfm& operator=(const Stfm& st); /* private to prevent use */
+public:
+    IMF *imf;
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
     void NullStarForm() { imf = new Kroupa01(); } /* Place holder */
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-			      double dDelta, double dCosmoFac, double *T, double *H2Fraction, LWDATA *LWData, Rand& rndGen);
-    IMF *imf;
+			      double dDelta, double dCosmoFac, double *T,
+                              double *H2Fraction, LWDATA *LWData, Rand& rndGen);
 
     Stfm() {};
     Stfm(const Stfm& st);
     ~Stfm() {
         delete imf;
-    }
-    inline void pup(PUP::er &p);
     };
+    inline void pup(PUP::er &p);
+};
 
 // "Deep copy" constructer is needed because of imf pointer
-inline Stfm::Stfm(const Stfm& st) {
-    dMsolUnit = st.dMsolUnit;
-    dGmUnit = st.dGmUnit;
-    dGmPerCcUnit = st.dGmPerCcUnit;
-    dSecUnit = st.dSecUnit;
-    dErgUnit = st.dErgUnit;
-    dPhysDenMin = st.dPhysDenMin;
-    dOverDenMin = st.dOverDenMin;
-    dTempMax = st.dTempMax;
-    dSoftMin = st.dSoftMin;
-    dCStar = st.dCStar;
-    dStarEff = st.dStarEff;
-    dInitStarMass = st.dInitStarMass;
-    dMinSpawnStarMass = st.dMinSpawnStarMass;
-    dMaxStarMass = st.dMaxStarMass;
-    bGasCooling = st.bGasCooling;
-    bUseStoch = st.bUseStoch;
-    dStochCut = st.dStochCut;
-    iStarFormRung = st.iStarFormRung;
-    dMinGasMass = st.dMinGasMass;
-    dDeltaStarForm = st.dDeltaStarForm;
-#ifdef COOLING_MOLECULARH
-    dStarFormEfficiencyH2 = st.dStarFormEfficiencyH2;
-#endif
-    bBHForm = st.bBHForm;
-    dBHFormProb = st.dBHFormProb;
-    dInitBHMass = st.dInitBHMass;
+inline Stfm::Stfm(const Stfm& st) : Stfm_Shallow(st) {
     imf = st.imf->clone();
 }
 
 inline void Stfm::pup(PUP::er &p) {
-    p|bUseStoch;
-    p|dStochCut;
-    p|dDeltaStarForm;
-    p|iStarFormRung;
-    p|dMsolUnit;
     p|dGmUnit;
+    p|dMsolUnit;
     p|dGmPerCcUnit;
     p|dSecUnit;
     p|dErgUnit;
@@ -120,7 +98,6 @@ inline void Stfm::pup(PUP::er &p) {
     p|dStarEff;
     p|dInitStarMass;
     p|dMinSpawnStarMass;
-    p|dMinGasMass;
     p|dMaxStarMass;
     p|bGasCooling;
 #ifdef COOLING_MOLECULARH
@@ -133,6 +110,11 @@ inline void Stfm::pup(PUP::er &p) {
     p|bBHForm;
     p|dBHFormProb;
     p|dInitBHMass;
+    p|bUseStoch;
+    p|dStochCut;
+    p|iStarFormRung;
+    p|dMinGasMass;
+    p|dDeltaStarForm;
     p|imf;
     }
 
