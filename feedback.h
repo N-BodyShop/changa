@@ -120,7 +120,7 @@ public:
 	}
     inline void pup(PUP::er &p);
 };
-    
+
 //  "Deep copy" constructer is need because of imf pointer.
 inline Fdbk::Fdbk(const Fdbk& fb) : Fdbk_Shallow(fb) {
     imf = fb.imf->clone();
