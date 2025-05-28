@@ -51,6 +51,7 @@ class PEList : public CBase_PEList
     CompactPartData *d_remoteParts;
     CudaMultipoleMoments *d_remoteMoments;
     cudaStream_t stream;
+    CkCallback *finishCb;
 
     cudatype fperiod;
 
@@ -62,7 +63,7 @@ class PEList : public CBase_PEList
 
     void setType(int _bNode, int _bRemote, int _bResume);
 
-    void finishWalk(TreePiece *treePiece, CkCallback &cb);
+    void finishWalk(TreePiece *treePiece);
     void sendList(TreePiece *treePiece, CudaRequest *data);
     void reset();
 };

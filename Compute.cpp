@@ -1101,7 +1101,6 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     request->affectedBuckets = affectedBuckets;
     request->tp = (void *)tp;
     request->fperiod = tp->fPeriod.x;
-    request->callback = NULL;
 
 #ifdef HAPI_TRACE
     traceUserBracketEvent(CUDA_SER_LIST, starttime, CmiWallTimer());
@@ -1202,7 +1201,6 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
     request->affectedBuckets = affectedBuckets;
     request->tp = (void *)tp;
     request->fperiod = tp->fPeriod.x;
-    request->callback = NULL;
 
 #ifdef HAPI_TRACE
     traceUserBracketEvent(CUDA_SER_LIST, starttime, CmiWallTimer());

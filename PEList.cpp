@@ -9,7 +9,7 @@ void PEList::setType(int _bNode, int _bRemote, int _bResume) {
         bResume = _bResume;
     }
 
-void PEList::finishWalk(TreePiece *treePiece, CkCallback &cb) {
+void PEList::finishWalk(TreePiece *treePiece) {
     vtpLocal.push_back(treePiece);
 
     // On first call, find the total number of active pieces on this PE.
@@ -54,25 +54,21 @@ void PEList::finishWalk(TreePiece *treePiece, CkCallback &cb) {
     request->bucketSizes = bucketSizes.data();
     request->numInteractions = iList.size();
 
-    CProxy_PEList proxy;
     void (*transferFunc)(CudaRequest*);
     if (bNode) {
-	proxy = bRemote ? peNodeRemoteListProxy : peNodeLocalListProxy;
 	transferFunc = bRemote ? PEListNodeListDataTransferRemote : PEListNodeListDataTransferLocal;
 	if (bResume) {
-		proxy = peNodeRemoteResumeListProxy;
 		transferFunc = PEListNodeListDataTransferRemoteResume;
 	}
     } else {
-	proxy = bRemote ? pePartRemoteListProxy : pePartLocalListProxy;
 	transferFunc = bRemote ? PEListPartListDataTransferRemote : PEListPartListDataTransferLocal;
 	if (bResume) {
-		proxy = pePartRemoteResumeListProxy;
 		transferFunc = PEListPartListDataTransferRemoteResume;
 	}
     }
 
-    request->callback = &cb;
+    finishCb = new CkCallback(CkIndex_TreePiece::finishWalkCb(), treePiece->thisProxy[treePiece->thisIndex]);
+    request->cb = finishCb;
     transferFunc(request);
 }
 
@@ -151,6 +147,7 @@ void PEList::reset() {
     cTreePieces.reset();
     vtpLocal.length() = 0;
     finalBucketMarker = -1;
+    delete finishCb;
 }
 
 #endif

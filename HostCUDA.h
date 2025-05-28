@@ -63,7 +63,6 @@ typedef struct _CudaRequest{
 	/// these buckets were finished in this work request
 	int *affectedBuckets;
         void *cb;               /**< Callback  */
-	CkCallback *callback;
         void *state;            /**< Pointer to state of walk that
                                  * created this request  */
         cudatype fperiod;       /**< Size of periodic volume  */
