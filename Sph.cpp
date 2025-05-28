@@ -1010,7 +1010,7 @@ void TreePiece::updateuDot(int activeRung,
 #elif defined(SUPERBUBBLE)
         // Assume the cold phase is a shell surrounding the hot phase,
         // which is a sphere
-        assert(columnL > columnLHot);
+        assert(columnL >= columnLHot);
         columnL = columnL - columnLHot;
 #endif
 
