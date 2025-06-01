@@ -583,24 +583,20 @@ void DataManager::initHMStarLog(std::string _fileName, const CkCallback &cb) {
     }
 
 /// \brief flush starlog table to disk.
-void TreePiece::flushStarLog(const CkCallback& cb) {
+void DataManager::flushStarLog(const CkCallback& cb) {
 
     if(verbosity > 3)
-	ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
-    if (dm == NULL)
-        dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-    CmiLock(dm->lockStarLog);
-    dm->starLog->flush();
-    CmiUnlock(dm->lockStarLog);
+        ckout << "Node " << thisIndex << ": Writing output to disk" << endl;
+    starLog->flush();
 
-    if(thisIndex!=(int)numTreePieces-1) {
-	pieces[thisIndex + 1].flushStarLog(cb);
-	return;
-	}
+    if(thisIndex != CkNumNodes()-1) {
+        thisProxy[thisIndex + 1].flushStarLog(cb);
+        return;
+    }
 
     cb.send(); // We are done.
     return;
-    }
+}
 
 /// \brief flush hmstarlog table to disk
 void TreePiece::flushHMStarLog(const CkCallback& cb) {

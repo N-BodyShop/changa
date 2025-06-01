@@ -3155,7 +3155,7 @@ Main::doSimulation()
        && (bOutTime() || iStep == param.nSteps || iStop
 	   || iStep%param.iOutInterval == 0)) {
 	writeOutput(iStep);
-	treeProxy[0].flushStarLog(CkCallbackResumeThread());
+        dMProxy[0].flushStarLog(CkCallbackResumeThread());
     if(param.feedback->sn.bUseStoch)
         treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
     }
@@ -3186,7 +3186,7 @@ Main::doSimulation()
 	// so it won't be saved on disk.
 	treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, false, param.dMaxEnergy,
                         CkCallbackResumeThread());
-	treeProxy[0].flushStarLog(CkCallbackResumeThread());
+        dMProxy[0].flushStarLog(CkCallbackResumeThread());
     if(param.feedback->sn.bUseStoch)
         treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
 	param.iStartStep = iStep; // update so that restart continues on
@@ -3417,7 +3417,7 @@ Main::doSimulation()
   }
 
   if(param.bBenchmark == 0) {
-      treeProxy[0].flushStarLog(CkCallbackResumeThread());
+      dMProxy[0].flushStarLog(CkCallbackResumeThread());
       if(param.feedback->sn.bUseStoch)
           treeProxy[0].flushHMStarLog(CkCallbackResumeThread());
   }

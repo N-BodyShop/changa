@@ -268,6 +268,7 @@ mainmodule ParallelGravity {
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
+    entry void flushStarLog(const CkCallback& cb);
     entry void initLWData(const CkCallback& cb);
     entry void initHMStarLog(std::string _fileName, const CkCallback &cb);
   };
@@ -459,7 +460,7 @@ mainmodule ParallelGravity {
     entry void initRand(int iRand, const CkCallback &cb);
     entry void FormStars(Stfm param, double dTime, double dDelta, 
     	       		 double dCosmoFac, const CkCallback& cb);
-    entry void flushStarLog(const CkCallback& cb);
+//    entry void flushStarLog(const CkCallback& cb);
     entry void flushHMStarLog(const CkCallback& cb);
     entry void Feedback(Fdbk fb, double dTime, double dDelta,
     	       		const CkCallback& cb);
