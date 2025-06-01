@@ -87,8 +87,12 @@ void ExternalForce::AddParams(PRM prm)
 void ExternalForce::CheckParams(PRM prm, struct parameters &param)
 {
     // Enable external force if any of the flags are set
-    if (bBodyForce || bPatch || bCentralBody || param.bDoExternalGravity)
+    if (bBodyForce || bPatch || bCentralBody || param.bDoExternalGravity) {
         param.bDoExternalForce = 1; 
+        if (bPatch) {
+            param.externalForce.dOrbFreq = sqrt(param.externalForce.dCentMass / pow(param.externalForce.dOrbDist, 3));
+        }
+    }
     // Gas drag requires central point mass
     if (bDoGasDrag && !bCentralBody)
         CkAbort("bDoGasDrag requires bCentralBody to be set\n");
@@ -230,14 +234,19 @@ Vector3D<double> ExternalForce::applyGravPotential(GravityParticle *p, int bKepS
     }
 
     if (bPatch) {
+#ifndef NO_HILL
         double r2 = dOrbDist*dOrbDist + p->position.z*p->position.z;
         double idt2 = dCentMass*pow(r2, -1.5);
 
-        p->treeAcceleration.z -= dCentMass*p->position.z
-                                 *pow(r2, -1.5);
+        p->treeAcceleration.x -= dOrbFreq*dOrbFreq*p->position.x;
+        // TODO: for self gravity there is a vertical frequency
+        // enhancement here.
+        p->treeAcceleration.z -= dOrbFreq*dOrbFreq*p->position.z;
+
         p->potential += dCentMass/sqrt(r2);
         if(idt2 > p->dtGrav)
             p->dtGrav = idt2;
+#endif
         }
 
     if(bCentralBody) {
