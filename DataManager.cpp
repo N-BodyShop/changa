@@ -1088,12 +1088,6 @@ void DataManager::transferParticleVarsBack(){
 			     stream,
                              data->cb);
     
-    cudaFree(d_localMoments);
-    cudaFree(d_localParts);
-    cudaFree(d_localVars);
-    cudaFree(d_remoteMoments);
-    cudaFree(d_remoteParts); 
-
 #ifdef CUDA_PRINT_ERRORS
     printf("transferParticleVarsBack: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -1143,6 +1137,12 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
     treePiecesParticlesUpdated++;
     if(treePiecesParticlesUpdated == registeredTreePieces.length()){
         treePiecesParticlesUpdated = 0;
+
+	cudaFree(d_localMoments);
+	cudaFree(d_localParts);
+	cudaFree(d_localVars);
+	cudaFree(d_remoteMoments);
+	cudaFree(d_remoteParts);
 
         if(data->size > 0){
 #ifdef PINNED_HOST_MEMORY

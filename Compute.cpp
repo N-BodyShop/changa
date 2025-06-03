@@ -1886,6 +1886,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
   CkPrintf("memcheck after sendNodeInteractionsToGpu\n");
   CmiMemoryCheck();
 #endif
+  delete data;
 }
 
 void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
@@ -1974,6 +1975,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
   CkPrintf("memcheck after sendPartInteractionsToGpu\n");
   CmiMemoryCheck();
 #endif
+  delete data;
 }
 
 #endif

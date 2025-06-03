@@ -29,7 +29,7 @@ void PEList::finishWalk(TreePiece *treePiece) {
     if(vtpLocal.length() == cTreePieces.count && finalBucketMarker != -1)
 	bucketMarkers.push_back(finalBucketMarker);
 
-    CudaRequest *request = new CudaRequest;
+    request = new CudaRequest;
 
     request->d_localMoments = d_localMoments;
     request->d_localParts = d_localParts;
@@ -134,6 +134,10 @@ void PEList::sendList(TreePiece *treePiece, CudaRequest* data) {
     freePinnedHostMemory(data->bucketStarts);
     freePinnedHostMemory(data->bucketSizes);
     delete[] data->affectedBuckets;
+    if(data->missedNodes)
+      freePinnedHostMemory(data->missedNodes);
+    if(data->missedParts)
+      freePinnedHostMemory(data->missedParts);
 }
 
 void PEList::reset() {
@@ -148,6 +152,7 @@ void PEList::reset() {
     vtpLocal.length() = 0;
     finalBucketMarker = -1;
     delete finishCb;
+    delete request;
 }
 
 #endif
