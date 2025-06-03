@@ -6655,6 +6655,44 @@ int TreePiece::getResponsibleIndex(int first, int last){
   return dm->responsibleIndex[which];
 }
 
+#include "TreePieceReplica.h"
+
+void TreePiece::replicateTreePieces(const CkCallback& cb) {
+	acks_count = 0;
+	if (root == NULL) {
+		contribute(cb);
+		return;
+	}
+
+	int depth_count = ((Tree::BinaryTreeNode*)root)->countDepth(100000000);
+	// CkPrintf("[%d] Depth %d ^^^^ root key %d\n", thisIndex, depth_count, root->getKey());
+
+	int hash_pe = thisIndex % CkNumPes();
+	int k;
+	for (int i = 0; i < 4; i++) {
+		k = hash_pe;
+		k += i*23;
+		k %= CkNumPes();
+
+                TreeReplicaMsg *reply = new (depth_count * ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode)))
+                    TreeReplicaMsg(root->getKey(), thisIndex);
+
+
+		((Tree::BinaryTreeNode*)root)->packNodes((Tree::BinaryTreeNode*)reply->data, depth_count, 0);
+		tpReplicaProxy[k].recvTreePiece(reply);
+
+		acks_count++;
+	}
+	cbrepl = cb;
+}
+
+void TreePiece::recvAck() {
+	acks_count--;
+	if (acks_count == 0) {
+		contribute(cbrepl);
+	}
+}
+
 std::map<NodeKey,NonLocalMomentsClientList>::iterator TreePiece::createTreeBuildMomentsEntry(GenericTreeNode *pickedNode){
   std::pair<std::map<NodeKey,NonLocalMomentsClientList>::iterator,bool> ret;
   ret = nonLocalMomentsClients.insert(make_pair(pickedNode->getKey(),NonLocalMomentsClientList(pickedNode)));
