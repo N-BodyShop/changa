@@ -1,7 +1,7 @@
 #include "PECool.h"
 #include "HostCUDA.h"
 
-void PECool::finish(TreePiece *treePiece, CkCallback &cb) {
+void PECool::finish(TreePiece *treePiece) {
     vtpLocal.push_back(treePiece);
 
     // On first call, find the total number of active pieces on this PE.
@@ -17,7 +17,7 @@ void PECool::finish(TreePiece *treePiece, CkCallback &cb) {
 
     // PE with no particles
     if (coolData.empty()) {
-        cb.send();
+        treeProxy.finishIntegrateCb();
 	return;
     }
     int numParts = coolData.size();
@@ -67,13 +67,12 @@ void PECool::finish(TreePiece *treePiece, CkCallback &cb) {
     cudaChk(cudaMemcpy(coolData.data(), d_CoolData, numParts*sizeof(clDerivsData), cudaMemcpyDeviceToHost));
 
     // TODO hapi callback
-    cb.send();
+    treeProxy.finishIntegrateCb();
 }
 
 int PECool::sendData(CoolRequest data) {
   d_Cool = data.d_Cool;
 
-  // TODO place data in pinned host memory
   coolData.push_back(*data.coolData);
   stiff.push_back(*data.coolData->IntegratorContext);
   int nv = data.coolData->IntegratorContext->nv;

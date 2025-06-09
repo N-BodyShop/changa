@@ -2421,8 +2421,8 @@ __global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *dtg,
 	    //printf("%g %g\n", dtg, tn*tfd);
 	    //if(1==1){
 	    if(dtg[id] <= tn*tfd) {
-                for (int i = 0; i < 5; ++i) {
-                    _y[id * 5 + i] = y(i);
+                for (int i = 0; i < s->nv; ++i) {
+                    _y[id * s->nv + i] = y(i);
                 }
 	        return;
 	    }

@@ -973,6 +973,22 @@ void TreePiece::updateuDot(int activeRung,
     this->bUpdateState = bUpdateState;
 #ifndef COOLING_NONE
 
+    myPartIdx.clear();
+    dt.clear();
+    duDeltaVals.clear();
+    Einteg.clear();
+    ExternalHeating.clear();
+    fDensity.clear();
+    fMetals.clear();
+    Ybaryon.clear();
+    Ecgs.clear();
+    yInt.clear();
+    rVec.clear();
+#ifdef COOLING_MOLECULARH
+    columnL.clear();
+#endif
+    cp.clear();
+
     double PoverRho;
     double PoverRhoGas;
     double PoverRhoJeans;
@@ -1091,9 +1107,10 @@ void TreePiece::updateuDot(int activeRung,
 	       < p->fTimeCoolIsOffUntil()) {
 	        /* This flags cooling shutoff (e.g., from SNe) to
 	           the cooling functions. */
+         	// TODO fix
 		//dtCur = -dtCur;
 #if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
-               h_CoolData[pIdx].bCool = 0; // TODO fix
+               //h_CoolData[pIdx].bCool = 0; // TODO fix
 #endif
 		p->uDot() = ExternalHeatingCur;
 		}
@@ -1144,8 +1161,7 @@ void TreePiece::updateuDot(int activeRung,
     }
 
 #ifdef CUDA
-    CkCallback integrateCb(CkIndex_TreePiece::finishIntegrateCb(), thisProxy[thisIndex]);
-    peCoolProxy.ckLocalBranch()->finish(this, integrateCb);
+    peCoolProxy.ckLocalBranch()->finish(this);
 #else
     // TODO integration on CPU here (StiffStep)
     finishuDot();
@@ -1183,21 +1199,6 @@ void TreePiece::finishuDot() {
             CkAssert(isfinite(p->uDot()));
         }
     }
-    myPartIdx.clear();
-    dt.clear();
-    duDeltaVals.clear();
-    Einteg.clear();
-    ExternalHeating.clear();
-    fDensity.clear();
-    fMetals.clear();
-    Ybaryon.clear();
-    Ecgs.clear();
-    yInt.clear();
-    rVec.clear();
-#ifdef COOLING_MOLECULARH
-    columnL.clear();
-#endif
-    cp.clear();
 }
 
 void TreePiece::finishIntegrateCb() {

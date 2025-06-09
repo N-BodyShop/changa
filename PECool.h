@@ -46,7 +46,7 @@ public:
   clDerivsData* getCoolData() { return coolData.data(); }
   double* getYInt() { return yInt.data(); }
 
-  void finish(TreePiece *treePiece, CkCallback &cb);
+  void finish(TreePiece *treePiece);
   int sendData(CoolRequest data);
   void reset();
 };
