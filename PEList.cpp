@@ -3,12 +3,6 @@
 #include "PEList.h"
 #include "HostCUDA.h"
 
-void PEList::setType(int _bNode, int _bRemote, int _bResume) {
-        bNode = _bNode;
-        bRemote = _bRemote;
-        bResume = _bResume;
-    }
-
 void PEList::finishWalk(TreePiece *treePiece) {
     vtpLocal.push_back(treePiece);
 
@@ -18,12 +12,10 @@ void PEList::finishWalk(TreePiece *treePiece) {
         CkLocMgr *locMgr = treeProxy.ckLocMgr();
         locMgr->iterate(cTreePieces);
     }
+
     // check if we have everyone
-    //CkPrintf("(%d %d %d) %d of %d\n", bNode, bRemote, bResume, vtpLocal.length(), cTreePieces.count);
     if(vtpLocal.length() < cTreePieces.count)
         return;
-
-    //CkPrintf("(%d) finishWalk %d %d %d\n", CmiMyPe(), bNode, bRemote, bResume);
 
     // bucketMarkers[i+1] is needed to determine # of IL entries per bucket
     if(vtpLocal.length() == cTreePieces.count && finalBucketMarker != -1)
@@ -67,7 +59,7 @@ void PEList::finishWalk(TreePiece *treePiece) {
 	}
     }
 
-    finishCb = new CkCallback(CkIndex_TreePiece::finishWalkCb(), treePiece->thisProxy[treePiece->thisIndex]);
+    finishCb = new CkCallback(CkIndex_TreePiece::finishWalkCb(), treePiece);
     request->cb = finishCb;
     transferFunc(request);
 }

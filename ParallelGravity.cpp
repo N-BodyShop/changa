@@ -1366,20 +1366,12 @@ Main::Main(CkArgMsg* m) {
         dfDataProxy = CProxy_DumpFrameData::ckNew();
 
 #ifdef CUDA
-	// TODO something breaks when I try to pass
-	// the setType arguments to a constructor
-	peNodeLocalListProxy = CProxy_PEList::ckNew();
-	peNodeLocalListProxy.setType(1, 0, 0);
-	peNodeRemoteListProxy = CProxy_PEList::ckNew();
-	peNodeRemoteListProxy.setType(1, 1, 0);
-	peNodeRemoteResumeListProxy = CProxy_PEList::ckNew();
-	peNodeRemoteResumeListProxy.setType(1, 1, 1);
-	pePartLocalListProxy = CProxy_PEList::ckNew();
-	pePartLocalListProxy.setType(0, 0, 0);
-	pePartRemoteListProxy = CProxy_PEList::ckNew();
-	pePartRemoteListProxy.setType(0, 1, 0);
-	pePartRemoteResumeListProxy = CProxy_PEList::ckNew();
-	pePartRemoteResumeListProxy.setType(0, 1, 1);
+	peNodeLocalListProxy = CProxy_PEList::ckNew(1, 0, 0);
+	peNodeRemoteListProxy = CProxy_PEList::ckNew(1, 1, 0);
+	peNodeRemoteResumeListProxy = CProxy_PEList::ckNew(1, 1, 1);
+	pePartLocalListProxy = CProxy_PEList::ckNew(0, 0, 0);
+	pePartRemoteListProxy = CProxy_PEList::ckNew(0, 1, 0);
+	pePartRemoteResumeListProxy = CProxy_PEList::ckNew(0, 1, 1);
 #endif
 	
 	// create CacheManagers

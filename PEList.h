@@ -78,12 +78,18 @@ class PEList : public CBase_PEList
     cudatype fperiod;
 
   public:
-    PEList() {finalBucketMarker = -1; cudaStreamCreate(&stream); }
+    PEList(int _bNode, int _bRemote, int _bResume) {
+        bNode = _bNode;
+        bRemote = _bRemote;
+        bResume = _bResume;
+
+	finalBucketMarker = -1;
+	cudaStreamCreate(&stream);
+    }
     PEList(CkMigrateMessage *m) : CBase_PEList(m) {}
     ~PEList() { cudaStreamDestroy(stream); }
     void pup(PUP::er &p) {}
 
-    void setType(int _bNode, int _bRemote, int _bResume);
 
     void finishWalk(TreePiece *treePiece);
     void sendList(TreePiece *treePiece, CudaRequest *data);

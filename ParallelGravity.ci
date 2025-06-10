@@ -593,8 +593,7 @@ mainmodule ParallelGravity {
 
 #ifdef CUDA
   group [migratable] PEList {
-    entry PEList();
-    entry void setType(int _bNode, int _bRemote, int _bResume);
+    entry PEList(int _bNode, int _bRemote, int _bResume);
   };
 #endif
 
