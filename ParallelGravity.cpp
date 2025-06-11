@@ -1856,6 +1856,9 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
     if(param.bGasCooling)
         dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 
+#ifdef CUDA
+    treeProxy.calculateNumActiveGasParticles(bAll, iActiveRung, CkCallbackResumeThread());
+#endif
     treeProxy.updateuDot(iActiveRung, duKick, dStartTime,
                          param.bGasCooling, bUpdateState, bAll,
                          (param.dConstGamma-1),

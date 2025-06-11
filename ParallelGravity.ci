@@ -425,7 +425,7 @@ mainmodule ParallelGravity {
     	       		double dStartTime[MAXRUNG+1], int bCool, int bAll,
 			int bUpdateState, double dResolveJeans, double gammam1,
 #ifdef CUDA
-      int gpuGasMinParts,
+      int nGpuGasMinParts,
 #endif
 const CkCallback& cb);
     entry void finishIntegrateCb();
@@ -547,6 +547,7 @@ const CkCallback& cb);
 
     // jetley
 #ifdef CUDA
+    entry void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb);
     entry void assignCUDAStream(intptr_t stream);
     entry void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
     entry void fillGPUBuffer(intptr_t bufLocalParts,

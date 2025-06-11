@@ -51,6 +51,9 @@ Main::initSph()
 	if(param.bGasCooling) {
 	    // Update cooling on the datamanager
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+#ifdef CUDA
+            treeProxy.calculateNumActiveGasParticles(1, 0, CkCallbackResumeThread());
+#endif
 	    if(!bIsRestarting)  // Energy is already OK from checkpoint.
 		treeProxy.InitEnergy(dTuFac, z, dTime, (param.dConstGamma-1), CkCallbackResumeThread());
 	    }
@@ -969,6 +972,11 @@ void TreePiece::updateuDot(int activeRung,
 #endif
                const CkCallback& cb)
 {
+
+    // Check in with PEgroup to see if we have > gpuGasMinParts
+    // int bGpuGas = dMProxy.ckLocalBranch()->getNumTotalGasParts() > nGpuGasMinParts;
+    int bGpuGas = 1;
+
     this->bCool = bCool;
     this->bUpdateState = bUpdateState;
 #ifndef COOLING_NONE
@@ -1118,9 +1126,26 @@ void TreePiece::updateuDot(int activeRung,
 
 	    duDeltaCur = duDelta[p->rung];
 
-            clDerivsData *CoolData = CoolDerivsInit(dm->Cool, COOL_NV);
+            clDerivsData *CoolData = CoolDerivsInit(dm->Cool, COOL_NV); // TODO memory leak if !bGpuGas
 	    // TODO make sure this function allocates CoolData for the other modules
 
+#ifdef CUDA
+            if (!bGpuGas)
+#endif
+	    {
+#ifdef COOLING_MOLECULARH
+	        CoolIntegrateEnergyCode(dm->Cool, CoolData, &cpCur, &Ecur,
+                                        ExternalHeatingCur, fDensityCur,
+                                        p->fMetals(), rCur, dtCur, columnLcur);
+#else
+	        CoolIntegrateEnergyCode(dm->Cool, CoolData, &cpCur, &Ecur,
+                                        ExternalHeatingCur, fDensityCur,
+                                        p->fMetals(), rCur, dtCur);
+
+#endif // COOLING_MOLECULARH
+	        }
+#ifdef CUDA
+	    else {
 #ifdef COOLING_MOLECULARH
             CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &YbaryonCur, &EcgsCur, &cpCur, &Ecur,
                                         ExternalHeatingCur, fDensityCur, fMetalsCur, rCur,
@@ -1129,42 +1154,45 @@ void TreePiece::updateuDot(int activeRung,
             CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &YbaryonCur, &EcgsCur, &cpCur, &Ecur,
                                         ExternalHeatingCur, fDensityCur, fMetalsCur, rCur,
                                         dtCur, yIntCur);
-#endif
+#endif // COOLING_MOLECULARH
 
-            CoolRequest cReq;
-            cReq.coolData = CoolData;
-            cReq.y = yIntCur;
-            cReq.dtg = dtCur;
-            cReq.d_Cool = dm->d_Cool;
-            peIdx.push_back(peCoolProxy.ckLocalBranch()->sendData(cReq));
+	      CoolRequest cReq;
+	      cReq.coolData = CoolData;
+	      cReq.y = yIntCur;
+	      cReq.dtg = dtCur;
+	      cReq.d_Cool = dm->d_Cool;
+	      peIdx.push_back(peCoolProxy.ckLocalBranch()->sendData(cReq));
 
-            CoolDerivsFinalize(CoolData);
+	      CoolDerivsFinalize(CoolData);
+	        }
+#endif // CUDA
             }
-        pIdx++;
+#ifdef CUDA
+	if (bGpuGas) {
+	    pIdx++;
 
-	// These quantities are needed in the callback, so save them
-	dt.push_back(dtCur);
-	Einteg.push_back(Ecur);
-	duDeltaVals.push_back(duDeltaCur);
-	ExternalHeating.push_back(ExternalHeatingCur);
-	fDensity.push_back(fDensityCur);
-	fMetals.push_back(fMetalsCur);
-	Ybaryon.push_back(YbaryonCur);
-	Ecgs.push_back(EcgsCur);
-	yInt.insert(yInt.end(), yIntCur, yIntCur + COOL_NV);
-	rVec.insert(rVec.end(), rCur, rCur + 3);
+	    // These quantities are needed in the callback, so save them
+	    dt.push_back(dtCur);
+	    Einteg.push_back(Ecur);
+	    duDeltaVals.push_back(duDeltaCur);
+	    ExternalHeating.push_back(ExternalHeatingCur);
+	    fDensity.push_back(fDensityCur);
+	    fMetals.push_back(fMetalsCur);
+	    Ybaryon.push_back(YbaryonCur);
+	    Ecgs.push_back(EcgsCur);
+	    yInt.insert(yInt.end(), yIntCur, yIntCur + COOL_NV);
+	    rVec.insert(rVec.end(), rCur, rCur + 3);
 #ifdef COOLING_MOLECULARH
-	columnL.push_back(columnLcur);
+	    columnL.push_back(columnLcur);
 #endif
-	cp.push_back(cpCur);
+	    cp.push_back(cpCur);
+	   }
+#endif // CUDA
         }
-    }
+    } // end of for loop
 
 #ifdef CUDA
-    peCoolProxy.ckLocalBranch()->finish(this);
-#else
-    // TODO integration on CPU here (StiffStep)
-    finishuDot();
+    if (bGpuGas) peCoolProxy.ckLocalBranch()->finish(this);
 #endif
 
 #endif
@@ -1172,6 +1200,7 @@ void TreePiece::updateuDot(int activeRung,
     smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
+#ifdef CUDA
 void TreePiece::finishuDot() {
     clDerivsData *coolDataPE = peCoolProxy.ckLocalBranch()->getCoolData();
     double *yIntPE = peCoolProxy.ckLocalBranch()->getYInt();
@@ -1205,6 +1234,8 @@ void TreePiece::finishIntegrateCb() {
     finishuDot();
     peCoolProxy.ckLocalBranch()->reset();
 }
+
+#endif // CUDA
 
 /* Set a maximum ball for inverse Nearest Neighbor searching */
 void TreePiece::ballMax(int activeRung, double dhFac, const CkCallback& cb)

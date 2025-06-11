@@ -915,6 +915,7 @@ class TreePiece : public CBase_TreePiece {
         // the list
         int numActiveBuckets; 
         int myNumActiveParticles;
+        int myNumActiveGasParticles;
         // First and Last indices of GPU particle
         int FirstGPUParticleIndex;
         int LastGPUParticleIndex;
@@ -978,6 +979,21 @@ class TreePiece : public CBase_TreePiece {
             }
           }
         }
+
+	int getNumActiveGasParticles() {
+	  return myNumActiveGasParticles;
+	}
+
+	void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb) {
+	  for (unsigned int i = 1; i <= myNumParticles; ++i) {
+	    GravityParticle *p = &myParticles[i];
+	    if (TYPETest(p, TYPE_GAS)
+		&& (p->rung == iActiveRung || (bAll && p->rung >= iActiveRung))) {
+		      myNumActiveGasParticles++;
+		  }
+	      }
+	   contribute(cb);
+	}
 
         bool largePhase(){
           return (1.0*myNumActiveParticles/myNumParticles) >= largePhaseThreshold;
@@ -1169,6 +1185,7 @@ private:
 	/// particle count for output
 	int myIOParticles;
 
+#ifdef CUDA
 	std::vector<int> myPartIdx;
 	std::vector<int> peIdx;
 	std::vector<double> dt;
@@ -1185,6 +1202,7 @@ private:
 	std::vector<double> columnL;
 #endif
 	std::vector<COOLPARTICLE> cp;
+#endif // CUDA
 
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
@@ -1856,7 +1874,7 @@ public:
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
 			int bUpdateState, double gammam1, double dResolveJeans,
 #ifdef CUDA
-      int gpuGasMinParts,
+      int nGpuGasMinParts,
 #endif
       const CkCallback& cb);
 	void finishIntegrateCb();

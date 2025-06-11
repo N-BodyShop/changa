@@ -1,6 +1,14 @@
 #include "PECool.h"
 #include "HostCUDA.h"
 
+int PECool::getNumActiveGasParts() {
+    int numActiveGasParts = 0;
+    for (int i = 0; i < vtpLocal.length(); ++i) {
+      numActiveGasParts += vtpLocal[i]->getNumActiveGasParticles();
+    }
+    return numActiveGasParts;
+}
+
 void PECool::finish(TreePiece *treePiece) {
     vtpLocal.push_back(treePiece);
 
