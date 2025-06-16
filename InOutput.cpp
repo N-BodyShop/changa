@@ -2045,21 +2045,21 @@ std::string Main::getNCNextOutput(OutputParams& params)
     if(params.iTypeWriting == 0) {
         params.iTypeWriting = TYPE_GAS;
         if((params.iType & TYPE_GAS) && (nTotalSPH > 0)) {
-            NCgasNames->push_back(params.sNChilExt);
+            NCgasNames.push_back(params.sNChilExt);
             return params.fileName+"/gas/"+params.sNChilExt;
             }
         }
     if(params.iTypeWriting == TYPE_GAS) {
         params.iTypeWriting = TYPE_DARK;
         if((params.iType & TYPE_DARK) && (nTotalDark > 0)) {
-            NCdarkNames->push_back(params.sNChilExt);
+            NCdarkNames.push_back(params.sNChilExt);
             return params.fileName+"/dark/"+params.sNChilExt;
             }
         }
     if(params.iTypeWriting == TYPE_DARK) {
         params.iTypeWriting = TYPE_STAR;
         if((params.iType & TYPE_STAR) && (nTotalStar > 0)) {
-            NCstarNames->push_back(params.sNChilExt);
+            NCstarNames.push_back(params.sNChilExt);
             return params.fileName+"/star/"+params.sNChilExt;
             }
         }
@@ -2438,27 +2438,28 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
 //// Add all of the elements of a particle family to an opened ofstream for the
 //// description.xml file.  If the names vector is empty, does nothing.  Otherwise
 //// appends a family tag, with sub-tags for each attribute stored in the snapshot.
-void Main::NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string family)
+void Main::NCXMLattrib(ofstream *desc, std::vector<std::string>& names,
+                       std::string family)
 {
-    if(names->length() == 0) // Don't add a family tag if the names vector is empty.
+    if(names.size() == 0) // Don't add a family tag if the names vector is empty.
         return;
     std::string lastStr = "";
     std::string attrib;
     *desc << "\t<family name=\"" << family << "\">" << endl;
-    for(unsigned int i=0;i<names->length();i++)
+    for(unsigned int i=0;i<names.size();i++)
     {
-        attrib = (*names)[i];
+        attrib = names[i];
         if(attrib == "pos")
             attrib = "position";
         if(attrib == "pot")
             attrib = "potential";
         if(attrib == "vel")
             attrib = "velocity";
-        if(lastStr != (*names)[i]) {
+        if(lastStr != names[i]) {
             *desc <<  "\t\t<attribute name=\"" << attrib << "\" link=\""
-                  << family << "/" << (*names)[i] << "\"/>" << endl;
+                  << family << "/" << names[i] << "\"/>" << endl;
         }
-        lastStr = (*names)[i];
+        lastStr = names[i];
     }
     *desc << "\t</family>" << endl;
 }
@@ -2468,9 +2469,9 @@ void Main::NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string fa
 void Main::writeNCXML(const std::string filename) 
 {
     // Let's use alphabetical order for the contents of each family.
-    NCgasNames->quickSort();
-    NCstarNames->quickSort();
-    NCdarkNames->quickSort();
+    std::sort(NCgasNames.begin(), NCgasNames.end());
+    std::sort(NCstarNames.begin(), NCstarNames.end());
+    std::sort(NCdarkNames.begin(), NCdarkNames.end());
 
     ofstream xmldesc; // File handler for the XML description file
     xmldesc.open((filename+"/description.xml").c_str(), ios_base::trunc);
@@ -2483,8 +2484,8 @@ void Main::writeNCXML(const std::string filename)
     xmldesc << "</simulation>" << endl;
     
     // Clear the vectors storing the family attributes for next snapshot
-    delete NCgasNames;
-    delete NCstarNames;
-    delete NCdarkNames;
+    NCgasNames.clear();
+    NCstarNames.clear();
+    NCdarkNames.clear();
     xmldesc.close();
 }

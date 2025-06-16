@@ -451,10 +451,10 @@ class Main : public CBase_Main {
 	std::string basefilename;
         /// Save parameters for output
         OutputParams *pOutput;
-    // NChilada file names used to generate the XML description
-    CkVec<std::string> *NCgasNames;
-    CkVec<std::string> *NCdarkNames;
-    CkVec<std::string> *NCstarNames;
+        // NChilada file names used to generate the XML description
+        std::vector<std::string> NCgasNames;
+        std::vector<std::string> NCdarkNames;
+        std::vector<std::string> NCstarNames;
 	/// globally finished IO
 	CkCallback cbIO;
         /// Save file token for CkIO
@@ -595,7 +595,8 @@ public:
         void cbIOClosed(CkMessage *msg);
         std::string getNCNextOutput(OutputParams& params);
     void writeNCXML(std::string filename);
-    void NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string family);
+    void NCXMLattrib(ofstream *desc, std::vector<std::string>& names,
+                     std::string family);
 	void updateSoft();
 	void growMass(double dTime, double dDelta);
 	void initSph();

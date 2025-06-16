@@ -3725,9 +3725,6 @@ void Main::writeOutput(int iStep)
             string dirname(string(achFile) + "/star");
             CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
             }
-        NCgasNames = new CkVec<std::string>;
-        NCdarkNames = new CkVec<std::string>;
-        NCstarNames = new CkVec<std::string>;
         MassOutputParams pMassOut(achFile, param.iBinaryOut, dOutTime);
         outputBinary(pMassOut, param.bParaWrite, CkCallbackResumeThread());
         PosOutputParams pPosOut(achFile, param.iBinaryOut, dOutTime);
