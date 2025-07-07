@@ -12,7 +12,10 @@
 #include <string>
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
+
+#ifdef CUDA
 #include "memlog.h"
+#endif
 
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
 #include "ckBIconfig.h"
@@ -186,10 +189,14 @@ public:
 	/// @brief Lock for accessing starlog from TreePieces
 	CmiNodeLock lockStarLog;
 
+#ifdef CUDA
 	/// @brief log of CUDA memory events.
 	MemLog *memLog;
 	/// @brief Lock for accessing memlog from CUDA wrappers
 	CmiNodeLock lockMemLog;
+	/// @brief Flag to enable GPU memory logging
+	int bGpuMemLogger;
+#endif
 
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
@@ -241,8 +248,10 @@ public:
 	    CoolFinalize(Cool);
 	    delete starLog;
 	    CmiDestroyLock(lockStarLog);
+#ifdef CUDA
 	    delete memLog;
 	    CmiDestroyLock(lockMemLog);
+#endif
 	    }
 
 	/// Called by ORB Sorter, save the list of which TreePiece is
@@ -295,8 +304,10 @@ public:
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);
     void initStarLog(std::string _fileName, const CkCallback &cb);
-    void initMemLog(std::string _fileName, const CkCallback &cb);
+    void initMemLog(std::string _fileName, int bGpuMemLoggerFlag, const CkCallback &cb);
+#ifdef CUDA
     void flushMemLog(const CkCallback& cb);
+#endif
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time

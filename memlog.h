@@ -1,11 +1,3 @@
-#ifndef MEMLOG_HINCLUDED
-#define MEMLOG_HINCLUDED
-
-#include <vector>
-#include <string>
-#include <cstdint> // For uintptr_t
-#include "pup_stl.h" // Include if PUP support is needed later, for now keep std::vector/string
-
 // Enum to represent memory operation types
 enum MemLogOpType {
     MEMLOG_ALLOC,
@@ -77,5 +69,3 @@ public:
     }
     */
 };
-
-#endif // MEMLOG_HINCLUDED 

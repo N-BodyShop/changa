@@ -7,7 +7,6 @@
 #include "DataManager.h"
 #include "Reductions.h"
 #include "formatted_string.h"
-#include "memlog.h"
 
 #ifdef CUDA
 #include "hapi.h"
@@ -43,13 +42,13 @@ void DataManager::init() {
   treePiecesParticlesUpdated = 0;
   gpuFree = true;
   cudaStreamCreate(&stream);
-
+  memLog = new MemLog();
+  lockMemLog = CmiCreateLock();
+  bGpuMemLogger = 0; // Default disabled
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
   lockStarLog = CmiCreateLock();
-  memLog = new MemLog();
-  lockMemLog = CmiCreateLock();
 }
 
 /**
@@ -439,6 +438,9 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     bUseCkLoopPar = param.bUseCkLoopPar;
 #else
     bUseCkLoopPar = 0;
+#endif
+#ifdef CUDA
+    bGpuMemLogger = param.bGpuMemLogger;
 #endif
     contribute(cb);
     // parameter structure requires some cleanup
