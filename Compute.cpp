@@ -8,7 +8,10 @@
 #include "State.h"
 #include "Space.h"
 #include "gravity.h"
+
+#ifdef CUDA
 #include "PEList.h"
+#endif
 
 int decodeReqID(int reqID);
 
@@ -1098,7 +1101,6 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     request->affectedBuckets = affectedBuckets;
     request->tp = (void *)tp;
     request->fperiod = tp->fPeriod.x;
-    request->callback = NULL;
 
 #ifdef HAPI_TRACE
     traceUserBracketEvent(CUDA_SER_LIST, starttime, CmiWallTimer());
@@ -1199,7 +1201,6 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
     request->affectedBuckets = affectedBuckets;
     request->tp = (void *)tp;
     request->fperiod = tp->fPeriod.x;
-    request->callback = NULL;
 
 #ifdef HAPI_TRACE
     traceUserBracketEvent(CUDA_SER_LIST, starttime, CmiWallTimer());
@@ -1885,6 +1886,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
   CkPrintf("memcheck after sendNodeInteractionsToGpu\n");
   CmiMemoryCheck();
 #endif
+  delete data;
 }
 
 void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
@@ -1973,6 +1975,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
   CkPrintf("memcheck after sendPartInteractionsToGpu\n");
   CmiMemoryCheck();
 #endif
+  delete data;
 }
 
 #endif

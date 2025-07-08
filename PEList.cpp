@@ -1,13 +1,9 @@
+#ifdef CUDA
+
 #include "PEList.h"
 #include "HostCUDA.h"
 
-void PEList::setType(int _bNode, int _bRemote, int _bResume) {
-        bNode = _bNode;
-        bRemote = _bRemote;
-        bResume = _bResume;
-    }
-
-void PEList::finishWalk(TreePiece *treePiece, CkCallback &cb) {
+void PEList::finishWalk(TreePiece *treePiece) {
     vtpLocal.push_back(treePiece);
 
     // On first call, find the total number of active pieces on this PE.
@@ -16,18 +12,16 @@ void PEList::finishWalk(TreePiece *treePiece, CkCallback &cb) {
         CkLocMgr *locMgr = treeProxy.ckLocMgr();
         locMgr->iterate(cTreePieces);
     }
+
     // check if we have everyone
-    //CkPrintf("(%d %d %d) %d of %d\n", bNode, bRemote, bResume, vtpLocal.length(), cTreePieces.count);
     if(vtpLocal.length() < cTreePieces.count)
         return;
-
-    //CkPrintf("(%d) finishWalk %d %d %d\n", CmiMyPe(), bNode, bRemote, bResume);
 
     // bucketMarkers[i+1] is needed to determine # of IL entries per bucket
     if(vtpLocal.length() == cTreePieces.count && finalBucketMarker != -1)
 	bucketMarkers.push_back(finalBucketMarker);
 
-    CudaRequest *request = new CudaRequest;
+    request = new CudaRequest;
 
     request->d_localMoments = d_localMoments;
     request->d_localParts = d_localParts;
@@ -52,25 +46,21 @@ void PEList::finishWalk(TreePiece *treePiece, CkCallback &cb) {
     request->bucketSizes = bucketSizes.data();
     request->numInteractions = iList.size();
 
-    CProxy_PEList proxy;
     void (*transferFunc)(CudaRequest*);
     if (bNode) {
-	proxy = bRemote ? peNodeRemoteListProxy : peNodeLocalListProxy;
 	transferFunc = bRemote ? PEListNodeListDataTransferRemote : PEListNodeListDataTransferLocal;
 	if (bResume) {
-		proxy = peNodeRemoteResumeListProxy;
 		transferFunc = PEListNodeListDataTransferRemoteResume;
 	}
     } else {
-	proxy = bRemote ? pePartRemoteListProxy : pePartLocalListProxy;
 	transferFunc = bRemote ? PEListPartListDataTransferRemote : PEListPartListDataTransferLocal;
 	if (bResume) {
-		proxy = pePartRemoteResumeListProxy;
 		transferFunc = PEListPartListDataTransferRemoteResume;
 	}
     }
 
-    request->callback = &cb;
+    finishCb = new CkCallback(CkIndex_TreePiece::finishWalkCb(), treePiece);
+    request->cb = finishCb;
     transferFunc(request);
 }
 
@@ -136,6 +126,10 @@ void PEList::sendList(TreePiece *treePiece, CudaRequest* data) {
     freePinnedHostMemory(data->bucketStarts);
     freePinnedHostMemory(data->bucketSizes);
     delete[] data->affectedBuckets;
+    if(data->missedNodes)
+      freePinnedHostMemory(data->missedNodes);
+    if(data->missedParts)
+      freePinnedHostMemory(data->missedParts);
 }
 
 void PEList::reset() {
@@ -149,4 +143,8 @@ void PEList::reset() {
     cTreePieces.reset();
     vtpLocal.length() = 0;
     finalBucketMarker = -1;
+    delete finishCb;
+    delete request;
 }
+
+#endif

@@ -169,12 +169,16 @@ extern int nIOProcessor;
 
 extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
+
+#ifdef CUDA
 extern CProxy_PEList peNodeLocalListProxy;
 extern CProxy_PEList peNodeRemoteListProxy;
 extern CProxy_PEList peNodeRemoteResumeListProxy;
 extern CProxy_PEList pePartLocalListProxy;
 extern CProxy_PEList pePartRemoteListProxy;
 extern CProxy_PEList pePartRemoteResumeListProxy;
+#endif
+
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
@@ -1421,7 +1425,6 @@ public:
 	  completedActiveWalks = 0;
 	  myPlace = -1;
 	  nSetupWriteStage = -1;
-	  finishWalkCbCount = 0;
     //openingDiffCount=0;
     chunkRootLevel=0;
     //splitters = NULL;
@@ -1446,6 +1449,7 @@ public:
 #endif
           bUseCpu = 1;
 #ifdef CUDA
+	  finishWalkCbCount = 0;
           numActiveBuckets = -1;
 #ifdef HAPI_TRACE
           localNodeInteractions = 0;
@@ -1917,8 +1921,10 @@ public:
 	/// Find the particles starting at "begin", and return a pointer to it
 	const GravityParticle* lookupParticles(int begin);
 
-	int finishWalkCbCount;
+#ifdef CUDA
+       int finishWalkCbCount;
 	void finishWalkCb();
+#endif
 
 	/// @brief Check if we have done with the treewalk on a specific bucket,
 	/// and if we have, check also if we are done with all buckets

@@ -51,6 +51,14 @@ void DataManager::init() {
   lockStarLog = CmiCreateLock();
 }
 
+#ifdef CUDA
+/// @brief Initialize CUDA stream for this DataManager
+void DataManager::createStream(const CkCallback& cb) {
+  cudaStreamCreate(&stream);
+  contribute(cb);
+}
+#endif
+
 /**
  * Fill in responsibleIndex after ORB decomposition
  */
@@ -1086,13 +1094,6 @@ void DataManager::transferParticleVarsBack(){
 			     d_localVars,
 			     stream,
                              data->cb);
-    
-    const char* funcTag = "DataManager::transferParticleVarsBack"; // Define the function tag
-    gpuFreeHelper(d_localMoments, funcTag);   
-    gpuFreeHelper(d_localParts, funcTag);    
-    gpuFreeHelper(d_localVars, funcTag);     
-    gpuFreeHelper(d_remoteMoments, funcTag); 
-    gpuFreeHelper(d_remoteParts, funcTag);   
 
 #ifdef CUDA_PRINT_ERRORS
     printf("transferParticleVarsBack: %s\n", cudaGetErrorString( cudaGetLastError() ) );
@@ -1143,6 +1144,13 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
     treePiecesParticlesUpdated++;
     if(treePiecesParticlesUpdated == registeredTreePieces.length()){
         treePiecesParticlesUpdated = 0;
+
+	  const char* funcTag = "DataManager::transferParticleVarsBack"; // Define the function tag
+    gpuFreeHelper(d_localMoments, funcTag);   
+    gpuFreeHelper(d_localParts, funcTag);    
+    gpuFreeHelper(d_localVars, funcTag);     
+    gpuFreeHelper(d_remoteMoments, funcTag); 
+    gpuFreeHelper(d_remoteParts, funcTag);   
 
         if(data->size > 0){
 #ifdef PINNED_HOST_MEMORY

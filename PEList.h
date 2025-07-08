@@ -1,25 +1,46 @@
 #ifndef PE_LIST_H
 #define PE_LIST_H
 
+#ifdef CUDA
 #include "ParallelGravity.h"
 
 // To use pinned host memory with a std::vector
 template <typename T>
-struct PinnedHostAllocator
-{
-	typedef T value_type;
+struct PinnedHostAllocator {
+    typedef T value_type;
 
-	T* allocate(size_t n) {
-            size_t size = n*sizeof(T);
-	    void *ptr = NULL;
-	    allocatePinnedHostMemory(&ptr, size);
-	    return reinterpret_cast<T*>(ptr);
-	}
+    PinnedHostAllocator() {}
 
-	void deallocate(T* p, size_t n) {
-            freePinnedHostMemory(p);
-	}
+    template <class U>
+    PinnedHostAllocator(const PinnedHostAllocator<U>&) {}
+
+    T* allocate(std::size_t n) {
+        void* ptr = NULL;
+        allocatePinnedHostMemory(&ptr, n * sizeof(T));
+        if (!ptr) throw std::bad_alloc();
+        return static_cast<T*>(ptr);
+    }
+
+    void deallocate(T* p, std::size_t /*n*/) {
+        freePinnedHostMemory(p);
+    }
+
+    template <typename U>
+    struct rebind {
+        typedef PinnedHostAllocator<U> other;
+    };
 };
+
+// Equality operators
+template <class T, class U>
+bool operator==(const PinnedHostAllocator<T>&, const PinnedHostAllocator<U>&) {
+    return true;
+}
+
+template <class T, class U>
+bool operator!=(const PinnedHostAllocator<T>&, const PinnedHostAllocator<U>&) {
+    return false;
+}
 
 // Need a separate class for each type of request (particle, node, local, remote)
 class PEList : public CBase_PEList
@@ -39,6 +60,8 @@ class PEList : public CBase_PEList
     vector<CompactPartData, PinnedHostAllocator<CompactPartData>> missedParts;
     vector<CudaMultipoleMoments, PinnedHostAllocator<CudaMultipoleMoments>> missedNodes;
 
+    CudaRequest *request;
+
     /// Type of request
     int bNode;
     int bRemote;
@@ -50,20 +73,28 @@ class PEList : public CBase_PEList
     CompactPartData *d_remoteParts;
     CudaMultipoleMoments *d_remoteMoments;
     cudaStream_t stream;
+    CkCallback *finishCb;
 
     cudatype fperiod;
 
   public:
-    PEList() {finalBucketMarker = -1; cudaStreamCreate(&stream); }
+    PEList(int _bNode, int _bRemote, int _bResume) {
+        bNode = _bNode;
+        bRemote = _bRemote;
+        bResume = _bResume;
+
+	finalBucketMarker = -1;
+	cudaStreamCreate(&stream);
+    }
     PEList(CkMigrateMessage *m) : CBase_PEList(m) {}
     ~PEList() { cudaStreamDestroy(stream); }
     void pup(PUP::er &p) {}
 
-    void setType(int _bNode, int _bRemote, int _bResume);
 
-    void finishWalk(TreePiece *treePiece, CkCallback &cb);
+    void finishWalk(TreePiece *treePiece);
     void sendList(TreePiece *treePiece, CudaRequest *data);
     void reset();
 };
 
+#endif
 #endif
