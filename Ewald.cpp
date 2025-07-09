@@ -390,7 +390,7 @@ void TreePiece::EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtT
   */
 
 #ifdef SPCUDA
-  if(NumberOfGPUParticles == 0 || myNumActiveParticles == 0){
+  if(NumberOfGPUParticles == 0){
         for (int i=0; i<numBuckets; i++){
             finishBucket(i);
             }

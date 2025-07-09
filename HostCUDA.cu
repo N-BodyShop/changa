@@ -1329,12 +1329,10 @@ void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_
   EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>((CompactPartData *)d_localParts,
                                           (VariablePartData *)d_localVars,
             0, nActive);
-  cudaStreamSynchronize(stream);
   HAPI_TRACE_END(CUDA_EWALD);
 
   cudaChk(cudaPeekAtLastError());
-  CkCallback* callback = (CkCallback *)cb;
-  callback->send();
+  hapiAddCallback(stream, cb);
 }
 
 __global__ void EwaldKernel(CompactPartData *particleCores, 
