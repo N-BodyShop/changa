@@ -278,6 +278,8 @@ mainmodule ParallelGravity {
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
+    entry void initMemLog(std::string _fileName, int bGpuMemLoggerFlag, const CkCallback &cb);
+    entry void flushMemLog(const CkCallback& cb);
   };
 
   array [1D] TreePiece {

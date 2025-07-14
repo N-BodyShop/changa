@@ -33,6 +33,7 @@ typedef struct parameters {
     int iMaxRung;
 #ifdef CUDA
     int nGpuMinParts;
+    int bGpuMemLogger;
 #endif
     int bCannonical;
     int bKDK;

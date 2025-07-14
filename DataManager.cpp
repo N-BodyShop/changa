@@ -12,6 +12,7 @@
 #include "hapi.h"
 #include "cuda_typedef.h"
 #include "SFC.h"
+#include "GPUMemoryPool.h"
 #endif
 
 #include "Compute.h"
@@ -40,7 +41,10 @@ void DataManager::init() {
   PEsWantParticlesBack = 0;
   treePiecesParticlesUpdated = 0;
   gpuFree = true;
-
+  cudaStreamCreate(&stream);
+  memLog = new MemLog();
+  lockMemLog = CmiCreateLock();
+  bGpuMemLogger = 0; // Default disabled
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
@@ -442,6 +446,9 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     bUseCkLoopPar = param.bUseCkLoopPar;
 #else
     bUseCkLoopPar = 0;
+#endif
+#ifdef CUDA
+    bGpuMemLogger = param.bGpuMemLogger;
 #endif
     contribute(cb);
     // parameter structure requires some cleanup
@@ -1087,7 +1094,7 @@ void DataManager::transferParticleVarsBack(){
 			     d_localVars,
 			     stream,
                              data->cb);
-    
+
 #ifdef CUDA_PRINT_ERRORS
     printf("transferParticleVarsBack: %s\n", cudaGetErrorString( cudaGetLastError() ) );
 #endif
@@ -1138,11 +1145,12 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
     if(treePiecesParticlesUpdated == registeredTreePieces.length()){
         treePiecesParticlesUpdated = 0;
 
-	cudaFree(d_localMoments);
-	cudaFree(d_localParts);
-	cudaFree(d_localVars);
-	cudaFree(d_remoteMoments);
-	cudaFree(d_remoteParts);
+	  const char* funcTag = "DataManager::transferParticleVarsBack"; // Define the function tag
+    gpuFreeHelper(d_localMoments, funcTag);   
+    gpuFreeHelper(d_localParts, funcTag);    
+    gpuFreeHelper(d_localVars, funcTag);     
+    gpuFreeHelper(d_remoteMoments, funcTag); 
+    gpuFreeHelper(d_remoteParts, funcTag);   
 
         if(data->size > 0){
 #ifdef PINNED_HOST_MEMORY

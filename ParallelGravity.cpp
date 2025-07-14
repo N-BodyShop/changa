@@ -757,6 +757,10 @@ Main::Main(CkArgMsg* m) {
         param.nGpuMinParts = 1000;
         prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
                     sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
+        param.bGpuMemLogger = 0;
+        prmAddParam(prm, "bGpuMemLogger", paramBool, &param.bGpuMemLogger,
+                    sizeof(int), "gpumemlog",
+                    "Enable GPU memory pool logger");
 #endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
@@ -2311,6 +2315,9 @@ void Main::setupICs() {
 
   if(param.bStarForm)
       initStarLog();
+
+  if(param.bGpuMemLogger)
+      initMemLog(); // Initialize memory logging immediately after star log
 	
   if(param.bFeedback)
       param.feedback->CheckParams(prm, param);
@@ -2831,6 +2838,10 @@ Main::doSimulation()
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
 	  << endl;
     writeTimings(iStep);
+
+    // Flush memory log
+    if(param.bGpuMemLogger)
+        dMProxy[0].flushMemLog(CkCallbackResumeThread());
 
     if(iStep%param.iOrbitOutInterval == 0) {
 	outputBlackHoles(dTime);
