@@ -1,3 +1,6 @@
+#ifndef MEMLOG_HINCLUDED
+#define MEMLOG_HINCLUDED
+
 // Enum to represent memory operation types
 enum MemLogOpType {
     MEMLOG_ALLOC,
@@ -28,19 +31,6 @@ public:
         // Combine file and line into location string
         location = std::string(_file ? _file : "unknown") + ":" + std::to_string(_line);
     }
-
-    // PUP routine (optional, uncomment if migration needed)
-    /*
-    void pup(PUP::er& p) {
-        p | opType; // Need to handle enum pup
-        p | size;
-        p | address;
-        p | timestamp;
-        p | location;
-        p | pointerId;
-        p | functionTag;
-    }
-    */
 };
 
 /** @brief Manages buffering and flushing of memory log events */
@@ -56,16 +46,6 @@ public:
 
     // Method to write metadata/header to the log file (implementation in .cpp)
     static void logMetaData(std::ofstream &ofsLog); // Static as it doesn't depend on instance data
-
-    // PUP routine (optional, uncomment if migration needed)
-    // Need to inherit from PUP::able if pup routine is uncommented
-    /*
-    PUPable_decl(MemLog);
-    MemLog(CkMigrateMessage *m) : PUP::able(m) {} // PUP constructor
-    void pup(PUP::er& p) {
-        PUP::able::pup(p);
-        p | meTab;
-        p | fileName;
-    }
-    */
 };
+
+#endif

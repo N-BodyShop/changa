@@ -1,7 +1,10 @@
+#ifndef GPU_MEMORY_POOL_H
+#define GPU_MEMORY_POOL_H
+
+#include <cuda_runtime.h>
 
 cudaError_t gpuMallocTracked(void** devPtr, size_t size, const char* tag, const char* functionTag, const char* file, int line);
 cudaError_t gpuFreeTracked(void* devPtr, const char* tag, const char* functionTag, const char* file, int line);
-
 
 // Templated inline wrapper to handle type casting safely and pass context
 template <typename T>
@@ -15,3 +18,5 @@ inline cudaError_t gpuMallocTyped(T** ptr, size_t size, const char* pointerIdTag
 
 // Macro helper for gpuFree, capturing context automatically
 #define gpuFreeHelper(ptr, funcTag) gpuFreeTracked(ptr, #ptr, funcTag, __FILE__, __LINE__)
+
+#endif

@@ -1,10 +1,10 @@
-#include "charm++.h"         // Core Charm++ definitions MUST COME EARLY
-#include "ParallelGravity.h" // Main application header (includes decl.h, param.h etc.) MUST COME EARLY
-
-#include "GPUMemoryPool.h" // Header for this file's functions/macros
-#include "ParallelGravity.decl.h" // Generated header, include AFTER dependencies
-
 #ifdef CUDA
+
+#include "ParallelGravity.h"
+#include "GPUMemoryPool.h" // Header for this file's functions/macros
+#include "DataManager.h"
+#include "memlog.h"
+#include "ParallelGravity.decl.h"
 
 /**
  * @brief Wrapper for cudaMalloc that logs allocation events for memory tracking.

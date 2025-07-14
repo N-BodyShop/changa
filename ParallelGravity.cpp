@@ -2316,8 +2316,10 @@ void Main::setupICs() {
   if(param.bStarForm)
       initStarLog();
 
+#ifdef CUDA
   if(param.bGpuMemLogger)
       initMemLog(); // Initialize memory logging immediately after star log
+#endif
 	
   if(param.bFeedback)
       param.feedback->CheckParams(prm, param);
@@ -2839,9 +2841,11 @@ Main::doSimulation()
 	  << endl;
     writeTimings(iStep);
 
+#ifdef CUDA
     // Flush memory log
     if(param.bGpuMemLogger)
         dMProxy[0].flushMemLog(CkCallbackResumeThread());
+#endif
 
     if(iStep%param.iOrbitOutInterval == 0) {
 	outputBlackHoles(dTime);
