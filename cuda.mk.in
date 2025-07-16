@@ -26,7 +26,7 @@ CUDA_DEBUG   = $(DEBUG)
 CUDA_VERBOSE = $(VERBOSE)
 
 cuda_defines += -DCUDA -DSPCUDA
-cuda_defines += -DHAPI_MEMPOOL -DPINNED_HOST_MEMORY
+cuda_defines += -DPINNED_HOST_MEMORY
 
 # Do the local treewalk on the GPU
 cuda_defines += @FLAG_GPU_LOCAL_TREE_WALK@
