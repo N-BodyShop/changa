@@ -192,25 +192,6 @@ class DoubleWalkState : public State {
       partMap.reserve(100);
 #endif
   }
-
-#ifdef HAPI_INSTRUMENT_WRS
-  void nodeListConstructionTimeStart(){
-    nodeListTime = CmiWallTimer();
-  }
-
-  double nodeListConstructionTimeStop(){
-    return CmiWallTimer()-nodeListTime;
-  }
-
-  void partListConstructionTimeStart(){
-    partListTime = CmiWallTimer();
-  }
-
-  double partListConstructionTimeStop(){
-    return CmiWallTimer()-partListTime;
-  }
-
-#endif
 };
 #endif //  INTERLIST_VER 
 

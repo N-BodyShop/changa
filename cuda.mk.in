@@ -1,20 +1,15 @@
 # optional CUDA flags: 
 # memory:
 # -DPINNED_HOST_MEMORY
-# -DHAPI_MEMPOOL
 #
 # verbosity, debugging:
 # -DCUDA_DM_PRINT_TREES
 # -DCUDA_PRINT_TRANSFERRED_INTERACTIONS
 # -DCUDA_PRINT_TRANSFER_BACK_PARTICLES
-# -DCUDA_NOTIFY_DATA_TRANSFER_DONE
-# -DCUDA_VERBOSE_KERNEL_ENQUEUE
+# -DCUDA_VERBOSE_OPS
 # -DCUDA_NO_KERNELS
 # -DCUDA_NO_ACC_UPDATES
 # -DCUDA_UNIT_TEST
-#
-# print errors returned by CUDA calls:
-# -DCUDA_PRINT_ERRORS
 #
 # for performance monitoring via projections/stats
 # -DCUDA_STATS
@@ -32,7 +27,7 @@ cuda_defines += -DPINNED_HOST_MEMORY
 cuda_defines += @FLAG_GPU_LOCAL_TREE_WALK@
 
 ifeq (1,$(CUDA_DEBUG))
-	cuda_defines += -DCUDA_VERBOSE_KERNEL_ENQUEUE
+	cuda_defines += -DCUDA_VERBOSE_OPS
 endif
 
 ifeq (yes,@PROJECTIONS@)

@@ -1094,10 +1094,6 @@ void DataManager::transferParticleVarsBack(){
 			     d_localVars,
 			     stream,
                              data->cb);
-
-#ifdef CUDA_PRINT_ERRORS
-    printf("transferParticleVarsBack: %s\n", cudaGetErrorString( cudaGetLastError() ) );
-#endif
   }
   CmiUnlock(__nodelock);
 }

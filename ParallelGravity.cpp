@@ -253,12 +253,12 @@ Main::Main(CkArgMsg* m) {
 
         traceRegisterUserEvent("Xfer Local", CUDA_XFER_LOCAL);
         traceRegisterUserEvent("Xfer Remote", CUDA_XFER_REMOTE);
-        traceRegisterUserEvent("Grav Local", CUDA_GRAV_LOCAL);
-        traceRegisterUserEvent("Grav Remote", CUDA_GRAV_REMOTE);
-        traceRegisterUserEvent("Remote Resume", CUDA_REMOTE_RESUME);
-        traceRegisterUserEvent("Part Gravity Local", CUDA_PART_GRAV_LOCAL);
-        traceRegisterUserEvent("Part Gravity Local Small", CUDA_PART_GRAV_LOCAL_SMALL);
-        traceRegisterUserEvent("Part Gravity Remote", CUDA_PART_GRAV_REMOTE);
+        traceRegisterUserEvent("Grav Nodelist Local", CUDA_GRAV_NODELIST_LOCAL);
+        traceRegisterUserEvent("Grav Partlist Local", CUDA_GRAV_PARTLIST_LOCAL);
+        traceRegisterUserEvent("Grav Nodelist Remote", CUDA_GRAV_NODELIST_REMOTE);
+        traceRegisterUserEvent("Grav Partlist Remote", CUDA_GRAV_PARTLIST_REMOTE);
+        traceRegisterUserEvent("Grav Nodelist Remote Resume", CUDA_GRAV_NODELIST_REMOTE_RESUME);
+        traceRegisterUserEvent("Grav Partlist Remote Resume", CUDA_GRAV_PARTLIST_REMOTE_RESUME);
         traceRegisterUserEvent("Xfer Back", CUDA_XFER_BACK);
         traceRegisterUserEvent("Ewald", CUDA_EWALD);
 #endif
