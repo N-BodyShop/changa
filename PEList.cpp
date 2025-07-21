@@ -3,6 +3,9 @@
 #include "PEList.h"
 #include "HostCUDA.h"
 
+/// @brief Each TreePiece on a given PE checks in as its tree walk completes
+///        Once all TreePieces are done, launch a gravity kernel on the GPU
+/// @param treePiece A reference to the TreePiece that checked in
 void PEList::finishWalk(TreePiece *treePiece) {
     vtpLocal.push_back(treePiece);
 
@@ -64,9 +67,10 @@ void PEList::finishWalk(TreePiece *treePiece) {
     transferFunc(request);
 }
 
+/// @brief Collect the interaction list results each a Compute operation completes
+/// @param treePiece The TreePiece that sent the operation
+/// @data A CudaRequest object containing the interaction list data
 void PEList::sendList(TreePiece *treePiece, CudaRequest* data) {
-    // list, bucketMarkers, bucketStarts and bucketSizes need to be collected into one array
-    // note that bucketMarkers will need to be updated
     int numBucketsPlusOne = data->numBucketsPlusOne;
     int numBuckets = numBucketsPlusOne-1;
 
@@ -111,6 +115,8 @@ void PEList::sendList(TreePiece *treePiece, CudaRequest* data) {
 	}
     }
 
+    // This really only needs to happen once per PE
+    // These values are the same for all TreePieces
     d_localMoments = data->d_localMoments;
     d_localParts = data->d_localParts;
     d_localVars = data->d_localVars;
@@ -118,6 +124,7 @@ void PEList::sendList(TreePiece *treePiece, CudaRequest* data) {
     d_remoteMoments = data->d_remoteMoments;
     fperiod = data->fperiod;
 
+    // Call finishBucket for all buckets involved in this interaction
     treePiece->cudaFinishAffectedBuckets(data->affectedBuckets, numBuckets, bRemote);
 
     // deallocate the memory used by the incoming cudaRequest
@@ -132,6 +139,7 @@ void PEList::sendList(TreePiece *treePiece, CudaRequest* data) {
       freePinnedHostMemory(data->missedParts);
 }
 
+/// @brief Re-initalize data arrays and clean up callback objects at the end of the step
 void PEList::reset() {
     iList.clear();
     missedParts.clear();

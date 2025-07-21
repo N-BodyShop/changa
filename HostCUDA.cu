@@ -215,6 +215,9 @@ void DataManagerLocalTreeWalk(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief  Initiate a local particle-node interaction list calculation on the
+///         GPU from a PE
+/// @param data CudaRequest object containing parameters for the calculation
 void PEListNodeListDataTransferLocal(CudaRequest *data){
   cudaStream_t stream = data->stream;
 
@@ -253,7 +256,8 @@ void PEListNodeListDataTransferLocal(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
-/// @brief Initiate a local gravity calculation on the GPU between particles
+/// @brief  Initiate a local particle-particle interaction list calculation on the
+///         GPU from a PE
 /// @param data CudaRequest object containing parameters for the calculation
 void PEListPartListDataTransferLocal(CudaRequest *data){
   cudaStream_t stream = data->stream;
@@ -291,6 +295,9 @@ void PEListPartListDataTransferLocal(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief  Initiate a remote particle-node interaction list calculation on the
+///         GPU from a PE
+/// @param data CudaRequest object containing parameters for the calculation
 void PEListNodeListDataTransferRemote(CudaRequest *data){
   cudaStream_t stream = data->stream;
 
@@ -328,6 +335,9 @@ void PEListNodeListDataTransferRemote(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief  Initiate a remote-resume particle-node interaction list calculation on
+///         the GPU from a PE
+/// @param data CudaRequest object containing parameters for the calculation
 void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
   cudaStream_t stream = data->stream;
 
@@ -371,6 +381,9 @@ void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief  Initiate a remote particle-particle interaction list calculation on the
+///         GPU from a PE
+/// @param data CudaRequest object containing parameters for the calculation
 void PEListPartListDataTransferRemote(CudaRequest *data){
   cudaStream_t stream = data->stream;
 
@@ -420,6 +433,9 @@ void PEListPartListDataTransferRemote(CudaRequest *data){
   hapiAddCallback(stream, data->cb);
 }
 
+/// @brief  Initiate a remote-resume particle-particle interaction list calculation on
+///         the GPU from a PE
+/// @param data CudaRequest object containing parameters for the calculation
 void PEListPartListDataTransferRemoteResume(CudaRequest *data){
   cudaStream_t stream = data->stream;
 

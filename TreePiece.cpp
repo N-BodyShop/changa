@@ -3891,6 +3891,9 @@ void TreePiece::doAllBuckets(){
   }
 }
 
+/// @brief Call finishBucket for all buckets on this node
+///        Used by local tree walk and Ewald GPU operations
+/// @param fromEwald Flags whether this function was called after an Ewald calculation
 void TreePiece::cudaFinishAllBuckets(int fromEwald){
   ListCompute *listcompute = (ListCompute *) sGravity;
   DoubleWalkState *state = (DoubleWalkState *)sLocalGravityState;
@@ -3902,6 +3905,11 @@ void TreePiece::cudaFinishAllBuckets(int fromEwald){
   }
 }
 
+/// @brief Call finishBucket for a subset of buckets on this node
+///        Used by PEList after an interaction list has been sent to the GPU
+/// @param affectedBuckets Indices of buckets involved in the interaction
+/// @param numBuckets Size of the affectedBuckets array
+/// @param bRemote Flag to indicate whether to update remote gravity bookkeeping
 void TreePiece::cudaFinishAffectedBuckets(int *affectedBuckets, int numBuckets, int bRemote) {
   DoubleWalkState *state;
   if (bRemote) state = (DoubleWalkState *)sRemoteGravityState;
