@@ -1,6 +1,6 @@
 achInFile       = uniform_box.ic
 achOutName      = metal
-iOutInterval    = 128
+iOutInterval    = 1024
 iLogInterval	= 1
 iCheckInterval  = 9999
 

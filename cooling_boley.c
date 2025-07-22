@@ -55,19 +55,22 @@ COOL *CoolInit( )
 /**
  * Per thread initialization of cooling
  * @param cl Initialized COOL structure.
- * @param Data Initialized clDerivsData structure.
  * @param nv Number of independent variable for ODE solver
  */
-void CoolDerivsInit(COOL *cl, clDerivsData *Data, int nv)
+clDerivsData *CoolDerivsInit(COOL *cl, int nv)
 {
+    clDerivsData* Data;
     double dEMin;
 
     assert(cl != NULL);
+    Data = (clDerivsData *) malloc(sizeof(clDerivsData));
     assert(Data != NULL);
-    StiffInit(Data->IntegratorContext, EPSINTEG, nv, Data, clDerivs);
+    Data->IntegratorContext = StiffInit(EPSINTEG, nv, Data, clDerivs);
     Data->cl = cl;
     dEMin =  clThermalEnergy(cl->Y_Total, cl->Tmin);
     StiffSetYMin(Data->IntegratorContext, &dEMin);
+
+    return Data;
   }
   
 
@@ -85,6 +88,15 @@ void CoolFinalize(COOL *cl )
 
   free(cl);
 }
+
+/**
+ * Deallocate memory for per-thread data.
+ */
+void CoolDerivsFinalize(clDerivsData *clData)
+{
+    StiffFinalize(clData->IntegratorContext );
+    free(clData);
+    }
 
 void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit, 
 		double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam) 

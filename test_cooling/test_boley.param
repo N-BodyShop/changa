@@ -14,7 +14,6 @@ dPeriod         = 1000.0
 nSteps          = 1024
 dDelta          = 1e-3
 
-bUV       = 1 
 dMsolUnit       = 1.5928853e16
 dHubble0        = 2.894405
 dKpcUnit        = 50000.

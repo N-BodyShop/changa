@@ -153,14 +153,14 @@ void DataManager::coolDataToGPU(const CkCallback& cb) {
     h_Cool = *Cool;
 
 #ifdef COOLING_BOLEY
-    size_t tableSize = CL_TABRC*CL_TABRC2*sizeof(double);
+    size_t tableSize = CL_TABRC*CL_TABRC*sizeof(double);
     double* rossBuff = (double*)malloc(tableSize);
     double* plckBuff = (double*)malloc(tableSize);
 
     int i;
     for (i = 0; i < CL_TABRC; i++) {
-        memcpy(&rossBuff[i*CL_TABRC2], Cool->rossTab[i], CL_TABRC2*sizeof(double));
-        memcpy(&plckBuff[i*CL_TABRC2], Cool->plckTab[i], CL_TABRC2*sizeof(double));
+        memcpy(&rossBuff[i*CL_TABRC], Cool->rossTab[i], CL_TABRC*sizeof(double));
+        memcpy(&plckBuff[i*CL_TABRC], Cool->plckTab[i], CL_TABRC*sizeof(double));
     }
 
     cudaChk(cudaMalloc(&d_rossTab, tableSize));

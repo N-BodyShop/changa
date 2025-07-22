@@ -40,9 +40,9 @@
    */
 #define Y_EMIN 1e-7
 
-#define TESTRATE 1e-3
+/* #define TESTRATE 1e-3 */
 /* #define CUBICTABLEINTERP   */
-/* #define USETABLE */
+#define USETABLE
 
 #ifdef USETABLE
 #define CLRATES( _cl, _Rate, _T, _rho)                clRates_Table( _cl, _Rate, _T, _rho)
@@ -107,15 +107,19 @@ COOL *CoolInit( )
 /**
  * Per thread initialization of cooling
  * @param cl Initialized COOL structure.
- * @param Data Initialized clDerivsData structure.
  * @param nv Number of independent variable for ODE solver
  */
-void CoolDerivsInit(COOL *cl, clDerivsData *Data, int nv)
+clDerivsData *CoolDerivsInit(COOL *cl, int nv)
 {
+    clDerivsData *Data;
+
     assert(cl != NULL);
+    Data = (clDerivsData *) malloc(sizeof(clDerivsData));
     assert(Data != NULL);
-    StiffInit(Data->IntegratorContext, EPSINTEG, nv, Data, clDerivs);
+    Data->IntegratorContext = StiffInit(EPSINTEG, nv, Data, clDerivs);
     Data->cl = cl;
+
+    return Data;
     }
 
 void CoolFinalize(COOL *cl ) 
@@ -126,6 +130,15 @@ void CoolFinalize(COOL *cl )
   if (cl->MetalHeatln != NULL) free (cl->MetalHeatln); 
   free(cl);
 }
+
+/**
+ * Deallocate memory for per-thread data.
+ */
+void CoolDerivsFinalize(clDerivsData *clData)
+{
+    StiffFinalize(clData->IntegratorContext );
+    free(clData);
+    }
 
 void clInitConstants( COOL *cl, double dGmPerCcUnit, double dComovingGmPerCcUnit, 
 		      double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam) 
@@ -811,11 +824,40 @@ void clRates_Table_Lin( COOL *cl, RATE *Rate, double T, double rho) {
       }
 }
 
-void clRates_Table( COOL *cl, RATE *Rate, double T, double rho) {
+CUDA_DH void clRates_Table( COOL *cl, RATE *Rate, double T, double rho) {
   double Tln;
   double xTln,wTln0,wTln1;/*,wTln0d,wTln1d;*/
   RATES_T *RT0,*RT1;/*,*RT0d,*RT1d;*/
   int iTln;
+
+  // These need to be defined inside of the function scope to be accessible from
+  // both the device and host
+  double AP_Gamma_HI_factor[] = { 0.99805271764596307, 0.99877911567687988, 0.99589340865612034,
+			  0.99562060764857702, 0.99165170359332663, 0.9900889877822455,
+			  0.98483276828954668, 0.97387675312245325, 0.97885673164000397,
+			  0.98356305803821331, 0.96655786672182487, 0.9634906824933207,
+			  0.95031917373653985, 0.87967606627349137, 0.79917533618355074,
+			  0.61276011113763151, 0.16315185162187529, 0.02493663181368239,
+			  0.0044013580765645335, 0.00024172553511936628, 1.9576102058649783e-10,
+			  0.0, 0.0, 0.0, 0.0, 0.0 };
+
+  double AP_Gamma_HeI_factor[] = { 0.99284882980782224, 0.9946618686265097, 0.98641914356740497,
+			   0.98867015777574848, 0.96519214493135597, 0.97188336387980656,
+			   0.97529866247535113 , 0.97412477991428936, 0.97904139838765991,
+			   0.98368372768570034, 0.96677432842215549, 0.96392622083382651,
+			   0.95145730833093178, 0.88213871255482879, 0.80512823597731886,
+			   0.62474472739578646, 0.17222786134467002, 0.025861959933038869,
+			   0.0045265030237581529, 0.00024724339438128221, 1.3040144591221284e-08,
+			   0.0, 0.0, 0.0, 0.0, 0.0};
+
+  double AP_Gamma_HeII_factor[] = { 0.97990208047216765, 0.98606251822654412,
+			0.97657215632444849, 0.97274858503068629, 0.97416108746560681,
+			0.97716929017896703, 0.97743607605974214, 0.97555305775319012,
+			0.97874250764784809, 0.97849791914637996, 0.95135572977973504,
+			0.92948461312852582, 0.89242272355549912, 0.79325512242742746 ,
+			0.6683745597121028, 0.51605924897038324, 0.1840253816147828,
+			0.035905775349044489, 0.0045537756654992923, 0.00035933897136804514,
+			1.2294426136470751e-6, 0.0, 0.0, 0.0, 0.0, 0.0 };
 
 #ifdef TESTRATE
   RATE test;
@@ -911,7 +953,7 @@ void clRates_Table( COOL *cl, RATE *Rate, double T, double rho) {
 }
 
 
-void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, double ZMetal)
+CUDA_DH void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, double ZMetal)
 {
   double tempT, tempnH,tempz, nH;
   double Tlog, nHlog; 
@@ -1750,7 +1792,7 @@ CUDA_DH double clCoolLowT( double T ) {
 
 /* Returns Heating - Cooling excluding External Heating, units of ergs s^-1 g^-1 
    Public interface CoolEdotInstantCode */
-double clEdotInstant_Table( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
+CUDA_DH double clEdotInstant_Table( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 			    double ZMetal, double *dEdotHeat, double *dEdotCool )
 {
   double en_B = rho*CL_B_gm;
@@ -1928,7 +1970,7 @@ void clTempIteration( clDerivsData *d )
  clAbunds( d->cl, &d->Y, &d->Rate, d->rho, d->ZMetal);
 }
 
-void clDerivs(double x, const double *y, double *dGain, double *dLoss,
+CUDA_DH void clDerivs(double x, const double *y, double *dGain, double *dLoss,
 	     void *Data) {
   clDerivsData *d = (clDerivsData *) Data;
   double T,ne,nHI, internalheat = 0, externalheat = 0;

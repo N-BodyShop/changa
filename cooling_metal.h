@@ -17,10 +17,8 @@
 #include <cuda_runtime.h>
 // Make some functions and variables accessible from both the host and device
 #define CUDA_DH __device__ __host__
-#define CUDA_CONST __constant__
 #else
 #define CUDA_DH
-#define CUDA_CONST
 #endif
 
 #ifdef __cplusplus
@@ -249,7 +247,8 @@ struct clDerivsDataStruct {
 
 COOL *CoolInit( );
 void CoolFinalize( COOL *cl );
-void CoolDerivsInit(COOL *cl, clDerivsData *Data, int nv);
+clDerivsData *CoolDerivsInit(COOL *cl, int nv);
+void CoolDerivsFinalize(clDerivsData *cld );
 
 void clInitConstants( COOL *cl, double dGMPerCcunit, double dComovingGmPerCcUnit,
 		      double dErgPerGmUnit, double dSecUnit, double dKpcUnit, COOLPARAM CoolParam);
@@ -264,6 +263,7 @@ void clRatesTableError( COOL *cl );
 CUDA_DH void clRatesRedshift( COOL *cl, double z, double dTime );
 double clHeatTotal ( COOL *cl, PERBARYON *Y, RATE *Rate  );
 CUDA_DH void clRates( COOL *cl, RATE *Rate, double T, double rho);
+CUDA_DH void clRates_Table( COOL *cl, RATE *Rate, double T, double rho);
 double clCoolTotal( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal );
 COOL_ERGPERSPERGM  clTestCool ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho );
 void clPrintCool( COOL *cl, PERBARYON *Y, RATE *Rate, double rho );
@@ -291,6 +291,8 @@ CUDA_DH double clCoolLineHeII( double T );
 CUDA_DH double clCoolLowT( double T );
 CUDA_DH double clEdotInstant ( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
 		       double ZMetal, double *dEdotHeat, double *EdotCool );
+CUDA_DH double clEdotInstant_Table( COOL *cl, PERBARYON *Y, RATE *Rate, double rho,
+                            double ZMetal, double *dEdotHeat, double *dEdotCool );
     void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
 		       double ExternalHeating, double rho, double ZMetal, double dt );
     void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E, 
