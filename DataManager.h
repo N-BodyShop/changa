@@ -94,6 +94,8 @@ protected:
         // at a given time
         int treePiecesDoneRemoteChunkComputation;
         int PEsWantParticlesBack;
+        /// Keep track of which PEs have TreePieces
+        std::set<int> registeredPEs;
         /// Reference count for Pieces that have finished updating
         /// their acclerations.
         int treePiecesParticlesUpdated;

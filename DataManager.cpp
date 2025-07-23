@@ -148,6 +148,7 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
   CmiLock(__nodelock);
   registeredTreePieces.push_back(TreePieceDescriptor(tp, root));
 #ifdef CUDA
+  registeredPEs.insert(tp->getParentPE());
   //gpuFree = true;
   //registeredTreePieceIndices.push_back(index);
 #if COSMO_PRINT_BK > 1
@@ -160,6 +161,9 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
 /// \brief Clear registeredTreePieces on this node.
 void DataManager::clearRegisteredPieces(const CkCallback& cb) {
     registeredTreePieces.removeAll();
+#ifdef CUDA
+    registeredPEs.clear();
+#endif
     contribute(cb);
 }
 
@@ -1067,7 +1071,7 @@ void DataManager::transferParticleVarsBack(){
   UpdateParticlesStruct *data;
   CmiLock(__nodelock);
   PEsWantParticlesBack++;
-  if(PEsWantParticlesBack == CkMyNodeSize()){
+  if(PEsWantParticlesBack == registeredPEs.size()){
     PEsWantParticlesBack = 0;
     VariablePartData *buf;
     

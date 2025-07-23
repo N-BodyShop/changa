@@ -913,6 +913,8 @@ class TreePiece : public CBase_TreePiece {
         int NumberOfGPUParticles;
         BucketActiveInfo *bucketActiveInfo;
 
+	int getParentPE() { return CkMyPe(); }
+
 	// For accessing GPU memory
 	CudaMultipoleMoments *d_localMoments;
         CudaMultipoleMoments *d_remoteMoments;
