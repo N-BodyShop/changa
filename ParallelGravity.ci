@@ -23,7 +23,9 @@ mainmodule ParallelGravity {
   readonly CProxy_PETreeMerger peTreeMergerProxy;
   readonly CProxy_DumpFrameData dfDataProxy;
   readonly CProxy_IntraNodeLBManager nodeLBMgrProxy;
+#ifdef CUDA
   readonly CProxy_PECool peCoolProxy;
+#endif
 
   readonly bool _cache;
   readonly int _nocache;
@@ -253,6 +255,7 @@ mainmodule ParallelGravity {
     entry void createStreams(int _numStreams, const CkCallback& cb);
     entry void coolDataToGPU(const CkCallback& cb);
     entry void assignCUDAStreams(const CkCallback& cb);
+    entry void setupuDot(const CkCallback& cb);
 #endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
@@ -428,7 +431,9 @@ mainmodule ParallelGravity {
       int nGpuGasMinParts,
 #endif
 const CkCallback& cb);
+#ifdef CUDA
     entry void finishIntegrateCb();
+#endif
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
 	const CkCallback& cb);

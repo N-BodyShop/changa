@@ -86,7 +86,9 @@ CProxy_DumpFrameData dfDataProxy;
 /// @brief Proxy for the PETreeMerger group.
 CProxy_PETreeMerger peTreeMergerProxy;
 
+#ifdef CUDA
 CProxy_PECool peCoolProxy;
+#endif
 
 /// @brief Use the cache (always on)
 bool _cache;
@@ -763,7 +765,7 @@ Main::Main(CkArgMsg* m) {
                     sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
         param.nGpuGasMinParts = 500;
         prmAddParam(prm, "nGpuGasMinParts", paramInt, &param.nGpuGasMinParts,
-                    sizeof(int),"gpugp", "Min active gas particle on TreePiece to trigger GPU (default: 500)");
+                    sizeof(int),"gpugp", "Min active gas particle on node to trigger GPU (default: 500)");
 #endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
@@ -1379,7 +1381,9 @@ Main::Main(CkArgMsg* m) {
         peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
         dfDataProxy = CProxy_DumpFrameData::ckNew();
 
+#ifdef CUDA
         peCoolProxy = CProxy_PECool::ckNew();
+#endif
 	
 	// create CacheManagers
 	// Gravity particles
@@ -1858,6 +1862,7 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
 
 #ifdef CUDA
     treeProxy.calculateNumActiveGasParticles(bAll, iActiveRung, CkCallbackResumeThread());
+    dMProxy.setupuDot(CkCallbackResumeThread());
 #endif
     treeProxy.updateuDot(iActiveRung, duKick, dStartTime,
                          param.bGasCooling, bUpdateState, bAll,

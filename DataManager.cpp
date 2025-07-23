@@ -33,7 +33,7 @@ void DataManager::init() {
   oldNumChunks = 0;
   chunkRoots = NULL;
 #ifdef CUDA
-  numGasParts = 0;
+  numActiveGasParts = 0;
   treePiecesDone = 0;
   treePiecesDoneUdot = 0;
   treePiecesDonePrefetch = 0;
@@ -176,6 +176,14 @@ void DataManager::assignCUDAStreams(const CkCallback& cb) {
     treePieces[tpIdx].assignCUDAStream((intptr_t) &streams[tpIdx % numStreams]);
   }
   contribute(cb);
+}
+
+void DataManager::setupuDot(const CkCallback& cb){
+   numActiveGasParts = 0;
+   for (int i = 0; i < registeredTreePieces.size(); i++) {
+        numActiveGasParts += registeredTreePieces[i].treePiece->getNumActiveGasParticles();
+   }
+   contribute(cb);
 }
 #endif
 

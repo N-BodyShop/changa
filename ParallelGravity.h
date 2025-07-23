@@ -169,7 +169,9 @@ extern int nIOProcessor;
 
 extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
+#ifdef CUDA
 extern CProxy_PECool peCoolProxy;
+#endif
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
@@ -1185,7 +1187,6 @@ private:
 	/// particle count for output
 	int myIOParticles;
 
-#ifdef CUDA
 	std::vector<int> myPartIdx;
 	std::vector<int> peIdx;
 	std::vector<double> dt;
@@ -1202,7 +1203,6 @@ private:
 	std::vector<double> columnL;
 #endif
 	std::vector<COOLPARTICLE> cp;
-#endif // CUDA
 
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
@@ -1877,8 +1877,10 @@ public:
       int nGpuGasMinParts,
 #endif
       const CkCallback& cb);
+#ifdef CUDA
 	void finishIntegrateCb();
-	void finishuDot();
+#endif
+	void finishuDot(int bCpuGas);
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
     void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,

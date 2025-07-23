@@ -186,11 +186,9 @@ protected:
 	double *d_rtaus;
 	double *d_scrarray;
 
-  // Used to determine if memory needs to be reallocated
-  // Total number of gas particles on this node
-  int numTotalGasParts;
-  // Total number of gas particles allocated
-  int numGasParts;
+  // Used to determine whether cooling should be calculated on the GPU
+  // Total number of active gas particles on this node
+  int numActiveGasParts;
 #endif // CUDA
 #endif // COOLING_NONE
 
@@ -255,6 +253,8 @@ public:
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
         void assignCUDAStreams(const CkCallback& cb);
+        void setupuDot(const CkCallback& cb);
+        int getNumActiveGasParts() { return numActiveGasParts; }
 
 #ifdef GPU_LOCAL_TREE_WALK
         void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);

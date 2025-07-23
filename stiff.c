@@ -18,7 +18,8 @@
 #include <assert.h>
 #include "stiff.h"
 
-/*static inline double max(double x, double y) 
+#ifndef CUDA
+static inline double max(double x, double y)
 {
     if(x > y) return x;
     else return y;
@@ -28,7 +29,8 @@ static inline double min(double a, double b)
 {
     if(a < b) return a;
     else return b;
-    }*/
+    }
+#endif
 
 /* implement fortran sign function: return a with the sign of b */
 static inline double sign(double a, double b) 

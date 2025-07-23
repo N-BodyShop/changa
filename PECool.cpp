@@ -1,3 +1,4 @@
+#ifdef CUDA
 #include "PECool.h"
 #include "HostCUDA.h"
 
@@ -104,3 +105,5 @@ void PECool::reset() {
     cTreePieces.reset();
     vtpLocal.length() = 0;
 }
+
+#endif
