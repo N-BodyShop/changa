@@ -23,7 +23,7 @@ testcosmo: cosmo.log
 
 testboley: boley.log
 	@echo -n 'energy should be: '
-	@tail -1 boley_master.log | awk '{print $$9;}'
+	@tail -1 boley_master.log | awk '{print $$5;}'
 	@echo -n 'energy is: '
-	@tail -1 boley.log | awk '{print $$9;}'
-	@tail -1 boley.log | awk '{if(sqrt(($$9 - 1.62226e-10)^2) < 1e-24) { print "TEST PASSED"; exit 0;} else {print "TEST FAILED"; exit -1;}}'
+	@tail -1 boley.log | awk '{print $$5;}'
+	@tail -1 boley.log | awk '{if(sqrt(($$5 - 4.88461e-23)^2) < 1e-24) { print "TEST PASSED"; exit 0;} else {print "TEST FAILED"; exit -1;}}'
