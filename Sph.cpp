@@ -146,6 +146,25 @@ DataManager::initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
     contribute(cb);
     }
 
+//read QCond at beginning of run
+void Main::initQCond()
+{
+#ifdef HYPCOND
+  CkPrintf("Loading QCond initial conditions with Tipsy array files.\n");
+  struct stat s;
+  int err = stat(basefilename.c_str(), &s);
+  printf("nTotalParticles %d",nTotalParticles);
+  if(arrayFileExists(basefilename + ".dQCond", nTotalParticles)) {
+    HypCondOutputParams pdQCondOut(basefilename, 0, 0.0);
+    treeProxy.readTipsyArray(pdQCondOut, CkCallbackResumeThread());
+
+  }
+  else
+    CkError("WARNING: no qCondFile, or wrong format to initialize\n");
+#endif
+}
+
+
 /**
  * Per thread initialization
  */
@@ -446,6 +465,18 @@ Main::restartGas()
       }
       else
           CkError("WARNING: no uHot file, or wrong format for restart\n");
+#ifdef HYPCOND
+      // read QCond in
+      if(nTotalSPH > 0)
+          nGas = ncGetCount(basefilename + "/gas/dQCond");
+      if(nGas == nTotalSPH) {
+          HypCondOutputParams pdQCondOut(basefilename, 6, 0.0);
+          treeProxy.readFloatBinary(pdQCondOut, param.bParaRead,
+                               CkCallbackResumeThread());
+      }
+      else
+          CkError("WARNING: no QCond file, or wrong format for restart\n");
+#endif
 #endif 
       }
 #ifdef CULLENALPHA
@@ -584,6 +615,14 @@ Main::restartGas()
       }
       else
           CkError("WARNING: no uHot file, or wrong format for restart\n");
+#ifdef HYPCOND
+      if(arrayFileExists(basefilename + ".dQCond", nTotalParticles)) {
+          HypCondOutputParams pdQCondOut(basefilename, 6, 0.0);
+          treeProxy.readTipsyArray(pdQCondOut, CkCallbackResumeThread());
+      }
+      else
+          CkError("WARNING: no QCond file, or wrong format for restart\n");
+#endif
 #endif 
         }
 #ifdef CULLENALPHA
@@ -780,13 +819,21 @@ Main::doSph(int activeRung, int bNeedDensity)
 					param.dConstGamma-1, dTuFac, param.dThermalCondCoeffCode*a, param.dThermalCond2CoeffCode*a,
                     param.dThermalCondSatCoeff/a, param.dThermalCond2SatCoeff/a, 
                     param.dEvapMinTemp,	dDtCourantFac, param.dResolveJeans/a, CkCallbackResumeThread());
-
+#ifdef HYPCOND
+    HypGrads pHypGrads(TYPE_GAS, activeRung, param.csm, dTime,
+                                   param.dConstAlpha, param.dConstBeta,
+                                   param.dThermalDiffusionCoeff, param.dMetalDiffusionCoeff,
+                                   param.dEtaCourant, param.dEtaDiffusion);
+#endif
     ckout << "Calculating pressure gradients ...";
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
                                    param.dConstAlpha, param.dConstBeta,
                                    param.dThermalDiffusionCoeff, param.dMetalDiffusionCoeff,
                                    param.dEtaCourant, param.dEtaDiffusion);
     double startTime = CkWallTimer();
+#ifdef HYPCOND
+    treeProxy.startReSmooth(&pHypGrads, CkCallbackResumeThread());
+#endif
     treeProxy.startReSmooth(&pPressure, CkCallbackResumeThread());
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 	  << endl;
@@ -1384,13 +1431,24 @@ void TreePiece::getAdiabaticGasPressure(double gamma, double gammam1, double dTu
         p->c() = sqrt(gamma*PoverRho);
         p->PoverRho2() = PoverRho/p->fDensity;
         double Tp = p->uPred() / dTuFac;
+#ifdef THERMALDIFFONLY
+        double fThermalCond = 0.5;
+        double fThermalCond2 = 0.5;
+#ifdef HYPCOND
+        p->dThermalCondTau() = 1.0;
+#endif
+#else
         double fThermalCond = dThermalCondCoeff*pow(p->uPred(),2.5);
         double fThermalCond2 = dThermalCond2Coeff*pow(p->uPred(),0.5);
+#ifdef HYPCOND
+        p->dThermalCondTau() = fThermalCond/p->fDensity/(p->c()*p->c() + 0.0000001); /*NAO HYP*/
+#endif
         if (Tp < dEvapMinTemp)
         {
             fThermalCond = 0;
             fThermalCond2 = 0;
         }
+#endif
         // conductivity is limited by propagation of electrons
         double fSat = p->fDensity*p->c()*0.5*p->fBall;
         double fThermalCondSat = fSat*dThermalCondSatCoeff;
@@ -1498,6 +1556,93 @@ void TreePiece::getCoolingGasPressure(double gamma, double gammam1, double dTher
     smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
+#ifdef HYPCOND
+int HypGrads::isSmoothActive(GravityParticle *p)
+{
+    return (TYPETest(p, TYPE_NbrOfACTIVE));
+    }
+
+void HypGrads::initSmoothParticle(GravityParticle *p)
+{
+        if (p->rung >= activeRung) {
+            p->gradU() = 0.0;
+            p->gradQx() = 0.0;
+            p->gradQy() = 0.0;
+            p->gradQz() = 0.0;
+            }
+    }
+
+void HypGrads::initSmoothCache(GravityParticle *p)
+{
+        if (p->rung >= activeRung) {
+            p->gradU() = 0.0;
+            p->gradQx() = 0.0;
+            p->gradQy() = 0.0;
+            p->gradQz() = 0.0;
+            }
+        }
+
+void HypGrads::combSmoothCache(GravityParticle *p1,
+                                          ExternalSmoothParticle *p2)
+{
+        if (p1->rung >= activeRung) {
+            p1->gradU() += p2->gradU;
+            p1->gradQx() += p2->gradQx;
+            p1->gradQy() += p2->gradQy;
+            p1->gradQz() += p2->gradQz;
+            }
+    }
+
+void HypGrads::fcnSmooth(GravityParticle *p, int nSmooth,
+                    pqSmoothNode *nnList)
+{
+    GravityParticle *q;
+    PressSmoothUpdate params;
+    PressSmoothParticle pParams;
+    PressSmoothParticle qParams;
+    double ih2,r2,rs1;
+    Vector3D<double> crossdvdr;
+    double ph,absmu;
+    double fNorm1,vFac;
+    double dt;
+    int i;
+
+    if(nSmooth < 2) {
+        CkPrintf("nSmooth %d ,iOrder %d fball %f ",nSmooth,p->iOrder,p->fBall);
+        CkError("WARNING: lonely SPH particle\n");
+        return;
+    }
+    ph = 0.5 * p->fBall;
+    ih2 = invH2(p);
+    fNorm1 = 0.5*M_1_PI*ih2*ih2/ph;
+    for (i=0;i<nSmooth;++i) {
+        q = nnList[i].p;
+        if ((p->rung < activeRung) && (q->rung < activeRung)) continue;
+        double fDist2 = nnList[i].fKey;
+        r2 = fDist2*ih2;
+        rs1 = DKERNEL(r2);
+        rs1 *= fNorm1;
+        pParams.rNorm = rs1 * p->mass;
+        qParams.rNorm = rs1 * q->mass;
+        params.dx = nnList[i].dx;
+        double dIHarmDens = 0.5*(q->fDensity + p->fDensity)/p->fDensity*q->fDensity;
+        params.gradU1 = -(p->uPred()-q->uPred())*params.dx*dIHarmDens;
+        params.gradQ1x = -(p->dQCondPred()[0] - q->dQCondPred()[0])*params.dx*dIHarmDens;
+        params.gradQ1y = -(p->dQCondPred()[1] - q->dQCondPred()[1])*params.dx*dIHarmDens;
+        params.gradQ1z = -(p->dQCondPred()[2] - q->dQCondPred()[2])*params.dx*dIHarmDens;
+        }
+
+    if (p->rung >= activeRung) {
+            getInitialGrad(p, q, &params, &pParams, &qParams, 1);
+        }
+    if (q->rung >= activeRung) {
+            getInitialGrad(q, p, &params, &qParams, &pParams, -1);
+        }
+    }
+#endif
+
+
+
 int PressureSmoothParams::isSmoothActive(GravityParticle *p) 
 {
     return (TYPETest(p, TYPE_NbrOfACTIVE));
@@ -1515,6 +1660,9 @@ void PressureSmoothParams::initSmoothParticle(GravityParticle *p)
             p->uDotPdV() = 0.0;
             p->uDotDiff() = 0.0;
             p->uDotAV() = 0.0;
+#ifdef HYPCOND
+            p->dQCondDot() = 0.0;
+#endif
 #ifdef DIFFUSION
 	    p->fMetalsDot() = 0.0;
 	    p->fMFracOxygenDot() = 0.0;
@@ -1535,6 +1683,9 @@ void PressureSmoothParams::initSmoothCache(GravityParticle *p)
             p->uDotPdV() = 0.0;
             p->uDotDiff() = 0.0;
             p->uDotAV() = 0.0;
+#ifdef HYPCOND
+            p->dQCondDot() = 0.0;
+#endif
 	    p->treeAcceleration = 0.0;
 #ifdef DIFFUSION
 	    p->fMetalsDot() = 0.0;
@@ -1552,6 +1703,9 @@ void PressureSmoothParams::combSmoothCache(GravityParticle *p1,
             p1->uDotPdV() += p2->uDotPdV;
             p1->uDotDiff() += p2->uDotDiff;
             p1->uDotAV() += p2->uDotAV;
+#ifdef HYPCOND
+            p1->dQCondDot() += p2->dQCondDot;
+#endif
 	    if (p2->mumax > p1->mumax())
 		p1->mumax() = p2->mumax;
 	    p1->treeAcceleration += p2->treeAcceleration;
@@ -1726,6 +1880,9 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                     diffTh = (2*dThermalDiffusionCoeff*diffBase/(p->fDensity+q->fDensity));
                     double dt_diff;
                     double dThermalCond;
+                    #ifdef HYPCOND
+                    double diffuHyp, dHypStable, dHypCond;
+                    #endif
                     #ifdef SUPERBUBBLE /* compile-time flag */
                         #if (1)
                             /* Harmonic average coeff */
@@ -1733,20 +1890,63 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
                             dThermalCond = ( dThermalCondSum <= 0 ? 0
                                 : 4*p->fThermalCond()*q->fThermalCond()
                                 /(dThermalCondSum*p->fDensity*q->fDensity) );
+                            #ifdef HYPCOND
+                            dHypCond = 0.5*dThermalCond*p->fDensity;
+                            double fThermalCondAvrg = 0.5*dThermalCond*p->fDensity*q->fDensity;
+                            double fDensAvg = 0.5*(p->fDensity+q->fDensity) ;
+                            double havrg = 0.5*(ph+0.5*q->fBall);
+                            double csavrg0 = 0.5*(p->c()+q->c());
+                            double csavrg1 = 1.0*fThermalCondAvrg/fDensAvg/havrg ;
+                            double csavrg = min(csavrg0, csavrg1);
+                            dHypStable = havrg*csavrg/fDensAvg;
+                            diffuHyp = 1.0/p->fDensity/q->fDensity;
+                            #endif
                         #else
                             /* Arithmetic average coeff */
                             dThermalCond = (p->fThermalCond() + q->fThermalCond())
                                 /(p->fDensity*q->fDensity);
                         #endif
+                            #ifdef HYPCOND
+                            if (dThermalCond > 0 && (dt_diff = 0.25*ph
+                                   /(p->c())) < dt) {
+                               dt = dt_diff;
+                               }
+                            #else
                             if (dThermalCond > 0 && (dt_diff = dtFacDiffusion*ph
                                     *ph/(dThermalCond*p->fDensity)) < dt) {
                                 dt = dt_diff;
                                 }
+                            #endif
                     #else
                         dThermalCond = 0.0;
+                        #ifdef HYPCOND
+                        diffuHyp = 0.0;
+                        dHypStable = 0.0;
+                        dHypCond = 0.0;
+                        #endif
                     #endif
+                    #ifdef HYPCOND
+                    if (diffTh > 0 && (dt_diff= 0.25*ph/p->c() < dt)) dt = dt_diff;
+                    double gradUp = dot(p->gradU(),params.dx); double gradUq = dot(q->gradU(),params.dx);
+                    minMod(p->uPred(),q->uPred(),gradUp,gradUq);
+                    double gradQxp = dot(p->gradQx(),params.dx); double gradQxq = dot(q->gradQx(),params.dx);
+                    minMod(p->dQCond()[0], q->dQCondPred()[0], gradQxp, gradQxq);
+                    double gradQyp = dot(p->gradQy(),params.dx); double gradQyq = dot(q->gradQy(),params.dx);
+                    minMod(p->dQCond()[1], q->dQCondPred()[1], gradQyp, gradQyq);
+                    double gradQzp = dot(p->gradQz(),params.dx); double gradQzq = dot(q->gradQz(),params.dx);
+                    minMod(p->dQCond()[2], q->dQCondPred()[2], gradQzp, gradQzq);
+                    params.diffu = diffTh*(p->uPred()-q->uPred());
+                    if ((fabs(gradUp)<1e-20)||(fabs(gradUq)<1e-20))
+                        params.diffu += 0.5*dHypStable*(p->uPred() - q->uPred() + 0.5*gradUp + 0.5*gradUq);
+                    params.diffuHypCond = 0.0;
+                    params.diffuHypCond += diffuHyp*(p->dQCondPred()[0] - q->dQCondPred()[0] + 0.5*gradQxp + 0.5*gradQxq)*params.dx[0];
+                    params.diffuHypCond += diffuHyp*(p->dQCondPred()[1] - q->dQCondPred()[1] + 0.5*gradQyp + 0.5*gradQyq)*params.dx[1];
+                    params.diffuHypCond += diffuHyp*(p->dQCondPred()[2] - q->dQCondPred()[2] + 0.5*gradQzp + 0.5*gradQzq)*params.dx[2];
+                    params.diffq = dHypCond*(p->uPred()-q->uPred() + 0.5*gradUp + 0.5*gradUq)*params.dx;
+                    #else
                     if (diffTh > 0 && (dt_diff= dtFacDiffusion*ph*ph/(diffTh*p->fDensity)) < dt) dt = dt_diff;
                     params.diffu = (diffTh+dThermalCond)*(p->uPred()-q->uPred());
+                    #endif
                     }
                 #endif
             #endif //DIFFUSIONPRICE
@@ -1795,6 +1995,43 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
  * @param bParams params specific to b
  * @param sign 1 for a = p (the self particle) and -1 for a = q (the neighbor)
  */
+
+void getInitialGrad(GravityParticle *a, GravityParticle *b,
+                    PressSmoothUpdate *params, PressSmoothParticle *aParams,
+                    PressSmoothParticle *bParams, int sign) {
+#ifdef HYPCOND
+    a->gradU() += params->gradU1 * bParams->rNorm * massDiffFac(b);
+    a->gradQx() += params->gradQ1x * bParams->rNorm * massDiffFac(b);
+    a->gradQy() += params->gradQ1y * bParams->rNorm * massDiffFac(b);
+    a->gradQz() += params->gradQ1z * bParams->rNorm * massDiffFac(b);
+#endif
+}
+
+void minMod(double val1, double val2, double &slope_1,double &slope_2) {
+    if (((slope_1<0.0)&&(slope_2>0.0))||((slope_1>0.0)&&(slope_2<0.0))){
+        slope_1 = 0.0;
+        slope_2 = 0.0;
+        }
+    else if ((slope_1>0.0)&&(slope_2>0.0)){
+        if ((val1+0.5*slope_1)>(0.5*(val2+val1))){
+            slope_1 = 0.0;
+            }
+        if ((val2-0.5*slope_2)<(0.5*(val2+val1))) {
+            slope_2 = 0.0;
+            }
+        }
+    else {
+        if ((val1+0.5*slope_1)<(0.5*(val2+val1))){
+            slope_1 = 0.0;
+            }
+        if ((val2-0.5*slope_2)>(0.5*(val2+val1))) {
+            slope_2 = 0.0;
+            }
+        }
+}
+
+
+
 void updateParticle(GravityParticle *a, GravityParticle *b, 
                     PressSmoothUpdate *params, PressSmoothParticle *aParams, 
                     PressSmoothParticle *bParams, int sign) {
@@ -1811,6 +2048,11 @@ void updateParticle(GravityParticle *a, GravityParticle *b,
                         * massDiffFac(b);
                 a->uDotDiff() += sign * params->diffu * bParams->rNorm \
                         * massDiffFac(b);
+                #ifdef HYPCOND
+                a->dQCondDot() +=  params->diffq * bParams->rNorm * massDiffFac(b);
+                if (a->iOrder == 34374) fprintf(stderr,"iOrder: %i\tQDot: %g\n\n", a->iOrder, a->dQCondDot()[0]);
+                #endif
+
             #endif
 //        #endif //DIFFUSIONPRICE
 //        /* not implemented */

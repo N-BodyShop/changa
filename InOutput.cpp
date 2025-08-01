@@ -72,6 +72,14 @@ void load_tipsy_gas(Tipsy::TipsyReader &r, GravityParticle &p, double dTuFac)
     p.uHotDot() = 0.0;
     p.massHot() = 0.0;
     p.fThermalCond() = 0.0;
+#ifdef HYPCOND
+    p.dThermalCondTau() = 0.0;
+    p.dQCondDot() = 0.0;
+    p.gradQx() = 0.0;
+    p.gradQy() = 0.0;
+    p.gradQz() = 0.0;
+    p.gradU() = 0.0;
+#endif
     p.fPromoteSum() = 0.0;
     p.fPromoteSumuPred() = 0.0;
     p.fPromoteuPredInit() = 0.0;
@@ -626,6 +634,14 @@ static void load_NC_gas(std::string filename, int64_t startParticle,
         myParts[i].uHotDot() = 0.0;
         myParts[i].massHot() = 0.0;
         myParts[i].fThermalCond() = 0.0;
+#ifdef HYPCOND
+        myParts[i].dThermalCondTau() = 0.0;
+        myParts[i].dQCondDot() = 0.0;
+        myParts[i].gradU() = 0.0;
+        myParts[i].gradQx() = 0.0;
+        myParts[i].gradQy() = 0.0;
+        myParts[i].gradQz() = 0.0;
+#endif
         myParts[i].fPromoteSum() = 0.0;
         myParts[i].fPromoteSumuPred() = 0.0;
         myParts[i].fPromoteuPredInit() = 0.0;
