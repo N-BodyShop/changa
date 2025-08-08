@@ -253,6 +253,7 @@ Main::Main(CkArgMsg* m) {
 
         traceRegisterUserEvent("Xfer Local", CUDA_XFER_LOCAL);
         traceRegisterUserEvent("Xfer Remote", CUDA_XFER_REMOTE);
+        traceRegisterUserEvent("Grav Tree Local", CUDA_GRAV_TREE_LOCAL);
         traceRegisterUserEvent("Grav Nodelist Local", CUDA_GRAV_NODELIST_LOCAL);
         traceRegisterUserEvent("Grav Partlist Local", CUDA_GRAV_PARTLIST_LOCAL);
         traceRegisterUserEvent("Grav Nodelist Remote", CUDA_GRAV_NODELIST_REMOTE);

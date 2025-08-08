@@ -532,6 +532,12 @@ void DataManager::finishEwaldGPU() {
 void DataManager::finishLocalWalk() {
   delete localTransferCallback;
 
+  // Wait until the local tree walk kernel completes
+  // Otherwise these calls block on the kernel execution
+  freePinnedHostMemory(bufLocalMoments);
+  freePinnedHostMemory(bufLocalParts);
+  freePinnedHostMemory(bufLocalVars);
+
   for(int i = 0; i < registeredTreePieces.length(); i++){
     int in = registeredTreePieces[i].treePiece->getIndex();
     treePieces[in].cudaFinishAllBuckets(0);
@@ -619,10 +625,6 @@ void DataManager::startLocalWalk() {
 
     DataManagerLocalTreeWalk(request);
 #endif
-
-    freePinnedHostMemory(bufLocalMoments);
-    freePinnedHostMemory(bufLocalParts);
-    freePinnedHostMemory(bufLocalVars);
 }
 
 /// @brief Callback from remote data transfer to GPU.
