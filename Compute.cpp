@@ -1061,17 +1061,10 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     int *affectedBuckets = NULL;
 
     if(totalNumInteractions > 0){
-#ifdef PINNED_HOST_MEMORY
-      allocatePinnedHostMemory((void **)&flatlists, totalNumInteractions*sizeof(T));
-      allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
-      allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
-      allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
-#else
       flatlists = (T *) malloc(totalNumInteractions*sizeof(T));
       markers = (int *) malloc((numFilledBuckets+1)*sizeof(int));
       starts = (int *) malloc(numFilledBuckets*sizeof(int));
       sizes = (int *) malloc(numFilledBuckets*sizeof(int));
-#endif
       affectedBuckets = new int[numFilledBuckets];
 
       // populate flat lists
@@ -1146,17 +1139,10 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
     int *affectedBuckets = NULL;
 
     if(totalNumInteractions > 0){
-#ifdef PINNED_HOST_MEMORY
-      allocatePinnedHostMemory((void **)&flatlists, numParticleInteractions*sizeof(ILCell));
-      allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
-      allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
-      allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
-#else
       flatlists = (ILCell *) malloc(numParticleInteractions*sizeof(ILCell));
       markers = (int *) malloc((numFilledBuckets+1)*sizeof(int));
       starts = (int *) malloc(numFilledBuckets*sizeof(int));
       sizes = (int *) malloc(numFilledBuckets*sizeof(int));
-#endif
       affectedBuckets = new int[numFilledBuckets];
 
       // populate flat lists
@@ -1873,7 +1859,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
     CudaMultipoleMoments *missedNodes = state->nodes->getVec();
     size_t len = sizeof(CudaMultipoleMoments)*state->nodes->length();
     CkAssert(missedNodes);
-    allocatePinnedHostMemory(&data->missedNodes, len);
+    data->missedNodes = (CudaMultipoleMoments *) malloc(len);
     memcpy(data->missedNodes, missedNodes, len);
     data->sMissed = len;
 #ifdef HAPI_TRACE
@@ -1962,7 +1948,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
     CompactPartData *missedParts = state->particles->getVec();
     size_t len = sizeof(CompactPartData)*state->particles->length();
     CkAssert(missedParts);
-    allocatePinnedHostMemory(&data->missedParts, len);
+    data->missedParts = (CompactPartData *) malloc(len);
     memcpy(data->missedParts, missedParts, len);
     data->sMissed = len;
 #ifdef HAPI_TRACE

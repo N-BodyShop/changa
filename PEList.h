@@ -4,44 +4,6 @@
 #ifdef CUDA
 #include "ParallelGravity.h"
 
-// To use pinned host memory with a std::vector
-template <typename T>
-struct PinnedHostAllocator {
-    typedef T value_type;
-
-    PinnedHostAllocator() {}
-
-    template <class U>
-    PinnedHostAllocator(const PinnedHostAllocator<U>&) {}
-
-    T* allocate(std::size_t n) {
-        void* ptr = NULL;
-        allocatePinnedHostMemory(&ptr, n * sizeof(T));
-        if (!ptr) throw std::bad_alloc();
-        return static_cast<T*>(ptr);
-    }
-
-    void deallocate(T* p, std::size_t /*n*/) {
-        freePinnedHostMemory(p);
-    }
-
-    template <typename U>
-    struct rebind {
-        typedef PinnedHostAllocator<U> other;
-    };
-};
-
-// Equality operators
-template <class T, class U>
-bool operator==(const PinnedHostAllocator<T>&, const PinnedHostAllocator<U>&) {
-    return true;
-}
-
-template <class T, class U>
-bool operator!=(const PinnedHostAllocator<T>&, const PinnedHostAllocator<U>&) {
-    return false;
-}
-
 // Need a separate class for each type of request (particle, node, local, remote)
 class PEList : public CBase_PEList
 {
@@ -50,15 +12,15 @@ class PEList : public CBase_PEList
     /// Count of TreePieces with particles on this PE
     NonEmptyTreePieceCounter cTreePieces;
 
-    vector<ILCell, PinnedHostAllocator<ILCell>> iList;
+    vector<ILCell> iList;
 
-    vector<int, PinnedHostAllocator<int>> bucketMarkers;
+    vector<int> bucketMarkers;
     int finalBucketMarker;
-    vector<int, PinnedHostAllocator<int>> bucketStarts;
-    vector<int, PinnedHostAllocator<int>> bucketSizes;
+    vector<int> bucketStarts;
+    vector<int> bucketSizes;
 
-    vector<CompactPartData, PinnedHostAllocator<CompactPartData>> missedParts;
-    vector<CudaMultipoleMoments, PinnedHostAllocator<CudaMultipoleMoments>> missedNodes;
+    vector<CompactPartData> missedParts;
+    vector<CudaMultipoleMoments> missedNodes;
 
     CudaRequest *request;
 

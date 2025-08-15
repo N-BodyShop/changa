@@ -118,8 +118,10 @@ protected:
 
         int treePiecesEwaldReady;
 
-        // can the gpu accept a chunk of remote particles/nodes?
-        bool gpuFree;
+        // Flags to ensure local data transfer completes
+        // before prefetch data transfer
+        bool localDataDone;
+        bool waitForLocalData;
 
         /// Callback pointer to pass to HAPI.
         CkCallback *localTransferCallback;
@@ -213,6 +215,7 @@ public:
         void finishEwaldGPU();
         void createStream(const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
+        void transferPrefetch();
         void serializeLocalTree();
 
 #ifdef GPU_LOCAL_TREE_WALK
