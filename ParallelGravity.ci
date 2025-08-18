@@ -287,10 +287,12 @@ mainmodule ParallelGravity {
     entry void nextBucketMarkSmooth(dummyMsg *msg);
 
     entry void resetObjectLoad(const CkCallback& cb);
-    entry void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod, int bEwald,
+    entry void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod,
+                           int bEwald, int bEwald2D,
                            double fEwCut, double fEwhCut, int bPeriod,
                            int bComove, double dRhoFac);
     entry [notrace] void EwaldInit();
+    entry [notrace] void EwaldInit2D();
     entry [notrace] void initCoolingData(const CkCallback& cb);
     entry [notrace] void initLWData(const CkCallback& cb);
     entry void calculateEwald(EwaldMsg *m);
