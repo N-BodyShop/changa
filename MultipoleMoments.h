@@ -464,10 +464,12 @@ inline void calculateRadiusFarthestCorner(MultipoleMoments& m, const OrientedBox
 	delta1.y = (delta1.y > delta2.y ? delta1.y : delta2.y);
 	delta1.z = (delta1.z > delta2.z ? delta1.z : delta2.z);
 	cosmoType newradius = delta1.length();
+        if(newradius > 0.0) {
 #ifdef HEXADECAPOLE
-	momRescaleFmomr(&m.mom, newradius, m.radius);
+            momRescaleFmomr(&m.mom, newradius, m.radius);
 #endif
-	m.radius = newradius;
+            m.radius = newradius;
+        }
 }
 
 /// Given an enclosing box, set the multipole expansion size to the
