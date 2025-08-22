@@ -110,6 +110,16 @@ class extraSPHData
     double _massHot; /* Hot phase mass*/
     double _fDensityU; /* Energy-scaled density */
     double _fThermalCond; /* Conduction rate */
+#ifdef HYPCOND
+    double _dThermalCondTau;
+    Vector3D<double> _dQCond;
+    Vector3D<double> _dQCondPred;
+    Vector3D<double> _dQCondDot;
+    Vector3D<double> _gradU;
+    Vector3D<double> _gradQx;
+    Vector3D<double> _gradQy;
+    Vector3D<double> _gradQz;
+#endif
     double _fPromoteSum; /* Total evaporated mass */
     double _fPromoteSumuPred; /* Total evaporating energy */
     double _fPromoteuPredInit; /* Original energy pre-evaporation */
@@ -174,6 +184,16 @@ class extraSPHData
     inline double& massHot() {return _massHot;}
     inline double& fDensityU() {return _fDensityU;}
     inline double& fThermalCond() {return _fThermalCond;}
+#ifdef HYPCOND
+    inline double& dThermalCondTau() {return _dThermalCondTau;}
+    inline Vector3D<double>& gradU() {return _gradU;};
+    inline Vector3D<double>& gradQx() {return _gradQx;}
+    inline Vector3D<double>& gradQy() {return _gradQy;}
+    inline Vector3D<double>& gradQz() {return _gradQz;}
+    inline Vector3D<double>& dQCond() {return _dQCond;}
+    inline Vector3D<double>& dQCondPred() {return _dQCondPred;}
+    inline Vector3D<double>& dQCondDot() {return _dQCondDot;}
+#endif
     inline double& fPromoteSum() {return _fPromoteSum;}
     inline double& fPromoteSumuPred() {return _fPromoteSumuPred;}
     inline double& fPromoteuPredInit() {return _fPromoteuPredInit;}
@@ -237,6 +257,16 @@ class extraSPHData
     p| _massHot;
     p| _fDensityU;
     p| _fThermalCond;
+#ifdef HYPCOND
+        p| _dThermalCondTau;
+        p| _gradU;
+        p| _gradQx;
+        p| _gradQy;
+        p| _gradQz;
+        p| _dQCond;
+        p| _dQCondPred;
+        p| _dQCondDot;
+#endif
     p| _fPromoteSum;
     p| _fPromoteSumuPred;
     p| _fPromoteuPredInit;
@@ -530,6 +560,16 @@ public:
 	inline double& massHot() { IMAGAS; return (((extraSPHData*)extraData)->massHot());}
 	inline double& fDensityU() { IMAGAS; return (((extraSPHData*)extraData)->fDensityU());}
 	inline double& fThermalCond() { IMAGAS; return (((extraSPHData*)extraData)->fThermalCond());}
+#ifdef HYPCOND
+        inline double& dThermalCondTau() { IMAGAS; return (((extraSPHData*)extraData)->dThermalCondTau());}
+        inline Vector3D<double>& gradU() { IMAGAS; return (((extraSPHData*)extraData)->gradU());}
+        inline Vector3D<double>& gradQx() { IMAGAS; return (((extraSPHData*)extraData)->gradQx());}
+        inline Vector3D<double>& gradQy() { IMAGAS; return (((extraSPHData*)extraData)->gradQy());}
+        inline Vector3D<double>& gradQz() { IMAGAS; return (((extraSPHData*)extraData)->gradQz());}
+        inline Vector3D<double>& dQCond() { IMAGAS; return (((extraSPHData*)extraData)->dQCond());}
+        inline Vector3D<double>& dQCondPred() { IMAGAS; return (((extraSPHData*)extraData)->dQCondPred());}
+        inline Vector3D<double>& dQCondDot() { IMAGAS; return (((extraSPHData*)extraData)->dQCondDot());}
+#endif
 	inline double& fPromoteSum() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteSum());}
 	inline double& fPromoteSumuPred() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteSumuPred());}
 	inline double& fPromoteuPredInit() { IMAGAS; return (((extraSPHData*)extraData)->fPromoteuPredInit());}
@@ -706,6 +746,16 @@ class ExternalSmoothParticle {
   double massHot;
   double fDensityU;
   double fThermalCond;
+#ifdef HYPCOND
+  double dThermalCondTau;
+  Vector3D<double> gradU;
+  Vector3D<double> gradQx;
+  Vector3D<double> gradQy;
+  Vector3D<double> gradQz;
+  Vector3D<double> dQCond;
+  Vector3D<double> dQCondPred;
+  Vector3D<double> dQCondDot;
+#endif
   double fPromoteSum;
   double fPromoteSumuPred;
   double fPromoteuPredInit;
@@ -775,6 +825,16 @@ class ExternalSmoothParticle {
           massHot = p->massHot();
           fDensityU = p->fDensityU();
           fThermalCond = p->fThermalCond();
+#ifdef HYPCOND
+          dThermalCondTau = p->dThermalCondTau();
+          gradU = p->gradU();
+          gradQx = p->gradQx();
+          gradQy = p->gradQy();
+          gradQz = p->gradQz();
+          dQCond = p->dQCond();
+          dQCondPred = p->dQCondPred();
+          dQCondDot = p->dQCondDot();
+#endif
           fPromoteSum = p->fPromoteSum();
           fPromoteSumuPred = p->fPromoteSumuPred();
           fPromoteuPredInit = p->fPromoteuPredInit();
@@ -849,6 +909,16 @@ class ExternalSmoothParticle {
       tmp->massHot() = massHot;
       tmp->fDensityU() = fDensityU;
       tmp->fThermalCond() = fThermalCond;
+#ifdef HYPCOND
+      tmp->dThermalCondTau() = dThermalCondTau;
+      tmp->gradU() = gradU;
+      tmp->gradQx() = gradQx;
+      tmp->gradQy() = gradQy;
+      tmp->gradQz() = gradQz;
+      tmp->dQCond() = dQCond;
+      tmp->dQCondPred() = dQCondPred;
+      tmp->dQCondDot() = dQCondDot;
+#endif
       tmp->fPromoteSum() = fPromoteSum;
       tmp->fPromoteSumuPred() = fPromoteSumuPred;
       tmp->fPromoteuPredInit() = fPromoteuPredInit;
@@ -919,6 +989,16 @@ class ExternalSmoothParticle {
     p | massHot;
     p | fDensityU;
     p | fThermalCond;
+#ifdef HYPCOND
+    p | dThermalCondTau;
+    p | gradU;
+    p | gradQx;
+    p | gradQy;
+    p | gradQz;
+    p | dQCond;
+    p | dQCondPred;
+    p | dQCondDot;
+#endif
     p | fPromoteSum;
     p | fPromoteSumuPred;
     p | fPromoteuPredInit;
