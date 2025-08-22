@@ -63,6 +63,9 @@ class extraSPHData
     Vector3D<cosmoType> _vPred;	/* Predicted velocities for velocity
 				   dependent forces */
 #endif
+#ifdef SLIDING_PATCH
+    double _dPyPred;            ///< Predicted canonical momentum
+#endif
     double _uPred;		/* Predicted internal energy */
     double _divv;		/* Diverence of the velocity */
     Vector3D<double> _curlv;	/* Curl of the velocity */
@@ -128,6 +131,9 @@ class extraSPHData
 #ifndef COLLISION
     inline Vector3D<cosmoType>& vPred() {return _vPred;}
 #endif
+#ifdef SLIDING_PATCH
+    inline double& dPyPred() {return _dPyPred;}
+#endif
     inline double& uPred() {return _uPred;}
     inline double& divv() {return _divv;}
     inline Vector3D<double>& curlv() {return _curlv;}
@@ -191,6 +197,9 @@ class extraSPHData
 	p | _fTimeCoolIsOffUntil;
 #ifndef COLLISION
 	p | _vPred;
+#endif
+#ifdef SLIDING_PATCH
+        p | _dPyPred;
 #endif
 	p | _uPred;
 	p | _divv;
@@ -370,6 +379,9 @@ private:
 
 public:
         Vector3D<cosmoType> velocity;
+#ifdef SLIDING_PATCH
+        double dPy;         ///< Canonical momentum used to update y-velocity
+#endif
 	Vector3D<cosmoType> treeAcceleration;
 #ifdef COLLISION
 	cosmoType dtCol;
@@ -426,6 +438,9 @@ public:
           ExternalGravityParticle::pup(p);
           p | key;
           p | velocity;
+#ifdef SLIDING_PATCH
+          p | dPy;
+#endif
           p | treeAcceleration;
 #ifdef COLLISION
           p | dtCol;
@@ -483,6 +498,9 @@ public:
 	inline double& fTimeCoolIsOffUntil() {IMAGAS; return (((extraSPHData*)extraData)->fTimeCoolIsOffUntil());}
 #ifndef COLLISION
 	inline Vector3D<cosmoType>& vPred() { IMAGAS; return (((extraSPHData*)extraData)->vPred());}
+#endif
+#ifdef SLIDING_PATCH
+        inline double& dPyPred() { IMAGAS; return (((extraSPHData*)extraData)->dPyPred());}
 #endif
 	inline double& uPred() {IMAGAS;  return (((extraSPHData*)extraData)->uPred());}
 	inline double& divv() { IMAGAS; return (((extraSPHData*)extraData)->divv());}

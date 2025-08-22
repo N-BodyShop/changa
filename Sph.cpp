@@ -30,7 +30,9 @@ Main::initSph()
         // Starting is true
 	DenDvDxSmoothParams pDen(TYPE_GAS, 0, param.csm, dTime, 0,
 				 param.bConstantDiffusion, 1, bHaveAlpha,
-                                 param.dConstAlphaMax);
+                                 param.dConstAlphaMax,
+                                 param.externalForce.dOrbFreq,
+                                 param.fPeriod);
 	double startTime = CkWallTimer();
 	double dfBall2OverSoft2 = 4.0*param.dhMinOverSoft*param.dhMinOverSoft;
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
@@ -718,7 +720,9 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// This also marks neighbors of actives
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 1,
 				 param.bConstantDiffusion, 0, 0,
-                                 param.dConstAlphaMax);
+                                 param.dConstAlphaMax,
+                                 param.externalForce.dOrbFreq,
+                                 param.fPeriod);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -738,7 +742,9 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// additional marking
 	DenDvDxNeighborSmParams pDenN(TYPE_GAS, activeRung, param.csm, dTime,
 				      param.bConstantDiffusion,
-                                      param.dConstAlphaMax);
+                                      param.dConstAlphaMax,
+                                      param.externalForce.dOrbFreq,
+                                      param.fPeriod);
 	startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDenN, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -751,7 +757,9 @@ Main::doSph(int activeRung, int bNeedDensity)
 	// actives, and those who have actives as neighbors.
 	DenDvDxSmoothParams pDen(TYPE_GAS, activeRung, param.csm, dTime, 0,
 				 param.bConstantDiffusion, 0, 0,
-                                 param.dConstAlphaMax);
+                                 param.dConstAlphaMax,
+                                 param.externalForce.dOrbFreq,
+                                 param.fPeriod);
 	double startTime = CkWallTimer();
 	treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
 			      CkCallbackResumeThread());
@@ -785,7 +793,9 @@ Main::doSph(int activeRung, int bNeedDensity)
     PressureSmoothParams pPressure(TYPE_GAS, activeRung, param.csm, dTime,
                                    param.dConstAlpha, param.dConstBeta,
                                    param.dThermalDiffusionCoeff, param.dMetalDiffusionCoeff,
-                                   param.dEtaCourant, param.dEtaDiffusion);
+                                   param.dEtaCourant, param.dEtaDiffusion,
+                                   param.externalForce.dOrbFreq,
+                                   param.fPeriod);
     double startTime = CkWallTimer();
     treeProxy.startReSmooth(&pPressure, CkCallbackResumeThread());
     ckout << " took " << (CkWallTimer() - startTime) << " seconds."
@@ -1156,6 +1166,16 @@ void DenDvDxSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 		dvx = (-p->vPred().x + q->vPred().x)*vFac;
 		dvy = (-p->vPred().y + q->vPred().y)*vFac;
 		dvz = (-p->vPred().z + q->vPred().z)*vFac;
+#ifdef SLIDING_PATCH
+                // Detect boundary crossings and adjust shear velocity
+                // accordingly.
+                if (dx < 0.0 && (p->position.x - q->position.x > 0.0)) {
+                    dvy -= 1.5 * dOrbFreq * fPeriod.x;
+                }
+                else if (dx > 0.0 && (p->position.x - q->position.x < 0.0)) {
+                    dvy += 1.5 * dOrbFreq * fPeriod.x;
+                }
+#endif
 		dvxdx += dvx*dx*rs1;
 		dvxdy += dvx*dy*rs1;
 		dvxdz += dvx*dz*rs1;
@@ -1631,6 +1651,16 @@ void PressureSmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
         qParams.rNorm = rs1 * q->mass;
         params.dx = nnList[i].dx;
         dv = p->vPred() - q->vPred();
+#ifdef SLIDING_PATCH
+        // Detect radial boundary crossings and adjust azimuthal velocity
+        // accordingly.
+        if (params.dx.x < 0.0 && (p->position.x - q->position.x > 0.0)) {
+            dv.y += 1.5 * dOrbFreq * fPeriod.x;
+        }
+        else if (params.dx.x > 0.0 && (p->position.x - q->position.x < 0.0)) {
+            dv.y -= 1.5 * dOrbFreq * fPeriod.x;
+        }
+#endif
         params.dvdotdr = vFac*dot(dv, params.dx) + fDist2*H;
 #ifdef GDFORCE
         pParams.PoverRho2 = p->PoverRho2()*p->fDensity/q->fDensity;

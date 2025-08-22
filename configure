@@ -633,6 +633,7 @@ LIBOBJS
 FLAG_SANITIZER
 PROJECTIONS
 DEFAULT_LB
+FLAG_SLIDING_PATCH
 FLAG_SIDMINTERACT
 FLAG_JEANSSOFTONLY
 FLAG_GDFORCE
@@ -759,6 +760,7 @@ enable_vsigvisc
 enable_gdforce
 enable_jeanssoft
 enable_sidminter
+enable_slidingpatch
 enable_default_lb
 enable_projections
 enable_opts
@@ -1430,6 +1432,7 @@ Optional Features:
   --enable-gdforce        Geometric Density forces
   --enable-jeanssoft      gravitational softening jeans floor
   --enable-sidminter      SIDM interactions
+  --enable-slidingpatch   Sliding Patch EOM
   --enable-default-lb     default load balancer
   --enable-projections    Charm++ projections
   --enable-opts           DEPRECATED - Do not use
@@ -4966,6 +4969,21 @@ fi
 
 
 
+# Sliding patch (Hill) approximation
+	# Check whether --enable-slidingpatch was given.
+if test "${enable_slidingpatch+set}" = set; then :
+  enableval=$enable_slidingpatch; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-slidingpatch': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then FLAG_SLIDING_PATCH=-DSLIDING_PATCH; else FLAG_SLIDING_PATCH=""; fi
+
+
+
 # -----------------------------------------------------------------------------
 # ---- Charm++ Options --------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -7015,7 +7033,7 @@ echo "    "Charm path "      " $CHARM_PATH
 echo "    "Charm compiler"   " $CHARMC
 echo "    "C++ compiler"     " $CXX
 echo
-echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
+echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT $FLAG_SLIDING_PATCH
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
