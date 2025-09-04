@@ -116,6 +116,7 @@ protected:
         // TreePiece counter for multi-threaded GPU host buffer copy
 	int treePiecesBufferFilled;
 
+        // Counter for node-wide barrier in startEwaldGPU
         int treePiecesEwaldReady;
 
         // Flags to ensure local data transfer completes
@@ -123,8 +124,10 @@ protected:
         bool localDataDone;
         bool waitForLocalData;
 
-        /// Callback pointer to pass to HAPI.
+        /// Callback pointers to pass to HAPI.
         CkCallback *localTransferCallback;
+        CkCallback *localWalkCallback;
+        CkCallback *ewaldCallback;
 
         PendingBuffers *currentChunkBuffers;
         // queue that stores all pending chunk transfers
@@ -213,7 +216,6 @@ public:
 #ifdef CUDA
         void startEwaldGPU();
         void finishEwaldGPU();
-        void createStream(const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void transferPrefetch();
         void serializeLocalTree();

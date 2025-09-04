@@ -3728,15 +3728,12 @@ void TreePiece::startNextBucket() {
 void TreePiece::finishWalkCb() {
   finishWalkCbCount += 1;
   // dont check in with DM until local, remote and RR finish
-  if (finishWalkCbCount == 6) {
+  if (finishWalkCbCount == numPEListProxies) {
     dm->transferParticleVarsBack();
     finishWalkCbCount = 0;
-    peNodeLocalListProxy.ckLocalBranch()->reset();
-    peNodeRemoteListProxy.ckLocalBranch()->reset();
-    peNodeRemoteResumeListProxy.ckLocalBranch()->reset();
-    pePartLocalListProxy.ckLocalBranch()->reset();
-    pePartRemoteListProxy.ckLocalBranch()->reset();
-    pePartRemoteResumeListProxy.ckLocalBranch()->reset();
+    for (int i = 0; i < numPEListProxies; i++) {
+      PEListProxies[i]->ckLocalBranch()->reset();
+    }
   }
 }
 #endif
@@ -3764,12 +3761,9 @@ void TreePiece::finishBucket(int iBucket) {
     if(sLocalGravityState->myNumParticlesPending == 0) {
 #ifdef CUDA
       if (!bUseCpu) {
-        peNodeLocalListProxy.ckLocalBranch()->finishWalk(this);
-        peNodeRemoteListProxy.ckLocalBranch()->finishWalk(this);
-        peNodeRemoteResumeListProxy.ckLocalBranch()->finishWalk(this);
-        pePartLocalListProxy.ckLocalBranch()->finishWalk(this);
-        pePartRemoteListProxy.ckLocalBranch()->finishWalk(this);
-        pePartRemoteResumeListProxy.ckLocalBranch()->finishWalk(this);
+        for (int i = 0; i < numPEListProxies; i++) {
+          PEListProxies[i]->ckLocalBranch()->finishWalk(this);
+        }
       }
 #endif
 

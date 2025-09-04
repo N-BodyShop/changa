@@ -4,16 +4,27 @@
 #ifdef CUDA
 #include "ParallelGravity.h"
 
-// Need a separate class for each type of request (particle, node, local, remote)
+/// @brief PE-level group to coordinate gravity interaction list calculations
+/// on the GPU
+///
+/// There is one instance of this class for each type of walk (particle/node,
+/// local, remote, remote-resume). Walks are done at the TreePiece level and
+/// the data from each walk is consolidated via the sendList function. Once
+/// all of the walks have finished, the finishWalk routine moves the
+/// interaction lists to the GPU and starts the computation.
+///
+/// When GPU_LOCAL_TREE_WALK is enabled, only the remote and remote-resume
+/// walks are handled here.
 class PEList : public CBase_PEList
 {
     /// TreePieces on this PE
-    CkVec<TreePiece*> vtpLocal;
+    std::vector<TreePiece*> vtpLocal;
     /// Count of TreePieces with particles on this PE
     NonEmptyTreePieceCounter cTreePieces;
 
     vector<ILCell> iList;
 
+    // TODO will it be a problem to use a custom allocator with matt's memory pool?
     vector<int> bucketMarkers;
     int finalBucketMarker;
     vector<int> bucketStarts;

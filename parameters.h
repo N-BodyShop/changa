@@ -182,6 +182,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.nTruncateRung;
 #ifdef CUDA
     p|param.nGpuMinParts;
+    p|param.bGpuMemLogger;
 #endif
     p|param.iMaxRung;
     p|param.bCannonical;

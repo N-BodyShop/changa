@@ -177,6 +177,9 @@ extern CProxy_PEList peNodeRemoteResumeListProxy;
 extern CProxy_PEList pePartLocalListProxy;
 extern CProxy_PEList pePartRemoteListProxy;
 extern CProxy_PEList pePartRemoteResumeListProxy;
+
+extern CProxy_PEList* PEListProxies[];
+extern const int numPEListProxies;
 #endif
 
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;

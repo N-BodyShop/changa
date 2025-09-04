@@ -27,6 +27,7 @@
 /** @brief Data and parameters for requesting gravity calculations on
  * the GPU. */
 typedef struct _CudaRequest{
+	/// Handle to the stream where this request should be sent
 	cudaStream_t stream;
 
 	/// for accessing device memory

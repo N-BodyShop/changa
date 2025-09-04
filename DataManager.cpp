@@ -52,14 +52,6 @@ void DataManager::init() {
   lockStarLog = CmiCreateLock();
 }
 
-#ifdef CUDA
-/// @brief Initialize CUDA stream for this DataManager
-void DataManager::createStream(const CkCallback& cb) {
-  cudaStreamCreate(&stream);
-  contribute(cb);
-}
-#endif
-
 /**
  * Fill in responsibleIndex after ORB decomposition
  */
@@ -150,7 +142,6 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
   registeredTreePieces.push_back(TreePieceDescriptor(tp, root));
 #ifdef CUDA
   registeredPEs.insert(tp->getParentPE());
-  //registeredTreePieceIndices.push_back(index);
 #if COSMO_PRINT_BK > 1
   CkPrintf("(%d) notifyPresence called by %d, length: %d\n", CkMyPe(), tp->getIndex(), registeredTreePieces.length());
 #endif
@@ -500,15 +491,15 @@ void DataManager::startEwaldGPU() {
         return;
     }
 
-    localTransferCallback
+    ewaldCallback
       = new CkCallback(CkIndex_DataManager::finishEwaldGPU(), CkMyNode(), dMProxy);
 
-    DataManagerEwald(d_localParts, d_localVars, ewt, cachedData, savedNumTotalParticles-1, stream, localTransferCallback);
+    DataManagerEwald(d_localParts, d_localVars, ewt, cachedData, savedNumTotalParticles-1, stream, ewaldCallback);
 }
 
 /// @brief Callback from Ewald kernel launch on GPU
 void DataManager::finishEwaldGPU() {
-  delete localTransferCallback;
+  delete ewaldCallback;
 
 #ifdef PINNED_HOST_MEMORY
   freePinnedHostMemory(h_idata);
@@ -533,7 +524,7 @@ void DataManager::finishEwaldGPU() {
 /// Start Ewald calculation if enabled
 // TODO does Ewald still trigger if GPU_LOCAL_TREE_WALK is disabled?
 void DataManager::finishLocalWalk() {
-  delete localTransferCallback;
+  delete localWalkCallback;
 
 #ifdef PINNED_HOST_MEMORY
   freePinnedHostMemory(bufLocalMoments);
@@ -604,7 +595,7 @@ void DataManager::startLocalWalk() {
 
 
 #ifdef GPU_LOCAL_TREE_WALK
-    localTransferCallback
+    localWalkCallback
       = new CkCallback(CkIndex_DataManager::finishLocalWalk(), CkMyNode(), dMProxy);
 
     CudaRequest *request = new CudaRequest;
@@ -633,7 +624,7 @@ void DataManager::startLocalWalk() {
     request->fperiod = registeredTreePieces[0].treePiece->fPeriod.x;
     request->fperiodY = registeredTreePieces[0].treePiece->fPeriod.y;
     request->fperiodZ = registeredTreePieces[0].treePiece->fPeriod.z;
-    request->cb = localTransferCallback;
+    request->cb = localWalkCallback;
 
     request->list = NULL;
     request->bucketMarkers = NULL;

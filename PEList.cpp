@@ -11,17 +11,17 @@ void PEList::finishWalk(TreePiece *treePiece) {
 
     // On first call, find the total number of active pieces on this PE.
     // The charm++ location manager gives us this count in cTreePieces
-    if(vtpLocal.length() == 1) {
+    if(vtpLocal.size() == 1) {
         CkLocMgr *locMgr = treeProxy.ckLocMgr();
         locMgr->iterate(cTreePieces);
     }
 
     // check if we have everyone
-    if(vtpLocal.length() < cTreePieces.count)
+    if(vtpLocal.size() < cTreePieces.count)
         return;
 
     // bucketMarkers[i+1] is needed to determine # of IL entries per bucket
-    if(vtpLocal.length() == cTreePieces.count && finalBucketMarker != -1)
+    if(vtpLocal.size() == cTreePieces.count && finalBucketMarker != -1)
 	bucketMarkers.push_back(finalBucketMarker);
 
     request = new CudaRequest;
@@ -43,7 +43,7 @@ void PEList::finishWalk(TreePiece *treePiece) {
     request->list = iList.data();
     request->missedParts = missedParts.data();
     request->missedNodes = missedNodes.data();
-    request->sMissed = missedParts.size() > 0 ? missedParts.size()*sizeof(CompactPartData) : missedNodes.size()*sizeof(CudaMultipoleMoments);
+    request->sMissed = bNode ? missedNodes.size()*sizeof(CudaMultipoleMoments) : missedParts.size()*sizeof(CompactPartData);
     request->bucketMarkers = bucketMarkers.data();
     request->bucketStarts = bucketStarts.data();
     request->bucketSizes = bucketSizes.data();
@@ -133,19 +133,11 @@ void PEList::sendList(TreePiece *treePiece, CudaRequest* data) {
     freePinnedHostMemory(data->bucketMarkers);
     freePinnedHostMemory(data->bucketStarts);
     freePinnedHostMemory(data->bucketSizes);
-    if(data->missedNodes)
-      freePinnedHostMemory(data->missedNodes);
-    if(data->missedParts)
-      freePinnedHostMemory(data->missedParts);
 #else
     free(data->list);
     free(data->bucketMarkers);
     free(data->bucketStarts);
     free(data->bucketSizes);
-    if(data->missedNodes)
-      free(data->missedNodes);
-    if(data->missedParts)
-      free(data->missedParts);
 #endif
 
     delete[] data->affectedBuckets;
@@ -161,7 +153,7 @@ void PEList::reset() {
     bucketSizes.clear();
 
     cTreePieces.reset();
-    vtpLocal.length() = 0;
+    vtpLocal.clear();
     finalBucketMarker = -1;
     delete finishCb;
     delete request;

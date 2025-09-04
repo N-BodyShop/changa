@@ -87,12 +87,24 @@ CProxy_DumpFrameData dfDataProxy;
 CProxy_PETreeMerger peTreeMergerProxy;
 
 #ifdef CUDA
+/// @brief Proxies for the PE groups that ship interactions to the GPU
 CProxy_PEList peNodeLocalListProxy;
 CProxy_PEList peNodeRemoteListProxy;
 CProxy_PEList peNodeRemoteResumeListProxy;
 CProxy_PEList pePartLocalListProxy;
 CProxy_PEList pePartRemoteListProxy;
 CProxy_PEList pePartRemoteResumeListProxy;
+
+/// @brief Array for quickly iterating over interaction list proxies
+CProxy_PEList* PEListProxies[] = {
+    &peNodeLocalListProxy,
+    &peNodeRemoteListProxy,
+    &peNodeRemoteResumeListProxy,
+    &pePartLocalListProxy,
+    &pePartRemoteListProxy,
+    &pePartRemoteResumeListProxy
+};
+const int numPEListProxies = sizeof(PEListProxies) / sizeof(PEListProxies[0]);
 #endif
 
 /// @brief Use the cache (always on)
@@ -2195,9 +2207,6 @@ void Main::advanceBigStep(int iStep) {
 void Main::setupICs() {
   double startTime;
 
-#ifdef CUDA
-  dMProxy.createStream(CkCallbackResumeThread());
-#endif
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,

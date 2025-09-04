@@ -1873,12 +1873,7 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
     CudaMultipoleMoments *missedNodes = state->nodes->getVec();
     size_t len = sizeof(CudaMultipoleMoments)*state->nodes->length();
     CkAssert(missedNodes);
-#ifdef PINNED_HOST_MEMORY
-    allocatePinnedHostMemory(&data->missedNodes, len);
-#else
-    data->missedNodes = (CudaMultipoleMoments *) malloc(len);
-#endif
-    memcpy(data->missedNodes, missedNodes, len);
+    data->missedNodes = state->nodes->getVec();
     data->sMissed = len;
 #ifdef HAPI_TRACE
     tp->remoteResumeNodeInteractions += state->nodeLists.totalNumInteractions;
@@ -1966,12 +1961,7 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
     CompactPartData *missedParts = state->particles->getVec();
     size_t len = sizeof(CompactPartData)*state->particles->length();
     CkAssert(missedParts);
-#ifdef PINNED_HOST_MEMORY
-    allocatePinnedHostMemory(&data->missedParts, len);
-#else
-    data->missedParts = (CompactPartData *) malloc(len);
-#endif
-    memcpy(data->missedParts, missedParts, len);
+    data->missedParts = state->particles->getVec();
     data->sMissed = len;
 #ifdef HAPI_TRACE
     tp->remoteResumePartInteractions += state->particleLists.totalNumInteractions;

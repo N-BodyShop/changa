@@ -491,8 +491,8 @@ void DataTransferBasic(CudaRequest *data, CudaDevPtr *ptr, const char* functionT
   size_t markerSize = (numBucketsPlusOne) * sizeof(int);
   size_t startSize = (numBuckets) * sizeof(int);
 
-  cudaChk(gpuMallocHelper(&ptr->d_list, listSize, functionTag));           
-  cudaChk(gpuMallocHelper(&ptr->d_bucketMarkers, markerSize, functionTag)); 
+  cudaChk(gpuMallocHelper(&ptr->d_list, listSize, functionTag));
+  cudaChk(gpuMallocHelper(&ptr->d_bucketMarkers, markerSize, functionTag));
   cudaChk(gpuMallocHelper(&ptr->d_bucketStarts, startSize, functionTag));   
   cudaChk(gpuMallocHelper(&ptr->d_bucketSizes, startSize, functionTag));    
   cudaChk(cudaMemcpyAsync(ptr->d_list, data->list, listSize, cudaMemcpyHostToDevice, stream));
@@ -514,10 +514,10 @@ void DataTransferBasic(CudaRequest *data, CudaDevPtr *ptr, const char* functionT
 /// @param ptr CudaDevPtr object that stores handles to device memory
 /// @param functionTag String literal identifying the calling function context.
 void DataTransferBasicCleanup(CudaDevPtr *ptr, const char* functionTag){
-  cudaChk(gpuFreeHelper(ptr->d_list, functionTag));           
-  cudaChk(gpuFreeHelper(ptr->d_bucketMarkers, functionTag)); 
-  cudaChk(gpuFreeHelper(ptr->d_bucketStarts, functionTag));  
-  cudaChk(gpuFreeHelper(ptr->d_bucketSizes, functionTag));   
+  cudaChk(gpuFreeHelper(ptr->d_list, functionTag));
+  cudaChk(gpuFreeHelper(ptr->d_bucketMarkers, functionTag));
+  cudaChk(gpuFreeHelper(ptr->d_bucketStarts, functionTag));
+  cudaChk(gpuFreeHelper(ptr->d_bucketSizes, functionTag));
 }
 
 /** @brief Transfer forces from the GPU back to the host. Also schedules
@@ -1060,10 +1060,8 @@ __global__ void nodeGravityComputation(
             tr = 0.5*(m[tidx].xx + m[tidx].yy + m[tidx].zz),
             qir3 = b*m[tidx].totalMass + d*qir - c*tr;
 
-          p(cuda-gdb) p *(cellList + 10)ot -= m[tidx].totalMass * a + c*qir - b*tr;
+          pot -= m[tidx].totalMass * a + c*qir - b*tr;
           acc.x -= qir3*r.x - c*qirx;
-	//if (abs(acc.x) > 100.0) {
-	//}
           acc.y -= qir3*r.y - c*qiry;
           acc.z -= qir3*r.z - c*qirz;
           idt2 = fmax(idt2, (shared_particle_cores[tidy].mass + m[tidx].totalMass)*b);
@@ -1223,7 +1221,6 @@ __global__ void particleGravityComputation(
       __syncthreads(); // wait for nodes to be loaded before using them
       
       if(my_particle_idx < bucketSize && my_cell_idx < end){ // INTERACT
-	//printf("%d %d %d %d\n", bucketStart, my_particle_idx, bucketStart+my_particle_idx, ilc.index);
         CudaVector3D r;
         cudatype rsq;
         cudatype twoh, a, b;
@@ -1325,8 +1322,6 @@ __global__ void particleGravityComputation(
 
   }// end for each PARTICLE group
 }
-
-__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int First, int Last);
 
 extern unsigned int timerHandle; 
 
