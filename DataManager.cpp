@@ -535,24 +535,14 @@ void DataManager::finishEwaldGPU() {
 void DataManager::finishLocalWalk() {
   delete localTransferCallback;
 
-  // Wait until the local tree walk kernel completes
-  // Otherwise these calls block on the kernel execution
 #ifdef PINNED_HOST_MEMORY
   freePinnedHostMemory(bufLocalMoments);
   freePinnedHostMemory(bufLocalParts);
   freePinnedHostMemory(bufLocalVars);
-  if(bufRemoteMoments != NULL)
-      freePinnedHostMemory(bufRemoteMoments);
-  if(bufRemoteParts != NULL)
-      freePinnedHostMemory(bufRemoteParts);
 #else
   free(bufLocalMoments);
   free(bufLocalParts);
   free(bufLocalVars);
-  if(bufRemoteMoments != NULL)
-      free(bufRemoteMoments);
-  if(bufRemoteParts != NULL)
-      free(bufRemoteParts);
 #endif
 
 
@@ -666,6 +656,18 @@ void DataManager::resumeRemoteChunk() {
   delete currentChunkBuffers->particles;
   delete currentChunkBuffers->cb;
   delete currentChunkBuffers;
+
+#ifdef PINNED_HOST_MEMORY
+  if(bufRemoteMoments != NULL)
+      freePinnedHostMemory(bufRemoteMoments);
+  if(bufRemoteParts != NULL)
+      freePinnedHostMemory(bufRemoteParts);
+#else
+  if(bufRemoteMoments != NULL)
+      free(bufRemoteMoments);
+  if(bufRemoteParts != NULL)
+      free(bufRemoteParts);
+#endif
 
     // resume each treepiece's startRemoteChunk, now that the nodes
     // are properly labeled and the particles accounted for
