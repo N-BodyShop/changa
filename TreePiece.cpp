@@ -4124,54 +4124,43 @@ void TreePiece::calculateGravityLocal() {
   doAllBuckets();
 }
 
-void TreePiece::ewaldCPU(EwaldMsg *msg) {
-  bool useckloop = false;
-  int yield_num = _yieldPeriod;
-
-  if (bUseCkLoopPar && otherIdlePesAvail()) {
-    useckloop = true;
-    // This value was chosen to be32*Nodesize so that we have enough buckets for
-    // all the PEs in the node and also giving some extra for load balance.
-    yield_num = 3 * CkMyNodeSize();
-    calculateEwaldUsingCkLoop(yield_num);
-  }
-
-  unsigned int i=0;
-  while (i < yield_num && ewaldCurrentBucket < numBuckets) {
-    if (!useckloop) {
-      BucketEwald(bucketList[ewaldCurrentBucket], nReplicas, fEwCut);
-    }
-
-    bucketReqs[ewaldCurrentBucket].finished = 1;
-    finishBucket(ewaldCurrentBucket);
-
-    ewaldCurrentBucket++;
-    i++;
-  }
-
-  if (ewaldCurrentBucket<numBuckets) {
-      thisProxy[thisIndex].calculateEwald(msg);
-  } else {
-    delete msg;
-  }
+void TreePiece::ewaldCPU() {
 }
 
 /// @brief Start the ewald calculation on this TreePiece
-/// @param msg Indicates whether this function was called from EwaldInit
-void TreePiece::calculateEwald(EwaldMsg *msg) {
+void TreePiece::calculateEwald(dummyMsg *msg) {
   if (bUseCpu)
   {
-      ewaldCPU(msg);
-  }
-#ifdef SPCUDA
-  else {
-    if(!msg->fromInit){
-      thisProxy[thisIndex].EwaldGPU((intptr_t)msg->h_idata, (intptr_t)msg->cachedData, (intptr_t)msg->ewt);
-    }
-    delete msg;
-  }
-#endif
+    bool useckloop = false;
+    int yield_num = _yieldPeriod;
 
+    if (bUseCkLoopPar && otherIdlePesAvail()) {
+      useckloop = true;
+      // This value was chosen to be32*Nodesize so that we have enough buckets for
+      // all the PEs in the node and also giving some extra for load balance.
+      yield_num = 3 * CkMyNodeSize();
+      calculateEwaldUsingCkLoop(msg, yield_num);
+    }
+
+    unsigned int i=0;
+    while (i < yield_num && ewaldCurrentBucket < numBuckets) {
+      if (!useckloop) {
+	BucketEwald(bucketList[ewaldCurrentBucket], nReplicas, fEwCut);
+      }
+
+      bucketReqs[ewaldCurrentBucket].finished = 1;
+      finishBucket(ewaldCurrentBucket);
+
+      ewaldCurrentBucket++;
+      i++;
+    }
+
+    if (ewaldCurrentBucket<numBuckets) {
+	thisProxy[thisIndex].calculateEwald(msg);
+    } else {
+      delete msg;
+    }
+  }
 }
 
 bool TreePiece::otherIdlePesAvail() {
@@ -4197,7 +4186,7 @@ void doCalcEwald(int start, int end, void *result, int pnum, void * param) {
   *(double *)result = tend - tstart;
 }
 
-void TreePiece::calculateEwaldUsingCkLoop(int yield_num) {
+void TreePiece::calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num) {
   unsigned int i=0;
   LoopParData* lpdata = new LoopParData();
   lpdata->tp = this;

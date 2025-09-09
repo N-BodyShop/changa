@@ -477,24 +477,106 @@ void DataManager::serializeLocalTree(){
       CmiUnlock(__nodelock);
 }
 
-/// @brief Record when all TreePieces have finished their Ewald initilization
-/// Launch the Ewald kernel on the GPU
+/// @brief Get the data produced by TreePiece::EwaldInit and launch the Ewald kernel on the GPU
 void DataManager::startEwaldGPU() {
-    CmiLock(__nodelock);
-    treePiecesEwaldReady++;
-    if(treePiecesEwaldReady == registeredTreePieces.length()){
-        treePiecesEwaldReady = 0;
-        CmiUnlock(__nodelock);
-    }
-    else {
-        CmiUnlock(__nodelock);
-        return;
+#ifdef PINNED_HOST_MEMORY
+  allocatePinnedHostMemory((void **)&ewt, sizeof(EwtData)*NEWH);
+  allocatePinnedHostMemory((void **)&cachedData, sizeof(EwaldReadOnlyData));
+#else
+  ewt = (EwtData *) malloc(sizeof(EwtData)*NEWH);
+  cachedData = (EwaldReadOnlyData *) malloc(sizeof(EwaldReadOnlyData));
+#endif
+
+  // Note that much of this data is calculated per TreePiece. It's all identical,
+  // so we just pull from the first TreePiece
+  TreePiece *tp = registeredTreePieces[0].treePiece;
+
+  int nEwhLoop = tp->nEwhLoop;
+  MultipoleMoments *mm = &tp->root->moments;
+  for (int i=0; i<nEwhLoop; i++) {
+    ewt[i].hx = (cudatype) tp->ewt[i].hx;
+    ewt[i].hy = (cudatype) tp->ewt[i].hy;
+    ewt[i].hz = (cudatype) tp->ewt[i].hz;
+    ewt[i].hCfac = (cudatype) tp->ewt[i].hCfac;
+    ewt[i].hSfac = (cudatype) tp->ewt[i].hSfac;
     }
 
-    ewaldCallback
-      = new CkCallback(CkIndex_DataManager::finishEwaldGPU(), CkMyNode(), dMProxy);
+#ifdef HEXADECAPOLE
+  MOMC *momcRoot = &tp->momcRoot;
+  cachedData->momcRoot.m    = (cudatype)     momcRoot->m;
+  cachedData->momcRoot.xx   = (cudatype)    momcRoot->xx;
+  cachedData->momcRoot.yy   = (cudatype)    momcRoot->yy;
+  cachedData->momcRoot.xy   = (cudatype)    momcRoot->xy;
+  cachedData->momcRoot.xz   = (cudatype)    momcRoot->xz;
+  cachedData->momcRoot.yz   = (cudatype)    momcRoot->yz;
+  cachedData->momcRoot.xxx  = (cudatype)   momcRoot->xxx;
+  cachedData->momcRoot.xyy  = (cudatype)   momcRoot->xyy;
+  cachedData->momcRoot.xxy  = (cudatype)   momcRoot->xxy;
+  cachedData->momcRoot.yyy  = (cudatype)   momcRoot->yyy;
+  cachedData->momcRoot.xxz  = (cudatype)   momcRoot->xxz;
+  cachedData->momcRoot.yyz  = (cudatype)   momcRoot->yyz;
+  cachedData->momcRoot.xyz  = (cudatype)   momcRoot->xyz;
+  cachedData->momcRoot.xxxx = (cudatype)  momcRoot->xxxx;
+  cachedData->momcRoot.xyyy = (cudatype)  momcRoot->xyyy;
+  cachedData->momcRoot.xxxy = (cudatype)  momcRoot->xxxy;
+  cachedData->momcRoot.yyyy = (cudatype)  momcRoot->yyyy;
+  cachedData->momcRoot.xxxz = (cudatype)  momcRoot->xxxz;
+  cachedData->momcRoot.yyyz = (cudatype)  momcRoot->yyyz;
+  cachedData->momcRoot.xxyy = (cudatype)  momcRoot->xxyy;
+  cachedData->momcRoot.xxyz = (cudatype)  momcRoot->xxyz;
+  cachedData->momcRoot.xyyz = (cudatype)  momcRoot->xyyz;
+  cachedData->momcRoot.zz   = (cudatype)    momcRoot->zz;
+  cachedData->momcRoot.xzz  = (cudatype)   momcRoot->xzz;
+  cachedData->momcRoot.yzz  = (cudatype)   momcRoot->yzz;
+  cachedData->momcRoot.zzz  = (cudatype)   momcRoot->zzz;
+  cachedData->momcRoot.xxzz = (cudatype)  momcRoot->xxzz;
+  cachedData->momcRoot.xyzz = (cudatype)  momcRoot->xyzz;
+  cachedData->momcRoot.xzzz = (cudatype)  momcRoot->xzzz;
+  cachedData->momcRoot.yyzz = (cudatype)  momcRoot->yyzz;
+  cachedData->momcRoot.yzzz = (cudatype)  momcRoot->yzzz;
+  cachedData->momcRoot.zzzz = (cudatype)  momcRoot->zzzz;
+#else
+  cachedData->mm.xx = (cudatype) mm->xx;
+  cachedData->mm.xy = (cudatype) mm->xy;
+  cachedData->mm.xz = (cudatype) mm->xz;
+  cachedData->mm.yy = (cudatype) mm->yy;
+  cachedData->mm.yz = (cudatype) mm->yz;
+  cachedData->mm.zz = (cudatype) mm->zz;
+#endif
+  cudatype L = tp->fPeriod.x;
+  cudatype alpha = 2.0f/L;
+  cudatype fEwCut = tp->fEwCut;
 
-    DataManagerEwald(d_localParts, d_localVars, ewt, cachedData, savedNumTotalParticles-1, stream, ewaldCallback);
+  cachedData->mm.totalMass = (cudatype) mm->totalMass;
+  cachedData->mm.cmx = (cudatype) mm->cm.x;
+  cachedData->mm.cmy = (cudatype) mm->cm.y;
+  cachedData->mm.cmz = (cudatype) mm->cm.z;
+  cachedData->n = savedNumTotalParticles-1;
+  cachedData->fEwCut = (cudatype) fEwCut;
+  cachedData->nReps = tp->nReplicas;
+  cachedData->nEwReps = (int) ceil(fEwCut);
+  cachedData->nEwhLoop = nEwhLoop;
+  cachedData->L = L;
+  cachedData->alpha =  alpha;
+  cachedData->alpha2 = alpha*alpha;
+  cachedData->k1 = (cudatype) M_PI/(alpha*alpha*L*L*L);
+  cachedData->ka = (cudatype) 2.0*alpha/sqrt(M_PI);
+  cachedData->fEwCut2 = (cudatype) fEwCut*fEwCut*L*L;
+
+  /*
+  Break between Taylor expansion for small r and multipole expansion.
+  This value is for double precision.
+  roData->fInner2 = (cudatype) 1.2e-3*L*L;
+  The following is for single precision.  The CUDA version currently uses
+  erff() and erfcf().  If these ever get changed then the following line
+  needs to be changed accordingly.
+ */
+  cachedData->fInner2 = (cudatype) 1.1e-2*L*L;
+
+  ewaldCallback
+    = new CkCallback(CkIndex_DataManager::finishEwaldGPU(), CkMyNode(), dMProxy);
+
+  DataManagerEwald(d_localParts, d_localVars, ewt, cachedData, savedNumTotalParticles-1, stream, ewaldCallback);
 }
 
 /// @brief Callback from Ewald kernel launch on GPU
@@ -502,11 +584,9 @@ void DataManager::finishEwaldGPU() {
   delete ewaldCallback;
 
 #ifdef PINNED_HOST_MEMORY
-  freePinnedHostMemory(h_idata);
   freePinnedHostMemory(ewt);
   freePinnedHostMemory(cachedData);
 #else
-  free(h_idata);
   free(ewt);
   free(cachedData);
 #endif
@@ -543,32 +623,7 @@ void DataManager::finishLocalWalk() {
   }
 
   if (registeredTreePieces[0].treePiece->bEwald) {
-#ifdef PINNED_HOST_MEMORY
-    allocatePinnedHostMemory((void **)&h_idata, sizeof(EwaldData)*savedNumTotalParticles-1);
-    allocatePinnedHostMemory((void **)&ewt, sizeof(EwtData)*NEWH);
-    allocatePinnedHostMemory((void **)&cachedData, sizeof(EwaldReadOnlyData));
-#else
-    h_idata = (EwaldData *) malloc(sizeof(EwaldData)*savedNumTotalParticles-1);
-    ewt = (EwtData *) malloc(sizeof(EwtData)*NEWH);
-    cachedData = (EwaldReadOnlyData *) malloc(sizeof(EwaldReadOnlyData));
-#endif
-  }
-
-  treePiecesEwaldReady = 0;
-  int numTotalParts = 0;
-  for(int i = 0; i < registeredTreePieces.length(); i++){
-      int in = registeredTreePieces[i].treePiece->getIndex();
-      if(registeredTreePieces[0].treePiece->bEwald) {
-        EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
-        msg->fromInit = false;
-        // Make priority lower than smooth.
-        *((int *)CkPriorityPtr(msg)) = 3*numTreePieces + in + 1;
-        CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-        msg->h_idata = &h_idata[i];
-        msg->cachedData = cachedData;
-        msg->ewt = ewt;
-        treePieces[in].calculateEwald(msg);
-    }
+    startEwaldGPU();
   }
 }
 #endif

@@ -95,15 +95,6 @@ mainmodule ParallelGravity {
   message dummyMsg;
   message ComputeChunkMsg;
 
-  message EwaldMsg{
-    bool fromInit;
-#ifdef CUDA
-    EwaldData *h_idata;
-    EwtData *ewt;
-    EwaldReadOnlyData *cachedData;
-#endif
-  };
-
   message ORBSplittersMsg{
     double pos[];
     char dim[];
@@ -301,8 +292,7 @@ mainmodule ParallelGravity {
                            int bComove, double dRhoFac);
     entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
-    entry void calculateEwald(EwaldMsg *m);
-    entry void EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable);
+    entry void calculateEwald(dummyMsg *msg);
     entry void velScale(double dScale, const CkCallback& cb);
     //entry void markPresence(const CkCallback& cb);
     entry void loadNChilada(const std::string& filename, const double dTuFac,

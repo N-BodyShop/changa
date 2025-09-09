@@ -343,17 +343,6 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 };
 #endif
 
-/// Associated with calls to calculateEwald
-/// Indicates whether the function was called by initEwald
-struct EwaldMsg: public CMessage_EwaldMsg {
-    bool fromInit;
-#ifdef CUDA
-    EwaldData *h_idata;
-    EwtData *ewt;
-    EwaldReadOnlyData *cachedData;
-#endif
-};
-    
 /// Class to count added and deleted particles
 class CountSetPart 
 {
@@ -1331,12 +1320,6 @@ private:
   double totalTime;
  public:
 
-#ifdef SPCUDA
-  EwaldData *h_idata;
-  CkCallback *cbEwaldGPU;
-#endif
-  void EwaldGPU(intptr_t _h_idata, intptr_t _cachedData, intptr_t _ewtTable);
-
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   ///This function checks the correctness of the treewalk
   void checkWalkCorrectness();
@@ -1580,9 +1563,9 @@ public:
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
-       void ewaldCPU(EwaldMsg *msg);
-	void calculateEwald(EwaldMsg *m);
-  void calculateEwaldUsingCkLoop(int yield_num);
+       void ewaldCPU();
+       void calculateEwald(dummyMsg *msg);
+       void calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num);
   void callBucketEwald(int id);
   void doParallelNextBucketWork(int id, LoopParData* lpdata);
 	void initCoolingData(const CkCallback& cb);

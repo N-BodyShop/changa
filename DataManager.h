@@ -160,7 +160,6 @@ protected:
         size_t sCompactParts;
         size_t sVarParts;
 
-        EwaldData *h_idata;
         EwtData *ewt;
         EwaldReadOnlyData *cachedData;
 
