@@ -208,9 +208,7 @@ public:
 	DataManager(CkMigrateMessage *);
 
         void startLocalWalk();
-#ifdef GPU_LOCAL_TREE_WALK
         void finishLocalWalk();
-#endif
         void resumeRemoteChunk();
 #ifdef CUDA
         void startEwaldGPU();

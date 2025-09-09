@@ -598,14 +598,13 @@ void DataManager::finishEwaldGPU() {
 }
 
 
-#ifdef GPU_LOCAL_TREE_WALK
 /// @brief Callback from local tree walk on GPU
 /// Call finishBucket for all buckets and TreePieces
 /// Start Ewald calculation if enabled
-// TODO does Ewald still trigger if GPU_LOCAL_TREE_WALK is disabled?
 void DataManager::finishLocalWalk() {
   delete localWalkCallback;
 
+#ifdef GPU_LOCAL_TREE_WALK
 #ifdef PINNED_HOST_MEMORY
   freePinnedHostMemory(bufLocalMoments);
   freePinnedHostMemory(bufLocalParts);
@@ -616,17 +615,16 @@ void DataManager::finishLocalWalk() {
   free(bufLocalVars);
 #endif
 
-
   for(int i = 0; i < registeredTreePieces.length(); i++){
     int in = registeredTreePieces[i].treePiece->getIndex();
     treePieces[in].cudaFinishAllBuckets(0);
   }
+#endif
 
   if (registeredTreePieces[0].treePiece->bEwald) {
     startEwaldGPU();
   }
 }
-#endif
 
 /// @brief Callback from local data transfer to GPU
 /// Indicate the transfer is done, and start the local gravity walk
@@ -647,7 +645,6 @@ void DataManager::startLocalWalk() {
                                                               sMoments, sCompactParts, sVarParts);
       treePieces[in].commenceCalculateGravityLocal();
     }
-
 
 #ifdef GPU_LOCAL_TREE_WALK
     localWalkCallback
@@ -688,6 +685,8 @@ void DataManager::startLocalWalk() {
     request->numInteractions = 0;
 
     DataManagerLocalTreeWalk(request);
+#else
+    finishLocalWalk();
 #endif
 }
 
