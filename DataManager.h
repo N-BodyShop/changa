@@ -116,9 +116,6 @@ protected:
         // TreePiece counter for multi-threaded GPU host buffer copy
 	int treePiecesBufferFilled;
 
-        // Counter for node-wide barrier in startEwaldGPU
-        int treePiecesEwaldReady;
-
         // Flags to ensure local data transfer completes
         // before prefetch data transfer
         bool localDataDone;

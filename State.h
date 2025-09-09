@@ -169,6 +169,8 @@ class DoubleWalkState : public State {
   std::unordered_map<NodeKey,int> partMap;
 
   // TODO do these need to be shut off (no restriction)?
+  // The PELists still need to collect the entire interaction list in memory
+  // before sending it to the GPU, so this isn't saving us from running OOM
   bool nodeOffloadReady(){
     return nodeLists.totalNumInteractions >= nodeThreshold;
   }

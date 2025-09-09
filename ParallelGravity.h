@@ -1437,6 +1437,8 @@ public:
 #endif
           bUseCpu = 1;
 #ifdef CUDA
+	  // used to determine when all of the walks (node, particle, local
+	  // remote, RR) have finished
 	  finishWalkCbCount = 0;
           numActiveBuckets = -1;
 #ifdef HAPI_TRACE
