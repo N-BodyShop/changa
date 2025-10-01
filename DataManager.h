@@ -15,6 +15,7 @@
 
 #ifdef CUDA
 #include "memlog.h"
+#include "MemoryPool.h"
 #endif
 
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
@@ -353,6 +354,19 @@ class ProjectionsControl : public CBase_ProjectionsControl {
     int numGpus;
     cudaGetDeviceCount(&numGpus);
     cudaSetDevice(CmiMyNode() % numGpus);
+    
+    // Initialize GPU memory pools with warmup for typical allocation patterns
+    // Only initialize once per node (first PE on each node)
+    static CmiNodeLock initLock = CmiCreateLock();
+    static bool poolInitialized = false;
+    
+    CmiLock(initLock);
+    if (!poolInitialized) {
+        poolInitWithWarmup();       // Device pool warmup
+        hostPoolInitWithWarmup();   // Host pool warmup
+        poolInitialized = true;
+    }
+    CmiUnlock(initLock);
 #endif
     setBIconfig();
     LBTurnCommOff();

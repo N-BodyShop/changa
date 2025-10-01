@@ -5,7 +5,7 @@
 #include "hapi.h"
 #include "HostCUDA.h"
 void DataTransferBasic(CudaRequest *data, CudaDevPtr *ptr, const char* functionTag);
-void DataTransferBasicCleanup(CudaDevPtr *ptr, const char* functionTag);
+void DataTransferBasicCleanup(CudaDevPtr *ptr, cudaStream_t stream, const char* functionTag);
 
 #ifdef GPU_LOCAL_TREE_WALK
 __global__ void gpuLocalTreeWalk(

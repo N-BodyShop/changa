@@ -12,7 +12,7 @@
 #include "hapi.h"
 #include "cuda_typedef.h"
 #include "SFC.h"
-#include "GPUMemoryPool.h"
+#include "MemoryPool.h"
 #endif
 
 #include "Compute.h"
@@ -1241,12 +1241,12 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
     if(treePiecesParticlesUpdated == registeredTreePieces.length()){
         treePiecesParticlesUpdated = 0;
 
-	  const char* funcTag = "DataManager::transferParticleVarsBack"; // Define the function tag
-    gpuFreeHelper(d_localMoments, funcTag);   
-    gpuFreeHelper(d_localParts, funcTag);    
-    gpuFreeHelper(d_localVars, funcTag);     
-    gpuFreeHelper(d_remoteMoments, funcTag); 
-    gpuFreeHelper(d_remoteParts, funcTag);   
+	  const char* funcTag = "DataManager::transferParticleVarsBack";
+    gpuFreeHelper(d_localMoments, stream, funcTag);   
+    gpuFreeHelper(d_localParts, stream, funcTag);    
+    gpuFreeHelper(d_localVars, stream, funcTag);     
+    gpuFreeHelper(d_remoteMoments, stream, funcTag); 
+    gpuFreeHelper(d_remoteParts, stream, funcTag);   
 
         if(data->size > 0){
 #ifdef PINNED_HOST_MEMORY
