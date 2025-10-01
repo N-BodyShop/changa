@@ -4,6 +4,24 @@
 #ifdef CUDA
 #include "ParallelGravity.h"
 
+// To use pinned host memory with a std::vector
+template <typename T>
+struct PinnedHostAllocator
+{
+        typedef T value_type;
+
+        T* allocate(size_t n) {
+            size_t size = n*sizeof(T);
+            void *ptr = NULL;
+            allocatePinnedHostMemory(&ptr, size);
+            return reinterpret_cast<T*>(ptr);
+        }
+
+        void deallocate(T* p, size_t n) {
+            freePinnedHostMemory(p);
+        }
+};
+
 /// @brief PE-level group to coordinate gravity interaction list calculations
 /// on the GPU
 ///
@@ -22,16 +40,15 @@ class PEList : public CBase_PEList
     /// Count of TreePieces with particles on this PE
     NonEmptyTreePieceCounter cTreePieces;
 
-    vector<ILCell> iList;
+    vector<ILCell, PinnedHostAllocator<ILCell>> iList;
 
-    // TODO will it be a problem to use a custom allocator with matt's memory pool?
-    vector<int> bucketMarkers;
+    vector<int, PinnedHostAllocator<int>> bucketMarkers;
     int finalBucketMarker;
-    vector<int> bucketStarts;
-    vector<int> bucketSizes;
+    vector<int, PinnedHostAllocator<int>> bucketStarts;
+    vector<int, PinnedHostAllocator<int>> bucketSizes;
 
-    vector<CompactPartData> missedParts;
-    vector<CudaMultipoleMoments> missedNodes;
+    vector<CompactPartData, PinnedHostAllocator<CompactPartData>> missedParts;
+    vector<CudaMultipoleMoments, PinnedHostAllocator<CudaMultipoleMoments>> missedNodes;
 
     CudaRequest *request;
 
