@@ -2937,6 +2937,7 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
 
  {
      double ymin[array_length];
+     ymin[0] = EMin;
      ymin[1] = YHMIN;
      ymin[2] = YHeMIN;
      ymin[3] = YHeMIN;
@@ -2962,67 +2963,81 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
       }
       /*#endif*/
 
-      if(y[1] > d->Y_H) y[1] = d->Y_H;
-      if(y[4] > d->Y_H/2.0) y[4] = d->Y_H/2.0;
-      if(y[2] > d->Y_He) y[2] = d->Y_He;
-      if(y[3] > d->Y_He) y[3] = d->Y_He;
-      if (fabs(y[2])+fabs(y[3]) > d->Y_He) {
-	  if(y[2] > y[3]) y[3] = d->Y_He - y[2]; 
-	  else y[2] = d->Y_He - y[3]; 
-	  } 
-
-      if (fabs(y[1])+fabs(y[4]*2.0) > d->Y_H) { 
-        if(y[1] > y[4]*2) y[4] = (d->Y_H - y[1])/2.0; 
-          else y[1] = d->Y_H - y[4]*2.0; 
+      // If the integrator went off the bottom temperature edge of the table, clamp to minimum
+      // energy and calculate current abundances using clAbunds
+      if (y[0] < EMin) {
+        clAbunds( d->cl, Y, &d->Rate, d->rho, d->ZMetal);
+        y[0] = EMin;
+        y[1] = Y->HI;
+        y[2] = Y->HeI;
+        y[3] = Y->HeII;
+	y[4] = Y->HII;
       }
+      // Otherwise, use the integrator result and ensure abundances aren't too large or small
+      // Also ensure we havent fallen off the bottom of the table after updating abundances
+      else {
+	if(y[1] > d->Y_H) y[1] = d->Y_H;
+	if(y[4] > d->Y_H/2.0) y[4] = d->Y_H/2.0;
+	if(y[2] > d->Y_He) y[2] = d->Y_He;
+	if(y[3] > d->Y_He) y[3] = d->Y_He;
+	if (fabs(y[2])+fabs(y[3]) > d->Y_He) {
+	    if(y[2] > y[3]) y[3] = d->Y_He - y[2]; 
+	    else y[2] = d->Y_He - y[3]; 
+	    } 
 
-      if(y[4] < YH2MIN) y[4] = YH2MIN;
-      if(y[1] < YHMIN) y[1] = YHMIN;
-      if (d->Y_H - y[1] - 2.0*y[4] < YHMIN) {
-        if (y[1] >= 2.0*y[4]) y[1] = d->Y_H - 2.0*y[4] - YHMIN;
-        else                  y[4] =(d->Y_H - y[1] - YHMIN)/2.0;
+	if (fabs(y[1])+fabs(y[4]*2.0) > d->Y_H) { 
+	  if(y[1] > y[4]*2) y[4] = (d->Y_H - y[1])/2.0; 
+	    else y[1] = d->Y_H - y[4]*2.0; 
+	}
 
-      }
-/*    if(y[4] < YH2MIN) {
-	y[4] = YH2MIN;
-	if (d->Y_H - y[1] - 2.0*y[4] < YHMIN) y[4] = (d->Y_H - y[1] - YHMIN)/2.0;
-      }
-      if(y[1] < YHMIN) {
-	y[1] = YHMIN;
-	if (d->Y_H - y[1] - 2.0*y[4] < YHMIN) y[1] = d->Y_H - 2.0*y[4] - YHMIN;
-	}*/
+	if(y[4] < YH2MIN) y[4] = YH2MIN;
+	if(y[1] < YHMIN) y[1] = YHMIN;
+	if (d->Y_H - y[1] - 2.0*y[4] < YHMIN) {
+	  if (y[1] >= 2.0*y[4]) y[1] = d->Y_H - 2.0*y[4] - YHMIN;
+	  else                  y[4] =(d->Y_H - y[1] - YHMIN)/2.0;
 
-      if(y[2] < YHeMIN) y[2] = YHeMIN;
-      if(y[3] < YHeMIN) y[3] = YHeMIN;
-      if (d->Y_He - y[2] - y[3] < YHeMIN) {
-        if (y[2] >= y[3]) y[2] = d->Y_He - y[3] - YHeMIN;
-        else              y[3] = d->Y_He - y[2] - YHeMIN; 
-      }
+	}
+  /*    if(y[4] < YH2MIN) {
+	  y[4] = YH2MIN;
+	  if (d->Y_H - y[1] - 2.0*y[4] < YHMIN) y[4] = (d->Y_H - y[1] - YHMIN)/2.0;
+	}
+	if(y[1] < YHMIN) {
+	  y[1] = YHMIN;
+	  if (d->Y_H - y[1] - 2.0*y[4] < YHMIN) y[1] = d->Y_H - 2.0*y[4] - YHMIN;
+	  }*/
 
-/*    if(y[2] < YHeMIN) {
-	y[2] = YHeMIN;
-	if (d->Y_He - y[2] - y[3] < YHeMIN) y[3] = d->Y_He - y[2] - YHeMIN;
-      }
-      if(y[3] < YHeMIN) {
-	y[3] = YHeMIN;
-	if (d->Y_He - y[2] - y[3] < YHeMIN) y[2] = d->Y_He - y[3] - YHeMIN;
-	}*/
+	if(y[2] < YHeMIN) y[2] = YHeMIN;
+	if(y[3] < YHeMIN) y[3] = YHeMIN;
+	if (d->Y_He - y[2] - y[3] < YHeMIN) {
+	  if (y[2] >= y[3]) y[2] = d->Y_He - y[3] - YHeMIN;
+	  else              y[3] = d->Y_He - y[2] - YHeMIN;
+	}
 
-      YTotal = (d->Y_H) - y[4] + (d->Y_H - y[1] - 2*y[4]) + d->Y_He + y[3] +
-	2.0*(d->Y_He - y[2] - y[3]) + d->ZMetal/MU_METAL;
-      EMin = clThermalEnergy( YTotal, cl->TMin );
+  /*    if(y[2] < YHeMIN) {
+	  y[2] = YHeMIN;
+	  if (d->Y_He - y[2] - y[3] < YHeMIN) y[3] = d->Y_He - y[2] - YHeMIN;
+	}
+	if(y[3] < YHeMIN) {
+	  y[3] = YHeMIN;
+	  if (d->Y_He - y[2] - y[3] < YHeMIN) y[2] = d->Y_He - y[3] - YHeMIN;
+	  }*/
+
+	YTotal = (d->Y_H) - y[4] + (d->Y_H - y[1] - 2*y[4]) + d->Y_He + y[3] +
+	  2.0*(d->Y_He - y[2] - y[3]) + d->ZMetal/MU_METAL;
+	EMin = clThermalEnergy( YTotal, cl->TMin );
 
 #ifdef ASSERTENEG      
-      assert(*y > 0.0);
+	assert(*y > 0.0);
 #else
-      if (y[0] < EMin) {
-	y[0] = EMin;
-/*	y[1] = YHMIN;
-	y[2] = d->Y_He;
-	y[3] = YHeMIN;
-	y[4] = d->Y_H/2.0;
-	printf("Emin: %e\n", EMin);
-	break;*/
+	if (y[0] < EMin) {
+	  y[0] = EMin;
+  /*	y[1] = YHMIN;
+	  y[2] = d->Y_He;
+	  y[3] = YHeMIN;
+	  y[4] = d->Y_H/2.0;
+	  printf("Emin: %e\n", EMin);
+	  break;*/
+	}
       }
 #endif   
    cl->its = 1;

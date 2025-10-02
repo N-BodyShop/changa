@@ -230,7 +230,6 @@ cd
 	q[i] = 0.0;
 	d[i] = 0.0;
 	y0[i] = y[i];
-	y[i] = max(y[i], ymin[i]);
 	}
     
     s->derivs(tn + tstart, y, q, d, s->Data);
@@ -254,9 +253,6 @@ cd
 	scr2 = sign(1./y[i],.1*epsmin*ascr - d[i]);
 	scr1 = scr2 * d[i];
 	temp = -fabs(ascr-d[i])*scr2;
-	/* If the species is already at the minimum, disregard
-	   destruction when calculating step size */
-	if (y[i] == ymin[i]) temp = 0.0;
 	scrtch = max(scr1,max(temp,scrtch));
 	}
     dt = min(sqreps/scrtch,dtg);
@@ -313,7 +309,8 @@ cd
 		C ym2(i) = ym1(i)
 		C ym1(i) = y(i)
 		*/
-		y[i] = max(ys[i] + dt*scrarray[i], ymin[i]);
+		y[i] = ys[i] + dt*scrarray[i];
+		if (i == 0 && y[0] < ymin[0]) return;
 		}
 	    /*	    if(iter == 1) {  Removed from original algorithm
 		    so that previous, rather than first, corrector is
