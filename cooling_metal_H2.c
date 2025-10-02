@@ -2942,10 +2942,6 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
      ymin[3] = YHeMIN;
      ymin[4] = YH2MIN;
 
-      YTotal = (d->Y_H - ymin[4]) + (d->Y_H - ymin[1] - 2.0*ymin[4]) + d->Y_He + ymin[3] + 
-	2.0*(d->Y_He - ymin[2] - ymin[3]) + d->ZMetal/MU_METAL;
-      EMin = clThermalEnergy( YTotal, cl->TMin );
-      ymin[0] = EMin;
       StiffSetYMin(sbs, ymin);
 
       /*#ifdef COOLDEBUG      */
