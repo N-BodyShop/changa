@@ -610,9 +610,10 @@ void DataManager::finishLocalWalk() {
 
 #ifdef GPU_LOCAL_TREE_WALK
 #ifdef PINNED_HOST_MEMORY
-  freePinnedHostMemory(bufLocalMoments);
-  freePinnedHostMemory(bufLocalParts);
-  freePinnedHostMemory(bufLocalVars);
+  // EXPERIMENT: Direct free for large local tree buffers (bypassed pool)
+  cudaFreeHost(bufLocalMoments);
+  cudaFreeHost(bufLocalParts);
+  cudaFreeHost(bufLocalVars);
 #else
   free(bufLocalMoments);
   free(bufLocalParts);
@@ -1046,15 +1047,16 @@ void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
   size_t sLocalParts = numParticles*sizeof(CompactPartData);
   size_t sLocalMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
 #ifdef PINNED_HOST_MEMORY
-  allocatePinnedHostMemory((void **)&bufLocalParts, sLocalParts);
-  allocatePinnedHostMemory((void **)&bufLocalMoments, sLocalMoments);
+  // Bypass pool for large local tree buffers
+  cudaMallocHost((void **)&bufLocalParts, sLocalParts);
+  cudaMallocHost((void **)&bufLocalMoments, sLocalMoments);
 #else
   bufLocalParts = (CompactPartData *) malloc(sLocalParts);
   bufLocalMoments = (CudaMultipoleMoments *) malloc(sLocalMoments);
 #endif
 
   int pTPindex = 0;
-  treePiecesBufferFilled = 0;
+  treePiecesBuff;
   for(int i = 0; i < numTreePieces; i++){
       treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer((intptr_t) bufLocalParts,
 		      (intptr_t) bufLocalMoments, (intptr_t) localMoments.getVec(), pTPindex,
@@ -1064,7 +1066,7 @@ void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
 }
 
 ///
-/// @brief After all pieces have filled the buffer, initiate the transfer.
+// @brief After all pieces have filled the buffer, initiate the transfer.
 /// @param numParticles total number of particles on this node
 /// @param node root of tree
 ///
@@ -1104,7 +1106,8 @@ void DataManager::transferLocalToGPU(int numParticles, GenericTreeNode *node)
 #endif
 
 #ifdef PINNED_HOST_MEMORY
-  allocatePinnedHostMemory((void **)&bufLocalVars, sLocalVars);
+  // Bypass pool for large local tree buffers
+  cudaMallocHost((void **)&bufLocalVars, sLocalVars);
 #else
   bufLocalVars = (VariablePartData *) malloc(sLocalVars);
 #endif

@@ -669,7 +669,7 @@ void DataManager::initCpuMemLog(std::string _fileName, int bCpuMemLoggerFlag, co
  * Called from Main chare
  */
 void Main::initMemLog() {
-    std::string memLogFile = "memlog.out";
+    std::string memLogFile = "gpumemlog.out";
     
     // Send filename and flag to all DataManagers and wait
     dMProxy.initMemLog(memLogFile, param.bGpuMemLogger, CkCallbackResumeThread());
@@ -681,7 +681,7 @@ void Main::initMemLog() {
         fprintf(fpLog, "# NodeID OpType Size Address Timestamp File:Line PointerID FunctionTag\n");
         int close_err = CmiFclose(fpLog);
         if (close_err != 0) {
-            CkPrintf("WARNING: PE 0 failed to close memlog file: %s (Error %d)\n", memLogFile.c_str(), close_err);
+            CkPrintf("WARNING: PE 0 failed to close gpumemlog file: %s (Error %d)\n", memLogFile.c_str(), close_err);
         }
     }
 }
