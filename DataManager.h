@@ -200,6 +200,13 @@ public:
 	CmiNodeLock lockMemLog;
 	/// @brief Flag to enable GPU memory logging
 	int bGpuMemLogger;
+	
+	/// @brief log of CPU (host) memory events.
+	MemLog *cpuMemLog;
+	/// @brief Lock for accessing CPU memlog
+	CmiNodeLock lockCpuMemLog;
+	/// @brief Flag to enable CPU memory logging
+	int bCpuMemLogger;
 #endif
 
 	DataManager(const CkArrayID& treePieceID);
@@ -308,8 +315,10 @@ public:
 		     COOLPARAM inParam, const CkCallback& cb);
     void initStarLog(std::string _fileName, const CkCallback &cb);
     void initMemLog(std::string _fileName, int bGpuMemLoggerFlag, const CkCallback &cb);
+    void initCpuMemLog(std::string _fileName, int bCpuMemLoggerFlag, const CkCallback &cb);
 #ifdef CUDA
     void flushMemLog(const CkCallback& cb);
+    void flushCpuMemLog(const CkCallback& cb);
 #endif
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift

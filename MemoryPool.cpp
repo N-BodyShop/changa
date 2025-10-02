@@ -462,6 +462,80 @@ cudaError_t hostFreePoolStream(void* ptr, cudaStream_t /*stream*/) {
     return hostFreePool(ptr);
 }
 
+// ============================================================================
+// Host Memory Allocation with Logging
+// ============================================================================
+
+/**
+ * @brief Host memory allocation with optional logging
+ * 
+ * Allocates from the host pool and logs the event if logging is enabled.
+ */
+cudaError_t hostMalloc(void** ptr, size_t size,
+                       const char* tag, const char* functionTag,
+                       const char* file, int line) {
+    double timestamp = CkWallTimer();
+    cudaError_t result = hostMallocPool(ptr, size);
+    double timestamp_after = CkWallTimer();
+    
+    // Log if enabled
+    DataManager* dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    if (dm && dm->cpuMemLog && dm->bCpuMemLogger) {
+        MemLogOpType opType = (result == cudaSuccess) ? MEMLOG_ALLOC : MEMLOG_ALLOC_FAIL;
+        uintptr_t address = (result == cudaSuccess && *ptr != NULL) ? (uintptr_t)(*ptr) : 0;
+        MemLogEvent event(CkMyNode(), opType, size, address, timestamp_after, file, line, tag, functionTag);
+        
+        CmiLock(dm->lockCpuMemLog);
+        dm->cpuMemLog->meTab.push_back(event);
+        CmiUnlock(dm->lockCpuMemLog);
+    }
+    
+    return result;
+}
+
+/**
+ * @brief Host memory deallocation with optional logging
+ * 
+ * Frees to the pool and logs the event if logging is enabled.
+ */
+cudaError_t hostFree(void* ptr,
+                     const char* tag, const char* functionTag,
+                     const char* file, int line) {
+    double timestamp = CkWallTimer();
+    MemLogOpType opType;
+    uintptr_t address = (uintptr_t)ptr;
+    
+    // Access node-local DataManager
+    DataManager* dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    
+    if (ptr == NULL) {
+        // NULL pointer free is a no-op
+        opType = MEMLOG_FREE_SKIP;
+        if (dm && dm->cpuMemLog && dm->bCpuMemLogger) {
+            MemLogEvent event(CkMyNode(), opType, 0, address, timestamp, file, line, tag, functionTag);
+            CmiLock(dm->lockCpuMemLog);
+            dm->cpuMemLog->meTab.push_back(event);
+            CmiUnlock(dm->lockCpuMemLog);
+        }
+        return cudaSuccess;
+    }
+    
+    cudaError_t result = hostFreePool(ptr);
+    double timestamp_after = CkWallTimer();
+    
+    // Determine operation type based on free success/failure
+    opType = (result == cudaSuccess) ? MEMLOG_FREE : MEMLOG_FREE_FAIL;
+    
+    if (dm && dm->cpuMemLog && dm->bCpuMemLogger) {
+        MemLogEvent event(CkMyNode(), opType, 0, address, timestamp_after, file, line, tag, functionTag);
+        CmiLock(dm->lockCpuMemLog);
+        dm->cpuMemLog->meTab.push_back(event);
+        CmiUnlock(dm->lockCpuMemLog);
+    }
+    
+    return result;
+}
+
 /**
  * @brief Cleanup all host pool allocations
  */
@@ -575,6 +649,22 @@ void DataManager::initMemLog(std::string _fileName, int bGpuMemLoggerFlag, const
 }
 
 /**
+ * @brief Initialize CPU memory log on DataManager
+ * Called collectively across all DataManagers
+ */
+void DataManager::initCpuMemLog(std::string _fileName, int bCpuMemLoggerFlag, const CkCallback &cb) {
+    CmiLock(lockCpuMemLog);
+    if (cpuMemLog != nullptr) { 
+        cpuMemLog->fileName = _fileName;
+    } else {
+        CkPrintf("WARNING PE %d: cpuMemLog is NULL in initCpuMemLog! Cannot set filename.\n", CkMyPe());
+    }
+    bCpuMemLogger = bCpuMemLoggerFlag;
+    CmiUnlock(lockCpuMemLog);
+    contribute(cb);
+}
+
+/**
  * @brief Initialize memory log file on PE 0
  * Called from Main chare
  */
@@ -597,6 +687,28 @@ void Main::initMemLog() {
 }
 
 /**
+ * @brief Initialize CPU memory log file on PE 0
+ * Called from Main chare
+ */
+void Main::initCpuMemLog() {
+    std::string cpuMemLogFile = "cpumemlog.out";
+    
+    // Send filename and flag to all DataManagers and wait
+    dMProxy.initCpuMemLog(cpuMemLogFile, param.bCpuMemLogger, CkCallbackResumeThread());
+    
+    // PE 0 creates the file and writes header
+    if (CkMyPe() == 0) {
+        FILE* fpLog = CmiFopen(cpuMemLogFile.c_str(), "w");
+        fprintf(fpLog, "# ChaNGa CPU Memory Log v1.0\n");
+        fprintf(fpLog, "# NodeID OpType Size Address Timestamp File:Line PointerID FunctionTag\n");
+        int close_err = CmiFclose(fpLog);
+        if (close_err != 0) {
+            CkPrintf("WARNING: PE 0 failed to close CPU memlog file: %s (Error %d)\n", cpuMemLogFile.c_str(), close_err);
+        }
+    }
+}
+
+/**
  * @brief Flush memlog sequentially across nodes
  */
 void DataManager::flushMemLog(const CkCallback& cb) {
@@ -609,6 +721,24 @@ void DataManager::flushMemLog(const CkCallback& cb) {
     // Sequential flushing to avoid file corruption
     if(thisIndex != CkNumNodes()-1) {
         thisProxy[thisIndex + 1].flushMemLog(cb);
+    } else {
+        cb.send();
+    }
+}
+
+/**
+ * @brief Flush CPU memlog sequentially across nodes
+ */
+void DataManager::flushCpuMemLog(const CkCallback& cb) {
+    if (cpuMemLog) {
+        cpuMemLog->flush();
+    } else {
+        CkPrintf("WARNING Node %d: cpuMemLog is NULL in flushCpuMemLog! Skipping flush.\n", thisIndex);
+    }
+    
+    // Sequential flushing to avoid file corruption
+    if(thisIndex != CkNumNodes()-1) {
+        thisProxy[thisIndex + 1].flushCpuMemLog(cb);
     } else {
         cb.send();
     }

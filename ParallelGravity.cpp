@@ -774,6 +774,10 @@ Main::Main(CkArgMsg* m) {
         prmAddParam(prm, "bGpuMemLogger", paramBool, &param.bGpuMemLogger,
                     sizeof(int), "gpumemlog",
                     "Enable GPU memory pool logger");
+        param.bCpuMemLogger = 0;
+        prmAddParam(prm, "bCpuMemLogger", paramBool, &param.bCpuMemLogger,
+                    sizeof(int), "cpumemlog",
+                    "Enable CPU memory pool logger");
 #endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
@@ -2328,7 +2332,9 @@ void Main::setupICs() {
 
 #ifdef CUDA
   if(param.bGpuMemLogger)
-      initMemLog(); // Initialize memory logging immediately after star log
+      initMemLog(); // Initialize GPU memory logging
+  if(param.bCpuMemLogger)
+      initCpuMemLog(); // Initialize CPU memory logging
 #endif
 	
   if(param.bFeedback)
@@ -2852,9 +2858,11 @@ Main::doSimulation()
     writeTimings(iStep);
 
 #ifdef CUDA
-    // Flush memory log
+    // Flush memory logs
     if(param.bGpuMemLogger)
         dMProxy[0].flushMemLog(CkCallbackResumeThread());
+    if(param.bCpuMemLogger)
+        dMProxy[0].flushCpuMemLog(CkCallbackResumeThread());
 #endif
 
     if(iStep%param.iOrbitOutInterval == 0) {

@@ -123,6 +123,40 @@ inline cudaError_t gpuMallocTyped(T** ptr, size_t size, cudaStream_t stream,
 #define gpuFreeHelper(ptr, stream, funcTag) \
     gpuFree(ptr, stream, #ptr, funcTag, __FILE__, __LINE__)
 
+// ============================================================================
+// Host Memory Allocation with Logging
+// ============================================================================
+
+/**
+ * @brief Host memory allocation with optional logging
+ */
+cudaError_t hostMalloc(void** ptr, size_t size,
+                       const char* tag, const char* functionTag,
+                       const char* file, int line);
+
+/**
+ * @brief Host memory deallocation with optional logging
+ */
+cudaError_t hostFree(void* ptr,
+                     const char* tag, const char* functionTag,
+                     const char* file, int line);
+
+// Templated wrapper for type safety
+template <typename T>
+inline cudaError_t hostMallocTyped(T** ptr, size_t size,
+                                   const char* pointerIdTag, const char* functionTag,
+                                   const char* file, int line) {
+    return hostMalloc(reinterpret_cast<void**>(ptr), size,
+                      pointerIdTag, functionTag, file, line);
+}
+
+// Convenience macros
+#define hostMallocHelper(ptr, size, funcTag) \
+    hostMallocTyped(ptr, size, #ptr, funcTag, __FILE__, __LINE__)
+
+#define hostFreeHelper(ptr, funcTag) \
+    hostFree(ptr, #ptr, funcTag, __FILE__, __LINE__)
+
 #endif // CUDA
 
 #endif // MEMORY_POOL_H

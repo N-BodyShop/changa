@@ -46,6 +46,9 @@ void DataManager::init() {
   memLog = new MemLog();
   lockMemLog = CmiCreateLock();
   bGpuMemLogger = 0; // Default disabled
+  cpuMemLog = new MemLog();
+  lockCpuMemLog = CmiCreateLock();
+  bCpuMemLogger = 0; // Default disabled
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
@@ -441,6 +444,7 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
 #endif
 #ifdef CUDA
     bGpuMemLogger = param.bGpuMemLogger;
+    bCpuMemLogger = param.bCpuMemLogger;
 #endif
     contribute(cb);
     // parameter structure requires some cleanup

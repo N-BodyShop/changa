@@ -67,8 +67,8 @@ void allocatePinnedHostMemory(void **ptr, size_t size){
     abort();
     return;
   }
-  // Use our host memory pool for reuse and better performance
-  cudaChk(hostMallocPool(ptr, size));
+  // Use our host memory pool with logging support
+  cudaChk(hostMallocHelper(ptr, size, "allocatePinnedHostMemory"));
 }
 
 void freePinnedHostMemory(void *ptr){
@@ -77,8 +77,8 @@ void freePinnedHostMemory(void *ptr){
     abort();
     return;
   }
-  // Return to our host memory pool for reuse
-  cudaChk(hostFreePool(ptr));
+  // Return to our host memory pool with logging support
+  cudaChk(hostFreeHelper(ptr, "freePinnedHostMemory"));
 }
 
 /// @brief Transfer local moments, particle data and acceleration fields to GPU memory

@@ -34,6 +34,7 @@ typedef struct parameters {
 #ifdef CUDA
     int nGpuMinParts;
     int bGpuMemLogger;
+    int bCpuMemLogger;
 #endif
     int bCannonical;
     int bKDK;
@@ -183,6 +184,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
 #ifdef CUDA
     p|param.nGpuMinParts;
     p|param.bGpuMemLogger;
+    p|param.bCpuMemLogger;
 #endif
     p|param.iMaxRung;
     p|param.bCannonical;
