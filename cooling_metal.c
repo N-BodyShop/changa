@@ -2117,7 +2117,7 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
       // If the integrator went off the bottom temperature edge of the table, clamp to minimum
       // energy and calculate current abundances using clAbunds
       if (y[0] < EMin) {
-        clAbunds( d->cl, &Y, &d->Rate, d->rho, d->ZMetal);
+        clAbunds( d->cl, Y, &d->Rate, d->rho, d->ZMetal);
 	y[0] = EMin;
 	y[1] = Y->HI;
 	y[2] = Y->HeI;
