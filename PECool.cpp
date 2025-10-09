@@ -31,21 +31,21 @@ void PECool::finish(TreePiece *treePiece) {
     }
     int numParts = coolData.size();
     int nv = stiff[0].nv;
-    cudaChk(cudaMalloc(&d_CoolData, numParts*sizeof(clDerivsData)));
-    cudaChk(cudaMalloc(&d_Stiff, numParts*sizeof(STIFF)));
-    cudaChk(cudaMalloc(&d_dtg, numParts*sizeof(double)));
+    cudaChk(cudaMallocAsync(&d_CoolData, numParts*sizeof(clDerivsData), stream));
+    cudaChk(cudaMallocAsync(&d_Stiff, numParts*sizeof(STIFF), stream));
+    cudaChk(cudaMallocAsync(&d_dtg, numParts*sizeof(double), stream));
 
-    cudaChk(cudaMalloc(&d_y, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_ymin, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_y0, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_y1, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_q, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_d, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_rtau, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_ys, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_qs, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_rtaus, numParts*nv*sizeof(double)));
-    cudaChk(cudaMalloc(&d_scrarray, numParts*nv*sizeof(double)));
+    cudaChk(cudaMallocAsync(&d_y, numParts*nv*sizeof(double), stream));
+    cudaChk(cudaMallocAsync(&d_ymin, numParts*nv*sizeof(double), stream));
+    cudaChk(cudaMallocAsync(&d_y0, numParts*nv*sizeof(double), stream));
+    cudaChk(cudaMallocAsync(&d_y1, numParts*nv*sizeof(double), stream));
+    cudaChk(cudaMallocAsync(&d_q, numParts*nv*sizeof(double), stream));
+    cudaChk(cudaMallocAsync(&d_d, numParts*nv*sizeof(double), stream));
+    cudaChk(cudaMallocAsync(&d_rtau, numParts*nv*sizeof(double), stream));
+    cudaChk(cudaMallocAsync(&d_ys, numParts*nv*sizeof(double), stream));
+    cudaChk(cudaMallocAsync(&d_qs, numParts*nv*sizeof(double), stream));
+    cudaChk(cudaMallocAsync(&d_rtaus, numParts*nv*sizeof(double), stream));
+    cudaChk(cudaMallocAsync(&d_scrarray, numParts*nv*sizeof(double), stream));
 
     for (int i = 0; i < coolData.size(); i++) {
         coolData[i].IntegratorContext = &d_Stiff[i];
@@ -63,20 +63,20 @@ void PECool::finish(TreePiece *treePiece) {
 	stiff[i].Data = &d_CoolData[i];
     }
 
-    cudaChk(cudaMemcpy(d_CoolData, coolData.data(), numParts*sizeof(clDerivsData), cudaMemcpyHostToDevice));
-    cudaChk(cudaMemcpy(d_Stiff, stiff.data(), sizeof(STIFF)*numParts, cudaMemcpyHostToDevice));
-    cudaChk(cudaMemcpy(d_ymin, yMin.data(), numParts*nv*sizeof(double), cudaMemcpyHostToDevice));
-    cudaChk(cudaMemcpy(d_y, yInt.data(), numParts*nv*sizeof(double), cudaMemcpyHostToDevice));
-    cudaChk(cudaMemcpy(d_dtg, dtg.data(), dtg.size()*sizeof(double), cudaMemcpyHostToDevice));
+    cudaChk(cudaMemcpyAsync(d_CoolData, coolData.data(), numParts*sizeof(clDerivsData), cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(d_Stiff, stiff.data(), sizeof(STIFF)*numParts, cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(d_ymin, yMin.data(), numParts*nv*sizeof(double), cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(d_y, yInt.data(), numParts*nv*sizeof(double), cudaMemcpyHostToDevice, stream));
+    cudaChk(cudaMemcpyAsync(d_dtg, dtg.data(), dtg.size()*sizeof(double), cudaMemcpyHostToDevice, stream));
 
     double t = 0.0;
     PeODESolver(d_Stiff, d_y, d_dtg, t, numParts, stream);
 
-    cudaChk(cudaMemcpy(yInt.data(), d_y, numParts*nv*sizeof(double), cudaMemcpyDeviceToHost));
-    cudaChk(cudaMemcpy(coolData.data(), d_CoolData, numParts*sizeof(clDerivsData), cudaMemcpyDeviceToHost));
+    cudaChk(cudaMemcpyAsync(yInt.data(), d_y, numParts*nv*sizeof(double), cudaMemcpyDeviceToHost, stream));
+    cudaChk(cudaMemcpyAsync(coolData.data(), d_CoolData, numParts*sizeof(clDerivsData), cudaMemcpyDeviceToHost, stream));
 
-    // TODO hapi callback
-    treeProxy.finishIntegrateCb();
+    finishCb = new CkCallback(CkIndex_TreePiece::finishIntegrateCb(), treePiece);
+    hapiAddCallback(stream, finishCb);
 }
 
 int PECool::sendData(CoolRequest data) {
@@ -104,6 +104,23 @@ void PECool::reset() {
 
     cTreePieces.reset();
     vtpLocal.length() = 0;
+    delete finishCb;
+
+    cudaChk(cudaFreeAsync(d_CoolData, stream));
+    cudaChk(cudaFreeAsync(d_Stiff, stream));
+    cudaChk(cudaFreeAsync(d_dtg, stream));
+
+    cudaChk(cudaFreeAsync(d_y, stream));
+    cudaChk(cudaFreeAsync(d_ymin, stream));
+    cudaChk(cudaFreeAsync(d_y0, stream));
+    cudaChk(cudaFreeAsync(d_y1, stream));
+    cudaChk(cudaFreeAsync(d_q, stream));
+    cudaChk(cudaFreeAsync(d_d, stream));
+    cudaChk(cudaFreeAsync(d_rtau, stream));
+    cudaChk(cudaFreeAsync(d_ys, stream));
+    cudaChk(cudaFreeAsync(d_qs, stream));
+    cudaChk(cudaFreeAsync(d_rtaus, stream));
+    cudaChk(cudaFreeAsync(d_scrarray, stream));
 }
 
 #endif

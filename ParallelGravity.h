@@ -987,6 +987,7 @@ class TreePiece : public CBase_TreePiece {
 	}
 
 	void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb) {
+	  myNumActiveGasParticles = 0;
 	  for (unsigned int i = 1; i <= myNumParticles; ++i) {
 	    GravityParticle *p = &myParticles[i];
 	    if (TYPETest(p, TYPE_GAS)

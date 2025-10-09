@@ -36,6 +36,7 @@ class PECool : public CBase_PECool
   double *d_scrarray;
 
   cudaStream_t stream;
+  CkCallback *finishCb;
 
 public:
   PECool() { cudaStreamCreate(&stream); }

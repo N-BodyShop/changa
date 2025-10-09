@@ -43,6 +43,17 @@ void DataManager::init() {
   treePiecesParticlesUpdated = 0;
   gpuFree = true;
 
+  // Init device memory pool
+  int dev = 0;
+  cudaGetDevice(&dev);
+
+  cudaMemPool_t pool = nullptr;
+  cudaDeviceGetDefaultMemPool(&pool, dev);
+
+  // Set threshold to maximum to keep memory cached
+  unsigned long long threshold = ~0ull;
+  cudaMemPoolSetAttribute(pool, cudaMemPoolAttrReleaseThreshold, &threshold);
+
 #endif
   Cool = CoolInit();
   Cool_nv = COOL_NV;
