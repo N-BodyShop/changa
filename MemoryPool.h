@@ -4,160 +4,401 @@
 #ifdef CUDA
 #include <cuda_runtime.h>
 
-/**
- * @brief Initialize the GPU memory pool
- * Configures the default CUDA memory pool to retain freed memory
- */
-void poolInit();
+// ============================================================================
+// GPU MEMORY POOL
+// ============================================================================
+
+// ----------------------------------------------------------------------------
+// GPU Pool Initialization & Warmup
+// ----------------------------------------------------------------------------
 
 /**
- * @brief Initialize GPU pool with automatic warmup for typical ChaNGa workloads
- * Combines poolInit() with pre-warming based on profiled allocation patterns
+ * @brief Initialize the GPU memory pool
+ * 
+ * Configures the default CUDA memory pool with a 5GB retention limit
+ * and pre-warms the pool with common allocation sizes.
  */
-void poolInitWithWarmup();
+void gpuPoolInit();
 
 /**
  * @brief Pre-warm the GPU memory pool with common allocation sizes
- * Allocates and immediately frees blocks to populate the pool's free-list
+ * 
+ * Allocates and immediately frees blocks to populate the pool's free-list.
+ * 
  * @param sizes Array of allocation sizes in bytes
  * @param counts Array of how many allocations per size
  * @param numSizes Number of different sizes to pre-allocate
  * @param stream CUDA stream to use for allocations (use 0 for default)
+ * @return cudaError_t from allocation operations
  */
-cudaError_t poolWarmup(const size_t* sizes, const int* counts, int numSizes, cudaStream_t stream);
+cudaError_t gpuPoolWarmup(const size_t* sizes, const int* counts, int numSizes, cudaStream_t stream);
+
+// ----------------------------------------------------------------------------
+// GPU Pool Raw Operations (Internal - use macros for public API)
+// ----------------------------------------------------------------------------
 
 /**
- * @brief Allocate GPU memory from the pool (stream-aware)
- * @param devPtr Output pointer to the allocated device memory
- * @param size The size of memory to allocate in bytes
- * @param stream The CUDA stream that will use this memory
- * @return cudaError_t result from the allocation operation
+ * @brief Allocate GPU memory from the pool (raw, internal, stream-aware)
+ * 
+ * @param devPtr Output pointer to allocated device memory
+ * @param size Size of memory to allocate in bytes
+ * @param stream CUDA stream for ordering (NULL for synchronous)
+ * @return cudaError_t result from allocation
  */
-cudaError_t poolMalloc(void** devPtr, size_t size, cudaStream_t stream);
+cudaError_t gpuPoolMallocRaw(void** devPtr, size_t size, cudaStream_t stream);
 
 /**
- * @brief Free GPU memory back to the pool (stream-aware)
- * @param ptr The device pointer to return to the pool
- * @param stream The CUDA stream on which the memory was last used
- * @return cudaError_t result, typically cudaSuccess
+ * @brief Free GPU memory back to the pool (raw, internal, stream-aware)
+ * 
+ * @param ptr Device pointer to free
+ * @param stream CUDA stream for ordering (NULL for synchronous)
+ * @return cudaError_t result from free operation
  */
-cudaError_t poolFree(void* ptr, cudaStream_t stream);
+cudaError_t gpuPoolFreeRaw(void* ptr, cudaStream_t stream);
+
+// ----------------------------------------------------------------------------
+// GPU Pool API with Logging - Pool-based Allocation
+// ----------------------------------------------------------------------------
 
 /**
- * @brief Destroy the memory pool and cleanup host allocations
+ * @brief GPU memory allocation from pool with logging (use gpuPoolMalloc macro)
+ * 
+ * @param devPtr Output pointer to allocated device memory
+ * @param size Size to allocate in bytes
+ * @param stream CUDA stream for ordering
+ * @param tag Pointer identifier tag
+ * @param functionTag Function context tag
+ * @param file Source file
+ * @param line Line number
+ * @return cudaError_t from allocation operation
  */
-void poolDestroy();
+cudaError_t gpuPoolMallocImpl(void** devPtr, size_t size, cudaStream_t stream, 
+                              const char* tag, const char* functionTag, 
+                              const char* file, int line);
+
+/**
+ * @brief GPU memory deallocation to pool with logging (use gpuPoolFree macro)
+ * 
+ * @param devPtr Device pointer to free
+ * @param stream CUDA stream for ordering
+ * @param tag Pointer identifier tag
+ * @param functionTag Function context tag
+ * @param file Source file
+ * @param line Line number
+ * @return cudaError_t from free operation
+ */
+cudaError_t gpuPoolFreeImpl(void* devPtr, cudaStream_t stream, 
+                            const char* tag, const char* functionTag, 
+                            const char* file, int line);
+
+// ----------------------------------------------------------------------------
+// GPU API with Logging - Direct Allocation (Bypass Pool)
+// ----------------------------------------------------------------------------
+
+/**
+ * @brief Direct GPU memory allocation with logging (use gpuMalloc macro)
+ * 
+ * Bypasses the pool and allocates directly using cudaMalloc.
+ * 
+ * @param devPtr Output pointer to allocated device memory
+ * @param size Size to allocate in bytes
+ * @param stream CUDA stream (currently unused, reserved for future use)
+ * @param tag Pointer identifier tag
+ * @param functionTag Function context tag
+ * @param file Source file
+ * @param line Line number
+ * @return cudaError_t from allocation operation
+ */
+cudaError_t gpuMallocImpl(void** devPtr, size_t size, cudaStream_t stream, 
+                          const char* tag, const char* functionTag, 
+                          const char* file, int line);
+
+/**
+ * @brief Direct GPU memory deallocation with logging (use gpuFree macro)
+ * 
+ * Bypasses the pool and frees directly using cudaFree.
+ * 
+ * @param devPtr Device pointer to free
+ * @param stream CUDA stream (currently unused, reserved for future use)
+ * @param tag Pointer identifier tag
+ * @param functionTag Function context tag
+ * @param file Source file
+ * @param line Line number
+ * @return cudaError_t from free operation
+ */
+cudaError_t gpuFreeImpl(void* devPtr, cudaStream_t stream, 
+                        const char* tag, const char* functionTag, 
+                        const char* file, int line);
+
+// ----------------------------------------------------------------------------
+// GPU Pool Type-Safe Wrappers (Templates)
+// ----------------------------------------------------------------------------
+
+/**
+ * @brief Type-safe wrapper for GPU pool allocation
+ */
+template <typename T>
+inline cudaError_t gpuPoolMallocTyped(T** ptr, size_t size, cudaStream_t stream, 
+                                      const char* pointerIdTag, const char* functionTag, 
+                                      const char* file, int line) {
+    return gpuPoolMallocImpl(reinterpret_cast<void**>(ptr), size, stream, 
+                             pointerIdTag, functionTag, file, line);
+}
+
+/**
+ * @brief Type-safe wrapper for direct GPU allocation (bypass pool)
+ */
+template <typename T>
+inline cudaError_t gpuMallocTyped(T** ptr, size_t size, cudaStream_t stream, 
+                                  const char* pointerIdTag, const char* functionTag, 
+                                  const char* file, int line) {
+    return gpuMallocImpl(reinterpret_cast<void**>(ptr), size, stream, 
+                         pointerIdTag, functionTag, file, line);
+}
+
+// ----------------------------------------------------------------------------
+// GPU Pool Public API Macros
+// ----------------------------------------------------------------------------
+
+// Pool-based allocation
+#define gpuPoolMalloc(ptr, size, stream, funcTag) \
+    gpuPoolMallocTyped(ptr, size, stream, #ptr, funcTag, __FILE__, __LINE__)
+
+#define gpuPoolFree(ptr, stream, funcTag) \
+    gpuPoolFreeImpl(ptr, stream, #ptr, funcTag, __FILE__, __LINE__)
+
+// Direct allocation (bypasses pool)
+#define gpuMalloc(ptr, size, stream, funcTag) \
+    gpuMallocTyped(ptr, size, stream, #ptr, funcTag, __FILE__, __LINE__)
+
+#define gpuFree(ptr, stream, funcTag) \
+    gpuFreeImpl(ptr, stream, #ptr, funcTag, __FILE__, __LINE__)
+
+// ----------------------------------------------------------------------------
+// GPU Pool Cleanup
+// ----------------------------------------------------------------------------
+
+/**
+ * @brief Destroy the GPU memory pool and cleanup
+ */
+void gpuPoolDestroy();
 
 // ============================================================================
 // Host Memory Pool (Pinned Memory)
 // ============================================================================
 
-/**
- * @brief Initialize host memory pool (no-op, lazy initialization)
- */
-cudaError_t hostMemoryPoolInit(size_t initialSize);
+// ----------------------------------------------------------------------------
+// Host Pool Initialization & Warmup
+// ----------------------------------------------------------------------------
 
 /**
- * @brief Warm up host pool with typical ChaNGa allocation patterns
- * Pre-allocates and frees common sizes to populate the pool
+ * @brief Initialize the host memory pool
+ * 
+ * Creates the pool lock and pre-warms the pool with common allocation sizes
+ * ranging from 256B to 64MB across 19 bucket sizes.
  */
-void hostPoolInitWithWarmup();
+void hostPoolInit();
+
+// ----------------------------------------------------------------------------
+// Host Pool Raw Operations (Internal - use macros for public API)
+// ----------------------------------------------------------------------------
 
 /**
- * @brief Allocate pinned host memory from the pool
- * Uses bucketed free-list for reuse (64KB granularity)
+ * @brief Allocate host memory from pool (raw, internal)
+ * 
+ * @param ptr Output pointer to allocated memory
+ * @param size Size to allocate in bytes
+ * @return cudaError_t from allocation operation
  */
-cudaError_t hostMallocPool(void** ptr, size_t size);
+cudaError_t hostPoolMallocRaw(void** ptr, size_t size);
 
 /**
- * @brief Stream-aware host allocation (currently ignores stream)
+ * @brief Free host memory back to pool (raw, internal)
+ * 
+ * @param ptr Pointer to free
+ * @return cudaError_t from operation
  */
-cudaError_t hostMallocPoolStream(void** ptr, size_t size, cudaStream_t stream);
+cudaError_t hostPoolFreeRaw(void* ptr);
+
+// ----------------------------------------------------------------------------
+// Host Pool Maintenance & Trimming
+// ----------------------------------------------------------------------------
 
 /**
- * @brief Free pinned host memory back to the pool
+ * @brief Get warmup target for a given bucket size
+ * 
+ * @param bucket Bucket size in bytes
+ * @return Target number of blocks (0 = no target, use dynamic trimming)
  */
-cudaError_t hostFreePool(void* ptr);
+int hostPoolGetWarmupTarget(size_t bucket);
 
 /**
- * @brief Stream-aware host free (currently ignores stream)
+ * @brief Trim host pool to target capacity
+ * 
+ * Frees excess blocks from the pool to the OS, prioritizing large buckets.
+ * 
+ * @param targetCapacityGB Target maximum pool capacity in GB
+ * @param minCapacityPerBucketMB Minimum capacity to preserve per active bucket in MB
+ * @return Total bytes freed to the OS
  */
-cudaError_t hostFreePoolStream(void* ptr, cudaStream_t stream);
+size_t hostPoolTrim(double targetCapacityGB, size_t minCapacityPerBucketMB);
 
 /**
- * @brief Cleanup all host pool allocations
+ * @brief Adaptive refill of hot buckets between timesteps
+ * 
+ * Refills buckets that had misses during the previous timestep.
  */
-cudaError_t hostMemoryPoolCleanup();
+void hostPoolAdaptiveRefill();
 
-// ============================================================================
-// GPU Memory Allocation with Logging
-// ============================================================================
+// ----------------------------------------------------------------------------
+// Host Pool Analytics & Reporting
+// ----------------------------------------------------------------------------
 
 /**
- * @brief GPU memory allocation with optional logging
+ * @brief Report host pool statistics with enhanced analytics
+ * 
+ * @param prefix String prefix for output lines (for formatting)
+ * @param targetCapacityGB Target pool capacity in GB (for trim reporting)
  */
-cudaError_t gpuMalloc(void** devPtr, size_t size, cudaStream_t stream, 
-                      const char* tag, const char* functionTag, 
-                      const char* file, int line);
+void hostPoolReportStats(const char* prefix, double targetCapacityGB);
 
 /**
- * @brief GPU memory deallocation with optional logging
+ * @brief Analyze warmup effectiveness by comparing targets vs. actual usage
  */
-cudaError_t gpuFree(void* devPtr, cudaStream_t stream, 
-                    const char* tag, const char* functionTag, 
-                    const char* file, int line);
+void hostPoolAnalyzeWarmupEffectiveness();
 
-// Templated wrapper for type safety
+/**
+ * @brief Analyze memory growth trends over time
+ */
+void hostPoolAnalyzeGrowth();
+
+// ----------------------------------------------------------------------------
+// Host Pool API with Logging - Pool-based Allocation
+// ----------------------------------------------------------------------------
+
+/**
+ * @brief Host memory allocation from pool with logging (use hostPoolMalloc macro)
+ * 
+ * @param ptr Output pointer to allocated memory
+ * @param size Size to allocate in bytes
+ * @param tag Pointer identifier tag
+ * @param functionTag Function context tag
+ * @param file Source file
+ * @param line Line number
+ * @return cudaError_t from allocation operation
+ */
+cudaError_t hostPoolMallocImpl(void** ptr, size_t size,
+                               const char* tag, const char* functionTag,
+                               const char* file, int line);
+
+/**
+ * @brief Host memory deallocation to pool with logging (use hostPoolFree macro)
+ * 
+ * @param ptr Pointer to free
+ * @param tag Pointer identifier tag
+ * @param functionTag Function context tag
+ * @param file Source file
+ * @param line Line number
+ * @return cudaError_t from free operation
+ */
+cudaError_t hostPoolFreeImpl(void* ptr,
+                             const char* tag, const char* functionTag,
+                             const char* file, int line);
+
+// ----------------------------------------------------------------------------
+// Host API with Logging - Direct Allocation (Bypass Pool)
+// ----------------------------------------------------------------------------
+
+/**
+ * @brief Direct host memory allocation with logging (use hostMalloc macro)
+ * 
+ * Bypasses the pool and allocates directly using cudaMallocHost.
+ * 
+ * @param ptr Output pointer to allocated memory
+ * @param size Size to allocate in bytes
+ * @param tag Pointer identifier tag
+ * @param functionTag Function context tag
+ * @param file Source file
+ * @param line Line number
+ * @return cudaError_t from allocation operation
+ */
+cudaError_t hostMallocImpl(void** ptr, size_t size,
+                           const char* tag, const char* functionTag,
+                           const char* file, int line);
+
+/**
+ * @brief Direct host memory deallocation with logging (use hostFree macro)
+ * 
+ * Bypasses the pool and frees directly using cudaFreeHost.
+ * 
+ * @param ptr Pointer to free
+ * @param tag Pointer identifier tag
+ * @param functionTag Function context tag
+ * @param file Source file
+ * @param line Line number
+ * @return cudaError_t from free operation
+ */
+cudaError_t hostFreeImpl(void* ptr,
+                         const char* tag, const char* functionTag,
+                         const char* file, int line);
+
+// ----------------------------------------------------------------------------
+// Host Pool Type-Safe Wrappers (Templates)
+// ----------------------------------------------------------------------------
+
+/**
+ * @brief Type-safe wrapper for host pool allocation
+ */
 template <typename T>
-inline cudaError_t gpuMallocTyped(T** ptr, size_t size, cudaStream_t stream, 
-                                  const char* pointerIdTag, const char* functionTag, 
-                                  const char* file, int line) {
-    return gpuMalloc(reinterpret_cast<void**>(ptr), size, stream, 
-                     pointerIdTag, functionTag, file, line);
+inline cudaError_t hostPoolMallocTyped(T** ptr, size_t size,
+                                       const char* pointerIdTag, const char* functionTag,
+                                       const char* file, int line) {
+    return hostPoolMallocImpl(reinterpret_cast<void**>(ptr), size,
+                              pointerIdTag, functionTag, file, line);
 }
 
-// Convenience macros
-#define gpuMallocHelper(ptr, size, stream, funcTag) \
-    gpuMallocTyped(ptr, size, stream, #ptr, funcTag, __FILE__, __LINE__)
-
-#define gpuFreeHelper(ptr, stream, funcTag) \
-    gpuFree(ptr, stream, #ptr, funcTag, __FILE__, __LINE__)
-
-// ============================================================================
-// Host Memory Allocation with Logging
-// ============================================================================
-
 /**
- * @brief Host memory allocation with optional logging
+ * @brief Type-safe wrapper for direct host allocation (bypass pool)
  */
-cudaError_t hostMalloc(void** ptr, size_t size,
-                       const char* tag, const char* functionTag,
-                       const char* file, int line);
-
-/**
- * @brief Host memory deallocation with optional logging
- */
-cudaError_t hostFree(void* ptr,
-                     const char* tag, const char* functionTag,
-                     const char* file, int line);
-
-// Templated wrapper for type safety
 template <typename T>
 inline cudaError_t hostMallocTyped(T** ptr, size_t size,
                                    const char* pointerIdTag, const char* functionTag,
                                    const char* file, int line) {
-    return hostMalloc(reinterpret_cast<void**>(ptr), size,
-                      pointerIdTag, functionTag, file, line);
+    return hostMallocImpl(reinterpret_cast<void**>(ptr), size,
+                          pointerIdTag, functionTag, file, line);
 }
 
-// Convenience macros
-#define hostMallocHelper(ptr, size, funcTag) \
+// ----------------------------------------------------------------------------
+// Host Pool Public API Macros
+// ----------------------------------------------------------------------------
+
+// Pool-based allocation
+#define hostPoolMalloc(ptr, size, funcTag) \
+    hostPoolMallocTyped(ptr, size, #ptr, funcTag, __FILE__, __LINE__)
+
+#define hostPoolFree(ptr, funcTag) \
+    hostPoolFreeImpl(ptr, #ptr, funcTag, __FILE__, __LINE__)
+
+// Direct allocation (bypasses pool)
+#define hostMalloc(ptr, size, funcTag) \
     hostMallocTyped(ptr, size, #ptr, funcTag, __FILE__, __LINE__)
 
-#define hostFreeHelper(ptr, funcTag) \
-    hostFree(ptr, #ptr, funcTag, __FILE__, __LINE__)
+#define hostFree(ptr, funcTag) \
+    hostFreeImpl(ptr, #ptr, funcTag, __FILE__, __LINE__)
+
+// ----------------------------------------------------------------------------
+// Host Pool Cleanup
+// ----------------------------------------------------------------------------
+
+/**
+ * @brief Cleanup host memory pool
+ * 
+ * Frees all blocks from the pool back to the OS and clears internal data structures.
+ * 
+ * @return cudaSuccess after cleanup completes
+ */
+cudaError_t hostPoolCleanup();
 
 #endif // CUDA
 
 #endif // MEMORY_POOL_H
-

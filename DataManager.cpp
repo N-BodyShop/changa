@@ -49,6 +49,9 @@ void DataManager::init() {
   cpuMemLog = new MemLog();
   lockCpuMemLog = CmiCreateLock();
   bCpuMemLogger = 0; // Default disabled
+  dHostPoolTargetCapacityGB = 5.0; // Default target capacity
+  nHostPoolMinCapacityPerBucketMB = 50; // Default minimum per bucket
+  bHostPoolDebug = 0; // Default disabled
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
@@ -445,6 +448,9 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
 #ifdef CUDA
     bGpuMemLogger = param.bGpuMemLogger;
     bCpuMemLogger = param.bCpuMemLogger;
+    dHostPoolTargetCapacityGB = param.dHostPoolTargetCapacityGB;
+    nHostPoolMinCapacityPerBucketMB = param.nHostPoolMinCapacityPerBucketMB;
+    bHostPoolDebug = param.bHostPoolDebug;
 #endif
     contribute(cb);
     // parameter structure requires some cleanup
@@ -610,10 +616,11 @@ void DataManager::finishLocalWalk() {
 
 #ifdef GPU_LOCAL_TREE_WALK
 #ifdef PINNED_HOST_MEMORY
-  // EXPERIMENT: Direct free for large local tree buffers (bypassed pool)
-  cudaFreeHost(bufLocalMoments);
-  cudaFreeHost(bufLocalParts);
-  cudaFreeHost(bufLocalVars);
+  // Direct free for large local tree buffers (bypasses pool but logs analytics)
+  const char* funcTag = "DataManager::finishLocalWalk";
+  hostFree(bufLocalMoments, funcTag);
+  hostFree(bufLocalParts, funcTag);
+  hostFree(bufLocalVars, funcTag);
 #else
   free(bufLocalMoments);
   free(bufLocalParts);
@@ -1047,16 +1054,17 @@ void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
   size_t sLocalParts = numParticles*sizeof(CompactPartData);
   size_t sLocalMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
 #ifdef PINNED_HOST_MEMORY
-  // Bypass pool for large local tree buffers
-  cudaMallocHost((void **)&bufLocalParts, sLocalParts);
-  cudaMallocHost((void **)&bufLocalMoments, sLocalMoments);
+  // Bypass pool for large local tree buffers (but log analytics)
+  const char* funcTag = "DataManager::sendLocalData";
+  hostMalloc(&bufLocalParts, sLocalParts, funcTag);
+  hostMalloc(&bufLocalMoments, sLocalMoments, funcTag);
 #else
   bufLocalParts = (CompactPartData *) malloc(sLocalParts);
   bufLocalMoments = (CudaMultipoleMoments *) malloc(sLocalMoments);
 #endif
 
   int pTPindex = 0;
-  treePiecesBuff;
+  treePiecesBufferFilled = 0;
   for(int i = 0; i < numTreePieces; i++){
       treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer((intptr_t) bufLocalParts,
 		      (intptr_t) bufLocalMoments, (intptr_t) localMoments.getVec(), pTPindex,
@@ -1106,8 +1114,9 @@ void DataManager::transferLocalToGPU(int numParticles, GenericTreeNode *node)
 #endif
 
 #ifdef PINNED_HOST_MEMORY
-  // Bypass pool for large local tree buffers
-  cudaMallocHost((void **)&bufLocalVars, sLocalVars);
+  // Bypass pool for large local tree buffers (but log analytics)
+  const char* funcTag = "DataManager::transferLocalToGPU";
+  hostMalloc(&bufLocalVars, sLocalVars, funcTag);
 #else
   bufLocalVars = (VariablePartData *) malloc(sLocalVars);
 #endif
@@ -1249,11 +1258,11 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
         treePiecesParticlesUpdated = 0;
 
 	  const char* funcTag = "DataManager::transferParticleVarsBack";
-    gpuFreeHelper(d_localMoments, stream, funcTag);   
-    gpuFreeHelper(d_localParts, stream, funcTag);    
-    gpuFreeHelper(d_localVars, stream, funcTag);     
-    gpuFreeHelper(d_remoteMoments, stream, funcTag); 
-    gpuFreeHelper(d_remoteParts, stream, funcTag);   
+    gpuFree(d_localMoments, stream, funcTag);   
+    gpuFree(d_localParts, stream, funcTag);    
+    gpuFree(d_localVars, stream, funcTag);     
+    gpuPoolFree(d_remoteMoments, stream, funcTag); 
+    gpuPoolFree(d_remoteParts, stream, funcTag);   
 
         if(data->size > 0){
 #ifdef PINNED_HOST_MEMORY
@@ -1264,8 +1273,23 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
         }
         delete (data->cb);
         delete data;
+        cudaDeviceSynchronize();
+
     }
     CmiUnlock(__nodelock);
 }
+
+// After after each BigStep, trims the host pool to reclaim memory
+void DataManager::trimHostPool(double targetCapacityGB, const CkCallback& cb){
+  hostPoolTrim(targetCapacityGB, nHostPoolMinCapacityPerBucketMB);
+  contribute(cb);
+}
+
+// After trimming, refills hot buckets to prepare for next timestep
+void DataManager::refillHostPool(const CkCallback& cb){
+  hostPoolAdaptiveRefill();
+  contribute(cb);
+}
+
 
 #endif // CUDA

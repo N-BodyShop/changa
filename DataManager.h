@@ -207,6 +207,12 @@ public:
 	CmiNodeLock lockCpuMemLog;
 	/// @brief Flag to enable CPU memory logging
 	int bCpuMemLogger;
+	/// @brief Target capacity for host pool trim in GB
+	double dHostPoolTargetCapacityGB;
+	/// @brief Minimum capacity per bucket during trim in MB
+	int nHostPoolMinCapacityPerBucketMB;
+	/// @brief Flag to enable host pool debug output
+	int bHostPoolDebug;
 #endif
 
 	DataManager(const CkArrayID& treePieceID);
@@ -319,6 +325,8 @@ public:
 #ifdef CUDA
     void flushMemLog(const CkCallback& cb);
     void flushCpuMemLog(const CkCallback& cb);
+    void trimHostPool(double targetCapacityGB, const CkCallback& cb);
+    void refillHostPool(const CkCallback& cb);
 #endif
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift
@@ -364,16 +372,16 @@ class ProjectionsControl : public CBase_ProjectionsControl {
     cudaGetDeviceCount(&numGpus);
     cudaSetDevice(CmiMyNode() % numGpus);
     
-    // Initialize GPU memory pools with warmup for typical allocation patterns
+    // Initialize GPU & host memory pools with warmup for typical allocation patterns
     // Only initialize once per node (first PE on each node)
     static CmiNodeLock initLock = CmiCreateLock();
-    static bool poolInitialized = false;
+    static bool poolsInitialized = false;
     
     CmiLock(initLock);
-    if (!poolInitialized) {
-        poolInitWithWarmup();       // Device pool warmup
-        hostPoolInitWithWarmup();   // Host pool warmup
-        poolInitialized = true;
+    if (!poolsInitialized) {
+        gpuPoolInit();       // Device pool warmup
+        hostPoolInit();   // Host pool warmup
+        poolsInitialized = true;
     }
     CmiUnlock(initLock);
 #endif
