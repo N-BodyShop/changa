@@ -989,18 +989,12 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
 #ifdef CUDA
-       void assignGPUGravityPtrs(intptr_t d_localMoments,
-                                 intptr_t d_localParts,
-                                 intptr_t d_localVars,
-                                 size_t sMoments, size_t sCompactParts, size_t sVarParts);
-       void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
        void fillGPUBuffer(intptr_t bufLocalParts,
                           intptr_t bufLocalMoments,
                           intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
         void updateParticles(intptr_t data, int partIndex);
-#else
-        void continueStartRemoteChunk(int chunk);
 #endif
+        void continueStartRemoteChunk(int chunk);
         void continueWrapUp();
 
 #if INTERLIST_VER > 0

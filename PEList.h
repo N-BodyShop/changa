@@ -57,6 +57,11 @@ class PEList : public CBase_PEList
     int bRemote;
     int bResume;
 
+    /// Indicate whether remote prefetch data has transferred to the GPU
+    int bRemoteReady;
+    /// Flags whether the GPU kernel launch was delayed due to the data transfer
+    int bKernelDelayed;
+
     CudaMultipoleMoments *d_localMoments;
     CompactPartData *d_localParts;
     VariablePartData *d_localVars;
@@ -73,15 +78,19 @@ class PEList : public CBase_PEList
         bRemote = _bRemote;
         bResume = _bResume;
 
+	bKernelDelayed = 0;
+
 	finalBucketMarker = -1;
+	request = nullptr;
 	cudaStreamCreate(&stream);
     }
     PEList(CkMigrateMessage *m) : CBase_PEList(m) {}
     ~PEList() { cudaStreamDestroy(stream); }
     void pup(PUP::er &p) {}
 
-
     void finishWalk(TreePiece *treePiece);
+    void launchKernel();
+    void tryLaunchDelayedKernel();
     void sendList(TreePiece *treePiece, CudaRequest *data);
     void reset();
 };

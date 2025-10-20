@@ -21,16 +21,43 @@ void PEList::finishWalk(TreePiece *treePiece) {
         return;
 
     // bucketMarkers[i+1] is needed to determine # of IL entries per bucket
-    if(vtpLocal.size() == cTreePieces.count && finalBucketMarker != -1)
+    if(finalBucketMarker != -1)
 	bucketMarkers.push_back(finalBucketMarker);
 
+    finishCb = new CkCallback(CkIndex_TreePiece::finishWalkCb(), treePiece);
+
+    // If the DataManager device pointer is NULL, the GPU data transfer is
+    // still in progress and we need to delay the kernel launch
+    if ((!bRemote && dMProxy.ckLocalBranch()->d_localMoments == nullptr) ||
+        (bRemote && dMProxy.ckLocalBranch()->d_remoteMoments == nullptr)) bKernelDelayed = 1;
+    else launchKernel();
+}
+
+/// @brief Called from DataManager after remote transfer finishes. Launch our kernel if it was delayed
+void PEList::tryLaunchDelayedKernel() {
+    if (bKernelDelayed) {
+        launchKernel();
+    }
+}
+
+/// @brief Launch the corresponding CUDA kernel, depending what type of request this was
+void PEList::launchKernel() {
     request = new CudaRequest;
 
-    request->d_localMoments = d_localMoments;
-    request->d_localParts = d_localParts;
-    request->d_localVars = d_localVars;
-    request->d_remoteParts = d_remoteParts;
-    request->d_remoteMoments = d_remoteMoments;
+    // Ensure required data is present on the GPU
+    CkAssert(dMProxy.ckLocalBranch()->d_localMoments != nullptr);
+    CkAssert(dMProxy.ckLocalBranch()->d_localParts != nullptr);
+    CkAssert(dMProxy.ckLocalBranch()->d_localVars != nullptr);
+    if (bRemote) {
+        CkAssert(dMProxy.ckLocalBranch()->d_remoteParts != nullptr);
+        CkAssert(dMProxy.ckLocalBranch()->d_remoteMoments != nullptr);
+    }
+
+    request->d_localMoments = dMProxy.ckLocalBranch()->d_localMoments;
+    request->d_localParts = dMProxy.ckLocalBranch()->d_localParts;
+    request->d_localVars = dMProxy.ckLocalBranch()->d_localVars;
+    request->d_remoteParts = dMProxy.ckLocalBranch()->d_remoteParts;
+    request->d_remoteMoments = dMProxy.ckLocalBranch()->d_remoteMoments;
     request->stream = stream;
 
     request->numBucketsPlusOne = bucketSizes.size()+1;
@@ -49,21 +76,21 @@ void PEList::finishWalk(TreePiece *treePiece) {
     request->bucketSizes = bucketSizes.data();
     request->numInteractions = iList.size();
 
+    request->cb = finishCb;
+
     void (*transferFunc)(CudaRequest*);
     if (bNode) {
-	transferFunc = bRemote ? PEListNodeListDataTransferRemote : PEListNodeListDataTransferLocal;
-	if (bResume) {
-		transferFunc = PEListNodeListDataTransferRemoteResume;
-	}
+        transferFunc = bRemote ? PEListNodeListDataTransferRemote : PEListNodeListDataTransferLocal;
+        if (bResume) {
+                transferFunc = PEListNodeListDataTransferRemoteResume;
+        }
     } else {
-	transferFunc = bRemote ? PEListPartListDataTransferRemote : PEListPartListDataTransferLocal;
-	if (bResume) {
-		transferFunc = PEListPartListDataTransferRemoteResume;
-	}
+        transferFunc = bRemote ? PEListPartListDataTransferRemote : PEListPartListDataTransferLocal;
+        if (bResume) {
+                transferFunc = PEListPartListDataTransferRemoteResume;
+        }
     }
 
-    finishCb = new CkCallback(CkIndex_TreePiece::finishWalkCb(), treePiece);
-    request->cb = finishCb;
     transferFunc(request);
 }
 
@@ -115,13 +142,6 @@ void PEList::sendList(TreePiece *treePiece, CudaRequest* data) {
 	}
     }
 
-    // This really only needs to happen once per PE
-    // These values are the same for all TreePieces
-    d_localMoments = data->d_localMoments;
-    d_localParts = data->d_localParts;
-    d_localVars = data->d_localVars;
-    d_remoteParts = data->d_remoteParts;
-    d_remoteMoments = data->d_remoteMoments;
     fperiod = data->fperiod;
 
     // Call finishBucket for all buckets involved in this interaction
@@ -154,9 +174,12 @@ void PEList::reset() {
 
     cTreePieces.reset();
     vtpLocal.clear();
+    bRemoteReady = 0;
+    bKernelDelayed = 0;
     finalBucketMarker = -1;
     delete finishCb;
     delete request;
+    request = nullptr;
 }
 
 #endif

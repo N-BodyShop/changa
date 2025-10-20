@@ -13,6 +13,7 @@
 #include "cuda_typedef.h"
 #include "SFC.h"
 #include "GPUMemoryPool.h"
+#include "PEList.h"
 #endif
 
 #include "Compute.h"
@@ -40,12 +41,16 @@ void DataManager::init() {
   treePiecesDoneRemoteChunkComputation = 0;
   PEsWantParticlesBack = 0;
   treePiecesParticlesUpdated = 0;
-  localDataDone = false;
-  waitForLocalData = false;
   cudaStreamCreate(&stream);
   memLog = new MemLog();
   lockMemLog = CmiCreateLock();
   bGpuMemLogger = 0; // Default disabled
+
+  d_localMoments = nullptr;
+  d_localParts = nullptr;
+  d_localVars = nullptr;
+  d_remoteMoments = nullptr;
+  d_remoteParts = nullptr;
 #endif
   Cool = CoolInit();
   starLog = new StarLog();
@@ -631,18 +636,11 @@ void DataManager::finishLocalWalk() {
 /// in one big kernel launch
 void DataManager::startLocalWalk() {
     delete localTransferCallback;
-    localDataDone = true;
 
-    if (waitForLocalData)
-      transferPrefetch();
-
-    // Notify TreePieces of device memory pointers for remote gravity
+    // We arent calculating local gravity on the CPU, but bookkeeping
+    // still needs to be handled
     for(int i = 0; i < registeredTreePieces.length(); i++){
       int in = registeredTreePieces[i].treePiece->getIndex();
-	    registeredTreePieces[i].treePiece->assignGPUGravityPtrs((intptr_t)d_localMoments,
-                                                              (intptr_t)d_localParts,
-                                                              (intptr_t)d_localVars,
-                                                              sMoments, sCompactParts, sVarParts);
       treePieces[in].commenceCalculateGravityLocal();
     }
 
@@ -702,28 +700,11 @@ void DataManager::resumeRemoteChunk() {
   delete currentChunkBuffers->cb;
   delete currentChunkBuffers;
 
-#ifdef PINNED_HOST_MEMORY
-  if(bufRemoteMoments != NULL)
-      freePinnedHostMemory(bufRemoteMoments);
-  if(bufRemoteParts != NULL)
-      freePinnedHostMemory(bufRemoteParts);
-#else
-  if(bufRemoteMoments != NULL)
-      free(bufRemoteMoments);
-  if(bufRemoteParts != NULL)
-      free(bufRemoteParts);
-#endif
-
-    // resume each treepiece's startRemoteChunk, now that the nodes
-    // are properly labeled and the particles accounted for
-    for(int i = 0; i < registeredTreePieces.length(); i++){
-      if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk %d\n", CkMyPe(), i);
-      int in = registeredTreePieces[i].treePiece->getIndex();
-#if COSMO_PRINT_BK > 1
-      CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
-#endif
-      treePieces[in].continueStartRemoteChunk(chunk, (intptr_t)d_remoteMoments, (intptr_t)d_remoteParts);
-    }
+ // Check and see if the remote walks already finished and are waiting
+ // to launch their GPU kernels
+ for (int i = 0; i < numPEListProxies; i++) {
+     PEListProxies[i]->tryLaunchDelayedKernel();
+ }
 }
 
 /// @brief record when all TreePieces have finished their prefetch.
@@ -736,18 +717,6 @@ void DataManager::donePrefetch(int chunk){
   if(treePiecesDonePrefetch == registeredTreePieces.length()){
     treePiecesDonePrefetch = 0;
 
-    if (!localDataDone) {
-      waitForLocalData = true;
-      CmiUnlock(__nodelock);
-      return;
-    } else {
-      transferPrefetch();
-    }
-  }
-  CmiUnlock(__nodelock);
-}
-
-void DataManager::transferPrefetch() {
     // The chunk infrastructure is not used, this should always be 0
     int savedChunk = 0;
 #ifdef HAPI_TRACE
@@ -757,6 +726,17 @@ void DataManager::transferPrefetch() {
 #ifdef HAPI_TRACE
     traceUserBracketEvent(CUDA_SER_TREE, starttime, CmiWallTimer());
 #endif
+
+  // Commence the remote walk
+  for(int i = 0; i < registeredTreePieces.length(); i++){
+      if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk %d\n", CkMyPe(), i);
+      int in = registeredTreePieces[i].treePiece->getIndex();
+#if COSMO_PRINT_BK > 1
+      CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
+#endif
+      treePieces[in].continueStartRemoteChunk(0);
+    }
+
     PendingBuffers *buffers = currentChunkBuffers;
     lastChunkMoments = buffers->moments->length();
     lastChunkParticles = buffers->particles->length();
@@ -795,9 +775,8 @@ void DataManager::transferPrefetch() {
 				   (void **)&d_remoteMoments,  (void **)&d_remoteParts,
 				   stream,
 				   remoteChunkTransferCallback);
-    waitForLocalData = false;
-    localDataDone = false;
-
+  }
+  CmiUnlock(__nodelock);
 }
 
 typedef std::map<KeyType, CkCacheEntry<KeyType>*> cacheType;
@@ -1241,12 +1220,31 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
     if(treePiecesParticlesUpdated == registeredTreePieces.length()){
         treePiecesParticlesUpdated = 0;
 
+#ifdef PINNED_HOST_MEMORY
+  if(bufRemoteMoments != NULL)
+      freePinnedHostMemory(bufRemoteMoments);
+  if(bufRemoteParts != NULL)
+      freePinnedHostMemory(bufRemoteParts);
+#else
+  if(bufRemoteMoments != NULL)
+      free(bufRemoteMoments);
+  if(bufRemoteParts != NULL)
+      free(bufRemoteParts);
+#endif
+
+	CkPrintf("[%d] clean up device pointers\n", CmiMyPe());
 	  const char* funcTag = "DataManager::transferParticleVarsBack"; // Define the function tag
     gpuFreeHelper(d_localMoments, funcTag);   
     gpuFreeHelper(d_localParts, funcTag);    
     gpuFreeHelper(d_localVars, funcTag);     
     gpuFreeHelper(d_remoteMoments, funcTag); 
     gpuFreeHelper(d_remoteParts, funcTag);   
+    
+        d_localMoments = nullptr;
+        d_localParts = nullptr;
+        d_localVars = nullptr;
+        d_remoteMoments = nullptr;
+        d_remoteParts = nullptr;
 
         if(data->size > 0){
 #ifdef PINNED_HOST_MEMORY
