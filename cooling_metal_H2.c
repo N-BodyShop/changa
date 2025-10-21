@@ -2967,7 +2967,8 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
       // energy and calculate current abundances using clAbunds
       if (y[0] < EMin) {
         clAbunds( d->cl, Y, &d->Rate, d->rho, d->ZMetal);
-        y[0] = EMin;
+        YTotal = Y->HII + Y->HeII + 2*Y->HeIII + d->Y_H + d->Y_He + d->ZMetal/MU_METAL -  Y->H2;
+        y[0] = clThermalEnergy( YTotal, cl->TMin );
         y[1] = Y->HI;
         y[2] = Y->HeI;
         y[3] = Y->HeII;
