@@ -577,71 +577,63 @@ namespace {
  * ranging from 256B to 64MB across 19 bucket sizes. Total warmup allocates
  * and immediately frees blocks to populate the pool's free-lists.
  */
+// Shared warmup configuration - single source of truth
+// This configuration is used by:
+// 1. hostPoolInit() - for actual warmup allocation
+// 2. hostPoolGetWarmupTarget() - for trim targets
+// 3. hostPoolAnalyzeWarmupEffectiveness() - for analysis targets
+// 4. hostPoolAdaptiveRefill() - for refill target buckets
+// Modify only this array to change warmup behavior everywhere
+namespace {
+    struct WarmupConfig {
+        size_t size;
+        int count;
+    };
+    
+    // Warmup configuration - single place to modify bucket sizes and counts
+    const WarmupConfig g_warmupConfig[] = {
+        {256, 1000},             // 256 B 
+        {512, 1500},             // 512 B 
+        {1024, 1000},            // 1 KB 
+        {2048, 1000},            // 2 KB 
+        {4096, 1500},            // 4 KB 
+        {8192, 1500},            // 8 KB 
+        {16384, 500},            // 16 KB 
+        {32768, 500},            // 32 KB 
+        {64 * 1024, 500},        // 64 KB 
+        {128 * 1024, 800},       // 128 KB 
+        {256 * 1024, 300},       // 256 KB 
+        {512 * 1024, 300},       // 512 KB 
+        {1 * 1024 * 1024, 1},    // 1 MB 
+        {2 * 1024 * 1024, 1},    // 2 MB 
+        {4 * 1024 * 1024, 1},    // 4 MB 
+        {8 * 1024 * 1024, 1},    // 8 MB 
+        {16 * 1024 * 1024, 5},   // 16 MB 
+        {32 * 1024 * 1024, 1},   // 32 MB 
+        {64 * 1024 * 1024, 5}    // 64 MB 
+    };
+    
+    const int g_numWarmupSizes = sizeof(g_warmupConfig) / sizeof(g_warmupConfig[0]);
+}
+
 void hostPoolInit() {
     if (g_hostPoolLock == nullptr) {
         g_hostPoolLock = CmiCreateLock();
     }
     
-    // Warm-up bucket sizes
-    size_t sizes[] = {
-        256,             // 256 B
-        512,             // 512 B
-        1024,            // 1 KB
-        2048,            // 2 KB
-        4096,            // 4 KB  
-        8192,            // 8 KB
-        16384,           // 16 KB
-        32768,           // 32 KB
-        64 * 1024,       // 64 KB
-        128 * 1024,      // 128 KB 
-        256 * 1024,      // 256 KB
-        512 * 1024,      // 512 KB
-        1 * 1024 * 1024, // 1 MB
-        2 * 1024 * 1024, // 2 MB
-        4 * 1024 * 1024, // 4 MB
-        8 * 1024 * 1024, // 8 MB
-        16 * 1024 * 1024,// 16 MB
-        32 * 1024 * 1024,// 32 MB
-        64 * 1024 * 1024 // 64 MB
-    };
-    
-    // Per bucket block counts for warm-up
-    int counts[] = {
-        1000,  // 256 B 
-        1500,  // 512 B 
-        1000,  // 1 KB 
-        1000,  // 2 KB 
-        1000,  // 4 KB 
-        1000,  // 8 KB 
-        150,   // 16 KB 
-        150,   // 32 KB 
-        200,   // 64 KB 
-        250,   // 128 KB 
-        100,   // 256 KB 
-        100,   // 512 KB 
-        1,     // 1 MB 
-        1,     // 2 MB 
-        1,     // 4 MB 
-        1,     // 8 MB 
-        1,     // 16 MB 
-        1,     // 32 MB 
-        1      // 64 MB 
-    };
-    
-    int numSizes = sizeof(sizes) / sizeof(sizes[0]);
     size_t totalWarmupBytes = 0;
     
-    for (int i = 0; i < numSizes; i++) {
-        for (int j = 0; j < counts[i]; j++) {
+    for (int i = 0; i < g_numWarmupSizes; i++) {
+        for (int j = 0; j < g_warmupConfig[i].count; j++) {
             void* ptr = nullptr;
-            cudaError_t res = hostPoolMallocRaw(&ptr, sizes[i]);
+            cudaError_t res = hostPoolMallocRaw(&ptr, g_warmupConfig[i].size);
             if (res != cudaSuccess) {
                 CkPrintf("WARNING: Host pool warmup failed for size %zu: %s\n", 
-                         sizes[i], cudaGetErrorString(res));
+                         g_warmupConfig[i].size, cudaGetErrorString(res));
                 return;
             }
             hostPoolFreeRaw(ptr);
-            totalWarmupBytes += sizes[i];
+            totalWarmupBytes += g_warmupConfig[i].size;
         }
     }
     
@@ -905,29 +897,13 @@ cudaError_t hostFreeImpl(void* ptr,
  * @return Target number of blocks (0 = no target, use dynamic trimming)
  */
 int hostPoolGetWarmupTarget(size_t bucket) {
-    // Match the warmup configuration from hostPoolInit
-    switch (bucket) {
-        case 256: return 1000;
-        case 512: return 1500;
-        case 1024: return 1000;
-        case 2048: return 1000;
-        case 4096: return 1000;
-        case 8192: return 1000;
-        case 16384: return 150;
-        case 32768: return 150;
-        case 65536: return 200;
-        case 131072: return 250;
-        case 262144: return 100;
-        case 524288: return 100;
-        case 1048576: return 1;
-        case 2097152: return 1;
-        case 4194304: return 1;
-        case 8388608: return 1;
-        case 16777216: return 1;
-        case 33554432: return 1;
-        case 67108864: return 1;
-        default: return 0; // No warmup target - dynamic bucket
+    // Look up target from shared warmup configuration
+    for (int i = 0; i < g_numWarmupSizes; i++) {
+        if (g_warmupConfig[i].size == bucket) {
+            return g_warmupConfig[i].count;
+        }
     }
+    return 0; // No warmup target - dynamic bucket
 }
 
 /**
@@ -1044,33 +1020,12 @@ void hostPoolAdaptiveRefill() {
     
     CmiLock(g_hostPoolLock);
     
-    // Hot bucket sizes to potentially refill
-    size_t hotSizes[] = {
-        256,             // 256 B
-        512,             // 512 B
-        1024,            // 1 KB
-        2048,            // 2 KB
-        4096,            // 4 KB
-        8192,            // 8 KB
-        64 * 1024,       // 64 KB
-        128 * 1024,      // 128 KB
-        256 * 1024,      // 256 KB
-        512 * 1024,      // 512 KB
-        1 * 1024 * 1024, // 1 MB
-        2 * 1024 * 1024, // 2 MB
-        4 * 1024 * 1024, // 4 MB
-        8 * 1024 * 1024, // 8 MB
-        16 * 1024 * 1024,// 16 MB
-        32 * 1024 * 1024,// 32 MB
-        64 * 1024 * 1024 // 64 MB
-    };
-    
-    int numSizes = sizeof(hotSizes) / sizeof(hotSizes[0]);
+    // Use shared warmup configuration for refill targets
     int totalRefilled = 0;
     size_t totalRefillBytes = 0;
     
-    for (int i = 0; i < numSizes; i++) {
-        size_t bucket = hotSizes[i];
+    for (int i = 0; i < g_numWarmupSizes; i++) {
+        size_t bucket = g_warmupConfig[i].size;
         auto missIt = g_bucketMissCount.find(bucket);
         
         // Only refill if we had misses and current free count is low
@@ -1297,16 +1252,11 @@ void hostPoolAnalyzeWarmupEffectiveness() {
         return;
     }
     
-    // Warmup targets from hostPoolInit()
-    std::unordered_map<size_t, int> warmupTargets = {
-        {256, 1000}, {512, 1500}, {1024, 1000},
-        {2048, 1000}, {4096, 1000}, {8192, 1000},
-        {16384, 150}, {32768, 150}, {65536, 200},
-        {131072, 250}, {262144, 100}, {524288, 100},
-        {1048576, 1}, {2097152, 1}, {4194304, 1},
-        {8388608, 1}, {16777216, 1}, {33554432, 1},
-        {67108864, 1}
-    };
+    // Build warmup targets from shared configuration - always in sync
+    std::unordered_map<size_t, int> warmupTargets;
+    for (int i = 0; i < g_numWarmupSizes; i++) {
+        warmupTargets[g_warmupConfig[i].size] = g_warmupConfig[i].count;
+    }
     
     CkPrintf("\n=== WARMUP EFFECTIVENESS ANALYSIS ===\n");
     

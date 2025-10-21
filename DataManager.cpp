@@ -490,8 +490,9 @@ void DataManager::serializeLocalTree(){
 /// @brief Get the data produced by TreePiece::EwaldInit and launch the Ewald kernel on the GPU
 void DataManager::startEwaldGPU() {
 #ifdef PINNED_HOST_MEMORY
-  allocatePinnedHostMemory((void **)&ewt, sizeof(EwtData)*NEWH);
-  allocatePinnedHostMemory((void **)&cachedData, sizeof(EwaldReadOnlyData));
+  const char* funcTag = "DataManager::startEwaldGPU";
+  hostMalloc(&ewt, sizeof(EwtData)*NEWH, funcTag);
+  hostMalloc(&cachedData, sizeof(EwaldReadOnlyData), funcTag);
 #else
   ewt = (EwtData *) malloc(sizeof(EwtData)*NEWH);
   cachedData = (EwaldReadOnlyData *) malloc(sizeof(EwaldReadOnlyData));
@@ -594,8 +595,9 @@ void DataManager::finishEwaldGPU() {
   delete ewaldCallback;
 
 #ifdef PINNED_HOST_MEMORY
-  freePinnedHostMemory(ewt);
-  freePinnedHostMemory(cachedData);
+  const char* funcTag = "DataManager::finishEwaldGPU";
+  hostFree(ewt, funcTag);
+  hostFree(cachedData, funcTag);
 #else
   free(ewt);
   free(cachedData);
@@ -715,10 +717,11 @@ void DataManager::resumeRemoteChunk() {
   delete currentChunkBuffers;
 
 #ifdef PINNED_HOST_MEMORY
+  const char* funcTag = "DataManager::resumeRemoteChunk";
   if(bufRemoteMoments != NULL)
-      freePinnedHostMemory(bufRemoteMoments);
+      hostFree(bufRemoteMoments, funcTag);
   if(bufRemoteParts != NULL)
-      freePinnedHostMemory(bufRemoteParts);
+      hostFree(bufRemoteParts, funcTag);
 #else
   if(bufRemoteMoments != NULL)
       free(bufRemoteMoments);
@@ -781,7 +784,8 @@ void DataManager::transferPrefetch() {
     size_t sRemMoments = lastChunkMoments*sizeof(CudaMultipoleMoments);
     if(sRemMoments > 0) {
 #ifdef PINNED_HOST_MEMORY
-	allocatePinnedHostMemory((void **)&bufRemoteMoments, sRemMoments);
+	const char* funcTag = "DataManager::transferPrefetch";
+	hostMalloc(&bufRemoteMoments, sRemMoments, funcTag);
 #else
 	bufRemoteMoments = (CudaMultipoleMoments *) malloc(sRemMoments);
 #endif
@@ -792,7 +796,8 @@ void DataManager::transferPrefetch() {
     size_t sRemParts = lastChunkParticles*sizeof(CompactPartData);
     if(sRemParts > 0) {
 #ifdef PINNED_HOST_MEMORY
-	allocatePinnedHostMemory((void **)&bufRemoteParts, sRemParts);
+	const char* funcTag = "DataManager::transferPrefetch";
+	hostMalloc(&bufRemoteParts, sRemParts, funcTag);
 #else
 	bufRemoteParts = (CompactPartData *) malloc(sRemParts);
 #endif
@@ -1189,7 +1194,8 @@ void DataManager::transferParticleVarsBack(){
     
     if(savedNumTotalParticles > 0){
 #ifdef PINNED_HOST_MEMORY
-      allocatePinnedHostMemory((void **)&buf, savedNumTotalParticles*sizeof(VariablePartData));
+      const char* funcTag = "DataManager::transferParticleVarsBack";
+      hostMalloc(&buf, savedNumTotalParticles*sizeof(VariablePartData), funcTag);
 #else
       buf = (VariablePartData *) malloc(savedNumTotalParticles*sizeof(VariablePartData));
 #endif
@@ -1266,7 +1272,8 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
 
         if(data->size > 0){
 #ifdef PINNED_HOST_MEMORY
-            freePinnedHostMemory(data->buf);
+            const char* funcTag = "DataManager::updateParticlesFreeMemory";
+            hostFree(data->buf, funcTag);
 #else
             free(data->buf);
 #endif
