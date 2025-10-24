@@ -702,8 +702,14 @@ void DataManager::resumeRemoteChunk() {
 
  // Check and see if the remote walks already finished and are waiting
  // to launch their GPU kernels
+ int pe;
+ int firstPE = CkNodeFirst(CkMyNode());
+ int nPEs = CkNodeSize(CkMyNode());
  for (int i = 0; i < numPEListProxies; i++) {
-     PEListProxies[i]->tryLaunchDelayedKernel();
+     for (int j = 0; j < nPEs; j++) {
+         pe = firstPE + j;
+         (*(PEListProxies[i]))[pe].tryLaunchDelayedKernel();
+     }
  }
 }
 
