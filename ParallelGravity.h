@@ -343,6 +343,13 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 };
 #endif
 
+#ifdef CUDA
+struct fillGPUMsg: public CMessage_fillGPUMsg {
+  int partIndex;
+  int nParts;
+};
+#endif
+
 /// Class to count added and deleted particles
 class CountSetPart 
 {
@@ -989,9 +996,7 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
 #ifdef CUDA
-       void fillGPUBuffer(intptr_t bufLocalParts,
-                          intptr_t bufLocalMoments,
-                          intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
+       void fillGPUBuffer(fillGPUMsg *msg);
         void updateParticles(intptr_t data, int partIndex);
 #endif
         void continueStartRemoteChunk(int chunk);

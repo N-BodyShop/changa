@@ -1037,9 +1037,14 @@ void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
   int pTPindex = 0;
   treePiecesBufferFilled = 0;
   for(int i = 0; i < numTreePieces; i++){
-      treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer((intptr_t) bufLocalParts,
-		      (intptr_t) bufLocalMoments, (intptr_t) localMoments.getVec(), pTPindex,
-		      numParticles, (intptr_t) nodeRoot);
+      // Give fillGPUBuffer priority over SPH
+      // We want the GPU kernels to start ASAP to minimize idle time on the host
+      fillGPUMsg *msg = new (8*sizeof(int)) fillGPUMsg;
+      msg->partIndex = pTPindex;
+      msg->nParts = numParticles;
+      *((int *)CkPriorityPtr(msg)) = -100000000 - i;
+      CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+      treePieces[registeredTreePieces[i].treePiece->getIndex()].fillGPUBuffer(msg);
       pTPindex += registeredTreePieces[i].treePiece->getDMNumParticles();
       }
 }
@@ -1047,9 +1052,8 @@ void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
 ///
 /// @brief After all pieces have filled the buffer, initiate the transfer.
 /// @param numParticles total number of particles on this node
-/// @param node root of tree
 ///
-void DataManager::transferLocalToGPU(int numParticles, GenericTreeNode *node)
+void DataManager::transferLocalToGPU(int numParticles)
 {
     CmiLock(__nodelock);
     treePiecesBufferFilled++;
@@ -1064,7 +1068,7 @@ void DataManager::transferLocalToGPU(int numParticles, GenericTreeNode *node)
 
   double starttime = CmiWallTimer();
 #ifdef GPU_LOCAL_TREE_WALK
-  transformLocalTreeRecursive(node, localMoments);
+  transformLocalTreeRecursive(root, localMoments);
 #endif //GPU_LOCAL_TREE_WALK
 #ifdef HAPI_TRACE
   traceUserBracketEvent(SER_LOCAL_TRANSFORM, starttime, CmiWallTimer());

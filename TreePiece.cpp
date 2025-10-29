@@ -3782,21 +3782,14 @@ void TreePiece::finishBucket(int iBucket) {
 
 #ifdef CUDA
 /// @brief Fill GPU buffer with particle data
-/// @param bufLocalParts GPU buffer for particles
-/// @param bufLocalMoments GPU buffer for Moments
-/// @param pLocalMoments pointer to vector of Moments to be copied into the GPU
-/// buffer
-/// @param partIndex index into bufLocalParts at which to copy this
-/// TreePieces particles
-/// @param nParts total number of particles to be transfered to the
-/// GPU (pass through)
-/// @param node Root node of tree walk (pass through)
-void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
-                              intptr_t bufLocalMoments,
-                              intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node)
+/// @param msg A struct containing info on where to write in the shared buffer
+void TreePiece::fillGPUBuffer(fillGPUMsg *msg)
 {
-    CompactPartData *aLocalParts = (CompactPartData *)bufLocalParts;
-    CudaMultipoleMoments *aLocalMoments = (CudaMultipoleMoments *)pLocalMoments;
+    int partIndex = msg->partIndex;
+    int nParts = msg->nParts;
+
+    CompactPartData *aLocalParts = dm->getBufLocalParts();
+    CudaMultipoleMoments *aLocalMoments = dm->getLocalMoments();
     getDMParticles(aLocalParts, partIndex);
 #ifdef GPU_LOCAL_TREE_WALK
     // set the bucketStart and bucketSize for each bucket Node
@@ -3818,7 +3811,7 @@ void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
       }
     }
 #endif
-    dm->transferLocalToGPU(nParts, (GenericTreeNode *)node);
+    dm->transferLocalToGPU(nParts);
 }
 
 /// @brief update particle accelerations with GPU results

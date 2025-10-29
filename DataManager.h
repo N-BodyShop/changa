@@ -194,6 +194,12 @@ public:
 	CmiNodeLock lockMemLog;
 	/// @brief Flag to enable GPU memory logging
 	int bGpuMemLogger;
+
+	/// Allow TreePiece::fillGPUBuffer to access node-wide buffers and data
+	CudaMultipoleMoments* getLocalMoments() { return localMoments.getVec(); }
+	CudaMultipoleMoments* getBufLocalMoments() { return bufLocalMoments; }
+	CompactPartData* getBufLocalParts() { return bufLocalParts; }
+	VariablePartData* getBufLocalVars() { return bufLocalVars; }
 #endif
 
 	DataManager(const CkArrayID& treePieceID);
@@ -215,7 +221,7 @@ public:
         // actual serialization methods
         PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
-	void transferLocalToGPU(int nParts, GenericTreeNode *node);
+	void transferLocalToGPU(int nParts);
         void freeLocalTreeMemory();
         void freeRemoteChunkMemory(int chunk);
         void transferParticleVarsBack();
