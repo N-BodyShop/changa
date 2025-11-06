@@ -373,20 +373,6 @@ cudaError_t gpuFreeImpl(void* devPtr, cudaStream_t stream,
     return result;
 }
 
-// ----------------------------------------------------------------------------
-// GPU Pool Cleanup
-// ----------------------------------------------------------------------------
-
-/**
- * @brief Destroy the GPU memory pool and cleanup
- * 
- * Cleans up host pool resources. Note: CUDA automatically manages
- * GPU pool resources, so no explicit GPU cleanup is needed.
- */
-void gpuPoolDestroy() {
-    hostPoolCleanup();
-}
-
 // ============================================================================
 // Host Memory Pool (Pinned Memory)
 // ============================================================================
@@ -580,9 +566,8 @@ namespace {
 // Shared warmup configuration - single source of truth
 // This configuration is used by:
 // 1. hostPoolInit() - for actual warmup allocation
-// 2. hostPoolGetWarmupTarget() - for trim targets
-// 3. hostPoolAnalyzeWarmupEffectiveness() - for analysis targets
-// 4. hostPoolAdaptiveRefill() - for refill target buckets
+// 2. hostPoolAnalyzeWarmupEffectiveness() - for analysis targets
+// 3. hostPoolAdaptiveRefill() - for refill target buckets
 // Modify only this array to change warmup behavior everywhere
 namespace {
     struct WarmupConfig {
@@ -885,26 +870,6 @@ cudaError_t hostFreeImpl(void* ptr,
 // ----------------------------------------------------------------------------
 // Host Pool Maintenance & Trimming
 // ----------------------------------------------------------------------------
-
-/**
- * @brief Get warmup target for a given bucket size
- * 
- * Returns the target number of blocks that should be kept in the pool
- * for this bucket size. Buckets with warmup targets should not be trimmed
- * below these values.
- * 
- * @param bucket Bucket size in bytes
- * @return Target number of blocks (0 = no target, use dynamic trimming)
- */
-int hostPoolGetWarmupTarget(size_t bucket) {
-    // Look up target from shared warmup configuration
-    for (int i = 0; i < g_numWarmupSizes; i++) {
-        if (g_warmupConfig[i].size == bucket) {
-            return g_warmupConfig[i].count;
-        }
-    }
-    return 0; // No warmup target - dynamic bucket
-}
 
 /**
  * @brief Trim host pool to target capacity
@@ -1399,35 +1364,6 @@ void hostPoolAnalyzeGrowth() {
     }
     
     CkPrintf("=== END ANALYSIS ===\n\n");
-}
-
-// ----------------------------------------------------------------------------
-// Host Pool Cleanup
-// ----------------------------------------------------------------------------
-
-/**
- * @brief Cleanup host memory pool
- * 
- * Frees all blocks from the pool back to the OS and clears internal data structures.
- * Should be called during shutdown.
- * 
- * @return cudaSuccess after cleanup completes
- */
-cudaError_t hostPoolCleanup() {
-    if (g_hostPoolLock == nullptr) return cudaSuccess;
-    
-    CmiLock(g_hostPoolLock);
-    for (auto &kv : g_hostFreePool) {
-        for (void* p : kv.second) {
-            cudaFreeHost(p);
-        }
-    }
-    g_hostFreePool.clear();
-    g_hostPointerSizes.clear();
-    g_bucketUsageCount.clear();
-    g_bucketMissCount.clear();
-    CmiUnlock(g_hostPoolLock);
-    return cudaSuccess;
 }
 
 // ============================================================================

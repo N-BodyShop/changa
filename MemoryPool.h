@@ -174,15 +174,6 @@ inline cudaError_t gpuMallocTyped(T** ptr, size_t size, cudaStream_t stream,
 #define gpuFree(ptr, stream, funcTag) \
     gpuFreeImpl(ptr, stream, #ptr, funcTag, __FILE__, __LINE__)
 
-// ----------------------------------------------------------------------------
-// GPU Pool Cleanup
-// ----------------------------------------------------------------------------
-
-/**
- * @brief Destroy the GPU memory pool and cleanup
- */
-void gpuPoolDestroy();
-
 // ============================================================================
 // Host Memory Pool (Pinned Memory)
 // ============================================================================
@@ -223,14 +214,6 @@ cudaError_t hostPoolFreeRaw(void* ptr);
 // ----------------------------------------------------------------------------
 // Host Pool Maintenance & Trimming
 // ----------------------------------------------------------------------------
-
-/**
- * @brief Get warmup target for a given bucket size
- * 
- * @param bucket Bucket size in bytes
- * @return Target number of blocks (0 = no target, use dynamic trimming)
- */
-int hostPoolGetWarmupTarget(size_t bucket);
 
 /**
  * @brief Trim host pool to target capacity
@@ -385,19 +368,6 @@ inline cudaError_t hostMallocTyped(T** ptr, size_t size,
 
 #define hostFree(ptr, funcTag) \
     hostFreeImpl(ptr, #ptr, funcTag, __FILE__, __LINE__)
-
-// ----------------------------------------------------------------------------
-// Host Pool Cleanup
-// ----------------------------------------------------------------------------
-
-/**
- * @brief Cleanup host memory pool
- * 
- * Frees all blocks from the pool back to the OS and clears internal data structures.
- * 
- * @return cudaSuccess after cleanup completes
- */
-cudaError_t hostPoolCleanup();
 
 #endif // CUDA
 
