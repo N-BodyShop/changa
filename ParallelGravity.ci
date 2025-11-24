@@ -514,7 +514,6 @@ mainmodule ParallelGravity {
     entry void startlb(const CkCallback &cb, int activeRung, bool bDoLB);
     entry void ResumeFromSync();
 
-    entry void minmaxNCOut(CkReference<OutputParams> params, const CkCallback& cb);
     entry void outputStatistics(const CkCallback& cb);
     entry void collectStatistics(const CkCallback &cb);
 
@@ -591,8 +590,9 @@ mainmodule ParallelGravity {
     entry void oneNodeOutArr(CkReference<OutputParams>, double adOut[nPart],
 			   int nPart, int iIndex, int bDone,
 			   const CkCallback& cb) ;
-   entry void oneNodeOutIntArr(CkReference<OutputParams>, int aiOut[nPart],
+    entry void oneNodeOutIntArr(CkReference<OutputParams>, int aiOut[nPart],
                                 int nPart, int iIndex, const CkCallback& cb);
+    entry void minmaxNCOut(CkReference<OutputParams> params, const CkCallback& cb);
   };
   array [1D] LvArray {
       entry LvArray();

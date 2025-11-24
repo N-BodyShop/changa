@@ -109,6 +109,7 @@ public:
                        const CkCallback& cb) ;
     void oneNodeOutIntArr(OutputParams& params, int *aiOut,
                           int nPart, int iIndex, const CkCallback& cb);
+    void minmaxNCOut(OutputParams& params, const CkCallback& cb);
     void outputBinary(Ck::IO::Session session, OutputParams& params);
     void outputBinaryStart(OutputParams& params, int64_t nStart,
                            const CkCallback& cb);

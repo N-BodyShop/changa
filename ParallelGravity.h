@@ -1956,8 +1956,6 @@ public:
     int shufflelen);
 	void ResumeFromSync();
 
-        void minmaxNCOut(OutputParams& params, const CkCallback& cb);
-
 	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
         void collectStatistics(const CkCallback &cb);

@@ -2020,8 +2020,8 @@ void Main::cbIOClosed(CkMessage *msg)
     }
     else {
         CkReductionMsg *msgMinMax;
-        treeProxy.minmaxNCOut(*pOutput,
-                           CkCallbackResumeThread((void *&)msgMinMax));
+        writeProxy.minmaxNCOut(*pOutput,
+                               CkCallbackResumeThread((void *&)msgMinMax));
         pOutput->iTypeWriting >>= 1;  // Kludge quickly get the
                                          // current filename from
                                          // getNCNextOutput()
@@ -2097,22 +2097,22 @@ void Main::cbIOClosed(CkMessage *msg)
     cbIO.send();
 }
 
-void TreePiece::minmaxNCOut(OutputParams& params, const CkCallback& cb)
+void Writer::minmaxNCOut(OutputParams& params, const CkCallback& cb)
 {
     OrientedBox<float> bbVec;
     float minmax[2] = {FLT_MAX, -FLT_MAX};
     int64_t iminmax[2] = {INT_MAX, -INT_MAX};
     params.dm = dm; // pass cooling information
 
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
-        if((TYPETest(&myParticles[i], params.iType)
-            && TYPETest(&myParticles[i], params.iTypeWriting))
+    for(unsigned int i = 0; i < vMyParticles.size(); ++i) {
+        if((TYPETest(&vMyParticles[i], params.iType)
+            && TYPETest(&vMyParticles[i], params.iTypeWriting))
            || params.iBinaryOut != 6) {
           if(params.bFloat) {
             if(params.bVector)
-                bbVec.grow(params.vValue(&myParticles[i]));
+                bbVec.grow(params.vValue(&vMyParticles[i]));
             else {
-                float dValue = params.dValue(&myParticles[i]);
+                float dValue = params.dValue(&vMyParticles[i]);
                 if(dValue < minmax[0])
                     minmax[0] = dValue;
                 if(dValue > minmax[1])
@@ -2120,7 +2120,7 @@ void TreePiece::minmaxNCOut(OutputParams& params, const CkCallback& cb)
                 }
             }
           else {
-              int64_t iValue = params.iValue(&myParticles[i]);
+              int64_t iValue = params.iValue(&vMyParticles[i]);
               if(iValue < iminmax[0])
                   iminmax[0] = iValue;
               if(iValue > iminmax[1])
