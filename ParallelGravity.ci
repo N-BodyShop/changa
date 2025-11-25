@@ -95,6 +95,13 @@ mainmodule ParallelGravity {
   message dummyMsg;
   message ComputeChunkMsg;
 
+#ifdef CUDA
+  message fillGPUMsg{
+    int partIndex;
+    int nParts;
+  };
+#endif
+
   message ORBSplittersMsg{
     double pos[];
     char dim[];
@@ -546,19 +553,11 @@ mainmodule ParallelGravity {
 
     // jetley
 #ifdef CUDA
-    entry void assignGPUGravityPtrs(intptr_t d_localMoments,
-                                    intptr_t d_localParts,
-                                    intptr_t d_localVars,
-                                    size_t sMoments, size_t sCompactParts, size_t sVarParts);
-    entry void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
-    entry void fillGPUBuffer(intptr_t bufLocalParts,
-                             intptr_t bufLocalMoments,
-                             intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
+    entry void fillGPUBuffer(fillGPUMsg* msg);
     entry void updateParticles(intptr_t data, int partIndex);
     entry void finishWalkCb();
-#else
-    entry void continueStartRemoteChunk(int chunk);
 #endif
+    entry void continueStartRemoteChunk(int chunk);
     entry void continueWrapUp();
 
     // jetley - balancing before initial forces
@@ -589,6 +588,7 @@ mainmodule ParallelGravity {
 #ifdef CUDA
   group [migratable] PEList {
     entry PEList(int _bNode, int _bRemote, int _bResume);
+    entry void tryLaunchDelayedKernel();
   };
 #endif
 

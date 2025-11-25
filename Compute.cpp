@@ -1089,6 +1089,7 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
       }
       markers[numFilledBuckets] = listpos;
       CkAssert(listpos == totalNumInteractions);
+      CkAssert(starts[0] >= 0); // Ensure tree serialization has already finished
     }
 
     CudaRequest *request = new CudaRequest;
@@ -1189,6 +1190,7 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
       }
       markers[numFilledBuckets] = listpos;
       CkAssert(listpos == numParticleInteractions);
+      CkAssert(starts[0] >= 0); // Ensure tree serialization has already finished
     }
 
     CudaRequest *request = new CudaRequest;
@@ -1816,10 +1818,6 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
   data->missedNodes = NULL;
   data->missedParts = NULL;
   
-  data->d_localMoments = tp->d_localMoments;
-  data->d_localParts = tp->d_localParts;
-  data->d_localVars = tp->d_localVars;
-  data->d_remoteMoments = tp->d_remoteMoments;
   data->stream = tp->stream;
 
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS
@@ -1906,9 +1904,6 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
   data->missedNodes = NULL;
   data->missedParts = NULL;
 
-  data->d_localParts = tp->d_localParts;
-  data->d_localVars = tp->d_localVars;
-  data->d_remoteParts = tp->d_remoteParts;
   data->stream = tp->stream;
 
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS

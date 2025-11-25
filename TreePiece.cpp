@@ -3782,21 +3782,14 @@ void TreePiece::finishBucket(int iBucket) {
 
 #ifdef CUDA
 /// @brief Fill GPU buffer with particle data
-/// @param bufLocalParts GPU buffer for particles
-/// @param bufLocalMoments GPU buffer for Moments
-/// @param pLocalMoments pointer to vector of Moments to be copied into the GPU
-/// buffer
-/// @param partIndex index into bufLocalParts at which to copy this
-/// TreePieces particles
-/// @param nParts total number of particles to be transfered to the
-/// GPU (pass through)
-/// @param node Root node of tree walk (pass through)
-void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
-                              intptr_t bufLocalMoments,
-                              intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node)
+/// @param msg A struct containing info on where to write in the shared buffer
+void TreePiece::fillGPUBuffer(fillGPUMsg *msg)
 {
-    CompactPartData *aLocalParts = (CompactPartData *)bufLocalParts;
-    CudaMultipoleMoments *aLocalMoments = (CudaMultipoleMoments *)pLocalMoments;
+    int partIndex = msg->partIndex;
+    int nParts = msg->nParts;
+
+    CompactPartData *aLocalParts = dm->getBufLocalParts();
+    CudaMultipoleMoments *aLocalMoments = dm->getLocalMoments();
     getDMParticles(aLocalParts, partIndex);
 #ifdef GPU_LOCAL_TREE_WALK
     // set the bucketStart and bucketSize for each bucket Node
@@ -3818,7 +3811,7 @@ void TreePiece::fillGPUBuffer(intptr_t bufLocalParts,
       }
     }
 #endif
-    dm->transferLocalToGPU(nParts, (GenericTreeNode *)node);
+    dm->transferLocalToGPU(nParts);
 }
 
 /// @brief update particle accelerations with GPU results
@@ -5272,21 +5265,6 @@ void TreePiece::initiatePrefetch(int chunk){
 
 }
 
-#ifdef CUDA
-/// @brief Used by the DataManager to assign device memory pointers to TreePieces
-void TreePiece::assignGPUGravityPtrs(intptr_t d_localMoments,
-                                     intptr_t d_localParts,
-                                     intptr_t d_localVars,
-                                     size_t sMoments, size_t sCompactParts, size_t sVarParts) {
-      this->d_localMoments = (CudaMultipoleMoments *)d_localMoments;
-      this->d_localParts = (CompactPartData *)d_localParts;
-      this->d_localVars = (VariablePartData *)d_localVars;
-      this->sMoments = sMoments;
-      this->sCompactParts = sCompactParts;
-      this->sVarParts = sVarParts;
-}
-#endif
-
 /// @brief Entry method wrapper for calculateGravityLocal
 void TreePiece::commenceCalculateGravityLocal(){
 #if INTERLIST_VER > 0 
@@ -5309,9 +5287,11 @@ void TreePiece::startRemoteChunk() {
     // dm counts until all treepieces have acknowledged prefetch completion
     // it then flattens the tree on the processor, sends it to the device
     // and sends messages to each of the registered treepieces to continueStartRemoteChunk()
+    // note that continueStartRemoteChunk needs both the local and remote data
+    // serialization to complete first
     dm->donePrefetch(sPrefetchState->currentBucket);
   } else {
-    continueStartRemoteChunk(sPrefetchState->currentBucket, 0, 0);
+    continueStartRemoteChunk(sPrefetchState->currentBucket);
   }
 #else
   continueStartRemoteChunk(sPrefetchState->currentBucket);
@@ -5321,15 +5301,7 @@ void TreePiece::startRemoteChunk() {
 /// @brief Main work of StartRemoteChunk()
 /// Schedule a TreePiece::calculateGravityRemote() then start
 /// prefetching for the next chunk.
-#ifdef CUDA
-void TreePiece::continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts){
-  if (!bUseCpu) {
-    this->d_remoteMoments = (CudaMultipoleMoments *)d_remoteMoments;
-    this->d_remoteParts = (CompactPartData *)d_remoteParts;
-  }
-#else
 void TreePiece::continueStartRemoteChunk(int chunk){
-#endif
   // FIXME - can value of chunk be different from current Prefetch?
   ComputeChunkMsg *msg = new (8*sizeof(int)) ComputeChunkMsg(sPrefetchState->currentBucket);
   *(int*)CkPriorityPtr(msg) = numTreePieces * numChunks + thisIndex + 1;

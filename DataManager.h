@@ -117,11 +117,6 @@ protected:
         // TreePiece counter for multi-threaded GPU host buffer copy
 	int treePiecesBufferFilled;
 
-        // Flags to ensure local data transfer completes
-        // before prefetch data transfer
-        bool localDataDone;
-        bool waitForLocalData;
-
         /// Callback pointers to pass to HAPI.
         CkCallback *localTransferCallback;
         CkCallback *localWalkCallback;
@@ -147,16 +142,6 @@ protected:
         CompactPartData *bufLocalParts;
         /// host buffer to transfer initial accelerations to GPU
         VariablePartData *bufLocalVars;
-
-	// Pointers to particle and tree data on GPU
-	CudaMultipoleMoments *d_localMoments;
-        CudaMultipoleMoments *d_remoteMoments;
-        CompactPartData *d_localParts;
-	CompactPartData *d_remoteParts;
-        VariablePartData *d_localVars;
-        size_t sMoments;
-        size_t sCompactParts;
-        size_t sVarParts;
 
         EwtData *ewt;
         EwaldReadOnlyData *cachedData;
@@ -194,6 +179,16 @@ public:
 	CmiNodeLock lockStarLog;
 
 #ifdef CUDA
+	// Pointers to particle and tree data on GPU
+	CudaMultipoleMoments *d_localMoments;
+        CudaMultipoleMoments *d_remoteMoments;
+        CompactPartData *d_localParts;
+	CompactPartData *d_remoteParts;
+        VariablePartData *d_localVars;
+        size_t sMoments;
+        size_t sCompactParts;
+        size_t sVarParts;
+
 	/// @brief log of CUDA memory events.
 	MemLog *memLog;
 	/// @brief Lock for accessing memlog from CUDA wrappers
@@ -213,6 +208,12 @@ public:
 	int nHostPoolMinCapacityPerBucketMB;
 	/// @brief Flag to enable host pool debug output
 	int bHostPoolDebug;
+
+	/// Allow TreePiece::fillGPUBuffer to access node-wide buffers and data
+	CudaMultipoleMoments* getLocalMoments() { return localMoments.getVec(); }
+	CudaMultipoleMoments* getBufLocalMoments() { return bufLocalMoments; }
+	CompactPartData* getBufLocalParts() { return bufLocalParts; }
+	VariablePartData* getBufLocalVars() { return bufLocalVars; }
 #endif
 
 	DataManager(const CkArrayID& treePieceID);
@@ -225,7 +226,6 @@ public:
         void startEwaldGPU();
         void finishEwaldGPU();
         void donePrefetch(int chunk); // serialize remote chunk wrapper
-        void transferPrefetch();
         void serializeLocalTree();
 
 #ifdef GPU_LOCAL_TREE_WALK
@@ -235,7 +235,7 @@ public:
         // actual serialization methods
         PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
-	void transferLocalToGPU(int nParts, GenericTreeNode *node);
+	void transferLocalToGPU(int nParts);
         void freeLocalTreeMemory();
         void freeRemoteChunkMemory(int chunk);
         void transferParticleVarsBack();
