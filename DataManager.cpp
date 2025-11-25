@@ -57,6 +57,14 @@ void DataManager::init() {
   lockStarLog = CmiCreateLock();
 }
 
+#ifdef CUDA
+/// @brief Initialize CUDA stream for this DataManager
+void DataManager::createStream(const CkCallback& cb) {
+  cudaStreamCreate(&stream);
+  contribute(cb);
+}
+#endif
+
 /**
  * Fill in responsibleIndex after ORB decomposition
  */
@@ -1242,7 +1250,6 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
       free(bufRemoteParts);
 #endif
 
-	CkPrintf("[%d] clean up device pointers\n", CmiMyPe());
 	  const char* funcTag = "DataManager::transferParticleVarsBack"; // Define the function tag
     gpuFreeHelper(d_localMoments, funcTag);   
     gpuFreeHelper(d_localParts, funcTag);    

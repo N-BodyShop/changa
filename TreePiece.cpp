@@ -4976,8 +4976,19 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
       cacheGravPart.ckLocalBranch()->finishedChunk(i, 0);
     }
     nodeLBMgrProxy.ckLocalBranch()->finishedTPWork();
-    CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
-    gravityProxy[thisIndex].ckLocal()->contribute(cbf);
+    if (bUseCpu) {
+      CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
+      gravityProxy[thisIndex].ckLocal()->contribute(cbf);
+    }
+#ifdef CUDA
+    else {
+      // Every PE must call TransferParticleVarsBack, even if no particle data
+      for (int i = 0; i < numPEListProxies; i++) {
+        PEListProxies[i]->ckLocalBranch()->finishWalk(this);
+      }
+      gravityProxy[thisIndex].ckLocal()->contribute();
+    }
+#endif
     bBucketsInited = true;
     return;
   }

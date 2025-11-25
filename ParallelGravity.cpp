@@ -2207,6 +2207,10 @@ void Main::advanceBigStep(int iStep) {
 void Main::setupICs() {
   double startTime;
 
+#ifdef CUDA
+  dMProxy.createStream(CkCallbackResumeThread());
+#endif
+
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,

@@ -211,6 +211,7 @@ public:
 #ifdef CUDA
         void startEwaldGPU();
         void finishEwaldGPU();
+        void createStream(const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
 
