@@ -1099,8 +1099,8 @@ void Writer::setupWrite(int iStage, // stage of scan
                                                     duTFac, bDoublePos,
                                                     bDoubleVel, bCool, cb);
 	    }
-        //	if(thisIndex == (int) CkNumPes()-1)
-        //  assert(nStartWrite+myNumParticles == nTotalParticles);
+        if(thisIndex == (int) CkNumPes()-1)
+            assert(nStartWrite+vMyParticles.size() == nTotalParticles);
 	nSetupWriteStage = -1;	// reset for next time.
 	parallelWrite(0, cb, filename, dTime, dvFac, duTFac, bDoublePos,
                       bDoubleVel, bCool);
@@ -1274,7 +1274,7 @@ Writer::oneNodeWrite(int iIndex, // Index of Treepiece
     writeTipsy(*globalTipsyWriter, vParticles, dvFac, duTFac, bDoublePos,
                bDoubleVel, bCool);
     
-    if(iIndex < (numTreePieces - 1))
+    if(iIndex < (CkNumPes() - 1))
 	thisProxy[iIndex+1].serialWrite(iPrevOffset + vParticles.size(), filename,
 					dTime, dvFac, duTFac, 
                                         bDoublePos, bDoubleVel, bCool, cb);
@@ -1408,7 +1408,7 @@ void Writer::writeTipsy(Tipsy::TipsyWriter& w,
             else
                 write_tipsy_dark<double,double>(w, vParticles[i], dvFac);
 	    }
-	else if(vParticles[i+1].isStar()) {
+	else if(vParticles[i].isStar()) {
             if(!bDoublePos)
                 write_tipsy_star<float,float>(w, vParticles[i], dvFac);
             else if(!bDoubleVel)
@@ -1504,6 +1504,8 @@ void TreePiece::fillWriters(int64_t _nMaxOrder)
                              (binEnd-binBegin));
                 writeProxy[iPe].receive(vPartOut, vSPHOut, vStarOut);
 	    }
+            if(&myParticles[myNumParticles+1] <= binEnd)
+                break;
 	    binBegin = binEnd;
 	    }
 	}
@@ -1667,12 +1669,12 @@ void Writer::outputASCII(OutputParams& params, // specifies
       else {
         if(params.bFloat) {
 	  if(params.bVector && packed)
-	      avOut[i-1] = vOut;
+	      avOut[i] = vOut;
 	  else
-	      adOut[i-1] = dOut;
+	      adOut[i] = dOut;
 	  }
         else
-            aiOut[i-1] = iOut;
+            aiOut[i] = iOut;
         }
       }
   cnt++;
