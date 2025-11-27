@@ -8,22 +8,27 @@
 #include <vector>
 #include "ParallelGravity.decl.h"
 
+/// @brief Per-processor element of the Writer charm group.
 class Writer : public CBase_Writer {
-public:
-    
 private:
+    /// Storage for the particle data to be written by this group.
     std::vector<GravityParticle> vMyParticles;
     std::vector<extraSPHData> vMySPHParticles;
     std::vector<extraStarData> vMyStarParticles;
+    /// Total particles in the entire simulation; needed for writing
+    /// file headers.
     int64_t nTotalParticles;
+    /// Total SPH particles for file header.
     int64_t nTotalSPH;
+    /// Total dark particles for file header.
     int64_t nTotalDark;
+    /// Total star particles for file header.
     int64_t nTotalStar;
-    /// A local pointer to my DataManager.
+    /// A local pointer to my DataManager.for cooling information
     DataManager* dm;
     /// Setup for writing
     int nSetupWriteStage;
-    int64_t nStartWrite;	// Particle number at which this piece starts
+    int64_t nStartWrite;	// Particle number at which this element starts
 				// to write file.
     /// used to determine which coordinate we are outputting, while printing
     /// accelerations in ASCII format
