@@ -5851,8 +5851,6 @@ void TreePiece::pup(PUP::er& p) {
   p | boundingBox;
   p | iterationNo;
 
-  p | nSetupWriteStage;
-
   p | rndGen;
 
   // Periodic variables
@@ -5882,7 +5880,6 @@ void TreePiece::pup(PUP::er& p) {
   p | numOpenCriterionCalls;
   p | piecemass;
 #endif
-  p | packed;
 
   if (p.isUnpacking()) {
     particleInterRemote = NULL;
