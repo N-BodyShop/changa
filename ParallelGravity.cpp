@@ -3209,64 +3209,6 @@ Main::doSimulation()
       // assign each particle its domain for diagnostic.
       treeProxy.assignDomain(CkCallbackResumeThread());
 
-      if((!param.bDoGas) && param.bDoDensity) {
-	  // If gas isn't being calculated, we can do the total
-	  // densities before we start the output.
-	  ckout << "Calculating total densities ...";
-	  DensitySmoothParams pDen(TYPE_GAS|TYPE_DARK|TYPE_STAR, 0);
-	  startTime = CkWallTimer();
-	  double dfBall2OverSoft2 = 0.0;
-	  treeProxy.startSmooth(&pDen, 1, param.nSmooth, dfBall2OverSoft2,
-				CkCallbackResumeThread());
-	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		<< endl;
-#if 0
-	  // For testing concurrent Sph, we don't want to do the
-	  // resmooth.
-
-          ckout << "Recalculating densities ...";
-          startTime = CkWallTimer();
-	  treeProxy.startIterationReSmooth(&pDen, CkCallbackResumeThread());
-          ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
-#endif
-	  treeProxy.finishNodeCache(CkCallbackResumeThread());
-          reOrder();
-          if(param.iBinaryOut == 6) {
-              // Set up N-Chilada directory structure
-              CkMustAssert(safeMkdir(achFile.c_str()) == 0, "Can't create N-Chilada directories\n");
-              if(nTotalSPH > 0) {
-                    string dirname(string(achFile) + "/gas");
-                    CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
-                    }
-              if(nTotalDark > 0) {
-                    string dirname(string(achFile) + "/dark");
-                    CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
-                    }
-              if(nTotalStar > 0) {
-                    string dirname(string(achFile) + "/star");
-                    CkMustAssert(safeMkdir(dirname.c_str()) == 0, "Can't create N-Chilada directories\n");
-                    }
-              }
-	  ckout << "Outputting densities ...";
-	  startTime = CkWallTimer();
-	  DenOutputParams pDenOut(achFile, param.iBinaryOut, 0.0);
-          if(param.iBinaryOut)
-              outputBinary(pDenOut, param.bParaWrite, CkCallbackResumeThread());
-          else
-              writeProxy[0].outputASCII(pDenOut, param.bParaWrite, CkCallbackResumeThread());
-	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
-		<< endl;
-	  ckout << "Outputting hsmooth ...";
-	  HsmOutputParams pHsmOut(achFile, param.iBinaryOut, 0.0);
-          if(param.iBinaryOut)
-              outputBinary(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
-          else
-              writeProxy[0].outputASCII(pHsmOut, param.bParaWrite, CkCallbackResumeThread());
-	  }
-      else {
-          reOrder();
-	  }
-
       writeOutput(0);
       if(param.bDoGas) {
 	  ckout << "Outputting gas properties ...";
@@ -3372,7 +3314,7 @@ Main::doSimulation()
           writeProxy[0].outputASCII(pKey, param.bParaWrite, CkCallbackResumeThread());
           writeProxy[0].outputASCII(pDomain, param.bParaWrite, CkCallbackResumeThread());
           }
-      if(param.bDoGas && param.bDoDensity) {
+      if(param.bDoDensity) {
 	  // The following call is to get the particles in key order
 	  // before the sort.
 	  treeProxy.drift(0.0, 0, 0, 0.0, 0.0, 0, true, param.dMaxEnergy,
@@ -3388,10 +3330,15 @@ Main::doSimulation()
 					 CkCallbackResumeThread());
 	  ckout << " took " << (CkWallTimer() - startTime) << " seconds."
 		<< endl;
+#if 0
+	  // For testing concurrent Sph; we don't want to do the
+	  // resmooth.
+
           ckout << "Recalculating densities ...";
           startTime = CkWallTimer();
 	  treeProxy.startReSmooth(&pDen, CkCallbackResumeThread());
           ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+#endif
 	  treeProxy.finishNodeCache(CkCallbackResumeThread());
           reOrder();
 	  ckout << "Outputting densities ...";
