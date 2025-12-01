@@ -18,6 +18,5 @@ class PEUnshuffle : public CBase_PEUnshuffle
     void pup(PUP::er &p) { CBase_PEUnshuffle::pup(p); }
 
     void sendParticlesDuringDD(TreePiece *treePiece);
-    void ioShuffle(TreePiece *treePiece, int64_t *startParticle);
 };
 #endif
