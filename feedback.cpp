@@ -16,7 +16,6 @@
 #include "feedback.h"
 #include "smooth.h"
 #include "Sph.h"
-#include "lymanwerner.h"
 
 #define max(A,B) ((A) > (B) ? (A) : (B))
 ///
@@ -42,6 +41,12 @@ void Fdbk::AddParams(PRM prm)
     prmAddParam(prm,"bSmallSNSmooth", paramBool, &bSmallSNSmooth, sizeof(int),
 		"bSmallSNSmooth",
 		"<smooth SN ejecta over blast or smoothing radius> = blast radius");
+    sn.bUseStoch = 0;
+    prmAddParam(prm,"bUseStoch",paramInt, &sn.bUseStoch, sizeof(int),
+            "usestoch","<Enable stochastic IMF>");
+    sn.dStochCut = 8.0;
+    prmAddParam(prm,"dStochCut",paramDouble, &sn.dStochCut, sizeof(double),
+            "stochcut","<Cut off mass for stochastic IMF> = 8.0");
     bShortCoolShutoff = 0;
     prmAddParam(prm,"bShortCoolShutoff", paramBool, &bShortCoolShutoff,
 		    sizeof(int), "bShortCoolShutoff", "<Use snowplow time> = 0");
@@ -121,6 +126,11 @@ void Fdbk::CheckParams(PRM prm, struct parameters &param)
 #endif
     param.bDoGas = 1;
     dDeltaStarForm = param.stfm->dDeltaStarForm;
+#if defined(STOCH12) || defined(STOCH24)
+    if(!sn.bUseStoch) CkPrintf("Running non-stochastic IMF but stochastic IMF compiled in\n");
+#else
+    if(sn.bUseStoch) CkAbort("Stochastic IMF requested but not compiled in");
+#endif
     dSecUnit = param.dSecUnit;
     dGmPerCcUnit = param.dGmPerCcUnit;
     dGmUnit = param.dMsolUnit*MSOLG;
@@ -320,13 +330,6 @@ void Main::StellarFeedback(double dTime, double dDelta)
     treeProxy.startReSmooth(&pSHG, CkCallbackResumeThread());
 #endif
     treeProxy.finishNodeCache(CkCallbackResumeThread());
-#ifdef CUDA
-        // We didn't do gravity where the registered TreePieces on the
-        // DataManager normally get cleared.  Clear them here instead.
-        if (nActiveGrav > param.nGpuMinParts) {
-            dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
-        }
-#endif
 
 #ifdef SPLITGAS
     addDelParticles();//Don't forget to run an addDelParticles after a split
@@ -357,6 +360,21 @@ void Main::StellarFeedback(double dTime, double dDelta)
     delete msgChk;
     delete msgChk2;
     }
+void Main::initLWData(){
+    dMProxy.initLWData(CkCallbackResumeThread());
+    treeProxy.initLWData(CkCallbackResumeThread());
+}
+void DataManager::initLWData(const CkCallback& cb)
+{
+    lwInitData(LWData);
+    contribute(cb);
+}
+void TreePiece::initLWData(const CkCallback& cb)
+{
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    contribute(cb);
+}
+
 
 ///
 /// processor specific method for stellar feedback
@@ -384,7 +402,12 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
         GravityParticle *p = &myParticles[i];
         if(p->isStar()) {
             if(p->fTimeForm() >= 0.0) {
-                fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, rndGen);
+                if(fb.sn.bUseStoch){
+                    fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, dm->LWData, rndGen);
+                }
+                else {
+                    fb.DoFeedback(p, dTime, dDeltaYr, fbTotals, NULL, rndGen); /* If not stochastic IMF, LWData table never initialized*/
+                }
             }
             else {  // zero out feedback quantities for Sinks
                 p->fMSN() = 0.0;
@@ -418,10 +441,12 @@ void TreePiece::Feedback(const Fdbk &fb, double dTime, double dDelta, const CkCa
 /// @param dTime Current time in years.
 /// @param dDeltaYr Timestep in years.
 /// @param fbTotals pointer to total effects for bookkeeping
+/// @param LWData pointer to the table containing Lyman-Werner data if stochastic IMF sampling is used.
 /// @param rndGen Random number generator reference
 
 void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
                       FBEffects *fbTotals,
+                      LWDATA *LWData,
                       Rand& rndGen) const
 {
     double dTotMassLoss, dTotMetals, dTotMOxygen, dTotMIron, dDelta;
@@ -433,10 +458,19 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
     FBEffects fbEffects;
     // Particle properties that will be sent to feedback
     // methods in normal units (M_sun + seconds)
-    SFEvent sfEvent(p->fMassForm()*dGmUnit/MSOLG, 
-		    p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
-		    p->fStarMetals(), p->fStarMFracIron(),
-		    p->fStarMFracOxygen());
+    
+    SFEvent sfEvent;
+    if(sn.bUseStoch){
+        sfEvent = SFEvent(p->fMassForm()*dGmUnit/MSOLG, 
+                p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
+                p->fStarMetals(), p->fStarMFracIron(),
+                p->fStarMFracOxygen(), p->fLowNorm(), p->rgfHMStars());
+    } else {
+        sfEvent = SFEvent(p->fMassForm()*dGmUnit/MSOLG, 
+                p->fTimeForm()*dSecUnit/SECONDSPERYEAR,
+                p->fStarMetals(), p->fStarMFracIron(),
+                p->fStarMFracOxygen());
+    }
 
     double dSNIaMassStore=0.0;  /* Stores mass loss of Ia so as not to 
 				   double count it in wind feedback */
@@ -515,7 +549,7 @@ void Fdbk::DoFeedback(GravityParticle *p, double dTime, double dDeltaYr,
         p->fStarESNrate() /= dDelta;
 
 #ifdef COOLING_MOLECULARH /* Calculates LW radiation from a stellar particle of a given age and mass (assumes Kroupa IMF), CC */
-    p->dStarLymanWerner() = CalcLWFeedback(&sfEvent, dTime, dDeltaYr);
+    p->dStarLymanWerner() = CalcLWFeedback(&sfEvent, dTime, dDeltaYr, LWData);
 #endif /*COOLING_MOLECULARH*/
 }
 
@@ -543,17 +577,30 @@ void Fdbk::CalcWindFeedback(SFEvent *sfEvent, double dTime, /* current time in y
 	   then fit to function: MFreturned = 0.86 - exp(-Mass/1.1) */
 	double dMassFracReturned=0.86-exp(-((dMaxMass+dMinMass)/2.)/1.1);
 
-	double dMinCumMass = imf->CumMass(dMinMass);
-	double dMaxCumMass = imf->CumMass(dMaxMass);
+    double dMinCumMass;
+    double dMaxCumMass;
+    /* If using stochastic, the CumMass method doesn't need to be renormalized */
+    if(!sn.bUseStoch){
+        dMinCumMass = imf->CumMass(dMinMass);
+        dMaxCumMass = imf->CumMass(dMaxMass);
+    } else {
+        dMinCumMass = imf->CumMassStoch(dMinMass, sfEvent->dLowNorm, sfEvent->rgdHMStars, sn.dStochCut);
+        dMaxCumMass = imf->CumMassStoch(dMaxMass, sfEvent->dLowNorm, sfEvent->rgdHMStars, sn.dStochCut);
+    }
 	double dMTot = imf->CumMass(0.0);
 	/* Find out mass fraction of dying stars, then multiply by the original
 	   mass of the star particle */
+    /* If using stochastic, the CumMass method doesn't need to be renormalized */
 	if (dMTot == 0.0){
 	  dMDying = 0.0;
 	} else { 
-	  dMDying = (dMinCumMass - dMaxCumMass)/dMTot;
-	}
-	dMDying *= sfEvent->dMass;
+        if(!sn.bUseStoch){
+            dMDying = (dMinCumMass - dMaxCumMass)/dMTot;
+            dMDying *= sfEvent->dMass;
+        } else {
+            dMDying = (dMinCumMass - dMaxCumMass);
+        }
+    }
 
 	/* Figure out feedback effects */
 	fbEffects->dMassLoss = dMDying * dMassFracReturned;
@@ -611,7 +658,7 @@ void Fdbk::CalcUVFeedback(SFEvent *sfEvent, /**< Star to process */
 #ifdef COOLING_MOLECULARH
 /*----  Lyman-Warner Radiation from young stars*/
 double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in years */
-			    double dDelta /* length of timestep (years) */ ) const
+			    double dDelta /* length of timestep (years) */ , LWDATA *LWData /*LW Tabular Data*/) const
 {
     double dAge1log, dAge2log, dLW1log, dLW2log, dStarAge;
     double dA0old =  70.908586,
@@ -629,10 +676,28 @@ double Fdbk::CalcLWFeedback(SFEvent *sfEvent, double dTime, /* current time in y
       if (dAge1log < 7) dAge1log = 7.0;
       dAge2log = log10(dStarAge + dDelta);
       if (dAge2log < 7) dAge2log = 7.0;
-      if (dAge1log < 9.0) dLW1log = calcLogSSPLymanWerner(dAge1log,log10(sfEvent->dMass*MSOLG/dGmUnit));
-      else dLW1log = dA0old + dA1old*dAge1log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
-      if (dAge2log < 9.0) dLW2log = calcLogSSPLymanWerner(dAge2log,log10(sfEvent->dMass*MSOLG/dGmUnit));
-      else dLW2log = dA0old + dA1old*dAge2log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
+      if (!sn.bUseStoch){
+          if (dAge1log < 9.0) dLW1log = calcLogSSPLymanWerner(dAge1log,log10(sfEvent->dMass*MSOLG/dGmUnit));
+          else dLW1log = dA0old + dA1old*dAge1log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
+          if (dAge2log < 9.0) dLW2log = calcLogSSPLymanWerner(dAge2log,log10(sfEvent->dMass*MSOLG/dGmUnit));
+          else dLW2log = dA0old + dA1old*dAge2log + log10(sfEvent->dMass*MSOLG/dGmUnit); /*Close to zero*/
+      }
+      else{ // stochastic calculation must be done in Msol and then converted to system units
+          if (dAge1log < 9.0){
+              double dMax8Log1 = calcLogMax8LymanWerner(dAge1log,log10(sfEvent->dLowNorm*MSOLG/dGmUnit));
+              double dStochLog1 = calcLogStochLymanWerner(dAge1log, sfEvent->rgdHMStars, LWData);
+              dStochLog1 += log10(MSOLG/dGmUnit); // converting stoch portion to system units
+              dLW1log = log10(pow(10, dMax8Log1) + pow(10, dStochLog1));
+          }   
+          else dLW1log = dA0old + dA1old*dAge1log + log10(sfEvent->dLowNorm*MSOLG/dGmUnit); /*Close to zero*/
+          if (dAge2log < 9.0){
+              double dMax8Log2 = calcLogMax8LymanWerner(dAge2log,log10(sfEvent->dLowNorm*MSOLG/dGmUnit));
+              double dStochLog2 = calcLogStochLymanWerner(dAge2log, sfEvent->rgdHMStars, LWData);
+              dStochLog2 += log10(MSOLG/dGmUnit); // converting stoch portion to system units
+              dLW2log = log10(pow(10, dMax8Log2) + pow(10, dStochLog2));
+          }
+          else dLW2log = dA0old + dA1old*dAge2log + log10(sfEvent->dLowNorm*MSOLG/dGmUnit); /*Close to zero*/
+      }
       return log10((pow(10,dLW1log) + pow(10,dLW2log))/2);
     }
     else return 0;

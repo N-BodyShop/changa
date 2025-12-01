@@ -161,6 +161,9 @@ ARG_ENABLE([hexadecapole], [hexadecapole expansions in gravity], [HEXADECAPOLE],
 # physical softening in comoving coordinates
 ARG_ENABLE([changesoft], [physical softening], [FLAG_CHANGESOFT], [-DCHANGESOFT], [yes])
 
+# collision detection
+ARG_ENABLE([collision], [collision detection], [FLAG_COLLISION], [-DCOLLISION], [no])
+
 # 128 bit keys:
 ARG_ENABLE([bigkeys], [128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [no])
 
@@ -261,6 +264,18 @@ if test "$cooling" = "grackle" ; then
    fi
 fi
 
+# Stochastic IMF
+AC_ARG_ENABLE([stoch], 
+    [AS_HELP_STRING([--enable-stoch], [Enable stochastic IMF (12,24)])],
+    [stoch=$enableval], [stoch=no])
+case $stoch in
+    no|none ) FLAG_STOCH="";;
+    12      ) FLAG_STOCH="-DSTOCH12";;
+    24      ) FLAG_STOCH="-DSTOCH24";;
+    *       ) AC_MSG_ERROR([invalid argument for '--enable-stoch': $stoch]);;
+esac
+AC_SUBST([FLAG_STOCH])
+ 
 # Velocity damping
 ARG_ENABLE([damping], [velocity damping in glasses], [FLAG_DAMPING], [-DDAMPING], [no])
 
@@ -282,6 +297,12 @@ if test "$FLAG_SUPERBUBBLE" = "-DSUPERBUBBLE" -a x"$FLAG_DIFFUSION" = x ; then
 fi
 if test "$FLAG_SUPERBUBBLE" = "-DSUPERBUBBLE" -a "$FLAG_COOLING" = "-DCOOLING_NONE" ; then
     AC_MSG_ERROR([SUPERBUBBLE requires cooling.  Enable it with --enable-cooling]);
+fi
+ 
+# Dust self-shielding for column length calculation with molecular hydrogen
+ARG_ENABLE([shieldsf], [Dust self-shielding star formation], [FLAG_SHIELDSF], [-DSHIELDSF], [no])
+if test "$FLAG_SHIELDSF" = "-DSHIELDSF" -a "$FLAG_COOLING" != "-DCOOLING_MOLECULARH" ; then
+    AC_MSG_WARN([SHIELDSF requires molecular hydrogen cooling.  Enable it with --enable-cooling=H2]);
 fi
 
 # Calculate artificial viscosity from Cullen & Dehnen 2010
@@ -363,7 +384,7 @@ echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
-echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
 

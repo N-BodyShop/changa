@@ -58,32 +58,8 @@ void MultistepNodeLB_notopo::work(BaseLB::LDStats* stats)
   if(_lb_args.debug() >= 2 && step() > 0) {
       // Write out "particle file" of measured load balance information
       auto achFileName = make_formatted_string("lb_a.%d.sim", step()-1);
-      FILE *fp = fopen(achFileName.c_str(), "w");
-      CkAssert(fp != NULL);
-
-      int num_migratables = num_objs;
-      for(int i = 0; i < num_objs; i++) {
-        if (!stats->objData[i].migratable) {
-          num_migratables--;
-        }
-      }
-      fprintf(fp, "%d %d 0\n", num_migratables, num_migratables);
-
-      for(int i = 0; i < num_objs; i++) {
-        if(!stats->objData[i].migratable) continue;
-
-      LDObjData &odata = stats->objData[i];
-      TaggedVector3D* udata = (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
-	  fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
-		  stats->objData[i].wallTime,
-		  udata->vec.x,
-		  udata->vec.y,
-		  udata->vec.z,
-		  stats->from_proc[i],
-		  udata->tp);
-	  }
-      fclose(fp);
-      }
+      write_LB_particles(stats, achFileName.c_str(), true);
+  }
 
   int numActiveObjects = 0;
   int numInactiveObjects = 0;
@@ -229,33 +205,8 @@ void MultistepNodeLB_notopo::work2(BaseLB::LDStats *stats, int count){
   if(_lb_args.debug() >= 2) {
       // Write out "particle file" of load balance information
       auto achFileName = make_formatted_string("lb.%d.sim", step());
-      FILE *fp = fopen(achFileName.c_str(), "w");
-      CkAssert(fp != NULL);
-
-      int num_migratables = numobjs;
-      for(int i = 0; i < numobjs; i++) {
-        if (!stats->objData[i].migratable) {
-          num_migratables--;
-        }
-      }
-      fprintf(fp, "%d %d 0\n", num_migratables, num_migratables);
-
-      for(int i = 0; i < numobjs; i++) {
-        if(!stats->objData[i].migratable) continue;
-
-    LDObjData &odata = stats->objData[i];
-    TaggedVector3D* udata = 
-      (TaggedVector3D *)odata.getUserData(CkpvAccess(_lb_obj_index));
-	  fprintf(fp, "%g %g %g %g 0.0 0.0 0.0 %d %d\n",
-		  stats->objData[i].wallTime,
-		  udata->vec.x,
-		  udata->vec.y,
-		  udata->vec.z,
-		  stats->to_proc[i],
-		  udata->tp);
-	  }
-      fclose(fp);
-      }
+      write_LB_particles(stats, achFileName.c_str(), false);
+  }
 }
 
 /// @brief Class for sorting lightly loaded Pes.

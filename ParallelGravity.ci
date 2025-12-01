@@ -9,6 +9,7 @@ mainmodule ParallelGravity {
   readonly CProxy_Main mainChare;
   readonly int verbosity;
   readonly CProxy_TreePiece treeProxy;
+  readonly CProxy_Writer writeProxy;
 #ifdef REDUCTION_HELPER
   readonly CProxy_ReductionHelper reductionHelperProxy;
 #endif
@@ -32,7 +33,6 @@ mainmodule ParallelGravity {
   readonly DomainsDec domainDecomposition;
   readonly double dExtraStore;
   readonly double dMaxBalance;
-  readonly double dFracLoadBalance;
   readonly double dGlassDamper;
   readonly int bUseCkLoopPar;
   readonly int peanoKey;
@@ -129,7 +129,6 @@ mainmodule ParallelGravity {
   PUPable SinkAccreteTestSmoothParams;
   PUPable SinkingAverageSmoothParams;
   PUPable SinkAccreteSmoothParams;
-  PUPable Fdbk;
   PUPable StarLog;
   PUPable Chabrier;
   PUPable MillerScalo;
@@ -146,10 +145,17 @@ mainmodule ParallelGravity {
 #endif
   //SIDM
   PUPable SIDMSmoothParams;
+#ifdef COLLISION
+  PUPable CollisionSmoothParams;
+#endif
+
   PUPable MassOutputParams;
   PUPable PosOutputParams;
   PUPable VelOutputParams;
   PUPable PotOutputParams;
+#ifdef COLLISION
+  PUPable SpinOutputParams;
+#endif
   PUPable GasDenOutputParams;
   PUPable TempOutputParams;
   PUPable AccOutputParams;
@@ -169,6 +175,9 @@ mainmodule ParallelGravity {
   PUPable Cool3OutputParams;
 #ifdef COOLING_MOLECULARH
   PUPable LWOutputParams;
+#ifdef SHIELDSF
+  PUPable ShieldOutputParams;
+#endif
 #endif /*COOLING_MOLECULARH*/
   PUPable OxOutputParams;
   PUPable FeOutputParams;
@@ -251,7 +260,6 @@ mainmodule ParallelGravity {
     entry void startLocalWalk();
     entry void resumeRemoteChunk();
     entry void createStreams(int _numStreams, const CkCallback& cb);
-    entry void unmarkTreePiecesForCleanup(const CkCallback& cb);
 #endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
@@ -262,6 +270,8 @@ mainmodule ParallelGravity {
     entry void memoryStats(const CkCallback& cb);
     entry void resetReadOnly(Parameters param, const CkCallback &cb);
     entry void initStarLog(std::string _fileName, const CkCallback &cb);
+    entry void initLWData(const CkCallback& cb);
+    entry void initHMStarLog(std::string _fileName, const CkCallback &cb);
   };
 
   array [1D] TreePiece {
@@ -284,6 +294,7 @@ mainmodule ParallelGravity {
                            int bComove, double dRhoFac);
     entry [notrace] void EwaldInit();
     entry [notrace] void initCoolingData(const CkCallback& cb);
+    entry [notrace] void initLWData(const CkCallback& cb);
     entry void calculateEwald(EwaldMsg *m);
     entry [notrace] void EwaldGPUComplete(); 
     entry void EwaldGPU();
@@ -304,49 +315,7 @@ mainmodule ParallelGravity {
     entry void RestartEnergy(double dTuFac, const CkCallback& cb);
     entry void findTotalMass(const CkCallback &cb);
     entry void recvTotalMass(CkReductionMsg *msg);
-    entry void setupWrite(int iStage, u_int64_t iPrevOffset,
-        const std::string& filename,
-        const double dTime, const double dvFac,
-        const double duTfac,
-        const bool bDoublePos,
-        const bool bDoubleVel,
-        const int bCool,
-        const CkCallback& cb);
-    entry void parallelWrite(int iPass, const CkCallback& cb,
-			   const std::string& filename, const double dTime,
-			   const double dvFac, // scale velocities
-			   const double duTFac, // convert temperature
-                           const bool bDoublePos,
-                           const bool bDoubleVel,
-			   const int bCool);
-    entry void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
-        const double dTime, const double dvFac,
-        const double duTfac,
-        const bool bDoublePos,
-        const bool bDoubleVel,
-        const int bCool,
-        const CkCallback& cb);
-    entry void oneNodeWrite(int iIndex,
-			       int iOutParticles,
-			       int iOutSPH,
-			       int iOutStar,
-			       GravityParticle particles[iOutParticles+2], // particles to
-						     // write
-			       extraSPHData pGas[iOutSPH], // SPH data
-			       extraStarData pStar[iOutStar], // Star data
-			       int piSPH[iOutSPH], // SPH data offsets
-			       int piStar[iOutStar], // Star data offsets
-			       const u_int64_t iPrevOffset,
-			       const std::string& filename,  // output file
-			       const double dTime,      // time or expansion
-			       const double dvFac,  // velocity conversion
-			     const double duTFac, // temperature conversion
-                             const bool bDoublePos,
-                             const bool bDoubleVel,
-			     const int bCool, const CkCallback& cb);
-    entry void reOrder(int64_t nMaxOrder, const CkCallback& cb);
-    entry void ioShuffle(CkReductionMsg *msg);
-    entry void ioAcceptSortedParticles(ParticleShuffleMsg *);
+    entry void fillWriters(int64_t _nMaxOrder);
     entry void assignKeys(CkReductionMsg* m);
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);
@@ -376,20 +345,32 @@ mainmodule ParallelGravity {
         double dMultiPhaseMaxTime, double dMultiPhaseMinTemp, double dEvapCoeff, const CkCallback& cb);
     entry void initAccel(int iKickRung, const CkCallback& cb);
     entry void applyFrameAcc(int iKickRung, Vector3D<double> frameAcc, const CkCallback& cb);
-    entry void externalGravity(int activeRung, const ExternalGravity exGrav,
+    entry void externalForce(int activeRung, const ExternalForce& exForce, int bKepStep,
                        const CkCallback& cb);
 #ifdef COOLING_MOLECULARH
     entry void distribLymanWerner(const CkCallback& cb);
 #endif
-    entry void adjust(int iKickRung, int bEpsAccStep, int bGravStep,
-	      int bSphStep, int bViscosityLimitdt,
-	      double dEta, double dEtaCourant, double dEtauDot,
-              double dDiffCoeff, double dEtaDiffusion,
-	      double dDelta, double dAccFac,
-	      double dCosmoFac, double dhMinOverSoft,
-              double dResolveJeans,
+#ifdef COLLISION
+    entry void adjust(int iKickRung, int bCollStep, int bEpsAccStep,
+           int bGravStep, int bKepStep, int bSphStep,
+           int bViscosityLimitdt, double dEta, double dEtaCourant,
+           double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+           double dDelta, double dAccFac,
+           double dCosmoFac, double dhMinOverSoft,
+                   double dResolveJeans,
 	      int bDoGas,
 	      const CkCallback& cb);
+#else
+    entry void adjust(int iKickRung, int bEpsAccStep,
+           int bGravStep, int bSphStep,
+           int bViscosityLimitdt, double dEta, double dEtaCourant,
+           double dEtauDot, double dDiffCoeff, double dEtaDiffusion,
+           double dDelta, double dAccFac,
+           double dCosmoFac, double dhMinOverSoft,
+                   double dResolveJeans,
+	      int bDoGas,
+	      const CkCallback& cb);
+#endif
     entry void truncateRung(int iCurrMaxRung, const CkCallback& cb);
     entry void rungStats(const CkCallback& cb);
     entry void countActive(int activeRung, const CkCallback& cb);
@@ -410,7 +391,7 @@ mainmodule ParallelGravity {
     entry void starCenterOfMass(const CkCallback& cb);
     entry void calcEnergy(const CkCallback& cb);
     entry void colNParts(const CkCallback &cb);
-    entry [nokeep] void newOrder(const NewMaxOrder nStarts[n], const int n,
+    entry [nokeep] void newOrder(const NewMaxOrder nStarts[n], const int n, int bUseStoch,
 			  const CkCallback &cb);
     entry void setNParts(int64_t _nTotalSPH, int64_t _nTotalDark,
 		 int64_t _nTotalStar, const CkCallback &cb);
@@ -439,9 +420,25 @@ mainmodule ParallelGravity {
     entry void FormStars(Stfm param, double dTime, double dDelta, 
     	       		 double dCosmoFac, const CkCallback& cb);
     entry void flushStarLog(const CkCallback& cb);
+    entry void flushHMStarLog(const CkCallback& cb);
     entry void Feedback(Fdbk fb, double dTime, double dDelta,
     	       		const CkCallback& cb);
     entry void massMetalsEnergyCheck(int bPreDist, const CkCallback& cb);
+#ifdef COLLISION
+    entry void delEjected(double dDelDist, const CkCallback& cb);
+    entry void getNearCollPartners(const CkCallback& cb);
+    entry void logOverlaps(const CkCallback& cb);
+    entry void getCollInfo(const CkCallback& cb);
+    entry void getCollInfo(int64_t iOrder, const CkCallback& cb);
+    entry void resolveCollision(Collision coll, const ColliderInfo &c1, const ColliderInfo &c2,
+        double baseStep, double timeNow, double dCentMass, const CkCallback& cb);
+    entry void sameHigherRung(int64_t iord1, int rung1, int64_t iord2, int rung2, const CkCallback& cb);
+    entry void resolveWallCollision(Collision coll, const ColliderInfo &c1, const CkCallback& cb);
+    entry void unKickCollStep(int iKickRung, double dDeltaBase, const CkCallback& cb);
+    entry void placeOnCollRung(int64_t iOrder, int collStepRung, const CkCallback& cb);
+    entry void resetRungs(const CkCallback& cb);
+    entry void getNeedCollStep(int collStepRung, const CkCallback& cb);
+#endif
     entry void setTypeFromFile(int iSetMask, char file[256],
         const CkCallback& cb);
     entry void getCOM(const CkCallback& cb, int bLiveViz);
@@ -515,28 +512,9 @@ mainmodule ParallelGravity {
     entry [local] void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
 
     // jetley
-    entry void startlb(const CkCallback &cb, int activeRung);
+    entry void startlb(const CkCallback &cb, int activeRung, bool bDoLB);
     entry void ResumeFromSync();
-    entry [reductiontarget] void getParticleInfoForLB(int64_t active_part,
-        int64_t total_part);
-    //jetley
-    // entry void receiveProxy(CkGroupID);
-    entry void doAtSync();
 
-    entry void outputASCII(CkReference<OutputParams>, int bParaWrite,
-			   const CkCallback& cb);
-    entry void oneNodeOutVec(CkReference<OutputParams>, Vector3D<double> avOut[nPart],
-			   int nPart, int iIndex, int bDone,
-			   const CkCallback& cb) ;
-    entry void oneNodeOutArr(CkReference<OutputParams>, double adOut[nPart],
-			   int nPart, int iIndex, int bDone,
-			   const CkCallback& cb) ;
-    entry void outputBinary(Ck::IO::Session, CkReference<OutputParams>);
-    entry void minmaxNCOut(CkReference<OutputParams> params, const CkCallback& cb);
-    entry void outputBinaryStart(CkReference<OutputParams> params,
-                                 int64_t nStart, const CkCallback& cb);
-    entry void oneNodeOutIntArr(CkReference<OutputParams>, int aiOut[nPart],
-                                int nPart, int iIndex, const CkCallback& cb);
     entry void outputStatistics(const CkCallback& cb);
     entry void collectStatistics(const CkCallback &cb);
 
@@ -557,6 +535,66 @@ mainmodule ParallelGravity {
 
   };
 
+  group [migratable] Writer {
+    entry Writer();
+    entry void receive(std::vector<GravityParticle> vPart, std::vector<extraSPHData>,
+                 std::vector<extraStarData>);
+    entry void clear(int64_t nTotal, int64_t nSPH, int64_t nDark, int64_t nStar,
+               const CkCallback& cb);
+    entry void reOrder(const CkCallback& cb);
+    entry void setupWrite(int iStage, u_int64_t iPrevOffset,
+        const std::string& filename,
+        const double dTime, const double dvFac,
+        const double duTfac,
+        const bool bDoublePos,
+        const bool bDoubleVel,
+        const int bCool,
+        const CkCallback& cb);
+    entry void parallelWrite(int iPass, const CkCallback& cb,
+			   const std::string& filename, const double dTime,
+			   const double dvFac, // scale velocities
+			   const double duTFac, // convert temperature
+                           const bool bDoublePos,
+                           const bool bDoubleVel,
+			   const int bCool);
+    entry void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
+        const double dTime, const double dvFac,
+        const double duTfac,
+        const bool bDoublePos,
+        const bool bDoubleVel,
+        const int bCool,
+        const CkCallback& cb);
+    entry void oneNodeWrite(int iIndex,
+			    int iOutSPH,
+			    int iOutStar,
+                            std::vector<GravityParticle> vMyParticles,
+			    std::vector<extraSPHData> vGas, // SPH data
+			    std::vector<extraStarData> vStar, // Star data
+			       int piSPH[iOutSPH], // SPH data offsets
+			       int piStar[iOutStar], // Star data offsets
+			       const u_int64_t iPrevOffset,
+			       const std::string& filename,  // output file
+			       const double dTime,      // time or expansion
+			       const double dvFac,  // velocity conversion
+			     const double duTFac, // temperature conversion
+                             const bool bDoublePos,
+                             const bool bDoubleVel,
+			     const int bCool, const CkCallback& cb);
+    entry void outputBinary(Ck::IO::Session, CkReference<OutputParams>);
+    entry void outputBinaryStart(CkReference<OutputParams> params,
+                                 int64_t nStart, const CkCallback& cb);
+    entry void outputASCII(CkReference<OutputParams>, int bParaWrite,
+			   const CkCallback& cb);
+    entry void oneNodeOutVec(CkReference<OutputParams>, Vector3D<double> avOut[nPart],
+			   int nPart, int iIndex, int bDone,
+			   const CkCallback& cb) ;
+    entry void oneNodeOutArr(CkReference<OutputParams>, double adOut[nPart],
+			   int nPart, int iIndex, int bDone,
+			   const CkCallback& cb) ;
+    entry void oneNodeOutIntArr(CkReference<OutputParams>, int aiOut[nPart],
+                                int nPart, int iIndex, const CkCallback& cb);
+    entry void minmaxNCOut(CkReference<OutputParams> params, const CkCallback& cb);
+  };
   array [1D] LvArray {
       entry LvArray();
   };

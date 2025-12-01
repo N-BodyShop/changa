@@ -406,6 +406,7 @@ public:
 #endif
 	}
 	inline cosmoType getRadius() const {return radius;}
+	inline void setRadius(cosmoType r) {radius = r;}
 	friend void operator|(PUP::er& p, MultipoleMoments& m);
 	friend void calculateRadiusFarthestCorner(MultipoleMoments& m,
 					      const OrientedBox<double>& box);
@@ -415,6 +416,10 @@ public:
 						const ParticleType * end);
 	friend void calculateRadiusBox(MultipoleMoments& m,
 				       const OrientedBox<double>& box);
+	template<typename ParticleType>
+        friend void calculateRadiusFirstParticle(MultipoleMoments& m,
+                                                 const ParticleType* begin,
+                                                 const ParticleType* end);
 };
 
 #ifdef __CHARMC__
@@ -459,10 +464,12 @@ inline void calculateRadiusFarthestCorner(MultipoleMoments& m, const OrientedBox
 	delta1.y = (delta1.y > delta2.y ? delta1.y : delta2.y);
 	delta1.z = (delta1.z > delta2.z ? delta1.z : delta2.z);
 	cosmoType newradius = delta1.length();
+        if(newradius > 0.0) {
 #ifdef HEXADECAPOLE
-	momRescaleFmomr(&m.mom, newradius, m.radius);
+            momRescaleFmomr(&m.mom, newradius, m.radius);
 #endif
-	m.radius = newradius;
+            m.radius = newradius;
+        }
 }
 
 /// Given an enclosing box, set the multipole expansion size to the
@@ -498,4 +505,25 @@ inline void calculateRadiusFarthestParticle(MultipoleMoments& m, const ParticleT
             }
 }
 
+/// Given list of particles, get a radius based on the first
+/// particle.  N.B. this is a failover in case the box size is tiny.
+/// We assume the multipole moments have not been calculated.
+template<typename ParticleType>
+inline void calculateRadiusFirstParticle(MultipoleMoments& m,
+                                         const ParticleType* begin,
+                                         const ParticleType* end) {
+    const ParticleType* iter = begin;
+    Vector3D<cosmoType> pos1 = iter->position;
+    cosmoType newradius = 0.0;
+    iter++;
+    for(; iter != end; ++iter) {
+        cosmoType d = (pos1 - iter->position).lengthSquared();
+        if(d > newradius)
+            newradius = d;
+    }
+    if(newradius > 0.0) {
+        newradius = sqrt(newradius);
+        m.radius = newradius;
+    }
+}
 #endif //MULTIPOLEMOMENTS_H
