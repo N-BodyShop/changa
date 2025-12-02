@@ -223,6 +223,14 @@ class NodePool;
       numBucketsBeneath = 1;
 #endif
       calculateRadiusBox(moments, boundingBox);	/* set initial size */
+      if(moments.getRadius() <= 0.0) {
+          if(particleCount > 1)
+              calculateRadiusFirstParticle(moments, &part[firstParticle],
+                                           &part[lastParticle+1]);
+          else
+              moments.setRadius(1.0); // single particle boxes don't
+                                      // need scaling.
+      }
       boundingBox.reset();
       bndBoxBall.reset();
       iParticleTypes = 0;

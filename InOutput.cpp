@@ -10,6 +10,7 @@
 #include "TipsyFile.h"
 #include "OrientedBox.h"
 #include "Reductions.h"
+#include "Writer.h"
 #include "InOutput.h"
 #include "ckio.h"
 #include <errno.h>
@@ -92,6 +93,13 @@ void load_tipsy_dark(Tipsy::TipsyReader &r, GravityParticle &p)
 #endif
 	p.fDensity = 0.0;
 	p.iType = TYPE_DARK;
+#ifdef COLLISION
+    p.dtKep = 0;
+    p.vPred() = dp.vel;
+    p.dtCol = DBL_MAX;
+    p.iOrderCol = -1;
+    p.w = Vector3D<double>(0.);
+#endif
 }
 
 template <typename TPos, typename TVel>
@@ -107,6 +115,11 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
 #ifdef CHANGESOFT
     p.fSoft0 = sp.eps;
 #endif
+#ifdef COLLISION
+    p.dtCol = DBL_MAX;
+    p.iOrderCol = -1;
+    p.w = Vector3D<double>(0.);
+#endif
     p.fDensity = 0.0;
     p.iType = TYPE_STAR;
     p.fStarMetals() = sp.metals;
@@ -117,6 +130,9 @@ void load_tipsy_star(Tipsy::TipsyReader &r, GravityParticle &p)
     p.fTimeForm() = sp.tform;
     p.iGasOrder() = -1;
 #ifdef COOLING_MOLECULARH 
+#ifdef SHIELDSF
+    p.fShieldForm() = 0;
+#endif
     p.dStarLymanWerner() = 0.0;
 #endif
 }
@@ -390,7 +406,6 @@ void TreePiece::readTipsyArray(OutputParams& params, const CkCallback& cb)
         int nDim = 1;           // Dimensions to read
         if(params.bVector) {
             nDim = 3;
-            CkAssert(packed == 0);
         }
         for(int iDim = 0; iDim < nDim; iDim++) {
             for(int i = 0; i < nStartRead; i++) {
@@ -713,6 +728,28 @@ static void load_NC_dark(std::string filename, int64_t startParticle,
     
     load_NC_base(filename, startParticle, myNumDark, myParts);
 
+#ifdef COLLISION
+    if(verbosity && startParticle == 0)
+        CkPrintf("loading spins\n");
+
+    FieldHeader fh;
+    void *data = readFieldData(filename + "/spin", fh, 3, myNumDark,
+                               startParticle);
+    for(int i = 0; i < myNumDark; ++i) {
+	    switch(fh.code) {
+	    case float32:
+                myParts[i].w = static_cast<Vector3D<float> *>(data)[i];
+	        break;
+	    case float64:
+                myParts[i].w = static_cast<Vector3D<double> *>(data)[i];
+	        break;
+	    default:
+	        throw XDRException("I don't recognize the type of this field!");
+	        }
+        }
+    deleteField(fh, data);
+#endif
+
     for(int i = 0; i < myNumDark; ++i) {
         myParts[i].fDensity = 0.0;
         myParts[i].iType = TYPE_DARK;
@@ -796,6 +833,9 @@ static void load_NC_star(std::string filename, int64_t startParticle,
         myParts[i].fMassForm() = myParts[i].mass;
 #ifdef COOLING_MOLECULARH 
         myParts[i].dStarLymanWerner() = 0.0;
+#ifdef SHIELDSF
+        myParts[i].fShieldForm() = 0;
+#endif
 #endif
         }
 }
@@ -1008,7 +1048,7 @@ void TreePiece::readFloatBinary(OutputParams& params, int bParaRead,
 /// Perform Parallel Scan (a log(p) algorithm) to establish start of
 /// parallel writes, then do the writing.  Calls writeTipsy() to do
 /// the actual writing.
-void TreePiece::setupWrite(int iStage, // stage of scan
+void Writer::setupWrite(int iStage, // stage of scan
 			   u_int64_t iPrevOffset,
 			   const std::string& filename,
 			   const double dTime,
@@ -1021,7 +1061,7 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 {
     if(iStage > nSetupWriteStage + 1) {
 	// requeue message
-	pieces[thisIndex].setupWrite(iStage, iPrevOffset, filename,
+	thisProxy[thisIndex].setupWrite(iStage, iPrevOffset, filename,
 				     dTime, dvFac, duTFac, bDoublePos,
                                      bDoubleVel, bCool, cb);
 	return;
@@ -1032,35 +1072,35 @@ void TreePiece::setupWrite(int iStage, // stage of scan
     
     int iOffset = 1 << nSetupWriteStage;
     nStartWrite += iPrevOffset;
-    if(thisIndex+iOffset < (int) numTreePieces) { // Scan on
+    if(thisIndex+iOffset < (int) CkNumPes()) { // Scan on
 	if(verbosity > 1) {
 	    ckerr << thisIndex << ": stage " << iStage << " sending "
-		  << nStartWrite+myNumParticles << " to " << thisIndex+iOffset
-		  << endl;
+		  << nStartWrite+vMyParticles.size() << " to "
+                  << thisIndex+iOffset << endl;
 	    }
-	pieces[thisIndex+iOffset].setupWrite(iStage+1,
-					     nStartWrite+myNumParticles,
-					     filename, dTime, dvFac, duTFac,
-					     bDoublePos, bDoubleVel, bCool, cb);
+	thisProxy[thisIndex+iOffset].setupWrite(iStage+1,
+                                                nStartWrite+vMyParticles.size(),
+                                                filename, dTime, dvFac, duTFac,
+                                                bDoublePos, bDoubleVel, bCool, cb);
 	}
     if(thisIndex < iOffset) { // No more messages are coming my way
 	// send out all the messages
-	for(iStage = iStage+1; (1 << iStage) + thisIndex < (int)numTreePieces;
+	for(iStage = iStage+1; (1 << iStage) + thisIndex < (int)CkNumPes();
 	    iStage++) {
 	    iOffset = 1 << iStage;
 	    if(verbosity > 1) {
 		ckerr << thisIndex << ": stage " << iStage << " sending "
-		      << nStartWrite+myNumParticles << " to "
+		      << nStartWrite+vMyParticles.size() << " to "
 		      << thisIndex+iOffset << endl;
 		}
-	    pieces[thisIndex+iOffset].setupWrite(iStage+1,
-						 nStartWrite+myNumParticles,
-						 filename, dTime, dvFac,
-						 duTFac, bDoublePos,
-                                                 bDoubleVel, bCool, cb);
+            thisProxy[thisIndex+iOffset].setupWrite(iStage+1,
+                                                    nStartWrite+vMyParticles.size(),
+                                                    filename, dTime, dvFac,
+                                                    duTFac, bDoublePos,
+                                                    bDoubleVel, bCool, cb);
 	    }
-	if(thisIndex == (int) numTreePieces-1)
-	    assert(nStartWrite+myNumParticles == nTotalParticles);
+        if(thisIndex == (int) CkNumPes()-1)
+            assert(nStartWrite+vMyParticles.size() == nTotalParticles);
 	nSetupWriteStage = -1;	// reset for next time.
 	parallelWrite(0, cb, filename, dTime, dvFac, duTFac, bDoublePos,
                       bDoubleVel, bCool);
@@ -1072,7 +1112,7 @@ void TreePiece::setupWrite(int iStage, // stage of scan
 /// @param iPass What pass we are on in the parallel write.  The
 /// initial call should be with "0".
 
-void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
+void Writer::parallelWrite(int iPass, const CkCallback& cb,
 			      const std::string& filename, const double dTime,
 			      const double dvFac, // scale velocities
 			      const double duTFac, // convert temperature
@@ -1091,11 +1131,12 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
     if(nIOProcessor == 0) {	// use them all
 	Tipsy::TipsyWriter wAll(filename, tipsyHeader, false, bDoublePos,
                                 bDoubleVel);
-	writeTipsy(wAll, dvFac, duTFac, bDoublePos, bDoubleVel, bCool);
+	writeTipsy(wAll, vMyParticles, dvFac, duTFac, bDoublePos, bDoubleVel,
+                   bCool);
 	contribute(cb);
 	return;
 	}
-    int nSkip = numTreePieces/nIOProcessor;
+    int nSkip = CkNumPes()/nIOProcessor;
     if(nSkip == 0)
 	nSkip = 1;
     if(thisIndex%nSkip != iPass) { // N.B. this will only be the case
@@ -1104,9 +1145,9 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
 	}
 
     Tipsy::TipsyWriter w(filename, tipsyHeader, false, bDoublePos, bDoubleVel);
-    writeTipsy(w, dvFac, duTFac, bDoublePos, bDoubleVel, bCool);
-    if(iPass < (nSkip - 1) && thisIndex < (numTreePieces - 1))
-	treeProxy[thisIndex+1].parallelWrite(iPass + 1, cb, filename, dTime,
+    writeTipsy(w, vMyParticles, dvFac, duTFac, bDoublePos, bDoubleVel, bCool);
+    if(iPass < (nSkip - 1) && thisIndex < (CkNumPes() - 1))
+	thisProxy[thisIndex+1].parallelWrite(iPass + 1, cb, filename, dTime,
 					     dvFac, duTFac, bDoublePos,
                                              bDoubleVel, bCool);
     contribute(cb);
@@ -1117,7 +1158,7 @@ void TreePiece::parallelWrite(int iPass, const CkCallback& cb,
 ///
 /// Send my particles to piece 0 for output.
 ///
-void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
+void Writer::serialWrite(const u_int64_t iPrevOffset, // previously written
 							 //particles
 			    const std::string& filename,  // output file
 			    const double dTime,	 // time or expansion
@@ -1129,35 +1170,36 @@ void TreePiece::serialWrite(const u_int64_t iPrevOffset, // previously written
 			    const CkCallback& cb)
 {
     int *piSph = NULL;
-    if(myNumSPH > 0)
-	piSph = new int[myNumSPH];
+    if(vMySPHParticles.size() > 0)
+	piSph = new int[vMySPHParticles.size()];
     int *piStar = NULL;
-    if(myNumStar > 0)
-	piStar = new int[myNumStar];
+    if(vMyStarParticles.size() > 0)
+	piStar = new int[vMyStarParticles.size()];
     /*
      * Calculate offsets to send across processors
      */
     int iGasOut = 0;
     int iStarOut = 0;
-    for(int iPart = 1; iPart <= myNumParticles ; iPart++) {
-	if(myParticles[iPart].isGas()) {
-	    piSph[iGasOut] = (extraSPHData *)myParticles[iPart].extraData
-		- mySPHParticles;
+    for(int iPart = 0; iPart < vMyParticles.size() ; iPart++) {
+	if(vMyParticles[iPart].isGas()) {
+	    piSph[iGasOut] = (extraSPHData *)vMyParticles[iPart].extraData
+		- &vMySPHParticles[0];
 	    iGasOut++;
 	    }
-	if(myParticles[iPart].isStar()) {
-	    piStar[iStarOut] = (extraStarData *)myParticles[iPart].extraData
-		- myStarParticles;
+	if(vMyParticles[iPart].isStar()) {
+	    piStar[iStarOut] = (extraStarData *)vMyParticles[iPart].extraData
+		- &vMyStarParticles[0];
 	    iStarOut++;
 	    }
 	}
-    pieces[0].oneNodeWrite(thisIndex, myNumParticles, myNumSPH, myNumStar,
-			   myParticles, mySPHParticles, myStarParticles,
+    thisProxy[0].oneNodeWrite(thisIndex, vMySPHParticles.size(),
+                              vMyStarParticles.size(),
+			   vMyParticles, vMySPHParticles, vMyStarParticles,
 			   piSph, piStar, iPrevOffset, filename, dTime,
 			   dvFac, duTFac, bDoublePos, bDoubleVel, bCool, cb);
-    if(myNumSPH > 0)
+    if(vMySPHParticles.size() > 0)
 	delete [] piSph;
-    if(myNumStar > 0)
+    if(vMyStarParticles.size() > 0)
 	delete [] piStar;
     }
 
@@ -1171,13 +1213,12 @@ Tipsy::TipsyWriter *globalTipsyWriter;
 
 /// @brief write out the particles I have been sent
 void
-TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
-			int iOutParticles, // number of particles
+Writer::oneNodeWrite(int iIndex, // Index of Treepiece
 			int iOutSPH, // number of SPH particles
 			int iOutStar, // number of Star particles
-			GravityParticle* particles, // particles to write
-			extraSPHData *pGas, // SPH data
-			extraStarData *pStar, // Star data
+                     std::vector<GravityParticle> vParticles, // particles to write
+                     std::vector<extraSPHData> vGas, // SPH data
+                     std::vector<extraStarData> vStar, // Star data
 			int *piSPH, // SPH data offsets
 			int *piStar, // Star data offsets
 			const u_int64_t iPrevOffset, // previously written
@@ -1196,28 +1237,16 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
      */
     int iGasOut = 0;
     int iStarOut = 0;
-    for(int iPart = 1; iPart <= iOutParticles; iPart++) {
-	if(particles[iPart].isGas()) {
-	    particles[iPart].extraData = pGas+ piSPH[iGasOut];
+    for(int iPart = 0; iPart < vParticles.size(); iPart++) {
+	if(vParticles[iPart].isGas()) {
+	    vParticles[iPart].extraData = vGas.data() + piSPH[iGasOut];
 	    iGasOut++;
 	    }
-	if(particles[iPart].isStar()) {
-	    particles[iPart].extraData = pStar+ piStar[iStarOut];
+	if(vParticles[iPart].isStar()) {
+	    vParticles[iPart].extraData = vStar.data() + piStar[iStarOut];
 	    iStarOut++;
 	    }
 	}
-    /*
-     * setup pointers/data for writeTipsy()
-     * XXX yes, this is gross.
-     */
-    int saveNumParticles = myNumParticles;
-    GravityParticle *saveMyParticles = myParticles;
-    extraSPHData *savemySPHParticles = mySPHParticles;
-    extraStarData *savemyStarParticles = myStarParticles;
-    myNumParticles = iOutParticles;
-    myParticles = particles;
-    mySPHParticles = pGas;
-    myStarParticles = pStar;
     nStartWrite = iPrevOffset;
     if(iIndex == 0) {
         // Create and truncate output file.    
@@ -1242,18 +1271,11 @@ TreePiece::oneNodeWrite(int iIndex, // Index of Treepiece
                                                    bDoubleVel);
 	}
 	    
-    writeTipsy(*globalTipsyWriter, dvFac, duTFac, bDoublePos, bDoubleVel,
-               bCool);
-    /*
-     * Restore pointers/data
-     */
-    myNumParticles = saveNumParticles;
-    myParticles = saveMyParticles;
-    mySPHParticles = savemySPHParticles;
-    myStarParticles = savemyStarParticles;
+    writeTipsy(*globalTipsyWriter, vParticles, dvFac, duTFac, bDoublePos,
+               bDoubleVel, bCool);
     
-    if(iIndex < (numTreePieces - 1))
-	treeProxy[iIndex+1].serialWrite(iPrevOffset + iOutParticles, filename,
+    if(iIndex < (CkNumPes() - 1))
+	thisProxy[iIndex+1].serialWrite(iPrevOffset + vParticles.size(), filename,
 					dTime, dvFac, duTFac, 
                                         bDoublePos, bDoubleVel, bCool, cb);
     else {
@@ -1350,7 +1372,8 @@ void write_tipsy_star(Tipsy::TipsyWriter &w, GravityParticle &p,
     }
 }
 
-void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
+void Writer::writeTipsy(Tipsy::TipsyWriter& w,
+                        std::vector<GravityParticle>& vParticles,
 			   const double dvFac, // scale velocities
 			   const double duTFac, // convert temperature
                            const bool bDoublePos,
@@ -1360,38 +1383,38 @@ void TreePiece::writeTipsy(Tipsy::TipsyWriter& w,
     
     if(nStartWrite == 0)
 	w.writeHeader();
-    if(myNumParticles == 0)     // no particles to write
+    if(vParticles.size() == 0)     // no particles to write
         return;
     
     CkMustAssert(w.seekParticleNum(nStartWrite), "bad seek");
-    for(unsigned int i = 0; i < myNumParticles; i++) {
-	if(myParticles[i+1].isGas()) {
+    for(unsigned int i = 0; i < vParticles.size(); i++) {
+	if(vParticles[i].isGas()) {
             if(!bDoublePos)
-                write_tipsy_gas<float,float>(w, myParticles[i+1], dvFac,
+                write_tipsy_gas<float,float>(w, vParticles[i], dvFac,
                                              duTFac, bCool, dm->Cool);
             else if(!bDoubleVel)
-                write_tipsy_gas<double,float>(w, myParticles[i+1], dvFac,
+                write_tipsy_gas<double,float>(w, vParticles[i], dvFac,
                                               duTFac, bCool, dm->Cool);
             else
-                write_tipsy_gas<double,double>(w, myParticles[i+1], dvFac,
+                write_tipsy_gas<double,double>(w, vParticles[i], dvFac,
                                                duTFac, bCool, dm->Cool);
                 
 	    }
-	else if(myParticles[i+1].isDark()) {
+	else if(vParticles[i].isDark()) {
             if(!bDoublePos)
-                write_tipsy_dark<float,float>(w, myParticles[i+1], dvFac);
+                write_tipsy_dark<float,float>(w, vParticles[i], dvFac);
             else if(!bDoubleVel)
-                write_tipsy_dark<double,float>(w, myParticles[i+1], dvFac);
+                write_tipsy_dark<double,float>(w, vParticles[i], dvFac);
             else
-                write_tipsy_dark<double,double>(w, myParticles[i+1], dvFac);
+                write_tipsy_dark<double,double>(w, vParticles[i], dvFac);
 	    }
-	else if(myParticles[i+1].isStar()) {
+	else if(vParticles[i].isStar()) {
             if(!bDoublePos)
-                write_tipsy_star<float,float>(w, myParticles[i+1], dvFac);
+                write_tipsy_star<float,float>(w, vParticles[i], dvFac);
             else if(!bDoubleVel)
-                write_tipsy_star<double,float>(w, myParticles[i+1], dvFac);
+                write_tipsy_star<double,float>(w, vParticles[i], dvFac);
             else
-                write_tipsy_star<double,double>(w, myParticles[i+1], dvFac);
+                write_tipsy_star<double,double>(w, vParticles[i], dvFac);
 	    }
 	else {
 	    CkAbort("Bad particle type in tipsyWrite");
@@ -1410,45 +1433,42 @@ static bool compIOrder(const GravityParticle& first,
 ///
 /// @brief Calculate boundaries based on iOrder
 ///
-inline int64_t *iOrderBoundaries(int nPieces, int64_t nMaxOrder) 
+inline int64_t iOrderBoundaries(int nPieces, int iPiece, int64_t nMaxOrder) 
 {
-    int64_t *startParticle = new int64_t[nPieces+1];
-    int iPiece;
+    if(iPiece == nPieces)
+        return nMaxOrder+1;
 
     // Note that with particle creation/destruction this will not be
     // perfectly balanced.
     //
-    for(iPiece = 0; iPiece < nPieces; iPiece++) {
-	int64_t nOutParticles = nMaxOrder/ nPieces;
-	startParticle[iPiece] = nOutParticles * iPiece;
-	}
-    startParticle[nPieces] = nMaxOrder+1;
-    return startParticle;
+    int64_t nOutParticles = nMaxOrder/ nPieces;
+    return nOutParticles * iPiece;
     }
 
 ///
-/// @brief Reorder particles for output
+/// @brief Perform operations to prepare for output.
+///
+void Main::reOrder() {
+    ckout << "Reordering ...";
+    double startTime = CkWallTimer();
+    writeProxy.clear(nTotalParticles, nTotalSPH, nTotalDark, nTotalStar,
+                     CkCallbackResumeThread());
+    treeProxy.fillWriters(nMaxOrder);
+    CkWaitQD(); // Wait until Writers are filled.
+    writeProxy.reOrder(CkCallbackResumeThread());
+    ckout << " took " << (CkWallTimer() - startTime) << " seconds." << endl;
+}
+
+///
+/// @brief 
 /// @param _nMaxOrder Maximum iOrder used to calculate TreePiece
 /// boundaries for output.
-/// @param cb Callback for when all the shuffling is done.
 ///
-/// After determining iOrder boundaries, the number of particles in
-/// each TreePiece is calculated via a reduction.
-///
-void TreePiece::reOrder(int64_t _nMaxOrder, const CkCallback& cb)
+void TreePiece::fillWriters(int64_t _nMaxOrder)
 {
     LBTurnInstrumentOff();      // The load balancer should not
                                 // measure output timings.
-    callback = cb; // Save callback for after shuffle
-    int *counts = new int[numTreePieces];
-    int iPiece;
-    
     nMaxOrder = _nMaxOrder;
-    for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
-	counts[iPiece] = 0;
-	}
-
-    int64_t *startParticle = iOrderBoundaries(numTreePieces, nMaxOrder);
 
     if (myNumParticles > 0) {
 	// Sort particles in iOrder
@@ -1460,231 +1480,96 @@ void TreePiece::reOrder(int64_t _nMaxOrder, const CkCallback& cb)
 	// Loop through to get particle counts.
 	GravityParticle *binBegin = &myParticles[1];
 	GravityParticle *binEnd;
-	for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
-	    for(binEnd = binBegin; binEnd->iOrder < startParticle[iPiece+1];
+	for(int iPe = 0; iPe < CkNumPes(); iPe++) {
+            int64_t nextStartParticle = iOrderBoundaries(CkNumPes(), iPe+1, nMaxOrder);
+	    for(binEnd = binBegin; binEnd->iOrder < nextStartParticle;
 		binEnd++);
 	    int nPartOut = binEnd - binBegin;
-	    counts[iPiece] = nPartOut;
-	    if(&myParticles[myNumParticles + 1] <= binEnd)
-		break;
+            if(nPartOut > 0) {
+                std::vector<GravityParticle> vPartOut;
+                std::vector<extraSPHData> vSPHOut;
+                std::vector<extraStarData> vStarOut;
+
+                for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
+                    vPartOut.push_back(*pPart);
+                    if(pPart->isGas()) {
+                        vSPHOut.push_back(*(extraSPHData *)pPart->extraData);
+		    }
+                    if(pPart->isStar()) {
+			vStarOut.push_back(*(extraStarData *)pPart->extraData);
+		    }
+		}
+                if (verbosity>=3)
+                    CkPrintf("me:%d to:%d how many:%ld\n",thisIndex, iPe,
+                             (binEnd-binBegin));
+                writeProxy[iPe].receive(vPartOut, vSPHOut, vStarOut);
+	    }
+            if(&myParticles[myNumParticles+1] <= binEnd)
+                break;
 	    binBegin = binEnd;
 	    }
 	}
-    myIOParticles = -1;
-    CkCallback cbShuffle = CkCallback(CkIndex_TreePiece::ioShuffle(NULL),
-				      pieces);
-    contribute(numTreePieces*sizeof(int), counts, CkReduction::sum_int,
-	       cbShuffle);
-    delete [] startParticle;
-    delete [] counts;
     }
 
-///
-/// @brief Perform the shuffle for reOrder
-///
-void TreePiece::ioShuffle(CkReductionMsg *msg) 
+/// @brief Initialize the data structures in preparation for receiving
+/// particles for writing.
+/// @param nTotal Total number of particles in the snapshot
+/// @param nSPH Total number of SPH particles in the snapshot
+/// @param nDark Total number of Dark particles in the snapshot
+/// @param nStar Total number of Star particles in the snapshot
+/// @param cb Callback when done.
+void Writer::clear(int64_t nTotal, int64_t nSPH, int64_t nDark, int64_t nStar,
+                   const CkCallback& cb)
 {
-    int *counts = (int *)msg->getData();
-    myIOParticles = counts[thisIndex];
-    delete msg;
-    
-    int iPiece;
-    
-    //
-    // Calculate iOrder boundaries for all processors
-    //
-    int64_t *startParticle = iOrderBoundaries(numTreePieces, nMaxOrder);
+    nTotalParticles = nTotal;
+    nTotalSPH = nSPH;
+    nTotalDark = nDark;
+    nTotalStar = nStar;
+    vMyParticles.clear();
+    vMySPHParticles.clear();
+    vMyStarParticles.clear();
+    dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+    contribute(cb);
+}
 
-    double tpLoad = getObjTime();
-    populateSavedPhaseData(iPrevRungLB, tpLoad, nPrevActiveParts);
-
-    if (myNumParticles > 0) {
-	// Particles have been sorted in reOrder()
-    // Loop through sending particles to correct processor.
-    GravityParticle *binBegin = &myParticles[1];
-    GravityParticle *binEnd;
-    for(iPiece = 0; iPiece < numTreePieces; iPiece++) {
-	for(binEnd = binBegin; binEnd->iOrder < startParticle[iPiece+1];
-	    binEnd++);
-	int nPartOut = binEnd - binBegin;
-  int saved_phase_len = savedPhaseLoad.size();
-	if(nPartOut > 0) {
-	    int nGasOut = 0;
-	    int nStarOut = 0;
-	    for(GravityParticle *pPart = binBegin; pPart < binEnd; pPart++) {
-		if(pPart->isGas())
-		    nGasOut++;
-		if(pPart->isStar())
-		    nStarOut++;
-		}
-	    ParticleShuffleMsg *shuffleMsg
-		= new (saved_phase_len, saved_phase_len, nPartOut, nGasOut, nStarOut)
-		ParticleShuffleMsg(saved_phase_len, nPartOut, nGasOut, nStarOut);
-    memset(shuffleMsg->parts_per_phase, 0, saved_phase_len*sizeof(unsigned int));
-	    int iGasOut = 0;
-	    int iStarOut = 0;
-	    GravityParticle *pPartOut = shuffleMsg->particles;
-	    for(GravityParticle *pPart = binBegin; pPart < binEnd;
-		pPart++, pPartOut++) {
-		*pPartOut = *pPart;
-		if(pPart->isGas()) {
-		    shuffleMsg->pGas[iGasOut]
-			= *(extraSPHData *)pPart->extraData;
-		    iGasOut++;
-		    }
-		if(pPart->isStar()) {
-		    shuffleMsg->pStar[iStarOut]
-			= *(extraStarData *)pPart->extraData;
-		    iStarOut++;
-		    }
-
-        for(int i = 0; i < saved_phase_len; i++) {
-          if (pPart->rung >= i) {
-            shuffleMsg->parts_per_phase[i] = shuffleMsg->parts_per_phase[i] + 1;
-          }
-        }
-        if(havePhaseData(PHASE_FEEDBACK)
-           && (pPart->isGas() || pPart->isStar()))
-            shuffleMsg->parts_per_phase[PHASE_FEEDBACK] += 1;
-		}
-      memset(shuffleMsg->loads, 0.0, saved_phase_len*sizeof(double));
-
-      // Calculate the partial load per phase
-      for (int i = 0; i < saved_phase_len; i++) {
-        if (havePhaseData(i) && savedPhaseParticle[i] != 0) {
-          shuffleMsg->loads[i] = savedPhaseLoad[i] *
-            (shuffleMsg->parts_per_phase[i] / (float) savedPhaseParticle[i]);
-        } else if (havePhaseData(0) && myNumParticles != 0) {
-          shuffleMsg->loads[i] = savedPhaseLoad[0] *
-            (shuffleMsg->parts_per_phase[i] / (float) myNumParticles);
-        }
-      }
+///
+/// @brief Accumulate particle data from the TreePieces.
+/// @param vPart Particle data
+/// @param vSPH  extraData for SPH particles
+/// @param vStar  extraData for Star particles
+///
+void Writer::receive(std::vector<GravityParticle> vPart, std::vector<extraSPHData> vSPH,
+                     std::vector<extraStarData> vStar) 
+{
+    vMyParticles.insert(vMyParticles.end(), vPart.begin(), vPart.end());
+    vMySPHParticles.insert(vMySPHParticles.end(), vSPH.begin(), vSPH.end());
+    vMyStarParticles.insert(vMyStarParticles.end(), vStar.begin(), vStar.end());
+}
 
 
-
-	    if (verbosity>=3)
-		CkPrintf("me:%d to:%d how many:%ld\n",thisIndex, iPiece,
-			 (binEnd-binBegin));
-	    if(iPiece == thisIndex) {
-		ioAcceptSortedParticles(shuffleMsg);
-		}
-	    else {
-		pieces[iPiece].ioAcceptSortedParticles(shuffleMsg);
-		}
-	    }
-	if(&myParticles[myNumParticles + 1] <= binEnd)
-	    break;
-	binBegin = binEnd;
-	}
-    }
-	
-    delete[] startParticle;
-
-    // signify completion
-    incomingParticlesSelf = true;
-    ioAcceptSortedParticles(NULL);
-    }
-
-/// Accept particles from other TreePieces once the sorting has finished
-void TreePiece::ioAcceptSortedParticles(ParticleShuffleMsg *shuffleMsg) {
-
-    if(shuffleMsg != NULL) {
-	incomingParticlesMsg.push_back(shuffleMsg);
-	incomingParticlesArrived += shuffleMsg->n;
-        savePhaseData(savedPhaseLoadTmp, savedPhaseParticleTmp, shuffleMsg->loads,
-            shuffleMsg->parts_per_phase, shuffleMsg->nloads);
-	}
-
-    if(verbosity > 2)
-	ckout << thisIndex << ": incoming: " << incomingParticlesArrived
-	      << " myIO: " << myIOParticles << endl;
-    
-  if(myIOParticles == incomingParticlesArrived && incomingParticlesSelf) {
-      //I've got all my particles, now count them
-    if(verbosity>1) ckout << thisIndex <<" got ioParticles"
-			  <<endl;
-
-    savedPhaseLoad.swap(savedPhaseLoadTmp);
-    savedPhaseParticle.swap(savedPhaseParticleTmp);
-    savedPhaseLoadTmp.clear();
-    savedPhaseParticleTmp.clear();
-
-    int nTotal = 0;
-    int nSPH = 0;
-    int nStar = 0;
-    int iMsg;
-    for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
-	nTotal += incomingParticlesMsg[iMsg]->n;
-	nSPH += incomingParticlesMsg[iMsg]->nSPH;
-	nStar += incomingParticlesMsg[iMsg]->nStar;
-	}
-      
-    if (myNumParticles > 0) delete[] myParticles;
-    nStore = (int) ((nTotal + 2)*(1.0 + dExtraStore));
-    myParticles = new GravityParticle[nStore];
-    myNumParticles = nTotal;
-    // reset for next time
-    incomingParticlesArrived = 0;
-    incomingParticlesSelf = false;
-
-    myNumSPH = nSPH;
-    if (nStoreSPH > 0) delete[] mySPHParticles;
-    nStoreSPH = (int) (myNumSPH*(1.0 + dExtraStore));
-    if(nStoreSPH > 0)
-        mySPHParticles = new extraSPHData[nStoreSPH];
-    else
-        mySPHParticles = NULL;
-
-    myNumStar = nStar;
-    if(nStoreStar > 0) delete[] myStarParticles;
-    allocateStars();
-
-    int nPart = 0;
-    nSPH = 0;
-    nStar = 0;
-    for(iMsg = 0; iMsg < incomingParticlesMsg.size(); iMsg++) {
-	memcpy(&myParticles[nPart+1], incomingParticlesMsg[iMsg]->particles,
-	       incomingParticlesMsg[iMsg]->n*sizeof(GravityParticle));
-	nPart += incomingParticlesMsg[iMsg]->n;
-	memcpy(&mySPHParticles[nSPH], incomingParticlesMsg[iMsg]->pGas,
-	       incomingParticlesMsg[iMsg]->nSPH*sizeof(extraSPHData));
-	nSPH += incomingParticlesMsg[iMsg]->nSPH;
-	memcpy(&myStarParticles[nStar], incomingParticlesMsg[iMsg]->pStar,
-	       incomingParticlesMsg[iMsg]->nStar*sizeof(extraStarData));
-	nStar += incomingParticlesMsg[iMsg]->nStar;
-	delete incomingParticlesMsg[iMsg];
-	}
-      
-    incomingParticlesMsg.clear();
-
+/// @ brief Reorder particles according to iOrder once they have all
+/// been received
+void Writer::reOrder(const CkCallback &cb) {
     // assign gas data pointers
     int iGas = 0;
     int iStar = 0;
-    for(int iPart = 0; iPart < myNumParticles; iPart++) {
-	if(myParticles[iPart+1].isGas()) {
-	    myParticles[iPart+1].extraData
-		= (extraSPHData *)&mySPHParticles[iGas];
+    for(int iPart = 0; iPart < vMyParticles.size(); iPart++) {
+	if(vMyParticles[iPart].isGas()) {
+	    vMyParticles[iPart].extraData = (void *)&vMySPHParticles[iGas];
 	    iGas++;
-	    }
-	if(myParticles[iPart+1].isStar()) {
-	    myParticles[iPart+1].extraData
-		= (extraStarData *)&myStarParticles[iStar];
+        }
+	if(vMyParticles[iPart].isStar()) {
+	    vMyParticles[iPart].extraData = (void *)&vMyStarParticles[iStar];
 	    iStar++;
-	    }
-	}
+        }
+    }
 
-    sort(myParticles+1, myParticles+myNumParticles+1, compIOrder);
-    //signify completion with a reduction
-    if(verbosity>1) ckout << thisIndex <<" contributing to ioAccept particles"
-			  <<endl;
-
-    deleteTree();
-    contribute(callback);
-  }
+    std::sort(vMyParticles.begin(), vMyParticles.end(), compIOrder);
+    contribute(cb);
 }
 
 // Output a Tipsy ASCII array file.
-void TreePiece::outputASCII(OutputParams& params, // specifies
+void Writer::outputASCII(OutputParams& params, // specifies
 						  // filename, format,
 						  // and quantity to
 						  // be output
@@ -1702,7 +1587,7 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
   
   if((thisIndex==0 && packed) || (thisIndex==0 && !packed && cnt==0)) {
     if(verbosity > 2)
-      ckout << "TreePiece " << thisIndex << ": Writing header for output file" << endl;
+      ckout << "Writer " << thisIndex << ": Writing header for output file" << endl;
     outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "w");
     CkAssert(outfile != NULL);
     fprintf(outfile,"%d\n",(int) nTotalParticles);
@@ -1710,32 +1595,32 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
   }
 	
   if(verbosity > 3)
-    ckout << "TreePiece " << thisIndex << ": Writing output to disk" << endl;
+    ckout << "Writer " << thisIndex << ": Writing output to disk" << endl;
 	
   if(bParaWrite) {
       outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
       if(outfile == NULL)
-	    ckerr << "Treepiece " << thisIndex << " failed to open "
+	    ckerr << "Writer " << thisIndex << " failed to open "
 		  << params.fileName.c_str() << " : " << errno << endl;
       CkAssert(outfile != NULL);
       }
   else {
       if(params.bFloat) {
           if(params.bVector && packed)
-              avOut = new Vector3D<double>[myNumParticles];
+              avOut = new Vector3D<double>[vMyParticles.size()];
           else
-              adOut = new double[myNumParticles];
+              adOut = new double[vMyParticles.size()];
           }
       else
-          aiOut = new int[myNumParticles];
+          aiOut = new int[vMyParticles.size()];
       }
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+  for(unsigned int i = 0; i < vMyParticles.size(); ++i) {
       Vector3D<double> vOut;
       double dOut;
       int iOut;
       if(params.bFloat) {
           if(params.bVector) {
-              vOut = params.vValue(&myParticles[i]);
+              vOut = params.vValue(&vMyParticles[i]);
               if(!packed){
                   if(cnt==0)
                       dOut = vOut.x;
@@ -1746,37 +1631,37 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
                   }
               }
           else
-              dOut = params.dValue(&myParticles[i]);
+              dOut = params.dValue(&vMyParticles[i]);
           }
       else
-          iOut = params.iValue(&myParticles[i]);
+          iOut = params.iValue(&vMyParticles[i]);
       
       if(bParaWrite) {
         if(params.bFloat) {
 	  if(params.bVector && packed){
 	      if(fprintf(outfile,"%.14g\n",vOut.x) < 0) {
-		  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+		  ckerr << "Writer " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		    CkAbort("Badness");
 		    }
 	      if(fprintf(outfile,"%.14g\n",vOut.y) < 0) {
-		  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+		  ckerr << "Writer " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		  CkAbort("Badness");
 		  }
 	      if(fprintf(outfile,"%.14g\n",vOut.z) < 0) {
-		  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+		  ckerr << "Writer " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		  CkAbort("Badness");
 		  }
 	      }
 	  else {
 	      if(fprintf(outfile,"%.14g\n",dOut) < 0) {
-		  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+		  ckerr << "Writer " << thisIndex << ": Error writing array to disk, aborting" << endl;
 		  CkAbort("Badness");
 		  }
 	      }
             }
         else {
             if(fprintf(outfile,"%d\n", iOut) < 0) {
-                ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+                ckerr << "Writer " << thisIndex << ": Error writing array to disk, aborting" << endl;
                 CkAbort("Badness");
                 }
             }
@@ -1784,12 +1669,12 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
       else {
         if(params.bFloat) {
 	  if(params.bVector && packed)
-	      avOut[i-1] = vOut;
+	      avOut[i] = vOut;
 	  else
-	      adOut[i-1] = dOut;
+	      adOut[i] = dOut;
 	  }
         else
-            aiOut[i-1] = iOut;
+            aiOut[i] = iOut;
         }
       }
   cnt++;
@@ -1802,8 +1687,8 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
 	    ckerr << "Bad close: " << strerror(errno) << endl;
       CkAssert(result == 0);
 
-      if(thisIndex!=(int)numTreePieces-1) {
-	  pieces[thisIndex + 1].outputASCII(params, bParaWrite, cb);
+      if(thisIndex!=(int)CkNumPes()-1) {
+	  thisProxy[thisIndex + 1].outputASCII(params, bParaWrite, cb);
 	  return;
 	  }
 
@@ -1812,24 +1697,25 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
 	  return;
 	  }
       // go through pieces again for unpacked vector.
-      pieces[0].outputASCII(params, bParaWrite, cb);
+      thisProxy[0].outputASCII(params, bParaWrite, cb);
       }
   else {
       int bDone = packed || !params.bVector || (!packed && cnt==0); // flag for last time
       if(params.bFloat) {
           if(params.bVector && packed) {
-              pieces[0].oneNodeOutVec(params, avOut, myNumParticles, thisIndex,
-                                      bDone, cb);
+              thisProxy[0].oneNodeOutVec(params, avOut, vMyParticles.size(),
+                                         thisIndex, bDone, cb);
               delete [] avOut;
               }
           else {
-              pieces[0].oneNodeOutArr(params, adOut, myNumParticles, thisIndex,
-                                      bDone, cb);
+              thisProxy[0].oneNodeOutArr(params, adOut, vMyParticles.size(),
+                                         thisIndex, bDone, cb);
               delete [] adOut;
               }
           }
       else {
-          pieces[0].oneNodeOutIntArr(params, aiOut, myNumParticles, thisIndex, cb);
+          thisProxy[0].oneNodeOutIntArr(params, aiOut, vMyParticles.size(),
+                                        thisIndex, cb);
           delete [] aiOut;
           }
       }
@@ -1838,7 +1724,7 @@ void TreePiece::outputASCII(OutputParams& params, // specifies
 // Receives an array of vectors to write out in ASCII format
 // Assumed to be called from outputASCII() and will continue with the
 // next tree piece unless "bDone".
-void TreePiece::oneNodeOutVec(OutputParams& params,
+void Writer::oneNodeOutVec(OutputParams& params,
 			      Vector3D<double>* avOut, // array to be output
 			      int nPart, // number of elements in avOut
 			      int iIndex, // treepiece which called me
@@ -1847,20 +1733,20 @@ void TreePiece::oneNodeOutVec(OutputParams& params,
 {
     FILE* outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
     if(outfile == NULL)
-	ckerr << "Treepiece " << thisIndex << " failed to open "
+	ckerr << "Writer " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
     for(int i = 0; i < nPart; ++i) {
 	if(fprintf(outfile,"%.14g\n",avOut[i].x) < 0) {
-	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+	  ckerr << "Writer " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	if(fprintf(outfile,"%.14g\n",avOut[i].y) < 0) {
-	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+	  ckerr << "Writer " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	  CkAbort("Badness");
 	  }
 	if(fprintf(outfile,"%.14g\n",avOut[i].z) < 0) {
-	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+	  ckerr << "Writer " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	  CkAbort("Badness");
 	  }
 	}
@@ -1869,8 +1755,8 @@ void TreePiece::oneNodeOutVec(OutputParams& params,
 	ckerr << "Bad close: " << strerror(errno) << endl;
     CkAssert(result == 0);
 
-    if(iIndex!=(int)numTreePieces-1) {
-	  pieces[iIndex + 1].outputASCII(params, 0, cb);
+    if(iIndex!=(int)CkNumPes()-1) {
+	  thisProxy[iIndex + 1].outputASCII(params, 0, cb);
 	  return;
 	  }
 
@@ -1885,7 +1771,7 @@ void TreePiece::oneNodeOutVec(OutputParams& params,
 // Assumed to be called from outputASCII() and will continue with the
 // next tree piece unless "bDone"
 
-void TreePiece::oneNodeOutArr(OutputParams& params,
+void Writer::oneNodeOutArr(OutputParams& params,
 			      double *adOut, // array to be output
 			      int nPart, // length of adOut
 			      int iIndex, // treepiece which called me
@@ -1894,12 +1780,12 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
 {
     FILE* outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
     if(outfile == NULL)
-	ckerr << "Treepiece " << thisIndex << " failed to open "
+	ckerr << "Writer " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
     for(int i = 0; i < nPart; ++i) {
 	if(fprintf(outfile,"%.14g\n",adOut[i]) < 0) {
-	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+	  ckerr << "Writer " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	}
@@ -1908,8 +1794,8 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
 	ckerr << "Bad close: " << strerror(errno) << endl;
     CkAssert(result == 0);
 
-    if(iIndex!=(int)numTreePieces-1) {
-	  pieces[iIndex + 1].outputASCII(params, 0, cb);
+    if(iIndex!=(int)CkNumPes()-1) {
+	  thisProxy[iIndex + 1].outputASCII(params, 0, cb);
 	  return;
 	  }
 
@@ -1918,14 +1804,14 @@ void TreePiece::oneNodeOutArr(OutputParams& params,
 	  return;
 	  }
     // go through pieces again for unpacked vector.
-    pieces[0].outputASCII(params, 0, cb);
+    thisProxy[0].outputASCII(params, 0, cb);
     }
 
 // Receives an array of ints to write out in ASCII format
 // Assumed to be called from outputASCII() and will continue with the
 // next tree piece.
 
-void TreePiece::oneNodeOutIntArr(OutputParams& params,
+void Writer::oneNodeOutIntArr(OutputParams& params,
 			      int *aiOut, // array to be output
 			      int nPart, // length of adOut
 			      int iIndex, // treepiece which called me
@@ -1933,12 +1819,12 @@ void TreePiece::oneNodeOutIntArr(OutputParams& params,
 {
     FILE* outfile = CmiFopen((params.fileName+"."+params.sTipsyExt).c_str(), "a");
     if(outfile == NULL)
-	ckerr << "Treepiece " << thisIndex << " failed to open "
+	ckerr << "Writer " << thisIndex << " failed to open "
 	      << params.fileName.c_str() << " : " << errno << endl;
     CkAssert(outfile != NULL);
     for(int i = 0; i < nPart; ++i) {
 	if(fprintf(outfile,"%d\n",aiOut[i]) < 0) {
-	  ckerr << "TreePiece " << thisIndex << ": Error writing array to disk, aborting" << endl;
+	  ckerr << "Writer " << thisIndex << ": Error writing array to disk, aborting" << endl;
 	    CkAbort("Badness");
 	    }
 	}
@@ -1946,8 +1832,8 @@ void TreePiece::oneNodeOutIntArr(OutputParams& params,
     if(result != 0)
 	ckerr << "Bad close: " << strerror(errno) << endl;
     CkAssert(result == 0);
-    if(iIndex!=(int)numTreePieces-1) {
-	  pieces[iIndex + 1].outputASCII(params, 0, cb);
+    if(iIndex!=(int)CkNumPes()-1) {
+	  thisProxy[iIndex + 1].outputASCII(params, 0, cb);
 	  return;
 	  }
 
@@ -2005,28 +1891,28 @@ std::string Main::getNCNextOutput(OutputParams& params)
     if(params.iTypeWriting == 0) {
         params.iTypeWriting = TYPE_GAS;
         if((params.iType & TYPE_GAS) && (nTotalSPH > 0)) {
-            NCgasNames->push_back(params.sNChilExt);
+            NCgasNames.push_back(params.sNChilExt);
             return params.fileName+"/gas/"+params.sNChilExt;
             }
         }
     if(params.iTypeWriting == TYPE_GAS) {
         params.iTypeWriting = TYPE_DARK;
         if((params.iType & TYPE_DARK) && (nTotalDark > 0)) {
-            NCdarkNames->push_back(params.sNChilExt);
+            NCdarkNames.push_back(params.sNChilExt);
             return params.fileName+"/dark/"+params.sNChilExt;
             }
         }
     if(params.iTypeWriting == TYPE_DARK) {
         params.iTypeWriting = TYPE_STAR;
         if((params.iType & TYPE_STAR) && (nTotalStar > 0)) {
-            NCstarNames->push_back(params.sNChilExt);
+            NCstarNames.push_back(params.sNChilExt);
             return params.fileName+"/star/"+params.sNChilExt;
             }
         }
     return "";
 }
 
-/// Determine offsets for all pieces, then start the write session.
+/// Determine offsets for all Writers, then start the write session.
 /// This needs to be a threaded entry method.
 void Main::cbOpen(Ck::IO::FileReadyMsg *msg)
 {
@@ -2063,7 +1949,7 @@ void Main::cbOpen(Ck::IO::FileReadyMsg *msg)
     if(pOutput->bVector) 
         nBytes *= 3;
     // XXX This would be better as a parallel prefix operation       
-    treeProxy[0].outputBinaryStart(*pOutput, 0, CkCallbackResumeThread());
+    writeProxy[0].outputBinaryStart(*pOutput, 0, CkCallbackResumeThread());
     fIOFile = msg->file;
     Ck::IO::startSession(msg->file, nBytes + nHeader, 0,
                          CkCallback(CkIndex_Main::cbIOReady(NULL), thishandle),
@@ -2072,37 +1958,38 @@ void Main::cbOpen(Ck::IO::FileReadyMsg *msg)
 }
 
 /// Determine start offsets for this piece based on previous pieces.
-void TreePiece::outputBinaryStart(OutputParams& params, int64_t nStart,
+void Writer::outputBinaryStart(OutputParams& params, int64_t nStart,
                                   const CkCallback& cb)
 {
     nStartWrite = nStart;
 
-    if(thisIndex == numTreePieces - 1) {
+    if(thisIndex == CkNumPes() - 1) {
         cb.send();
         return;
         }
 
     int64_t nMyParts;
     if(params.iBinaryOut != 6) {
-        nMyParts = myNumParticles;
+        nMyParts = vMyParticles.size();
     }
     else {
         if(params.iTypeWriting == TYPE_GAS)
-            nMyParts = myNumSPH;
+            nMyParts = vMySPHParticles.size();
         else if(params.iTypeWriting == TYPE_DARK)
-            nMyParts = myNumParticles - myNumSPH - myNumStar;
+            nMyParts = vMyParticles.size() - vMySPHParticles.size()
+                - vMyStarParticles.size();
         else if(params.iTypeWriting == TYPE_STAR)
-            nMyParts = myNumStar;
+            nMyParts = vMyStarParticles.size();
         else
             CkAbort("Bad writing type.");
         }
-    pieces[thisIndex+1].outputBinaryStart(params, nStart + nMyParts, cb);
+    thisProxy[thisIndex+1].outputBinaryStart(params, nStart + nMyParts, cb);
 }
 
 /// Session is ready; write my data.
 void Main::cbIOReady(Ck::IO::SessionReadyMsg *msg)
 {
-    treeProxy.outputBinary(msg->session, *pOutput);
+    writeProxy.outputBinary(msg->session, *pOutput);
     delete msg;
 }
 
@@ -2135,8 +2022,8 @@ void Main::cbIOClosed(CkMessage *msg)
     }
     else {
         CkReductionMsg *msgMinMax;
-        treeProxy.minmaxNCOut(*pOutput,
-                           CkCallbackResumeThread((void *&)msgMinMax));
+        writeProxy.minmaxNCOut(*pOutput,
+                               CkCallbackResumeThread((void *&)msgMinMax));
         pOutput->iTypeWriting >>= 1;  // Kludge quickly get the
                                          // current filename from
                                          // getNCNextOutput()
@@ -2212,22 +2099,22 @@ void Main::cbIOClosed(CkMessage *msg)
     cbIO.send();
 }
 
-void TreePiece::minmaxNCOut(OutputParams& params, const CkCallback& cb)
+void Writer::minmaxNCOut(OutputParams& params, const CkCallback& cb)
 {
     OrientedBox<float> bbVec;
     float minmax[2] = {FLT_MAX, -FLT_MAX};
     int64_t iminmax[2] = {INT_MAX, -INT_MAX};
     params.dm = dm; // pass cooling information
 
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
-        if((TYPETest(&myParticles[i], params.iType)
-            && TYPETest(&myParticles[i], params.iTypeWriting))
+    for(unsigned int i = 0; i < vMyParticles.size(); ++i) {
+        if((TYPETest(&vMyParticles[i], params.iType)
+            && TYPETest(&vMyParticles[i], params.iTypeWriting))
            || params.iBinaryOut != 6) {
           if(params.bFloat) {
             if(params.bVector)
-                bbVec.grow(params.vValue(&myParticles[i]));
+                bbVec.grow(params.vValue(&vMyParticles[i]));
             else {
-                float dValue = params.dValue(&myParticles[i]);
+                float dValue = params.dValue(&vMyParticles[i]);
                 if(dValue < minmax[0])
                     minmax[0] = dValue;
                 if(dValue > minmax[1])
@@ -2235,7 +2122,7 @@ void TreePiece::minmaxNCOut(OutputParams& params, const CkCallback& cb)
                 }
             }
           else {
-              int64_t iValue = params.iValue(&myParticles[i]);
+              int64_t iValue = params.iValue(&vMyParticles[i]);
               if(iValue < iminmax[0])
                   iminmax[0] = iValue;
               if(iValue > iminmax[1])
@@ -2255,18 +2142,18 @@ void TreePiece::minmaxNCOut(OutputParams& params, const CkCallback& cb)
 }
  
 /// Output a Tipsy XDR binary float array file.
-void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
+void Writer::outputBinary(Ck::IO::Session session, OutputParams& params)
 {
     XDR xdrs;
     params.dm = dm; // pass cooling information
 
     if(verbosity > 3)
-	CkPrintf("TreePiece %d: Writing output to disk\n", thisIndex);
+	CkPrintf("Writer %d: Writing output to disk\n", thisIndex);
     
     int64_t nMyParts;
     size_t nHeader;
     if(params.iBinaryOut != 6) {
-        nMyParts = myNumParticles;
+        nMyParts = vMyParticles.size();
         nHeader = sizeof(int);
     }
     else {
@@ -2280,11 +2167,12 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
         else
             nHeader += 2*sizeof(int64_t);
         if(params.iTypeWriting == TYPE_GAS)
-            nMyParts = myNumSPH;
+            nMyParts = vMySPHParticles.size();
         else if(params.iTypeWriting == TYPE_DARK)
-            nMyParts = myNumParticles - myNumSPH - myNumStar;
+            nMyParts = vMyParticles.size() - vMySPHParticles.size()
+                - vMyStarParticles.size();
         else if(params.iTypeWriting == TYPE_STAR)
-            nMyParts = myNumStar;
+            nMyParts = vMyStarParticles.size();
         else
             CkAbort("Bad writing type.");
         }
@@ -2362,27 +2250,27 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
     
     int nOut = 0;
 
-    for(unsigned int i = 1; i <= myNumParticles; ++i) {
-        if((TYPETest(&myParticles[i], params.iType)
-            && TYPETest(&myParticles[i], params.iTypeWriting))
+    for(unsigned int i = 0; i < vMyParticles.size(); ++i) {
+        if((TYPETest(&vMyParticles[i], params.iType)
+            && TYPETest(&vMyParticles[i], params.iTypeWriting))
            || params.iBinaryOut != 6) {
             if(params.bFloat) {
                 if(params.bVector) {
-                    Vector3D<float> vec = params.vValue(&myParticles[i]);
+                    Vector3D<float> vec = params.vValue(&vMyParticles[i]);
                     xdr_template(&xdrs, &vec);
                     }
                 else {
-                    float dValue = params.dValue(&myParticles[i]);
+                    float dValue = params.dValue(&vMyParticles[i]);
                     xdr_float(&xdrs, &dValue);
                     }
                 }
             else {
                 if(params.iBinaryOut == 6) {
-                    int64_t iValue = params.iValue(&myParticles[i]);
+                    int64_t iValue = params.iValue(&vMyParticles[i]);
                     xdr_template(&xdrs, &iValue);
                     }
                 else {  // tipsy binary array only does 32 bit ints
-                    int iValue = params.iValue(&myParticles[i]);
+                    int iValue = params.iValue(&vMyParticles[i]);
                     xdr_template(&xdrs, &iValue);
                     }
                 }
@@ -2398,27 +2286,28 @@ void TreePiece::outputBinary(Ck::IO::Session session, OutputParams& params)
 //// Add all of the elements of a particle family to an opened ofstream for the
 //// description.xml file.  If the names vector is empty, does nothing.  Otherwise
 //// appends a family tag, with sub-tags for each attribute stored in the snapshot.
-void Main::NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string family)
+void Main::NCXMLattrib(ofstream *desc, std::vector<std::string>& names,
+                       std::string family)
 {
-    if(names->length() == 0) // Don't add a family tag if the names vector is empty.
+    if(names.size() == 0) // Don't add a family tag if the names vector is empty.
         return;
     std::string lastStr = "";
     std::string attrib;
     *desc << "\t<family name=\"" << family << "\">" << endl;
-    for(unsigned int i=0;i<names->length();i++)
+    for(unsigned int i=0;i<names.size();i++)
     {
-        attrib = (*names)[i];
+        attrib = names[i];
         if(attrib == "pos")
             attrib = "position";
         if(attrib == "pot")
             attrib = "potential";
         if(attrib == "vel")
             attrib = "velocity";
-        if(lastStr != (*names)[i]) {
+        if(lastStr != names[i]) {
             *desc <<  "\t\t<attribute name=\"" << attrib << "\" link=\""
-                  << family << "/" << (*names)[i] << "\"/>" << endl;
+                  << family << "/" << names[i] << "\"/>" << endl;
         }
-        lastStr = (*names)[i];
+        lastStr = names[i];
     }
     *desc << "\t</family>" << endl;
 }
@@ -2428,9 +2317,9 @@ void Main::NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string fa
 void Main::writeNCXML(const std::string filename) 
 {
     // Let's use alphabetical order for the contents of each family.
-    NCgasNames->quickSort();
-    NCstarNames->quickSort();
-    NCdarkNames->quickSort();
+    std::sort(NCgasNames.begin(), NCgasNames.end());
+    std::sort(NCstarNames.begin(), NCstarNames.end());
+    std::sort(NCdarkNames.begin(), NCdarkNames.end());
 
     ofstream xmldesc; // File handler for the XML description file
     xmldesc.open((filename+"/description.xml").c_str(), ios_base::trunc);
@@ -2443,8 +2332,8 @@ void Main::writeNCXML(const std::string filename)
     xmldesc << "</simulation>" << endl;
     
     // Clear the vectors storing the family attributes for next snapshot
-    delete NCgasNames;
-    delete NCstarNames;
-    delete NCdarkNames;
+    NCgasNames.clear();
+    NCstarNames.clear();
+    NCdarkNames.clear();
     xmldesc.close();
 }

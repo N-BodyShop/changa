@@ -12,6 +12,12 @@
 /**
  * @brief Interface class for initial mass function.
  */
+
+/**
+* Modified by Elaad Applebaum to implement a stochastic IMF.
+* Added DrawStar methods
+* NB: So far, only added for Kroupa01
+*/
 class IMF : public PUP::able {
 
  public:
@@ -29,9 +35,21 @@ class IMF : public PUP::able {
     /** @brief Cumulative number of stars with mass greater than mass.
 	@param mass in solar masses */
     virtual double CumNumber(double mass) = 0;
+    /** @brief CumNumber for use with stochastic IMF.
+    * NOTA BENE - CumNumber for stochastic use returns the actual number for
+    * the star particle - no renormalization necessary
+    */
+    virtual double CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass) = 0;
     /** @brief Cumulative mass of stars with mass greater than mass.
 	@param mass in solar masses */
     virtual double CumMass(double mass) = 0;
+    /** @brief CumMass for use with stochastic IMF.
+    * NOTA BENE - CumMass for stochastic use returns the actual mass for
+    * the star particle - no renormalization necessary
+    */
+    virtual double CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass) = 0;
+    /** @brief inverse CDF of IMF to draw stars stochastically from the IMF */
+    virtual double DrawStar(double num) = 0;
     /** @brief copy IMF object */
     virtual IMF* clone() const = 0;
     ~IMF() {};
@@ -74,6 +92,9 @@ class MillerScalo : public IMF {
     virtual double returnimf(double mass) const;
     virtual double CumNumber(double mass);
     virtual double CumMass(double mass);
+    virtual double CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass);
+    virtual double CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass);
+    virtual double DrawStar(double num);
     virtual MillerScalo* clone() const;
     virtual void pup(PUP::er &p) {
 	PUP::able::pup(p);
@@ -109,6 +130,9 @@ class Kroupa93 : public IMF {
     virtual double returnimf(double mass) const;
     virtual double CumNumber(double mass);
     virtual double CumMass(double mass);
+    virtual double CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass);
+    virtual double CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass);
+    virtual double DrawStar(double num);
     virtual Kroupa93* clone() const;
     virtual void pup(PUP::er &p) {
 	PUP::able::pup(p);
@@ -150,6 +174,9 @@ class Kroupa01 : public IMF {
     virtual double returnimf(double mass) const;
     virtual double CumNumber(double mass);
     virtual double CumMass(double mass);
+    virtual double CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass);
+    virtual double CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass);
+    virtual double DrawStar(double num);
     virtual Kroupa01* clone() const;
     virtual void pup(PUP::er &p) {
 	PUP::able::pup(p);
@@ -184,6 +211,9 @@ class Chabrier : public IMF {
     virtual double returnimf(double mass) const;
     virtual double CumNumber(double mass);
     virtual double CumMass(double mass);
+    virtual double CumNumberStoch(double mass, double lownorm, double *hmstars, double cutmass);
+    virtual double CumMassStoch(double mass, double lownorm, double *hmstars, double cutmass);
+    virtual double DrawStar(double num);
     virtual Chabrier* clone() const;
     /** @brief Charm++ method for migrating derived classes */
     PUPable_decl(Chabrier);

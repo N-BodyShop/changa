@@ -12,6 +12,7 @@
 #include <string>
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
+#include "lymanwerner.h"
 
 #ifdef CUDA
 #include "memlog.h"
@@ -169,13 +170,20 @@ public:
 	 ** Cooling 
 	 */
 	COOL *Cool;
+    /*
+     * LW Feedback
+     */
+    LWDATA *LWData;
 	/// @brief log of star formation events.
 	///
 	/// Star formation events are stored on the data manager since there
 	/// is no need to migrate them with the TreePiece.
 	StarLog *starLog;
+    HMStarLog *hmStarLog;
 	/// @brief Lock for accessing starlog from TreePieces
 	CmiNodeLock lockStarLog;
+	/// @brief Lock for accessing hmstarlog from TreePieces
+    CmiNodeLock lockHMStarLog;
 
 #ifdef CUDA
 	// Pointers to particle and tree data on GPU
@@ -249,8 +257,11 @@ public:
 #endif
 
 	    CoolFinalize(Cool);
+        LymanWernerTableFinalize(LWData);
 	    delete starLog;
+        delete hmStarLog;
 	    CmiDestroyLock(lockStarLog);
+        CmiDestroyLock(lockHMStarLog);
 #ifdef CUDA
 	    delete memLog;
 	    CmiDestroyLock(lockMemLog);
@@ -311,6 +322,8 @@ public:
 #ifdef CUDA
     void flushMemLog(const CkCallback& cb);
 #endif
+    void initLWData(const CkCallback& cb);
+    void initHMStarLog(std::string _fileName, const CkCallback &cb);
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
     void CoolingSetTime(double z, // redshift
 			double dTime, // Time

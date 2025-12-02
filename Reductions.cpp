@@ -7,6 +7,8 @@
 
 #include "dumpframe.h"
 
+#include "collision.h"
+
 CkReduction::reducerType growOrientedBox_float;
 CkReduction::reducerType growOrientedBox_double;
 
@@ -21,6 +23,9 @@ CkReduction::reducerType callbackReduction;
 CkReduction::reducerType boxReduction;
 
 CkReduction::reducerType dfImageReduction;
+
+CkReduction::reducerType soonestCollReduction;
+CkReduction::reducerType findCollReduction;
 
 /// Combine reduction messages to grow a box
 template <typename T>
@@ -110,7 +115,69 @@ CkReductionMsg* dfImageReducer(int nMsg, CkReductionMsg** msgs) {
     return CkReductionMsg::buildNew(msgs[0]->getSize(), msgs[0]->getData());
 }
 
-/// Create custom reducers in the charm runtime.
+// Pass on collision information only for particles with the minimum collision time
+CkReductionMsg* soonestCollInfo(int nMsg, CkReductionMsg** msgs) {
+    // Some messages have 2 collider info objects associated with them
+    // This is the case if both colliders were on the same TreePiece
+    // Need to put all of the collider info objects into a 1d array
+    int nColliders = 0;
+    for (unsigned int i=0; i < nMsg; i++) {
+        nColliders++;
+        ColliderInfo *secondCollider = &(static_cast<ColliderInfo *>(msgs[i]->getData()))[1];
+        if (secondCollider->dtCol < DBL_MAX) {
+            nColliders++;
+            }
+        }
+
+    int arrIdx = 0;
+    ColliderInfo *allColliders[nColliders];
+    for (unsigned int i=0; i < nMsg; i++) {
+        allColliders[arrIdx] = &(static_cast<ColliderInfo *>(msgs[i]->getData()))[0];
+        arrIdx++;
+        ColliderInfo *secondCollider = &(static_cast<ColliderInfo *>(msgs[i]->getData()))[1];
+        if (secondCollider->dtCol < DBL_MAX) {
+            allColliders[arrIdx] = &(static_cast<ColliderInfo *>(msgs[i]->getData()))[1];
+            arrIdx++;
+            }
+        }
+
+    double dtMin = DBL_MAX;
+    ColliderInfo c1, c2;
+
+    ColliderInfo *c;
+    ColliderInfo minColliders[2];
+    minColliders[0].dtCol = dtMin;
+    minColliders[1].dtCol = dtMin;
+
+    for(int i = 0; i < nColliders; i++) {
+        c = allColliders[i];
+        if(c->dtCol <= dtMin) {
+            dtMin = c->dtCol;
+            minColliders[0] = *c;
+            }
+        }
+    for(int i = 0; i < nColliders; i++) {
+        c = allColliders[i];
+        if(c->dtCol == dtMin && c->iOrder != minColliders[0].iOrder) {
+            minColliders[1] = *c;
+            }
+        }
+
+    return CkReductionMsg::buildNew(2 * sizeof(ColliderInfo), minColliders);
+}
+
+// Pass on the collider info object from the one process that
+// found the collider
+CkReductionMsg* singleCollInfo(int nMsg, CkReductionMsg** msgs) {
+    ColliderInfo *c;
+    for (unsigned int i=0; i < nMsg; i++) {
+        c = static_cast<ColliderInfo *>(msgs[i]->getData());
+        if (c->iOrder != -1) break;
+        }
+
+    return CkReductionMsg::buildNew(sizeof(ColliderInfo), c);
+    }
+
 void registerReductions() {
 	growOrientedBox_float = CkReduction::addReducer(boxGrowth<float>);
 	growOrientedBox_double = CkReduction::addReducer(boxGrowth<double>);
@@ -123,6 +190,8 @@ void registerReductions() {
 	callbackReduction = CkReduction::addReducer(same<CkCallback>);
 	boxReduction = CkReduction::addReducer(same<OrientedBox<float> >);
 	dfImageReduction = CkReduction::addReducer(dfImageReducer);
+        soonestCollReduction = CkReduction::addReducer(soonestCollInfo);
+        findCollReduction = CkReduction::addReducer(singleCollInfo);
 	
 }
 

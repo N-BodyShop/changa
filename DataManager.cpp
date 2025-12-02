@@ -53,8 +53,11 @@ void DataManager::init() {
   d_remoteParts = nullptr;
 #endif
   Cool = CoolInit();
+  LWData = LymanWernerTableInit();
   starLog = new StarLog();
+  hmStarLog = new HMStarLog();
   lockStarLog = CmiCreateLock();
+  lockHMStarLog = CmiCreateLock();
 }
 
 #ifdef CUDA
@@ -443,7 +446,6 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
     verbosity = param.iVerbosity;
     dExtraStore = param.dExtraStore;
     dMaxBalance = param.dMaxBalance;
-    dFracLoadBalance = param.dFracLoadBalance;
     nIOProcessor = param.nIOProcessor;
     theta = param.dTheta;
     thetaMono = theta*theta*theta*theta;
