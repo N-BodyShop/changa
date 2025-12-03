@@ -617,8 +617,9 @@ public:
 	void initCooling();
     void initLWData();
 	void initStarLog();
-  void initMemLog();
 	void initHMStarLog();
+	void initMemLog();
+	void initCpuMemLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);

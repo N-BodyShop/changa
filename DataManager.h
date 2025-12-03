@@ -16,6 +16,7 @@
 
 #ifdef CUDA
 #include "memlog.h"
+#include "MemoryPool.h"
 #endif
 
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
@@ -202,6 +203,19 @@ public:
 	CmiNodeLock lockMemLog;
 	/// @brief Flag to enable GPU memory logging
 	int bGpuMemLogger;
+	
+	/// @brief log of CPU (host) memory events.
+	MemLog *cpuMemLog;
+	/// @brief Lock for accessing CPU memlog
+	CmiNodeLock lockCpuMemLog;
+	/// @brief Flag to enable CPU memory logging
+	int bCpuMemLogger;
+	/// @brief Target capacity for host pool trim in GB
+	double dHostPoolTargetCapacityGB;
+	/// @brief Minimum capacity per bucket during trim in MB
+	int nHostPoolMinCapacityPerBucketMB;
+	/// @brief Flag to enable host pool debug output
+	int bHostPoolDebug;
 
 	/// Allow TreePiece::fillGPUBuffer to access node-wide buffers and data
 	CudaMultipoleMoments* getLocalMoments() { return localMoments.getVec(); }
@@ -319,8 +333,12 @@ public:
 		     COOLPARAM inParam, const CkCallback& cb);
     void initStarLog(std::string _fileName, const CkCallback &cb);
     void initMemLog(std::string _fileName, int bGpuMemLoggerFlag, const CkCallback &cb);
+    void initCpuMemLog(std::string _fileName, int bCpuMemLoggerFlag, const CkCallback &cb);
 #ifdef CUDA
     void flushMemLog(const CkCallback& cb);
+    void flushCpuMemLog(const CkCallback& cb);
+    void trimHostPool(double targetCapacityGB, const CkCallback& cb);
+    void refillHostPool(const CkCallback& cb);
 #endif
     void initLWData(const CkCallback& cb);
     void initHMStarLog(std::string _fileName, const CkCallback &cb);
@@ -367,6 +385,19 @@ class ProjectionsControl : public CBase_ProjectionsControl {
     int numGpus;
     cudaGetDeviceCount(&numGpus);
     cudaSetDevice(CmiMyNode() % numGpus);
+    
+    // Initialize GPU & host memory pools with warmup for typical allocation patterns
+    // Only initialize once per node (first PE on each node)
+    static CmiNodeLock initLock = CmiCreateLock();
+    static bool poolsInitialized = false;
+    
+    CmiLock(initLock);
+    if (!poolsInitialized) {
+        gpuPoolInit();       // Device pool warmup
+        hostPoolInit();   // Host pool warmup
+        poolsInitialized = true;
+    }
+    CmiUnlock(initLock);
 #endif
     setBIconfig();
     LBTurnCommOff();

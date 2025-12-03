@@ -53,6 +53,7 @@
 #include "PEList.h"
 // for default per-list parameters
 #include "cuda_typedef.h"
+#include "MemoryPool.h"
 #endif
 
 extern char *optarg;
@@ -792,6 +793,24 @@ Main::Main(CkArgMsg* m) {
         prmAddParam(prm, "bGpuMemLogger", paramBool, &param.bGpuMemLogger,
                     sizeof(int), "gpumemlog",
                     "Enable GPU memory pool logger");
+        param.bCpuMemLogger = 0;
+        prmAddParam(prm, "bCpuMemLogger", paramBool, &param.bCpuMemLogger,
+                    sizeof(int), "cpumemlog",
+                    "Enable CPU memory pool logger");
+        param.dHostPoolTargetCapacityGB = 5.0;
+        prmAddParam(prm, "dHostPoolTargetCapacityGB", paramDouble, 
+                    &param.dHostPoolTargetCapacityGB,
+                    sizeof(double), "hptarget",
+                    "Target capacity for host pool (per DM) in GB (default: 5.0)");
+        param.nHostPoolMinCapacityPerBucketMB = 50;
+        prmAddParam(prm, "nHostPoolMinCapacityPerBucketMB", paramInt,
+                    &param.nHostPoolMinCapacityPerBucketMB,
+                    sizeof(int), "hpminbucket",
+                    "Min capacity per host pool bucket size during trim in MB (default: 50)");
+        param.bHostPoolDebug = 0;
+        prmAddParam(prm, "bHostPoolDebug", paramBool, &param.bHostPoolDebug,
+                    sizeof(int), "hpdebug",
+                    "Enable host pool debug output and statistics");
 #endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
@@ -2611,7 +2630,9 @@ void Main::setupICs() {
 
 #ifdef CUDA
   if(param.bGpuMemLogger)
-      initMemLog(); // Initialize memory logging immediately after star log
+      initMemLog(); // Initialize GPU memory logging
+  if(param.bCpuMemLogger)
+      initCpuMemLog(); // Initialize CPU memory logging
 #endif
       if(param.feedback->sn.bUseStoch)
         initHMStarLog();
@@ -3163,9 +3184,35 @@ Main::doSimulation()
     writeTimings(iStep);
 
 #ifdef CUDA
-    // Flush memory log
+    
+    // Host pool diagnostics and maintenance
+    if (param.bHostPoolDebug) {
+        char prefix[64];
+        sprintf(prefix, "[Step %d]", iStep);
+        hostPoolReportStats(prefix, param.dHostPoolTargetCapacityGB);
+        
+        // Periodic growth analysis every 10 steps
+        if (iStep % 10 == 0) {
+            hostPoolAnalyzeGrowth();
+        }
+        
+        // Early warmup effectiveness check
+        if (iStep == 5) {
+            hostPoolAnalyzeWarmupEffectiveness();
+        }
+    }
+    
+    // Trim host pool to reclaim memory (always runs)
+    dMProxy.trimHostPool(param.dHostPoolTargetCapacityGB, CkCallbackResumeThread());
+    
+    // Refill host pool hot buckets to prepare for next timestep
+    dMProxy.refillHostPool(CkCallbackResumeThread());
+    
+    // Flush memory logs
     if(param.bGpuMemLogger)
         dMProxy[0].flushMemLog(CkCallbackResumeThread());
+    if(param.bCpuMemLogger)
+        dMProxy[0].flushCpuMemLog(CkCallbackResumeThread());
 #endif
 
     if(iStep%param.iOrbitOutInterval == 0) {

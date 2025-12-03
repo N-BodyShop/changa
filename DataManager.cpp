@@ -12,7 +12,7 @@
 #include "hapi.h"
 #include "cuda_typedef.h"
 #include "SFC.h"
-#include "GPUMemoryPool.h"
+#include "MemoryPool.h"
 #include "PEList.h"
 #endif
 
@@ -45,6 +45,12 @@ void DataManager::init() {
   memLog = new MemLog();
   lockMemLog = CmiCreateLock();
   bGpuMemLogger = 0; // Default disabled
+  cpuMemLog = new MemLog();
+  lockCpuMemLog = CmiCreateLock();
+  bCpuMemLogger = 0; // Default disabled
+  dHostPoolTargetCapacityGB = 5.0; // Default target capacity
+  nHostPoolMinCapacityPerBucketMB = 50; // Default minimum per bucket
+  bHostPoolDebug = 0; // Default disabled
 
   d_localMoments = nullptr;
   d_localParts = nullptr;
@@ -456,6 +462,10 @@ void DataManager::resetReadOnly(Parameters param, const CkCallback &cb)
 #endif
 #ifdef CUDA
     bGpuMemLogger = param.bGpuMemLogger;
+    bCpuMemLogger = param.bCpuMemLogger;
+    dHostPoolTargetCapacityGB = param.dHostPoolTargetCapacityGB;
+    nHostPoolMinCapacityPerBucketMB = param.nHostPoolMinCapacityPerBucketMB;
+    bHostPoolDebug = param.bHostPoolDebug;
 #endif
     contribute(cb);
     // parameter structure requires some cleanup
@@ -495,8 +505,9 @@ void DataManager::serializeLocalTree(){
 /// @brief Get the data produced by TreePiece::EwaldInit and launch the Ewald kernel on the GPU
 void DataManager::startEwaldGPU() {
 #ifdef PINNED_HOST_MEMORY
-  allocatePinnedHostMemory((void **)&ewt, sizeof(EwtData)*NEWH);
-  allocatePinnedHostMemory((void **)&cachedData, sizeof(EwaldReadOnlyData));
+  const char* funcTag = "DataManager::startEwaldGPU";
+  hostMalloc(&ewt, sizeof(EwtData)*NEWH, funcTag);
+  hostMalloc(&cachedData, sizeof(EwaldReadOnlyData), funcTag);
 #else
   ewt = (EwtData *) malloc(sizeof(EwtData)*NEWH);
   cachedData = (EwaldReadOnlyData *) malloc(sizeof(EwaldReadOnlyData));
@@ -599,8 +610,9 @@ void DataManager::finishEwaldGPU() {
   delete ewaldCallback;
 
 #ifdef PINNED_HOST_MEMORY
-  freePinnedHostMemory(ewt);
-  freePinnedHostMemory(cachedData);
+  const char* funcTag = "DataManager::finishEwaldGPU";
+  hostFree(ewt, funcTag);
+  hostFree(cachedData, funcTag);
 #else
   free(ewt);
   free(cachedData);
@@ -621,9 +633,11 @@ void DataManager::finishLocalWalk() {
 
 #ifdef GPU_LOCAL_TREE_WALK
 #ifdef PINNED_HOST_MEMORY
-  freePinnedHostMemory(bufLocalMoments);
-  freePinnedHostMemory(bufLocalParts);
-  freePinnedHostMemory(bufLocalVars);
+  // Direct free for large local tree buffers (bypasses pool but logs analytics)
+  const char* funcTag = "DataManager::finishLocalWalk";
+  hostFree(bufLocalMoments, funcTag);
+  hostFree(bufLocalParts, funcTag);
+  hostFree(bufLocalVars, funcTag);
 #else
   free(bufLocalMoments);
   free(bufLocalParts);
@@ -710,17 +724,17 @@ void DataManager::resumeRemoteChunk() {
   delete currentChunkBuffers->cb;
   delete currentChunkBuffers;
 
- // Check and see if the remote walks already finished and are waiting
- // to launch their GPU kernels
- int pe;
- int firstPE = CkNodeFirst(CkMyNode());
- int nPEs = CkNodeSize(CkMyNode());
- for (int i = 0; i < numPEListProxies; i++) {
-     for (int j = 0; j < nPEs; j++) {
-         pe = firstPE + j;
-         (*(PEListProxies[i]))[pe].tryLaunchDelayedKernel();
-     }
- }
+  // Check and see if the remote walks already finished and are waiting
+  // to launch their GPU kernels
+  int pe;
+  int firstPE = CkNodeFirst(CkMyNode());
+  int nPEs = CkNodeSize(CkMyNode());
+  for (int i = 0; i < numPEListProxies; i++) {
+      for (int j = 0; j < nPEs; j++) {
+          pe = firstPE + j;
+          (*(PEListProxies[i]))[pe].tryLaunchDelayedKernel();
+      }
+  }
 }
 
 /// @brief record when all TreePieces have finished their prefetch.
@@ -765,7 +779,8 @@ void DataManager::donePrefetch(int chunk){
     size_t sRemMoments = lastChunkMoments*sizeof(CudaMultipoleMoments);
     if(sRemMoments > 0) {
 #ifdef PINNED_HOST_MEMORY
-	allocatePinnedHostMemory((void **)&bufRemoteMoments, sRemMoments);
+	const char* funcTag = "DataManager::transferPrefetch";
+	hostMalloc(&bufRemoteMoments, sRemMoments, funcTag);
 #else
 	bufRemoteMoments = (CudaMultipoleMoments *) malloc(sRemMoments);
 #endif
@@ -776,7 +791,8 @@ void DataManager::donePrefetch(int chunk){
     size_t sRemParts = lastChunkParticles*sizeof(CompactPartData);
     if(sRemParts > 0) {
 #ifdef PINNED_HOST_MEMORY
-	allocatePinnedHostMemory((void **)&bufRemoteParts, sRemParts);
+	const char* funcTag = "DataManager::transferPrefetch";
+	hostMalloc(&bufRemoteParts, sRemParts, funcTag);
 #else
 	bufRemoteParts = (CompactPartData *) malloc(sRemParts);
 #endif
@@ -1037,8 +1053,10 @@ void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
   size_t sLocalParts = numParticles*sizeof(CompactPartData);
   size_t sLocalMoments = localMoments.length()*sizeof(CudaMultipoleMoments);
 #ifdef PINNED_HOST_MEMORY
-  allocatePinnedHostMemory((void **)&bufLocalParts, sLocalParts);
-  allocatePinnedHostMemory((void **)&bufLocalMoments, sLocalMoments);
+  // Bypass pool for large local tree buffers (but log analytics)
+  const char* funcTag = "DataManager::sendLocalData";
+  hostMalloc(&bufLocalParts, sLocalParts, funcTag);
+  hostMalloc(&bufLocalMoments, sLocalMoments, funcTag);
 #else
   bufLocalParts = (CompactPartData *) malloc(sLocalParts);
   bufLocalMoments = (CudaMultipoleMoments *) malloc(sLocalMoments);
@@ -1060,7 +1078,7 @@ void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
 }
 
 ///
-/// @brief After all pieces have filled the buffer, initiate the transfer.
+// @brief After all pieces have filled the buffer, initiate the transfer.
 /// @param numParticles total number of particles on this node
 ///
 void DataManager::transferLocalToGPU(int numParticles)
@@ -1099,7 +1117,9 @@ void DataManager::transferLocalToGPU(int numParticles)
 #endif
 
 #ifdef PINNED_HOST_MEMORY
-  allocatePinnedHostMemory((void **)&bufLocalVars, sLocalVars);
+  // Bypass pool for large local tree buffers (but log analytics)
+  const char* funcTag = "DataManager::transferLocalToGPU";
+  hostMalloc(&bufLocalVars, sLocalVars, funcTag);
 #else
   bufLocalVars = (VariablePartData *) malloc(sLocalVars);
 #endif
@@ -1172,7 +1192,8 @@ void DataManager::transferParticleVarsBack(){
     
     if(savedNumTotalParticles > 0){
 #ifdef PINNED_HOST_MEMORY
-      allocatePinnedHostMemory((void **)&buf, savedNumTotalParticles*sizeof(VariablePartData));
+      const char* funcTag = "DataManager::transferParticleVarsBack";
+      hostMalloc(&buf, savedNumTotalParticles*sizeof(VariablePartData), funcTag);
 #else
       buf = (VariablePartData *) malloc(savedNumTotalParticles*sizeof(VariablePartData));
 #endif
@@ -1240,42 +1261,62 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
     if(treePiecesParticlesUpdated == registeredTreePieces.length()){
         treePiecesParticlesUpdated = 0;
 
+    // Free host buffers for remote chunk data
 #ifdef PINNED_HOST_MEMORY
-  if(bufRemoteMoments != NULL)
-      freePinnedHostMemory(bufRemoteMoments);
-  if(bufRemoteParts != NULL)
-      freePinnedHostMemory(bufRemoteParts);
+    const char* funcTagHost = "DataManager::updateParticlesFreeMemory";
+    if(bufRemoteMoments != NULL)
+        hostFree(bufRemoteMoments, funcTagHost);
+    if(bufRemoteParts != NULL)
+        hostFree(bufRemoteParts, funcTagHost);
 #else
-  if(bufRemoteMoments != NULL)
-      free(bufRemoteMoments);
-  if(bufRemoteParts != NULL)
-      free(bufRemoteParts);
+    if(bufRemoteMoments != NULL)
+        free(bufRemoteMoments);
+    if(bufRemoteParts != NULL)
+        free(bufRemoteParts);
 #endif
 
-	  const char* funcTag = "DataManager::transferParticleVarsBack"; // Define the function tag
-    gpuFreeHelper(d_localMoments, funcTag);   
-    gpuFreeHelper(d_localParts, funcTag);    
-    gpuFreeHelper(d_localVars, funcTag);     
-    gpuFreeHelper(d_remoteMoments, funcTag); 
-    gpuFreeHelper(d_remoteParts, funcTag);   
-    
-        d_localMoments = nullptr;
-        d_localParts = nullptr;
-        d_localVars = nullptr;
-        d_remoteMoments = nullptr;
-        d_remoteParts = nullptr;
+    // Free device memory
+    const char* funcTag = "DataManager::updateParticlesFreeMemory";
+    gpuFree(d_localMoments, stream, funcTag);   
+    gpuFree(d_localParts, stream, funcTag);    
+    gpuFree(d_localVars, stream, funcTag);     
+    gpuPoolFree(d_remoteMoments, stream, funcTag);
+    gpuPoolFree(d_remoteParts, stream, funcTag);
+
+    // Set device pointers to nullptr
+    d_localMoments = nullptr;
+    d_localParts = nullptr;
+    d_localVars = nullptr;
+    d_remoteMoments = nullptr;
+    d_remoteParts = nullptr;
 
         if(data->size > 0){
 #ifdef PINNED_HOST_MEMORY
-            freePinnedHostMemory(data->buf);
+            const char* funcTag = "DataManager::updateParticlesFreeMemory";
+            hostFree(data->buf, funcTag);
 #else
             free(data->buf);
 #endif
         }
         delete (data->cb);
         delete data;
+        cudaDeviceSynchronize();
+
     }
     CmiUnlock(__nodelock);
 }
+
+// After after each BigStep, trims the host pool to reclaim memory
+void DataManager::trimHostPool(double targetCapacityGB, const CkCallback& cb){
+  hostPoolTrim(targetCapacityGB, nHostPoolMinCapacityPerBucketMB);
+  contribute(cb);
+}
+
+// After trimming, refills hot buckets to prepare for next timestep
+void DataManager::refillHostPool(const CkCallback& cb){
+  hostPoolAdaptiveRefill();
+  contribute(cb);
+}
+
 
 #endif // CUDA

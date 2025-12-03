@@ -276,7 +276,11 @@ mainmodule ParallelGravity {
     entry void resumeRemoteChunk();
     entry void createStream(const CkCallback& cb);
     entry void initMemLog(std::string _fileName, int bGpuMemLoggerFlag, const CkCallback &cb);
+    entry void initCpuMemLog(std::string _fileName, int bCpuMemLoggerFlag, const CkCallback &cb);
     entry void flushMemLog(const CkCallback& cb);
+    entry void flushCpuMemLog(const CkCallback& cb);
+    entry void trimHostPool(double targetCapacityGB, const CkCallback& cb);
+    entry void refillHostPool(const CkCallback& cb);
 #endif
     entry void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		       double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
