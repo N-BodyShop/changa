@@ -201,7 +201,14 @@ cudaError_t gpuPoolFreeRaw(void* ptr, cudaStream_t stream) {
     
     if (stream != nullptr) {
         // Stream-ordered async free
-        return cudaFreeAsync(ptr, stream);
+        cudaError_t result = cudaFreeAsync(ptr, stream);
+        // Synchronize to ensure operations complete before memory is returned to pool.
+        // Without this, cudaMallocAsync can return the same memory while operations
+        // using it are still in flight, causing race conditions and non-determinism.
+        if (result == cudaSuccess) {
+            cudaStreamSynchronize(stream);
+        }
+        return result;
     }
     
     // Fallback to synchronous free
