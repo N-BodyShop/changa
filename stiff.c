@@ -16,6 +16,7 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
+#include "cooling.h" // To access clDerivs from StiffStep
 #include "stiff.h"
 
 #ifndef CUDA
@@ -33,7 +34,7 @@ static inline double min(double a, double b)
 #endif
 
 /* implement fortran sign function: return a with the sign of b */
-static inline double sign(double a, double b) 
+CUDA_DH static inline double sign(double a, double b)
 {
     double aabs = fabs(a);
     if(b >= 0.0) return aabs;
@@ -109,7 +110,7 @@ void StiffFinalize( STIFF *s )
     free(s);
 }
 
-void StiffStep(STIFF *s,
+CUDA_DH void StiffStep(STIFF *s,
 	       double y[],	/* dependent variables */
 	       double tstart, 	/* start time */
 	       double dtg) 	/* time step */
@@ -235,7 +236,7 @@ cd
 	y[i] = max(y[i], ymin[i]);
 	}
     
-    s->derivs(tn + tstart, y, q, d, s->Data);
+    clDerivs(tn + tstart, y, q, d, s->Data);
     gcount++;
     
     /*
@@ -277,184 +278,187 @@ cd
 	/*
 	 * find the predictor terms.
 	 */
-     restart:
-	for(i = 0; i < n; i++) {
-	    /*
-	     * prediction
-	     */
-	    double rtaui = rtau[i];
-	    /*
-	    c note that one of two approximations for alpha is chosen:
-	    c 1) Pade b for all rtaui (see supporting memo report)
-	    c or
-	    c 2) Pade a for rtaui<=rswitch,
-	    c linear approximation for rtaui > rswitch
-	    c (again, see supporting NRL memo report (Mott et al., 2000))
-	    c
-	    c Option 1): Pade b
-	    */
-	    alpha = (180.+rtaui*(60.+rtaui*(11.+rtaui)))
-		/(360.+ rtaui*(60. + rtaui*(12. + rtaui)));
-	    /*
-	    c Option 2): Pade a or linear
-	    c
-	    c if(rtaui.le.rswitch) then
-	    c      alpha = (840.+rtaui*(140.+rtaui*(20.+rtaui)))
-	    c    &         / (1680. + 40. * rtaui*rtaui)
-	    c else
-	    c    alpha = 1.-1./rtaui
-	    c end if
-	    */
-	    scrarray[i] = (q[i]-d[i])/(1.0 + alpha*rtaui);
-	    }
+	int bLoop = 1;
+        while (bLoop) {
+	  for(i = 0; i < n; i++) {
+	      /*
+	       * prediction
+	       */
+	      double rtaui = rtau[i];
+	      /*
+	      c note that one of two approximations for alpha is chosen:
+	      c 1) Pade b for all rtaui (see supporting memo report)
+	      c or
+	      c 2) Pade a for rtaui<=rswitch,
+	      c linear approximation for rtaui > rswitch
+	      c (again, see supporting NRL memo report (Mott et al., 2000))
+	      c
+	      c Option 1): Pade b
+	      */
+	      alpha = (180.+rtaui*(60.+rtaui*(11.+rtaui)))
+		  /(360.+ rtaui*(60. + rtaui*(12. + rtaui)));
+	      /*
+	      c Option 2): Pade a or linear
+	      c
+	      c if(rtaui.le.rswitch) then
+	      c      alpha = (840.+rtaui*(140.+rtaui*(20.+rtaui)))
+	      c    &         / (1680. + 40. * rtaui*rtaui)
+	      c else
+	      c    alpha = 1.-1./rtaui
+	      c end if
+	      */
+	      scrarray[i] = (q[i]-d[i])/(1.0 + alpha*rtaui);
+	      }
 
-	iter = 1;
-	while(iter <= itermax) {
-	    for(i = 0; i < n; i++) {
-		/*
-		C ym2(i) = ym1(i)
-		C ym1(i) = y(i)
-		*/
-		y[i] = max(ys[i] + dt*scrarray[i], ymin[i]);
-		}
-	    /*	    if(iter == 1) {  Removed from original algorithm
-		    so that previous, rather than first, corrector is
-		    compared to.  Results in faster integration. */
-		/*
-		c the first corrector step advances the time (tentatively) and
-		c saves the initial predictor value as y1 for the timestep
-		check later.
-		*/
-		tn = ts + dt;
-		for(i = 0; i < n; i++)
-		    y1[i] = y[i];
-		/*		} Close for "if(iter == 1)" above */
-	    /*
-	      evaluate the derivitives for the corrector.
-	    */
-	    s->derivs(tn + tstart, y, q, d, s->Data);
-	    gcount++;
-	    eps = 1.0e-10;
-	    for(i = 0; i < n; i++) {
-		rtaub = .5*(rtaus[i]+dt*d[i]/y[i]);
-		/*
-		c Same options for calculating alpha as in predictor:
-		c
-		c Option 1): Pade b
-		*/
-		alpha = (180.+rtaub*(60.+rtaub*(11.+rtaub)))
-		    / (360. + rtaub*(60. + rtaub*(12. + rtaub)));
-		/*
-		c Option 2): Pade a or linear
-		c
-		c if(rtaub.le.rswitch)
-		c then
-		c alpha = (840.+rtaub*(140.+rtaub*(20.+rtaub)))
-		c & / (1680. + 40.*rtaub*rtaub)
-		c else
-		c alpha = 1.- 1./rtaub
-		c end if
-		*/
-		qt = qs[i]*(1. - alpha) + q[i]*alpha;
-		pb = rtaub/dt;
-		scrarray[i] = (qt - ys[i]*pb) / (1.0 + alpha*rtaub);
-		}
-	    iter++;
-	    }
-	/*
-	c calculate new f, check for convergence, and limit decreasing
-	c functions. the order of the operations in this loop is important.
-	*/
-	for(i = 0; i < n; i++) {
-	    scr2 = max(ys[i] + dt*scrarray[i], 0.0);
-	    scr1 = fabs(scr2 - y1[i]);
-	    y[i] = max(scr2, ymin[i]);
-	    /*
-	    C ym2(i) = ymi(i)
-	    C yml(i) = y(i)
-	    */
-	    if(.25*(ys[i] + y[i]) > ymin[i]) {
-		scr1 = scr1/y[i];
-		eps = max(.5*(scr1+
-			      min(fabs(q[i]-d[i])/(q[i]+d[i]+1.0e-30),scr1)),eps);
-		}
-	    }
-	eps = eps*epscl;
-	/* 
-	   print out dianostics if stepsize becomes too small.
-	*/
-	if(dt <= dtmin + 1.0e-16*tn) {
-	    fprintf(stderr, "stiffchem: step size too small\n");
-	    fprintf(stderr,"y[0]: %e, y[1]: %e, y[2]: %e, y[3]: %e, y[4]: %e",y[0],y[1],y[2],y[3],y[4]);
-	    fprintf(stderr,"q[0]: %e, q[1]: %e, q[2]: %e, q[3]: %e, q[4]: %e",q[0],q[1],q[2],q[3],q[4]);
-	    fprintf(stderr, "d[0]: %e, d[1]: %e, d[2]: %e, d[3]: %e, d[4]: %e",d[0],d[1],d[2],d[3],d[4]);
-	    assert(0);
-	    }
-	/*
-	c check for convergence.
-	c
-	c The following section is used for the stability check
-	C       stab = 0.01
-	C if(itermax.ge.3) then
-	C       do i=1,n
-	C           stab = max(stab, abs(y(i)-yml(i))/
-	C       &       (abs(ymi(i)-ym2(i))+1.e-20*y(i)))
-	C end do
-	C endif
-	*/
-	if(eps <= epsmax) {
-	    /*
-	      & .and.stab.le.1.
-	    c
-	    c Valid step. Return if dtg has been reached.
-	    */
-	    if(dtg <= tn*tfd) return;
-	    }
-	else {
-	    /*
-	      Invalid step; reset tn to ts
-	    */
-	    tn = ts;
-	    }
-	/*
-	  perform stepsize modifications.
-	  estimate sqrt(eps) by newton iteration.
-	*/
-	rteps = 0.5*(eps + 1.0);
-	rteps = 0.5*(rteps + eps/rteps);
-	rteps = 0.5*(rteps + eps/rteps);
+	  iter = 1;
+	  while(iter <= itermax) {
+	      for(i = 0; i < n; i++) {
+		  /*
+		  C ym2(i) = ym1(i)
+		  C ym1(i) = y(i)
+		  */
+		  y[i] = max(ys[i] + dt*scrarray[i], ymin[i]);
+		  }
+	      /*	    if(iter == 1) {  Removed from original algorithm
+		      so that previous, rather than first, corrector is
+		      compared to.  Results in faster integration. */
+		  /*
+		  c the first corrector step advances the time (tentatively) and
+		  c saves the initial predictor value as y1 for the timestep
+		  check later.
+		  */
+		  tn = ts + dt;
+		  for(i = 0; i < n; i++)
+		      y1[i] = y[i];
+		  /*		} Close for "if(iter == 1)" above */
+	      /*
+		evaluate the derivitives for the corrector.
+	      */
+	      clDerivs(tn + tstart, y, q, d, s->Data);
+	      gcount++;
+	      eps = 1.0e-10;
+	      for(i = 0; i < n; i++) {
+		  rtaub = .5*(rtaus[i]+dt*d[i]/y[i]);
+		  /*
+		  c Same options for calculating alpha as in predictor:
+		  c
+		  c Option 1): Pade b
+		  */
+		  alpha = (180.+rtaub*(60.+rtaub*(11.+rtaub)))
+		      / (360. + rtaub*(60. + rtaub*(12. + rtaub)));
+		  /*
+		  c Option 2): Pade a or linear
+		  c
+		  c if(rtaub.le.rswitch)
+		  c then
+		  c alpha = (840.+rtaub*(140.+rtaub*(20.+rtaub)))
+		  c & / (1680. + 40.*rtaub*rtaub)
+		  c else
+		  c alpha = 1.- 1./rtaub
+		  c end if
+		  */
+		  qt = qs[i]*(1. - alpha) + q[i]*alpha;
+		  pb = rtaub/dt;
+		  scrarray[i] = (qt - ys[i]*pb) / (1.0 + alpha*rtaub);
+		  }
+	      iter++;
+	      }
+	  /*
+	  c calculate new f, check for convergence, and limit decreasing
+	  c functions. the order of the operations in this loop is important.
+	  */
+	  for(i = 0; i < n; i++) {
+	      scr2 = max(ys[i] + dt*scrarray[i], 0.0);
+	      scr1 = fabs(scr2 - y1[i]);
+	      y[i] = max(scr2, ymin[i]);
+	      /*
+	      C ym2(i) = ymi(i)
+	      C yml(i) = y(i)
+	      */
+	      if(.25*(ys[i] + y[i]) > ymin[i]) {
+		  scr1 = scr1/y[i];
+		  eps = max(.5*(scr1+
+				min(fabs(q[i]-d[i])/(q[i]+d[i]+1.0e-30),scr1)),eps);
+		  }
+	      }
+	  eps = eps*epscl;
+	  /* 
+	     print out dianostics if stepsize becomes too small.
+	  */
+	  if(dt <= dtmin + 1.0e-16*tn) {
+	      printf("stiffchem: step size too small\n");
+	      printf("y[0]: %e, y[1]: %e, y[2]: %e, y[3]: %e, y[4]: %e",y[0],y[1],y[2],y[3],y[4]);
+	      printf("q[0]: %e, q[1]: %e, q[2]: %e, q[3]: %e, q[4]: %e",q[0],q[1],q[2],q[3],q[4]);
+	      printf("d[0]: %e, d[1]: %e, d[2]: %e, d[3]: %e, d[4]: %e",d[0],d[1],d[2],d[3],d[4]);
+	      //assert(0); // TODO figure out a way to halt the program from CUDA kernel
+	      }
+	  /*
+	  c check for convergence.
+	  c
+	  c The following section is used for the stability check
+	  C       stab = 0.01
+	  C if(itermax.ge.3) then
+	  C       do i=1,n
+	  C           stab = max(stab, abs(y(i)-yml(i))/
+	  C       &       (abs(ymi(i)-ym2(i))+1.e-20*y(i)))
+	  C end do
+	  C endif
+	  */
+	  if(eps <= epsmax) {
+	      /*
+		& .and.stab.le.1.
+	      c
+	      c Valid step. Return if dtg has been reached.
+	      */
+	      if(dtg <= tn*tfd) return;
+	      }
+	  else {
+	      /*
+		Invalid step; reset tn to ts
+	      */
+	      tn = ts;
+	      }
+	  /*
+	    perform stepsize modifications.
+	    estimate sqrt(eps) by newton iteration.
+	  */
+	  rteps = 0.5*(eps + 1.0);
+	  rteps = 0.5*(rteps + eps/rteps);
+	  rteps = 0.5*(rteps + eps/rteps);
 
-	dto = dt;
-	dt = min(dt*(1.0/rteps+.005), tfd*(dtg - tn));
-	/* & ,dto/(stab+.001) */
-	/*
-	  begin new step if previous step converged.
-	*/
-	if(eps > epsmax) {
-	    /*    & .or. stab. gt. 1 */
-	    rcount++;
-	    /*
-	    c After an unsuccessful step the initial timescales don't
-	    c change, but dt does, requiring rtaus to be scaled by the
-	    c ratio of the new and old timesteps.
-	    */
-	    dto = dt/dto;
-	    for(i = 0; i < n; i++) {
-		rtaus[i] = rtaus[i]*dto;
-		}
-	    /*
-	     * Unsuccessful steps return to line 101 so that the initial
-	     * source terms do not get recalculated.
-	    */
-	    goto restart;
-	    }
-	/*
-	  Successful step; get the source terms for the next step
-	  and continue back at line 100
-	*/
-	s->derivs(tn + tstart, y, q, d, s->Data);
-	gcount++;
-	}
+	  dto = dt;
+	  dt = min(dt*(1.0/rteps+.005), tfd*(dtg - tn));
+	  /* & ,dto/(stab+.001) */
+	  /*
+	    begin new step if previous step converged.
+	  */
+	  bLoop = 0;
+	  if(eps > epsmax) {
+	      /*    & .or. stab. gt. 1 */
+	      rcount++;
+	      /*
+	      c After an unsuccessful step the initial timescales don't
+	      c change, but dt does, requiring rtaus to be scaled by the
+	      c ratio of the new and old timesteps.
+	      */
+	      dto = dt/dto;
+	      for(i = 0; i < n; i++) {
+		  rtaus[i] = rtaus[i]*dto;
+		  }
+	      /*
+	       * Unsuccessful steps return to line 101 so that the initial
+	       * source terms do not get recalculated.
+	      */
+	      bLoop = 1;
+	      }
+	  /*
+	    Successful step; get the source terms for the next step
+	    and continue back at line 100
+	  */
+	  clDerivs(tn + tstart, y, q, d, s->Data);
+	  gcount++;
+	  }
+        }
     }
 
 #ifdef TESTCHEMEQ
