@@ -580,6 +580,7 @@ const CkCallback& cb);
 #ifdef CUDA
   group [migratable] PECool {
     entry PECool();
+    entry void finishIntegrateCb();
   };
 #endif
 

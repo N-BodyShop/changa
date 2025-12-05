@@ -157,35 +157,7 @@ protected:
         size_t sVarParts;
 
 #ifndef COOLING_NONE
-  clDerivsData *h_CoolData;
-  STIFF *h_Stiff;
-	double *h_ymin;
-	double *h_y0;
-	double *h_y1;
-	double *h_q;
-	double *h_d;
-	double *h_rtau;
-	double *h_ys;
-	double *h_qs;
-	double *h_rtaus;
-	double *h_scrarray;
 #ifdef CUDA
-  // Pointers to cooling data on GPU
-  clDerivsData *d_CoolData;
-  STIFF *d_Stiff;
-  double *d_y;
-  double *d_dtg;
-	double *d_ymin;
-	double *d_y0;
-	double *d_y1;
-	double *d_q;
-	double *d_d;
-	double *d_rtau;
-	double *d_ys;
-	double *d_qs;
-	double *d_rtaus;
-	double *d_scrarray;
-
   // Used to determine whether cooling should be calculated on the GPU
   // Total number of active gas particles on this node
   int numActiveGasParts;
@@ -304,22 +276,6 @@ public:
 #endif
 
 	    cudaFree(d_Cool);
-
-	    cudaFree(d_CoolData);
-	    cudaFree(d_Stiff);
-	    cudaFree(d_dtg);
-
-	    cudaFree(d_y);
-	    cudaFree(d_ymin);
-	    cudaFree(d_y0);
-	    cudaFree(d_q);
-	    cudaFree(d_d);
-	    cudaFree(d_rtau);
-	    cudaFree(d_ys);
-	    cudaFree(d_qs);
-	    cudaFree(d_rtaus);
-	    cudaFree(d_scrarray);
-	    cudaFree(d_y1);
 
             for (int i = 0; i < numStreams; i++) {
                 cudaStreamDestroy(streams[i]);

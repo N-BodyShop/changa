@@ -53,6 +53,7 @@ Main::initSph()
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 #ifdef CUDA
             treeProxy.calculateNumActiveGasParticles(1, 0, CkCallbackResumeThread());
+            dMProxy.setupuDot(CkCallbackResumeThread());
 #endif
 	    if(!bIsRestarting)  // Energy is already OK from checkpoint.
 		treeProxy.InitEnergy(dTuFac, z, dTime, (param.dConstGamma-1), CkCallbackResumeThread());
@@ -973,7 +974,7 @@ void TreePiece::updateuDot(int activeRung,
                const CkCallback& cb)
 {
 
-    int bCpuGas = 1;
+    bCpuGas = 1;
 #ifdef CUDA
     // Cooling is only calculated on the GPU if we have enough active gas particles
     bCpuGas = dMProxy.ckLocalBranch()->getNumActiveGasParts() < nGpuGasMinParts;
@@ -983,6 +984,7 @@ void TreePiece::updateuDot(int activeRung,
     this->bUpdateState = bUpdateState;
 #ifndef COOLING_NONE
 
+    udotCb = cb;
     myPartIdx.clear();
     dt.clear();
     duDeltaVals.clear();
@@ -1197,8 +1199,6 @@ void TreePiece::updateuDot(int activeRung,
 #endif
 
 #endif
-    // Use shadow array to avoid reduction conflict
-    smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
 void TreePiece::finishuDot(int bCpuGas) {
@@ -1238,8 +1238,10 @@ void TreePiece::finishuDot(int bCpuGas) {
 
 #ifdef CUDA
 void TreePiece::finishIntegrateCb() {
-    finishuDot(0);
+    finishuDot(bCpuGas);
     peCoolProxy.ckLocalBranch()->reset();
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(udotCb);
 }
 #endif // CUDA
 

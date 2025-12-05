@@ -26,7 +26,9 @@ void PECool::finish(TreePiece *treePiece) {
 
     // PE with no particles
     if (coolData.empty()) {
-        treeProxy.finishIntegrateCb();
+	for (int i = 0; i < vtpLocal.length(); i++) {
+           vtpLocal[i]->finishIntegrateCb();
+        }
 	return;
     }
     int numParts = coolData.size();
@@ -75,8 +77,14 @@ void PECool::finish(TreePiece *treePiece) {
     cudaChk(cudaMemcpyAsync(yInt.data(), d_y, numParts*nv*sizeof(double), cudaMemcpyDeviceToHost, stream));
     cudaChk(cudaMemcpyAsync(coolData.data(), d_CoolData, numParts*sizeof(clDerivsData), cudaMemcpyDeviceToHost, stream));
 
-    finishCb = new CkCallback(CkIndex_TreePiece::finishIntegrateCb(), treePiece);
+    finishCb = new CkCallback(CkIndex_PECool::finishIntegrateCb(), thisProxy);
     hapiAddCallback(stream, finishCb);
+}
+
+void PECool::finishIntegrateCb() {
+    for (int i = 0; i < vtpLocal.length(); i++) {
+       vtpLocal[i]->finishIntegrateCb();
+    }
 }
 
 int PECool::sendData(CoolRequest data) {
@@ -96,31 +104,36 @@ int PECool::sendData(CoolRequest data) {
 }
 
 void PECool::reset() {
-    coolData.clear();
-    stiff.clear();
-    yMin.clear();
-    yInt.clear();
-    dtg.clear();
+    treePiecesDone++;
+    if (treePiecesDone == vtpLocal.length()) {
+      treePiecesDone = 0;
+      if (!coolData.empty()) {
+        delete finishCb;
+        cudaChk(cudaFree(d_CoolData));
+        cudaChk(cudaFree(d_Stiff));
+        cudaChk(cudaFree(d_dtg));
 
-    cTreePieces.reset();
-    vtpLocal.length() = 0;
-    delete finishCb;
+        cudaChk(cudaFree(d_y));
+        cudaChk(cudaFree(d_ymin));
+        cudaChk(cudaFree(d_y0));
+        cudaChk(cudaFree(d_y1));
+        cudaChk(cudaFree(d_q));
+        cudaChk(cudaFree(d_d));
+        cudaChk(cudaFree(d_rtau));
+        cudaChk(cudaFree(d_ys));
+        cudaChk(cudaFree(d_qs));
+        cudaChk(cudaFree(d_rtaus));
+        cudaChk(cudaFree(d_scrarray));
+      }
+      coolData.clear();
+      stiff.clear();
+      yMin.clear();
+      yInt.clear();
+      dtg.clear();
 
-    cudaChk(cudaFreeAsync(d_CoolData, stream));
-    cudaChk(cudaFreeAsync(d_Stiff, stream));
-    cudaChk(cudaFreeAsync(d_dtg, stream));
-
-    cudaChk(cudaFreeAsync(d_y, stream));
-    cudaChk(cudaFreeAsync(d_ymin, stream));
-    cudaChk(cudaFreeAsync(d_y0, stream));
-    cudaChk(cudaFreeAsync(d_y1, stream));
-    cudaChk(cudaFreeAsync(d_q, stream));
-    cudaChk(cudaFreeAsync(d_d, stream));
-    cudaChk(cudaFreeAsync(d_rtau, stream));
-    cudaChk(cudaFreeAsync(d_ys, stream));
-    cudaChk(cudaFreeAsync(d_qs, stream));
-    cudaChk(cudaFreeAsync(d_rtaus, stream));
-    cudaChk(cudaFreeAsync(d_scrarray, stream));
+      cTreePieces.reset();
+      vtpLocal.length() = 0;
+    }
 }
 
 #endif

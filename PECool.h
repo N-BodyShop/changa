@@ -9,6 +9,7 @@ class PECool : public CBase_PECool
   CkVec<TreePiece*> vtpLocal;
   /// Count of TreePieces with particles on this PE
   NonEmptyTreePieceCounter cTreePieces;
+  int treePiecesDone;
 
   // vectors for host data
   vector<clDerivsData> coolData;
@@ -39,7 +40,7 @@ class PECool : public CBase_PECool
   CkCallback *finishCb;
 
 public:
-  PECool() { cudaStreamCreate(&stream); }
+  PECool() { treePiecesDone=0; cudaStreamCreate(&stream); }
   PECool(CkMigrateMessage *m) : CBase_PECool(m) {}
   ~PECool() { cudaStreamDestroy(stream); }
   void pup(PUP::er &p) {}
@@ -49,6 +50,7 @@ public:
 
   int getNumActiveGasParts();
   void finish(TreePiece *treePiece);
+  void finishIntegrateCb();
   int sendData(CoolRequest data);
   void reset();
 };

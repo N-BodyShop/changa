@@ -1188,6 +1188,8 @@ private:
 	/// particle count for output
 	int myIOParticles;
 
+	CkCallback udotCb;
+	int bCpuGas;
 	std::vector<int> myPartIdx;
 	std::vector<int> peIdx;
 	std::vector<double> dt;
