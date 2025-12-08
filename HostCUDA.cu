@@ -226,7 +226,7 @@ void PEListNodeListDataTransferLocal(CudaRequest *data){
 
   if (data->numInteractions > 0) {
     HAPI_TRACE_BEGIN();
-    CudaDevPtr devPtr;
+    CudaDevPtr devPtr = {nullptr, nullptr, nullptr, nullptr};
     const char* funcTag = "PEListNodeListDataTransferLocal";
     DataTransferBasic(data, &devPtr, funcTag);
 
@@ -267,7 +267,7 @@ void PEListPartListDataTransferLocal(CudaRequest *data){
 
   if (data->numInteractions > 0) {
     HAPI_TRACE_BEGIN();
-    CudaDevPtr devPtr;
+    CudaDevPtr devPtr = {nullptr, nullptr, nullptr, nullptr};
     const char* funcTag = "PEListPartListDataTransferLocal";
     DataTransferBasic(data, &devPtr, funcTag);
 
@@ -306,7 +306,7 @@ void PEListNodeListDataTransferRemote(CudaRequest *data){
 
   if (data->numInteractions > 0) {
     HAPI_TRACE_BEGIN();
-    CudaDevPtr devPtr;
+    CudaDevPtr devPtr = {nullptr, nullptr, nullptr, nullptr};
     const char* funcTag = "PEListNodeListDataTransferRemote";
     DataTransferBasic(data, &devPtr, funcTag);
 
@@ -346,8 +346,8 @@ void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
 
   if (data->numInteractions > 0) {
     HAPI_TRACE_BEGIN();
-    CudaDevPtr devPtr;
-    void* d_missedNodes;
+    CudaDevPtr devPtr = {nullptr, nullptr, nullptr, nullptr};
+    void* d_missedNodes = nullptr;
     const char* funcTag = "PEListNodeListDataTransferRemoteResume";
     DataTransferBasic(data, &devPtr, funcTag);
 
@@ -369,7 +369,9 @@ void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
 #endif
 
     DataTransferBasicCleanup(&devPtr, stream, funcTag);
-    cudaChk(gpuPoolFree(d_missedNodes, stream, funcTag)); 
+    if (d_missedNodes != nullptr) {
+      cudaChk(gpuPoolFree(d_missedNodes, stream, funcTag));
+    }
     cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_GRAV_NODELIST_REMOTE_RESUME);
   }
@@ -444,8 +446,8 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
 
   if (data->numInteractions > 0) {
     HAPI_TRACE_BEGIN();
-    CudaDevPtr devPtr;
-    void* d_missedParts;
+    CudaDevPtr devPtr = {nullptr, nullptr, nullptr, nullptr};
+    void* d_missedParts = nullptr;
     const char* funcTag = "PEListPartListDataTransferRemoteResume";
     DataTransferBasic(data, &devPtr, funcTag);
 
@@ -465,7 +467,9 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
       );
 #endif
     DataTransferBasicCleanup(&devPtr, stream, funcTag);
-    cudaChk(gpuPoolFree(d_missedParts, stream, funcTag)); 
+    if (d_missedParts != nullptr) {
+      cudaChk(gpuPoolFree(d_missedParts, stream, funcTag));
+    }
     cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_GRAV_PARTLIST_REMOTE_RESUME);
   }
@@ -480,6 +484,14 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
 /// @param functionTag String literal identifying the calling function context.
 void DataTransferBasic(CudaRequest *data, CudaDevPtr *ptr, const char* functionTag){
   cudaStream_t stream = data->stream;
+
+  // Initialize all pointers to NULL first to prevent freeing uninitialized pointers
+  if (ptr != nullptr) {
+    ptr->d_list = nullptr;
+    ptr->d_bucketMarkers = nullptr;
+    ptr->d_bucketStarts = nullptr;
+    ptr->d_bucketSizes = nullptr;
+  }
 
   int numBucketsPlusOne = data->numBucketsPlusOne;
   int numBuckets = numBucketsPlusOne-1;
@@ -511,10 +523,21 @@ void DataTransferBasic(CudaRequest *data, CudaDevPtr *ptr, const char* functionT
 /// @param stream CUDA stream for async free operations
 /// @param functionTag String literal identifying the calling function context.
 void DataTransferBasicCleanup(CudaDevPtr *ptr, cudaStream_t stream, const char* functionTag){
-  cudaChk(gpuPoolFree(ptr->d_list, stream, functionTag));
-  cudaChk(gpuPoolFree(ptr->d_bucketMarkers, stream, functionTag));
-  cudaChk(gpuPoolFree(ptr->d_bucketStarts, stream, functionTag));
-  cudaChk(gpuPoolFree(ptr->d_bucketSizes, stream, functionTag));
+  if (ptr == nullptr) return;
+  
+  // Only free non-NULL pointers to prevent illegal memory access
+  if (ptr->d_list != nullptr) {
+    cudaChk(gpuPoolFree(ptr->d_list, stream, functionTag));
+  }
+  if (ptr->d_bucketMarkers != nullptr) {
+    cudaChk(gpuPoolFree(ptr->d_bucketMarkers, stream, functionTag));
+  }
+  if (ptr->d_bucketStarts != nullptr) {
+    cudaChk(gpuPoolFree(ptr->d_bucketStarts, stream, functionTag));
+  }
+  if (ptr->d_bucketSizes != nullptr) {
+    cudaChk(gpuPoolFree(ptr->d_bucketSizes, stream, functionTag));
+  }
 }
 
 /** @brief Transfer forces from the GPU back to the host. Also schedules

@@ -170,18 +170,28 @@ cudaError_t gpuPoolMallocRaw(void** devPtr, size_t size, cudaStream_t stream) {
         return cudaErrorInvalidValue;
     }
     
+    // Initialize to NULL in case of failure
+    *devPtr = nullptr;
+    
     if (size == 0) {
-        *devPtr = nullptr;
         return cudaSuccess;
     }
     
+    cudaError_t result;
     if (stream != nullptr) {
         // Stream-ordered async allocation
-        return cudaMallocAsync(devPtr, size, stream);
+        result = cudaMallocAsync(devPtr, size, stream);
+    } else {
+        // Fallback to synchronous allocation
+        result = cudaMalloc(devPtr, size);
     }
     
-    // Fallback to synchronous allocation
-    return cudaMalloc(devPtr, size);
+    // Ensure pointer is NULL on failure
+    if (result != cudaSuccess) {
+        *devPtr = nullptr;
+    }
+    
+    return result;
 }
 
 /**
