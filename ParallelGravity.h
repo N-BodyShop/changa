@@ -1880,10 +1880,7 @@ public:
       int nGpuGasMinParts,
 #endif
       const CkCallback& cb);
-#ifdef CUDA
-	void finishIntegrateCb();
-#endif
-	void finishuDot(int bCpuGas);
+	void finishuDot();
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
     void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,

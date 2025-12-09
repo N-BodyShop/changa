@@ -431,9 +431,7 @@ mainmodule ParallelGravity {
       int nGpuGasMinParts,
 #endif
 const CkCallback& cb);
-#ifdef CUDA
-    entry void finishIntegrateCb();
-#endif
+    entry void finishuDot();
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
 	const CkCallback& cb);

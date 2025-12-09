@@ -1193,15 +1193,15 @@ void TreePiece::updateuDot(int activeRung,
 
 #ifdef CUDA
     if (!bCpuGas) peCoolProxy.ckLocalBranch()->finish(this);
-    else finishuDot(bCpuGas);
+    else finishuDot();
 #else
-    finishuDot(bCpuGas);
+    finishuDot();
 #endif
 
 #endif
     }
 
-void TreePiece::finishuDot(int bCpuGas) {
+void TreePiece::finishuDot() {
 #ifdef CUDA
     clDerivsData *coolDataPE = peCoolProxy.ckLocalBranch()->getCoolData();
     double *yIntPE = peCoolProxy.ckLocalBranch()->getYInt();
@@ -1234,16 +1234,13 @@ void TreePiece::finishuDot(int bCpuGas) {
             CkAssert(isfinite(p->uDot()));
         }
     }
-}
-
 #ifdef CUDA
-void TreePiece::finishIntegrateCb() {
-    finishuDot(bCpuGas);
-    peCoolProxy.ckLocalBranch()->reset();
+    if (!bCpuGas) peCoolProxy.ckLocalBranch()->reset();
+#endif
+
     // Use shadow array to avoid reduction conflict
     smoothProxy[thisIndex].ckLocal()->contribute(udotCb);
 }
-#endif // CUDA
 
 /* Set a maximum ball for inverse Nearest Neighbor searching */
 void TreePiece::ballMax(int activeRung, double dhFac, const CkCallback& cb)

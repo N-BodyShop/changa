@@ -81,7 +81,7 @@ void PECool::finish(TreePiece *treePiece) {
 
 void PECool::finishIntegrateCb() {
     for (int i = 0; i < vtpLocal.size(); i++) {
-       vtpLocal[i]->finishIntegrateCb();
+       vtpLocal[i]->finishuDot();
     }
 }
 
