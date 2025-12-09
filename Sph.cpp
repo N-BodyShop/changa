@@ -844,13 +844,6 @@ void TreePiece::InitEnergy(double dTuFac, // T to internal energy
     smoothProxy[thisIndex].ckLocal()->contribute(cb);
     }
 
-inline double U_FLOOR(const COOL *Cool) {
-    const double T_FLOOR = 2.0; // Temperature floor in Kelvin
-    const double MOL_WEIGHT = 2.0; // Assume molecular hydrogen for
-                                   // molecular weight
-    return KBOLTZ*T_FLOOR/(MOL_WEIGHT*MHYDR*(Cool->dErgPerGmUnit));
-    }
-
 /**
  * @brief Update the cooling rate (uDot)
  *

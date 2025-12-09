@@ -1630,6 +1630,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		      p->uHotPred() = p->uHot();
 		      p->uHot() = p->uHot() + p->uHotDot()*duDelta[p->rung];
               if (p->cpHotInit()) {
+	         /* The hot phase needs a minimum energy to prevent the
+                  * inferred density to become very large */
+                 if(p->uHot() < U_FLOOR(dm->Cool))
+                     p->uHot() = U_FLOOR(dm->Cool);
                  double E = p->uHot();
                  CkAssert(E > 0.0);
                  double frac = p->massHot()/p->mass;
@@ -1645,6 +1649,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               }
 		      if (p->uHot() < 0) {
 			  double uold = p->uHot() - p->uHotDot()*duDelta[p->rung];
+			  CkAssert(uold > 0);
 			  p->uHot() = uold*exp(p->uHotDot()*duDelta[p->rung]/uold);
 			  }
 #endif
