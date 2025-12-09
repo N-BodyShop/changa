@@ -437,6 +437,19 @@ inline double PoverRhoFloorJeans(double dResolveJeans, GravityParticle *p)
 const double GAMMA_JEANS = 2.0;
 const double GAMMA_NONCOOL = 5.0/3.0;
 
+#include "physconst.h"
+
+/// @brief Set a minimum thermal energy to avoid problems with cooling
+inline double U_FLOOR(const COOL *Cool) {
+#ifdef COOLING_NONE
+    return 0.0;
+#else
+    const double T_FLOOR = 2.0; // Temperature floor in Kelvin
+    const double MOL_WEIGHT = 2.0; // Assume molecular hydrogen for
+                                   // molecular weight
+    return KBOLTZ*T_FLOOR/(MOL_WEIGHT*MHYDR*(Cool->dErgPerGmUnit));
+#endif
+}
 
 /// @brief Overall flow control of the simulation.
 ///
