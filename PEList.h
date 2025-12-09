@@ -90,6 +90,7 @@ class PEList : public CBase_PEList
 
     void finishWalk(TreePiece *treePiece);
     void launchKernel();
+    void finishWalkCb();
     void tryLaunchDelayedKernel();
     void sendList(TreePiece *treePiece, CudaRequest *data);
     void reset();

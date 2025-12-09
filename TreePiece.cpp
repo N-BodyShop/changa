@@ -3794,20 +3794,6 @@ void TreePiece::startNextBucket() {
 }
 
 /*inline*/
-#ifdef CUDA
-void TreePiece::finishWalkCb() {
-  finishWalkCbCount += 1;
-  // dont check in with DM until local, remote and RR finish
-  if (finishWalkCbCount == numPEListProxies) {
-    dm->transferParticleVarsBack();
-    finishWalkCbCount = 0;
-    for (int i = 0; i < numPEListProxies; i++) {
-      PEListProxies[i]->ckLocalBranch()->reset();
-    }
-  }
-}
-#endif
-
 void TreePiece::finishBucket(int iBucket) {
   BucketGravityRequest *req = &bucketReqs[iBucket];
   int remaining;
@@ -5845,9 +5831,6 @@ void TreePiece::pup(PUP::er& p) {
   p | myPlace;
 
   p | bGasCooling;
-#ifdef CUDA
-  p | finishWalkCbCount;
-#endif
   if(p.isUnpacking()){
     dm = NULL;
 #ifndef COOLING_NONE

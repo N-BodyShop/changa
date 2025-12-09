@@ -1435,9 +1435,6 @@ public:
 #endif
           bUseCpu = 1;
 #ifdef CUDA
-	  // used to determine when all of the walks (node, particle, local
-	  // remote, RR) have finished
-	  finishWalkCbCount = 0;
           numActiveBuckets = -1;
 #ifdef HAPI_TRACE
           localNodeInteractions = 0;
@@ -1885,11 +1882,6 @@ public:
 	const GenericTreeNode* lookupNode(Tree::NodeKey key);
 	/// Find the particles starting at "begin", and return a pointer to it
 	const GravityParticle* lookupParticles(int begin);
-
-#ifdef CUDA
-       int finishWalkCbCount;
-	void finishWalkCb();
-#endif
 
 	/// @brief Check if we have done with the treewalk on a specific bucket,
 	/// and if we have, check also if we are done with all buckets

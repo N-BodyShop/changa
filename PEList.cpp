@@ -24,7 +24,7 @@ void PEList::finishWalk(TreePiece *treePiece) {
     if(finalBucketMarker != -1)
 	bucketMarkers.push_back(finalBucketMarker);
 
-    finishCb = new CkCallback(CkIndex_TreePiece::finishWalkCb(), treePiece);
+    finishCb = new CkCallback(CkIndex_PEList::finishWalkCb(), CkMyPe(), thisProxy);
 
     // If the DataManager device pointer is NULL, the GPU data transfer is
     // still in progress and we need to delay the kernel launch
@@ -38,6 +38,11 @@ void PEList::tryLaunchDelayedKernel() {
     if (bKernelDelayed) {
         launchKernel();
     }
+}
+
+void PEList::finishWalkCb() {
+     dMProxy.ckLocalBranch()->transferParticleVarsBack();
+     reset();
 }
 
 /// @brief Launch the corresponding CUDA kernel, depending what type of request this was

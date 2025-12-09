@@ -1186,7 +1186,7 @@ void DataManager::transferParticleVarsBack(){
   UpdateParticlesStruct *data;
   CmiLock(__nodelock);
   PEsWantParticlesBack++;
-  if(PEsWantParticlesBack == registeredPEs.size()){
+  if(PEsWantParticlesBack == registeredPEs.size()*numPEListProxies){
     PEsWantParticlesBack = 0;
     VariablePartData *buf;
     
