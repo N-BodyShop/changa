@@ -72,13 +72,34 @@ void PEList::launchKernel() {
 
     request->fperiod = fperiod;
 
-    request->list = iList.data();
-    request->missedParts = missedParts.data();
-    request->missedNodes = missedNodes.data();
+    const char* funcTag = "PEList::finish";
+    if (iList.size() > 0) {
+      hostMalloc((void**)&iListHost, iList.size()*sizeof(ILCell), funcTag);
+      memcpy(iListHost, iList.data(),  iList.size()*sizeof(ILCell));
+      hostMalloc((void**)&bucketMarkersHost, bucketMarkers.size()*sizeof(int), funcTag);
+      memcpy(bucketMarkersHost, bucketMarkers.data(), bucketMarkers.size()*sizeof(int));
+      hostMalloc((void**)&bucketStartsHost, bucketStarts.size()*sizeof(int), funcTag);
+      memcpy(bucketStartsHost, bucketStarts.data(), bucketStarts.size()*sizeof(int));
+      hostMalloc((void**)&bucketSizesHost, bucketSizes.size()*sizeof(int), funcTag);
+      memcpy(bucketSizesHost, bucketSizes.data(), bucketSizes.size()*sizeof(int));
+    }
+
+    if (missedParts.size() > 0) {
+      hostMalloc((void**)&missedPartsHost, missedParts.size()*sizeof(CompactPartData), funcTag);
+      memcpy(missedPartsHost, missedParts.data(), missedParts.size()*sizeof(CompactPartData));
+    }
+    if (missedNodes.size() > 0) {
+      hostMalloc((void**)&missedNodesHost, missedNodes.size()*sizeof(CudaMultipoleMoments), funcTag);
+      memcpy(missedNodesHost, missedNodes.data(), missedNodes.size()*sizeof(CudaMultipoleMoments));
+    }
+
+    request->list = iListHost;
+    request->missedParts = missedPartsHost;
+    request->missedNodes = missedNodesHost;
     request->sMissed = bNode ? missedNodes.size()*sizeof(CudaMultipoleMoments) : missedParts.size()*sizeof(CompactPartData);
-    request->bucketMarkers = bucketMarkers.data();
-    request->bucketStarts = bucketStarts.data();
-    request->bucketSizes = bucketSizes.data();
+    request->bucketMarkers = bucketMarkersHost;
+    request->bucketStarts = bucketStartsHost;
+    request->bucketSizes = bucketSizesHost;
     request->numInteractions = iList.size();
 
     request->cb = finishCb;
@@ -153,23 +174,28 @@ void PEList::sendList(TreePiece *treePiece, CudaRequest* data) {
     treePiece->cudaFinishAffectedBuckets(data->affectedBuckets, numBuckets, bRemote);
 
     // deallocate the memory used by the incoming cudaRequest
-#ifdef PINNED_HOST_MEMORY
-    freePinnedHostMemory(data->list);
-    freePinnedHostMemory(data->bucketMarkers);
-    freePinnedHostMemory(data->bucketStarts);
-    freePinnedHostMemory(data->bucketSizes);
-#else
     free(data->list);
     free(data->bucketMarkers);
     free(data->bucketStarts);
     free(data->bucketSizes);
-#endif
-
     delete[] data->affectedBuckets;
 }
 
 /// @brief Re-initalize data arrays and clean up callback objects at the end of the step
 void PEList::reset() {
+    const char* funcTag = "PEList::reset";
+    if (iList.size() > 0) {
+      hostFree(iListHost, funcTag);
+      hostFree(bucketMarkersHost, funcTag);
+      hostFree(bucketStartsHost, funcTag);
+      hostFree(bucketSizesHost, funcTag);
+    }
+    if (missedParts.size() > 0) {
+      hostFree(missedPartsHost, funcTag);
+    }
+    if (missedNodes.size() > 0) {
+      hostFree(missedNodesHost, funcTag);
+    }
     iList.clear();
     missedParts.clear();
     missedNodes.clear();

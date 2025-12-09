@@ -1061,17 +1061,10 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
     int *affectedBuckets = NULL;
 
     if(totalNumInteractions > 0){
-#ifdef PINNED_HOST_MEMORY
-      allocatePinnedHostMemory((void **)&flatlists, totalNumInteractions*sizeof(T));
-      allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
-      allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
-      allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
-#else
       flatlists = (T *) malloc(totalNumInteractions*sizeof(T));
       markers = (int *) malloc((numFilledBuckets+1)*sizeof(int));
       starts = (int *) malloc(numFilledBuckets*sizeof(int));
       sizes = (int *) malloc(numFilledBuckets*sizeof(int));
-#endif
       affectedBuckets = new int[numFilledBuckets];
 
       // populate flat lists
@@ -1147,17 +1140,10 @@ CudaRequest *GenericList<ILPart>::serialize(TreePiece *tp){
     int *affectedBuckets = NULL;
 
     if(totalNumInteractions > 0){
-#ifdef PINNED_HOST_MEMORY
-      allocatePinnedHostMemory((void **)&flatlists, numParticleInteractions*sizeof(ILCell));
-      allocatePinnedHostMemory((void **)&markers, (numFilledBuckets+1)*sizeof(int));
-      allocatePinnedHostMemory((void **)&starts, (numFilledBuckets)*sizeof(int));
-      allocatePinnedHostMemory((void **)&sizes, (numFilledBuckets)*sizeof(int));
-#else
       flatlists = (ILCell *) malloc(numParticleInteractions*sizeof(ILCell));
       markers = (int *) malloc((numFilledBuckets+1)*sizeof(int));
       starts = (int *) malloc(numFilledBuckets*sizeof(int));
       sizes = (int *) malloc(numFilledBuckets*sizeof(int));
-#endif
       affectedBuckets = new int[numFilledBuckets];
 
       // populate flat lists
