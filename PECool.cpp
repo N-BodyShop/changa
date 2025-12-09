@@ -4,7 +4,7 @@
 
 int PECool::getNumActiveGasParts() {
     int numActiveGasParts = 0;
-    for (int i = 0; i < vtpLocal.length(); ++i) {
+    for (int i = 0; i < vtpLocal.size(); ++i) {
       numActiveGasParts += vtpLocal[i]->getNumActiveGasParticles();
     }
     return numActiveGasParts;
@@ -15,20 +15,18 @@ void PECool::finish(TreePiece *treePiece) {
 
     // On first call, find the total number of active pieces on this PE.
     // The charm++ location manager gives us this count in cTreePieces
-    if(vtpLocal.length() == 1) {
+    if(vtpLocal.size() == 1) {
         CkLocMgr *locMgr = treeProxy.ckLocMgr();
         locMgr->iterate(cTreePieces);
     }
 
     // check if we have everyone
-    if(vtpLocal.length() < cTreePieces.count)
+    if(vtpLocal.size() < cTreePieces.count)
         return;
 
     // PE with no particles
     if (coolData.empty()) {
-	for (int i = 0; i < vtpLocal.length(); i++) {
-           vtpLocal[i]->finishIntegrateCb();
-        }
+	finishIntegrateCb();
 	return;
     }
     int numParts = coolData.size();
@@ -77,12 +75,12 @@ void PECool::finish(TreePiece *treePiece) {
     cudaChk(cudaMemcpyAsync(yInt.data(), d_y, numParts*nv*sizeof(double), cudaMemcpyDeviceToHost, stream));
     cudaChk(cudaMemcpyAsync(coolData.data(), d_CoolData, numParts*sizeof(clDerivsData), cudaMemcpyDeviceToHost, stream));
 
-    finishCb = new CkCallback(CkIndex_PECool::finishIntegrateCb(), thisProxy);
+    finishCb = new CkCallback(CkIndex_PECool::finishIntegrateCb(), CkMyPe(), thisProxy);
     hapiAddCallback(stream, finishCb);
 }
 
 void PECool::finishIntegrateCb() {
-    for (int i = 0; i < vtpLocal.length(); i++) {
+    for (int i = 0; i < vtpLocal.size(); i++) {
        vtpLocal[i]->finishIntegrateCb();
     }
 }
@@ -105,7 +103,7 @@ int PECool::sendData(CoolRequest data) {
 
 void PECool::reset() {
     treePiecesDone++;
-    if (treePiecesDone == vtpLocal.length()) {
+    if (treePiecesDone == vtpLocal.size()) {
       treePiecesDone = 0;
       if (!coolData.empty()) {
         delete finishCb;
@@ -132,7 +130,7 @@ void PECool::reset() {
       dtg.clear();
 
       cTreePieces.reset();
-      vtpLocal.length() = 0;
+      vtpLocal.clear();
     }
 }
 
