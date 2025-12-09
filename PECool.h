@@ -8,7 +8,7 @@ class PECool : public CBase_PECool
   /// TreePieces on this PE
   CkVec<TreePiece*> vtpLocal;
   /// Count of TreePieces with particles on this PE
-  NonEmptyTreePieceCounter cTreePieces;
+  NonEmptyGasTreePieceCounter cTreePieces;
   int treePiecesDone;
 
   // vectors for host data

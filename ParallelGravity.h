@@ -2210,4 +2210,15 @@ class NonEmptyTreePieceCounter : public CkLocIterator {
     int count;
 };
 
+/// @brief Used to count treepieces with active gas particles on the local processor.
+class NonEmptyGasTreePieceCounter : public CkLocIterator {
+  public:
+    NonEmptyGasTreePieceCounter() { reset(); }
+    void addLocation(CkLocation &loc);
+    void reset();
+
+  public:
+    int count;
+};
+
 #endif //PARALLELGRAVITY_H

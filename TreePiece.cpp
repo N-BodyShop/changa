@@ -3132,6 +3132,17 @@ void NonEmptyTreePieceCounter::reset() {
   count = 0;
 }
 
+void NonEmptyGasTreePieceCounter::addLocation(CkLocation &loc){
+  const int *indexData = loc.getIndex().data();
+  TreePiece *tp = treeProxy[indexData[0]].ckLocal();
+  int np = tp->getNumActiveGasParticles();
+  if(np > 0) count++;
+}
+
+void NonEmptyGasTreePieceCounter::reset() {
+  count = 0;
+}
+
 void TreePiece::mergeNonLocalRequestsDone(){
   // 3. Construct the treepiece-local portions of the tree
 
