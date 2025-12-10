@@ -1,7 +1,7 @@
 #ifndef STIFF_HINCLUDED
 #define STIFF_HINCLUDED
 
-#ifdef CUDA
+#ifdef CUDACOOL
 #include <cuda_runtime.h>
 
 #define CUDA_DH __device__ __host__

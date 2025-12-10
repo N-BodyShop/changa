@@ -13,7 +13,7 @@
 #include "physconst.h"
 #include "formatted_string.h"
 
-#ifdef CUDA
+#ifdef CUDACOOL
 #include "PECool.h"
 #include "CudaFunctions.h"
 #endif
@@ -51,7 +51,7 @@ Main::initSph()
 	if(param.bGasCooling) {
 	    // Update cooling on the datamanager
 	    dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
-#ifdef CUDA
+#ifdef CUDACOOL
             treeProxy.calculateNumActiveGasParticles(1, 0, CkCallbackResumeThread());
             dMProxy.setupuDot(CkCallbackResumeThread());
 #endif
@@ -69,7 +69,7 @@ Main::initSph()
 	    }
 	treeProxy.updateuDot(0, duDelta, dStartTime, param.bGasCooling, 0, 1,
             (param.dConstGamma-1), param.dResolveJeans/a,
-#ifdef CUDA
+#ifdef CUDACOOL
             param.nGpuGasMinParts,
 #endif
             CkCallbackResumeThread());
@@ -116,7 +116,7 @@ void Main::initCooling()
 	    }
 	}
 
-#ifdef CUDA
+#ifdef CUDACOOL
     // Deep copy cooling struct to GPU
     dMProxy.coolDataToGPU(CkCallbackResumeThread());
 #endif
@@ -147,39 +147,11 @@ void Main::initCooling()
 #endif
     }
 
-#ifdef CUDA
+#ifdef CUDACOOL
 void DataManager::coolDataToGPU(const CkCallback& cb) {
-#ifndef COOLING_NONE
     COOL h_Cool;
     h_Cool = *Cool;
 
-#ifdef COOLING_BOLEY
-    size_t tableSize = CL_TABRC*CL_TABRC*sizeof(double);
-    double* rossBuff = (double*)malloc(tableSize);
-    double* plckBuff = (double*)malloc(tableSize);
-
-    int i;
-    for (i = 0; i < CL_TABRC; i++) {
-        memcpy(&rossBuff[i*CL_TABRC], Cool->rossTab[i], CL_TABRC*sizeof(double));
-        memcpy(&plckBuff[i*CL_TABRC], Cool->plckTab[i], CL_TABRC*sizeof(double));
-    }
-
-    cudaChk(cudaMalloc(&d_rossTab, tableSize));
-    cudaChk(cudaMalloc(&d_plckTab, tableSize));
-    cudaChk(cudaMemcpy(d_rossTab, rossBuff, tableSize, cudaMemcpyHostToDevice));
-    cudaChk(cudaMemcpy(d_plckTab, plckBuff, tableSize, cudaMemcpyHostToDevice));
-
-    // The COOL struct uses 2d arrays, but we flattened the data to move it to
-    // device memory. Do an ugly cast here to avoid defining a whole new struct.
-    // Be careful not to treat this as a 2d array from the GPU code!
-    h_Cool.rossTab = (double **)d_rossTab;
-    h_Cool.plckTab = (double **)d_plckTab;
-
-    free(rossBuff);
-    free(plckBuff);
-#endif // COOLING_BOLEY
-
-#if defined(COOLING_MOLECULARH) || defined(COOLING_METAL) || defined(COOLING_COSMO)
     cudaChk(cudaMalloc(&d_Rates_T, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR));
     cudaChk(cudaMemcpy(d_Rates_T, Cool->RT, h_Cool.nTable * sizeof(RATES_T) * TABLEFACTOR, cudaMemcpyHostToDevice));
     h_Cool.RT = d_Rates_T;
@@ -189,7 +161,6 @@ void DataManager::coolDataToGPU(const CkCallback& cb) {
     h_Cool.UV = d_Uvspectrum;
     cudaChk(cudaMemcpy(d_Uvspectrum, Cool->UV, sizeof(UVSPECTRUM)*nUV, cudaMemcpyHostToDevice));
 
-#if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
     int nz = h_Cool.nzMetalTable;
     int nnH = h_Cool.nnHMetalTable;
     int nt = h_Cool.nTMetalTable;
@@ -217,11 +188,8 @@ void DataManager::coolDataToGPU(const CkCallback& cb) {
 
     free(coolBuf);
     free(heatBuf);
-#endif // COOLING_MOLECULARH or COOLING_METAL
-#endif // COOLING_MOLECULARH or COOLING_METAL or COOLING_COSMO
     cudaChk(cudaMalloc(&d_Cool, sizeof(COOL)));
     cudaChk(cudaMemcpy(d_Cool, &h_Cool, sizeof(COOL), cudaMemcpyHostToDevice));
-#endif
     contribute(cb);
 }
 #endif
@@ -363,7 +331,7 @@ DataManager::CoolingSetTime(double z, // redshift
 {
 #ifndef COOLING_NONE
     CoolSetTime( Cool, dTime, z  );
-#ifdef CUDA
+#ifdef CUDACOOL
     // Cool was already copied to GPU memory
     // Update the fields device memory with a single kernel thread
     CudaCoolSetTime(d_Cool, dTime, z, this->streams[0]);
@@ -968,14 +936,14 @@ void TreePiece::updateuDot(int activeRung,
 			   int bAll, // update all rungs below activeRung
                            double gammam1, // adiabatic index gamma - 1.
                            double dResolveJeans, // Jeans Pressure floor constant
-#ifdef CUDA
+#ifdef CUDACOOL
                 int nGpuGasMinParts,
 #endif
                const CkCallback& cb)
 {
 
     bCpuGas = 1;
-#ifdef CUDA
+#ifdef CUDACOOL
     // Cooling is only calculated on the GPU if we have enough active gas particles
     bCpuGas = dMProxy.ckLocalBranch()->getNumActiveGasParts() < nGpuGasMinParts;
 #endif
@@ -1131,9 +1099,8 @@ void TreePiece::updateuDot(int activeRung,
 	    duDeltaCur = duDelta[p->rung];
 
             clDerivsData *CoolData = CoolDerivsInit(dm->Cool, COOL_NV);
-	    // TODO make sure this function allocates CoolData for the other modules
 
-#ifdef CUDA
+#ifdef CUDACOOL
             if (bCpuGas)
 #endif
 	    {
@@ -1148,7 +1115,7 @@ void TreePiece::updateuDot(int activeRung,
 
 #endif // COOLING_MOLECULARH
 	        }
-#ifdef CUDA
+#ifdef CUDACOOL
 	    else {
 #ifdef COOLING_MOLECULARH
             CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &YbaryonCur, &EcgsCur, &cpCur, &Ecur,
@@ -1168,7 +1135,7 @@ void TreePiece::updateuDot(int activeRung,
 	      peIdx.push_back(peCoolProxy.ckLocalBranch()->sendData(cReq));
 
 	        }
-#endif // CUDA
+#endif // CUDACOOL
 	      CoolDerivsFinalize(CoolData);
             }
 	pIdx++;
@@ -1191,7 +1158,7 @@ void TreePiece::updateuDot(int activeRung,
         }
     } // end of for loop
 
-#ifdef CUDA
+#ifdef CUDACOOL
     if (!bCpuGas) peCoolProxy.ckLocalBranch()->finish(this);
     else finishuDot();
 #else
@@ -1202,7 +1169,7 @@ void TreePiece::updateuDot(int activeRung,
     }
 
 void TreePiece::finishuDot() {
-#ifdef CUDA
+#ifdef CUDACOOL
     clDerivsData *coolDataPE = peCoolProxy.ckLocalBranch()->getCoolData();
     double *yIntPE = peCoolProxy.ckLocalBranch()->getYInt();
 #endif
@@ -1211,7 +1178,7 @@ void TreePiece::finishuDot() {
 	GravityParticle *p = &myParticles[myPartIdx[i]];
         if (bCool) {
 	    if (!bCpuGas) {
-#ifdef CUDA
+#ifdef CUDACOOL
 #ifdef COOLING_MOLECULARH
                 CoolIntegrateEnergyCodeFinish(dm->Cool, &coolDataPE[peIdx[i]], &Ybaryon[i], &Ecgs[i], &cp[i], &Einteg[i],
                                               ExternalHeating[i], fDensity[i], fMetals[i], &rVec[i*3],
@@ -1221,7 +1188,7 @@ void TreePiece::finishuDot() {
                                               ExternalHeating[i], fDensity[i], fMetals[i], &rVec[i*3],
                                               dt[i], &yIntPE[peIdx[i]*COOL_NV]);
 #endif // COOLING_MOLECULARH
-#endif // CUDA
+#endif // CUDACOOL
 	    }
             CkAssert(Einteg[i] > 0.0);
             if(dt[i] > 0 || ExternalHeating[i]*duDeltaVals[i] + p->u() < 0) {
@@ -1234,7 +1201,7 @@ void TreePiece::finishuDot() {
             CkAssert(isfinite(p->uDot()));
         }
     }
-#ifdef CUDA
+#ifdef CUDACOOL
     if (!bCpuGas) peCoolProxy.ckLocalBranch()->reset();
 #endif
 

@@ -2194,14 +2194,13 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     particleVars[id].dtGrav = 0.0;
 }
 
+#ifdef CUDACOOL
 void PeODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double tstart, int numParts, cudaStream_t stream) {
     CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_Stiff, d_y, tstart, d_dtg, numParts);
 }
 
 __global__ void CudaclRatesRedshift( COOL *cl, double z, double dTime ) {
-#ifndef COOLING_BOLEY // TODO COOLING_PLANET and others
   clRatesRedshift(cl, z, dTime);
-#endif
 }
 
 void CudaCoolSetTime( COOL *cl, double dTime, double z, cudaStream_t stream ) {
@@ -2214,7 +2213,8 @@ __global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *dtg,
     int id;
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;
-    if (dtg[id] <= 0) return; // TODO is this okay for all cooling modules?
+    if (dtg[id] <= 0) return;
 
     StiffStep(&s0[id], &_y[id*s0[id].nv], tstart, dtg[id]);
 }
+#endif

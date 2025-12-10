@@ -21,7 +21,7 @@
 #define COOL_NV 5
 #elif defined(COOLING_METAL)
 #define COOL_NV 4
-#elif defined(COOLING_COSMO) || defined(COOLING_BOLEY)
+#else
 #define COOL_NV 1
 #endif
 
@@ -91,7 +91,6 @@ protected:
         /// replicated by TreePieces that share the same address space.
         int cumNumReplicatedNodes;
         int treePiecesDone;
-        int treePiecesDoneUdot;
         int savedChunk;
         int treePiecesDonePrefetch;
         int treePiecesDoneLocalComputation;
@@ -156,13 +155,11 @@ protected:
         size_t sCompactParts;
         size_t sVarParts;
 
-#ifndef COOLING_NONE
-#ifdef CUDA
+#ifdef CUDACOOL
   // Used to determine whether cooling should be calculated on the GPU
   // Total number of active gas particles on this node
   int numActiveGasParts;
-#endif // CUDA
-#endif // COOLING_NONE
+#endif
 
 	int numStreams;
 	cudaStream_t *streams;
@@ -187,26 +184,16 @@ public:
 	 ** Cooling 
 	 */
 	COOL *Cool;
-	int Cool_nv; /// Number of variables for ODE solver
-#ifdef CUDA
-#ifndef COOLING_NONE
-	COOL *d_Cool;
 
-#ifdef COOLING_BOLEY
-  double *d_rossTab;
-  double *d_plckTab;
-#else
+#ifdef CUDACOOL
+	int Cool_nv; /// Number of variables for ODE solver
+	COOL *d_Cool;
 	RATES_T *d_Rates_T;
 	UVSPECTRUM *d_Uvspectrum;
-#endif // COOLING_BOLEY
-
-#if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
 	float *d_MetalCoolln;
 	float *d_MetalHeatln;
-#endif // COOLING_MOLECULARH COOLING_METAL
+#endif // CUDACOOL
 
-#endif // COOLING_NONE
-#endif // CUDA
 	/// @brief log of star formation events.
 	///
 	/// Star formation events are stored on the data manager since there
@@ -226,7 +213,9 @@ public:
         void serializeLocalTree();
         void assignCUDAStreams(const CkCallback& cb);
         void setupuDot(const CkCallback& cb);
+#ifdef CUDACOOL
         int getNumActiveGasParts() { return numActiveGasParts; }
+#endif
 
 #ifdef GPU_LOCAL_TREE_WALK
         void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
@@ -261,21 +250,13 @@ public:
 	    delete starLog;
 	    CmiDestroyLock(lockStarLog);
 #ifdef CUDA
-
-#ifdef COOLING_BOLEY
-  cudaFree(d_rossTab);
-  cudaFree(d_plckTab);
-#else
+#ifdef CUDACOOL
 	    cudaFree(d_Rates_T);
 	    cudaFree(d_Uvspectrum);
-#endif
-
-#if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
 	    cudaFree(d_MetalCoolln);
 	    cudaFree(d_MetalHeatln);
-#endif
-
 	    cudaFree(d_Cool);
+#endif
 
             for (int i = 0; i < numStreams; i++) {
                 cudaStreamDestroy(streams[i]);
@@ -330,8 +311,7 @@ public:
       else return NULL;
     }
     inline Tree::GenericTreeNode *getRoot() { return root; }
-#ifdef CUDA
-    void allocCoolParticleBlock(int numParts, int bFree);
+#ifdef CUDACOOL
     void coolDataToGPU(const CkCallback& cb);
 #endif
     void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,

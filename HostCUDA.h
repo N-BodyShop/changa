@@ -5,7 +5,9 @@
 #include <cuda_runtime.h>
 #include "cuda_typedef.h"
 
+#ifdef CUDACOOL
 #include "cooling.h"
+#endif
 
 #define THREADS_PER_BLOCK 128
 
@@ -27,30 +29,6 @@
 // FIXME - find appropriate values
 #define NUM_INIT_MOMENT_INTERACTIONS_PER_BUCKET 100
 #define NUM_INIT_PARTICLE_INTERACTIONS_PER_BUCKET 100
-
-
-#define EPS 1e-5
-#define M_H      1.672e-24
-
-#ifdef CUBICTABLEINTERP
-#define TABLEFACTOR 2
-#else 
-#define TABLEFACTOR 1
-#endif
-
-#ifdef CUBICTABLEINTERP
-#define TABLEINTERP( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname+wTln0d*RT0d->_rname+wTln1d*RT1d->_rname)
-#else
-#define TABLEINTERP( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname)
-#endif
-
-#define TABLEINTERPLIN( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname)
-
-#define CL_Rgascode         8.2494e7
-#define CL_Eerg_gm_degK     CL_Rgascode
-#define CL_ev_degK          1.0/1.1604e4
-#define CL_Eerg_gm_ev       CL_Eerg_gm_degK/CL_ev_degK
-#define CL_Eerg_gm_degK3_2  1.5*CL_Eerg_gm_degK /* 1.23741e8*/
 
 #define cudaChk(code) cudaErrorDie(code, #code, __FILE__, __LINE__)
 inline void cudaErrorDie(cudaError_t retCode, const char* code,
@@ -124,12 +102,14 @@ typedef struct _CudaRequest{
 #endif //GPU_LOCAL_TREE_WALK
 }CudaRequest;
 
+#ifdef CUDACOOL
 typedef struct _CoolRequest{
   double *y;
   double dtg;
   COOL *d_Cool;
   clDerivsData *coolData;
 }CoolRequest;
+#endif
 
 /// Device memory pointers used by most functions in HostCUDA
 typedef struct _CudaDevPtr{
@@ -154,7 +134,6 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
 				  cudaStream_t stream,
                                   void *callback);
 
-void CudaCoolSetTime( COOL *cl, double dTime, double z, cudaStream_t stream );
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb);
 
 void TreePieceCellListDataTransferLocal(CudaRequest *data);
@@ -167,7 +146,10 @@ void TreePiecePartListDataTransferLocalSmallPhase(CudaRequest *data, CompactPart
 void TreePiecePartListDataTransferRemote(CudaRequest *data);
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data);
 
+#ifdef CUDACOOL
+void CudaCoolSetTime( COOL *cl, double dTime, double z, cudaStream_t stream );
 void PeODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double tstart, int numParts, cudaStream_t stream);
+#endif
 
 void DummyKernel(void *cb);
 

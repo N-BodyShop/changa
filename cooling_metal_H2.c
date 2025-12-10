@@ -42,7 +42,6 @@
 #define Y_EMIN 1e-7
 
 //#define TESTRATE 1e-3
-/* #define CUBICTABLEINTERP   */
 #define USETABLE
 
 #ifdef USETABLE
@@ -53,12 +52,6 @@
 #define CLRATES( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)   clRates( _cl, _Rate, _T, _rho, _ZMetal, _columnL, _Rate_Phot_H2_stellar)
 #define CLEDOTINSTANT( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool ) clEdotInstant( _cl, _Y, _Rate, _rho, _ZMetal, _Heat, _Cool)
 
-#endif
-
-#ifdef CUBICTABLEINTERP
-#define TABLEFACTOR 2
-#else 
-#define TABLEFACTOR 1
 #endif
 
 #ifdef CUBICTABLEINTERP

@@ -1,6 +1,8 @@
 #ifndef PE_COOL_H
 #define PE_COOL_H
 
+#ifdef CUDACOOL
+
 #include "ParallelGravity.h"
 
 class PECool : public CBase_PECool
@@ -55,4 +57,5 @@ public:
   void reset();
 };
 
+#endif
 #endif

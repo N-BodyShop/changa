@@ -169,7 +169,7 @@ extern int nIOProcessor;
 
 extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
-#ifdef CUDA
+#ifdef CUDACOOL
 extern CProxy_PECool peCoolProxy;
 #endif
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
@@ -886,25 +886,6 @@ class TreePiece : public CBase_TreePiece {
   int bCool;
   int bUpdateState;
 
-#ifndef COOLING_NONE
-        // First and last indices of cooling particles
-        int FirstCoolParticleIndex;
-        int LastCoolParticleIndex;
-
-        clDerivsData *h_CoolData;
-        STIFF *h_Stiff;
-        double *h_ymin;
-        double *h_y0;
-        double *h_y1;
-        double *h_q;
-        double *h_d;
-        double *h_rtau;
-        double *h_ys;
-        double *h_qs;
-        double *h_rtaus;
-        double *h_scrarray;
-#endif
-
 #ifdef CUDA
         // this variable holds the number of buckets active at
         // the start of an iteration
@@ -917,7 +898,9 @@ class TreePiece : public CBase_TreePiece {
         // the list
         int numActiveBuckets; 
         int myNumActiveParticles;
+#ifdef CUDACOOL
         int myNumActiveGasParticles;
+#endif
         // First and Last indices of GPU particle
         int FirstGPUParticleIndex;
         int LastGPUParticleIndex;
@@ -934,23 +917,6 @@ class TreePiece : public CBase_TreePiece {
         size_t sCompactParts;
         size_t sVarParts;
 	cudaStream_t stream;
-
-#ifndef COOLING_NONE
-        clDerivsData *d_CoolData;
-        STIFF *d_Stiff;
-        double *d_y;
-        double *d_dtg;
-        double *d_ymin;
-        double *d_y0;
-        double *d_y1;
-        double *d_q;
-        double *d_d;
-        double *d_rtau;
-        double *d_ys;
-        double *d_qs;
-        double *d_rtaus;
-        double *d_scrarray;
-#endif
 
         int getNumBuckets(){
         	return numBuckets;
@@ -982,6 +948,7 @@ class TreePiece : public CBase_TreePiece {
           }
         }
 
+#ifdef CUDACOOL
 	int getNumActiveGasParticles() {
 	  return myNumActiveGasParticles;
 	}
@@ -997,6 +964,7 @@ class TreePiece : public CBase_TreePiece {
 	      }
 	   contribute(cb);
 	}
+#endif
 
         bool largePhase(){
           return (1.0*myNumActiveParticles/myNumParticles) >= largePhaseThreshold;
@@ -1876,7 +1844,7 @@ public:
 	void updateuDot(int activeRung, double duDeltaCur[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
 			int bUpdateState, double gammam1, double dResolveJeans,
-#ifdef CUDA
+#ifdef CUDACOOL
       int nGpuGasMinParts,
 #endif
       const CkCallback& cb);
@@ -2210,6 +2178,7 @@ class NonEmptyTreePieceCounter : public CkLocIterator {
     int count;
 };
 
+#ifdef CUDACOOL
 /// @brief Used to count treepieces with active gas particles on the local processor.
 class NonEmptyGasTreePieceCounter : public CkLocIterator {
   public:
@@ -2220,5 +2189,6 @@ class NonEmptyGasTreePieceCounter : public CkLocIterator {
   public:
     int count;
 };
+#endif
 
 #endif //PARALLELGRAVITY_H

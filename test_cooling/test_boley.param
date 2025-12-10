@@ -4,7 +4,6 @@ iOutInterval    = 128
 iLogInterval	= 1
 iCheckInterval  = 9999
 
-nGpuGasMinParts = 1
 bDoDensity      = 0
 bDoGravity      = 0
 

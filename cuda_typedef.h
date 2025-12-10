@@ -271,4 +271,5 @@ typedef struct VariablePartData{
   cudatype dtGrav;
 }VariablePartData;
 
+
 #endif /* CUDA_TYPEDEF_H_*/

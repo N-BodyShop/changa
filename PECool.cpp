@@ -1,4 +1,4 @@
-#ifdef CUDA
+#ifdef CUDACOOL
 #include "PECool.h"
 #include "HostCUDA.h"
 

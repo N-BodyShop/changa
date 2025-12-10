@@ -16,7 +16,7 @@
 #include "rpc/xdr.h"
 #include "stiff.h"
 
-#ifdef CUDA
+#ifdef CUDACOOL
 #include <cuda_runtime.h>
 // Make some functions and variables accessible from both the host and device
 #define CUDA_DH __device__ __host__
@@ -26,6 +26,13 @@
 
 #ifdef __cplusplus
 extern "C" {
+#endif
+
+/* #define CUBICTABLEINTERP   */
+#ifdef CUBICTABLEINTERP
+#define TABLEFACTOR 2
+#else
+#define TABLEFACTOR 1
 #endif
 
 /* Accuracy target for integrators */

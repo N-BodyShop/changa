@@ -33,9 +33,11 @@ void DataManager::init() {
   oldNumChunks = 0;
   chunkRoots = NULL;
 #ifdef CUDA
+#ifdef CUDACOOL
   numActiveGasParts = 0;
+  Cool_nv = COOL_NV;
+#endif
   treePiecesDone = 0;
-  treePiecesDoneUdot = 0;
   treePiecesDonePrefetch = 0;
   treePiecesDoneLocalComputation = 0;
   treePiecesDoneRemoteChunkComputation = 0;
@@ -56,7 +58,6 @@ void DataManager::init() {
 
 #endif
   Cool = CoolInit();
-  Cool_nv = COOL_NV;
   starLog = new StarLog();
   lockStarLog = CmiCreateLock();
 }
@@ -189,6 +190,7 @@ void DataManager::assignCUDAStreams(const CkCallback& cb) {
   contribute(cb);
 }
 
+#ifdef CUDACOOL
 void DataManager::setupuDot(const CkCallback& cb){
    numActiveGasParts = 0;
    for (int i = 0; i < registeredTreePieces.size(); i++) {
@@ -196,6 +198,7 @@ void DataManager::setupuDot(const CkCallback& cb){
    }
    contribute(cb);
 }
+#endif
 #endif
 
 /// \brief Build a local tree inside the node.

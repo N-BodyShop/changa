@@ -3132,6 +3132,7 @@ void NonEmptyTreePieceCounter::reset() {
   count = 0;
 }
 
+#ifdef CUDACOOL
 void NonEmptyGasTreePieceCounter::addLocation(CkLocation &loc){
   const int *indexData = loc.getIndex().data();
   TreePiece *tp = treeProxy[indexData[0]].ckLocal();
@@ -3142,6 +3143,7 @@ void NonEmptyGasTreePieceCounter::addLocation(CkLocation &loc){
 void NonEmptyGasTreePieceCounter::reset() {
   count = 0;
 }
+#endif
 
 void TreePiece::mergeNonLocalRequestsDone(){
   // 3. Construct the treepiece-local portions of the tree

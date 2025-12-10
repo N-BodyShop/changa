@@ -33,7 +33,9 @@ typedef struct parameters {
     int iMaxRung;
 #ifdef CUDA
     int nGpuMinParts;
+#ifdef CUDACOOL
     int nGpuGasMinParts;
+#endif
 #endif
     int bCannonical;
     int bKDK;
@@ -182,7 +184,9 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.nTruncateRung;
 #ifdef CUDA
     p|param.nGpuMinParts;
+#ifdef CUDACOOL
     p|param.nGpuGasMinParts;
+#endif
 #endif
     p|param.iMaxRung;
     p|param.bCannonical;

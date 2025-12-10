@@ -49,7 +49,9 @@
 #ifdef CUDA
 // for default per-list parameters
 #include "cuda_typedef.h"
+#ifdef CUDACOOL
 #include "PECool.h"
+#endif
 #endif
 
 extern char *optarg;
@@ -86,7 +88,7 @@ CProxy_DumpFrameData dfDataProxy;
 /// @brief Proxy for the PETreeMerger group.
 CProxy_PETreeMerger peTreeMergerProxy;
 
-#ifdef CUDA
+#ifdef CUDACOOL
 CProxy_PECool peCoolProxy;
 #endif
 
@@ -763,9 +765,11 @@ Main::Main(CkArgMsg* m) {
         param.nGpuMinParts = 1000;
         prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
                     sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
+#ifdef CUDACOOL
         param.nGpuGasMinParts = 500;
         prmAddParam(prm, "nGpuGasMinParts", paramInt, &param.nGpuGasMinParts,
                     sizeof(int),"gpugp", "Min active gas particle on node to trigger GPU (default: 500)");
+#endif
 #endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
@@ -1381,7 +1385,7 @@ Main::Main(CkArgMsg* m) {
         peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
         dfDataProxy = CProxy_DumpFrameData::ckNew();
 
-#ifdef CUDA
+#ifdef CUDACOOL
         peCoolProxy = CProxy_PECool::ckNew();
 #endif
 	
@@ -1860,7 +1864,7 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
     if(param.bGasCooling)
         dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
 
-#ifdef CUDA
+#ifdef CUDACOOL
     treeProxy.calculateNumActiveGasParticles(bAll, iActiveRung, CkCallbackResumeThread());
     dMProxy.setupuDot(CkCallbackResumeThread());
 #endif
@@ -1868,7 +1872,7 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
                          param.bGasCooling, bUpdateState, bAll,
                          (param.dConstGamma-1),
                          param.dResolveJeans/a,
-#ifdef CUDA
+#ifdef CUDACOOL
                         param.nGpuGasMinParts,
 #endif
                          CkCallbackResumeThread());

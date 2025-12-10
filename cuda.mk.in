@@ -45,24 +45,16 @@ cuda_includes := -I@CUDA_DIR@/include -I@CHARM_PATH@/tmp/hybridAPI
 
 cuda_srcs     := $(source_dir)/HostCUDA.cu $(source_dir)/stiff.cu
 
-ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
-	cuda_srcs += $(source_dir)/cooling_cosmo.cu
-	use_dc_flag := -dc
-endif
-
-ifeq (-DCOOLING_BOLEY,@FLAG_COOLING@)
-	cuda_srcs += $(source_dir)/cooling_boley.cu
-	use_dc_flag := -dc
-endif
-
 ifeq (-DCOOLING_MOLECULARH,@FLAG_COOLING@)
 	cuda_srcs += $(source_dir)/cooling_metal_H2.cu
 	use_dc_flag := -dc
+	cuda_defines += -DCUDACOOL
 endif
 
 ifeq (-DCOOLING_METAL,@FLAG_COOLING@)
 	cuda_srcs += $(source_dir)/cooling_metal.cu
 	use_dc_flag := -dc
+	cuda_defines += -DCUDACOOL
 endif
 
 cuda_libs     := @CUDA_LIBS@

@@ -160,19 +160,11 @@ ifeq (-DCOOLING_PLANET,@FLAG_COOLING@)
 endif
 
 ifeq (-DCOOLING_COSMO,@FLAG_COOLING@)
-ifeq (yes,@ENABLE_CUDA@)
-  cuda_link := 1
-else
   c_srcs += $(source_dir)/cooling_cosmo.c
-endif
 endif
 
 ifeq (-DCOOLING_BOLEY,@FLAG_COOLING@)
-ifeq (yes,@ENABLE_CUDA@)
-  cuda_link := 1
-else
 	c_srcs += $(source_dir)/cooling_boley.c
-endif
 endif
 
 ifeq (-DCOOLING_METAL,@FLAG_COOLING@)

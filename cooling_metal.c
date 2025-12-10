@@ -55,12 +55,6 @@
 #endif
 
 #ifdef CUBICTABLEINTERP
-#define TABLEFACTOR 2
-#else 
-#define TABLEFACTOR 1
-#endif
-
-#ifdef CUBICTABLEINTERP
 #define TABLEINTERP( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname+wTln0d*RT0d->_rname+wTln1d*RT1d->_rname)
 #else
 #define TABLEINTERP( _rname ) (wTln0*RT0->_rname+wTln1*RT1->_rname)

@@ -34,6 +34,8 @@
 /* Good value to use I think */
 #define ECHANGEFRACSMALL 1e-4  
 
+/* Accuracy target for intergrators */
+#define EPSINTEG  1e-5
 #define MAXINTEGITS 20000
 
 #define EMUL (1.01)
@@ -55,27 +57,28 @@ COOL *CoolInit( )
 /**
  * Per thread initialization of cooling
  * @param cl Initialized COOL structure.
- * @param nv Number of independent variable for ODE solver
+ * @param nv Number of independent variables for ODE solver
  */
 clDerivsData *CoolDerivsInit(COOL *cl, int nv)
 {
-    clDerivsData* Data;
+    clDerivsData *Data;
     double dEMin;
 
     assert(cl != NULL);
-    Data = (clDerivsData *) malloc(sizeof(clDerivsData));
+    Data = malloc(sizeof(clDerivsData));
     assert(Data != NULL);
-    Data->IntegratorContext = StiffInit(EPSINTEG, nv, Data, clDerivs);
+    Data->IntegratorContext = StiffInit( EPSINTEG, nv, Data, clDerivs);
     Data->cl = cl;
     dEMin =  clThermalEnergy(cl->Y_Total, cl->Tmin);
     StiffSetYMin(Data->IntegratorContext, &dEMin);
-
     return Data;
   }
   
 
 void CoolFinalize(COOL *cl ) 
 {
+  free(cl->DerivsData);
+
   if(cl->rossTab != NULL){
     free(cl->rossTab[0]);
     free(cl->rossTab);
@@ -198,11 +201,11 @@ double clThermalEnergy( double Y_Total, double T ) {
 
 }
 
-CUDA_DH double clTemperature( double Y_Total, double E ) {
+double clTemperature( double Y_Total, double E ) {
   return E/(Y_Total*CL_Eerg_gm_degK3_2);
 }
 
-CUDA_DH double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor,
+double clEdotInstant( COOL *cl, double E, double T, double rho, double rFactor,
                       double *dDeltaTau, 
                       double *dEdotHeat, double *dEdotCool)
 { 
@@ -247,24 +250,6 @@ CUDA_DH double clEdotInstant( COOL *cl, double E, double T, double rho, double r
   const double dp = tpl-tipl;
   const double dt = ttl-titl;
 
-// rossTab and plckTab are flattened 1d arrays on the GPU
-// and 2d arrays on the CPU. This code can be called from host or
-// device so make sure the data is read correctly
-#ifdef __CUDA_ARCH__
-  t1 = ((double *)cl->rossTab)[CL_TABRC2*tipl + titl] +
-    (((double *)cl->rossTab)[CL_TABRC2*tipl + titl + 1] - ((double *)cl->rossTab)[CL_TABRC2*tipl + titl])*dt;
-
-  t2 = ((double *)cl->rossTab)[CL_TABRC2*tipl + titl + 1] +
-    (((double *)cl->rossTab)[CL_TABRC2*(tipl+1) + titl + 1] - ((double *)cl->rossTab)[CL_TABRC2*(tipl+1) + titl])*dt;
-
-  kr = pow(10.0, t1 + (t2 - t1)*dp);
-
-  t1 = ((double *)cl->plckTab)[CL_TABRC2*tipl + titl] +
-    (((double *)cl->plckTab)[CL_TABRC2*tipl + titl + 1] - ((double *)cl->plckTab)[CL_TABRC2*tipl + titl])*dt;
-
-  t2 = ((double *)cl->plckTab)[CL_TABRC2*tipl + titl + 1] +
-    (((double *)cl->plckTab)[CL_TABRC2*(tipl+1) + titl + 1] - ((double *)cl->plckTab)[CL_TABRC2*(tipl+1) + titl])*dt;
-#else
   t1 = cl->rossTab[tipl][titl] + 
     (cl->rossTab[tipl][titl+1] - cl->rossTab[tipl][titl])*dt;
 
@@ -278,7 +263,6 @@ CUDA_DH double clEdotInstant( COOL *cl, double E, double T, double rho, double r
 
   t2 = cl->plckTab[tipl+1][titl] + 
     (cl->plckTab[tipl+1][titl+1] - cl->plckTab[tipl+1][titl])*dt;
-#endif
 
   kp = pow(10.0, t1 + (t2 - t1)*dp);
 
@@ -320,9 +304,9 @@ CUDA_DH double clEdotInstant( COOL *cl, double E, double T, double rho, double r
  * 
  */
 
-CUDA_DH void clDerivs(double x, const double *y, double *dHeat, double *dCool,
+void clDerivs(double x, const double *y, double *dHeat, double *dCool,
               void *Data) {
-  clDerivsData *d = (clDerivsData *) Data;
+  clDerivsData *d = Data;
 
   d->E = y[0];
   d->T = clTemperature( d->Y_Total, d->E );
@@ -387,48 +371,6 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, double *E,
       }
 #endif
   }
-  /* 
-     Note Stored abundances are not necessary with
-     this eqm integrator therefore the following operations
-     could be moved to output routines 
-  */
-
-  d->E = *E;
-  d->T = clTemperature( d->Y_Total, d->E );
-  if (d->T < cl->Tmin ) {
-	  d->T = cl->Tmin;
-	  *E = clThermalEnergy( d->Y_Total, d->T );
-	  }
-}
-
-void clIntegrateEnergyStart(COOL *cl, clDerivsData *clData, double *E, 
-		       double PdV, double rho, double Y_Total,
-                       double radius, /* radius of particle */
-                       double tStep, double* y ) {
-  clDerivsData *d = clData;
-
-  d->rho = rho;
-  d->PdV = PdV;
-  d->Y_Total = Y_Total;
-
-  d->rFactor = radius;
-  y[0] = *E;
-}
-
-void clIntegrateEnergyFinish(COOL *cl, clDerivsData *clData, double *E, 
-		                   double rho, double Y_Total,
-                       double radius, /* radius of particle */
-                       double tStep, double* y ) {
-  clDerivsData *d = clData;
-  double EMin = clThermalEnergy( d->Y_Total, cl->Tmin );
-  *E = y[0];
-#ifdef ASSERTENEG      
-      assert(*E > 0.0);
-#else
-      if (*E < EMin) {
-	*E = EMin;
-      }
-#endif
   /* 
      Note Stored abundances are not necessary with
      this eqm integrator therefore the following operations
@@ -562,32 +504,6 @@ void CoolIntegrateEnergyCode(COOL *cl, clDerivsData *clData, COOLPARTICLE *cp,
 	*ECode = CoolErgPerGmToCodeEnergy(cl, *ECode);
         cp->dDeltaTau = clData->dDeltaTau;
 	}
-
-void CoolIntegrateEnergyCodeStart(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, 
-			          double *ECode, double PdVCode, 
-			          double rhoCode, double ZMetal, double *posCode, 
-			          double tStep, double *y ) {
-  double radius;          /* radius of a particle to calculate tau */
-
-	radius = cp->mrho*cl->dKpcUnit*CONVERT_CMPERKPC;
-
-	*ECode = CoolCodeEnergyToErgPerGm( cl, *ECode );
-  clIntegrateEnergyStart(cl, clData, ECode, CoolCodeWorkToErgPerGmPerSec( cl, PdVCode ), 
-					  CodeDensityToComovingGmPerCc(cl, rhoCode), cp->Y_Total, radius, tStep, y);
-  }
-
-void CoolIntegrateEnergyCodeFinish(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *Ecgs, COOLPARTICLE *cp, 
-			          double *ECode, double PdVCode, 
-			          double rhoCode, double ZMetal, double *posCode, 
-			          double tStep, double *y ) {
-  double radius;          /* radius of a particle to calculate tau */
-
-	radius = cp->mrho*cl->dKpcUnit*CONVERT_CMPERKPC;
-  clIntegrateEnergyFinish(cl, clData, ECode,
-					  CodeDensityToComovingGmPerCc(cl, rhoCode), cp->Y_Total, radius, tStep, y);
-  *ECode = CoolErgPerGmToCodeEnergy(cl, *ECode);
-        cp->dDeltaTau = clData->dDeltaTau;
-  }
 
 /* Star form function -- do not use */
 double CoolHeatingRate( COOL *cl, COOLPARTICLE *cp, double T, double dDensity ) {
