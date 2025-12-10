@@ -987,7 +987,6 @@ void TreePiece::updateuDot(int activeRung,
     PERBARYON YbaryonCur;
     double EcgsCur;
     // Cool functions require C-style array
-    // TODO free this somewhere
     double *yIntCur = new double[COOL_NV];
     int pIdx = 0;
 
@@ -1157,6 +1156,7 @@ void TreePiece::updateuDot(int activeRung,
 	cp.push_back(cpCur);
         }
     } // end of for loop
+    delete yIntCur;
 
 #ifdef CUDACOOL
     if (!bCpuGas) peCoolProxy.ckLocalBranch()->finish(this);
