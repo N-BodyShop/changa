@@ -3867,6 +3867,7 @@ void TreePiece::fillGPUBuffer(fillGPUMsg *msg)
       }
     }
 #endif
+    delete msg;
     dm->transferLocalToGPU(nParts);
 }
 

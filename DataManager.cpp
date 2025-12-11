@@ -630,6 +630,7 @@ void DataManager::finishEwaldGPU() {
 /// Start Ewald calculation if enabled
 void DataManager::finishLocalWalk() {
   delete localWalkCallback;
+  delete lwReq;
 
 #ifdef GPU_LOCAL_TREE_WALK
 #ifdef PINNED_HOST_MEMORY
@@ -672,41 +673,41 @@ void DataManager::startLocalWalk() {
     localWalkCallback
       = new CkCallback(CkIndex_DataManager::finishLocalWalk(), CkMyNode(), dMProxy);
 
-    CudaRequest *request = new CudaRequest;
+    lwReq = new CudaRequest;
 
-    request->d_localMoments = d_localMoments;
-    request->d_localParts = d_localParts;
-    request->d_localVars = d_localVars;
-    request->sMoments = sMoments;
-    request->sCompactParts = sCompactParts;
-    request->sVarParts = sVarParts;
-    request->stream = stream;
+    lwReq->d_localMoments = d_localMoments;
+    lwReq->d_localParts = d_localParts;
+    lwReq->d_localVars = d_localVars;
+    lwReq->sMoments = sMoments;
+    lwReq->sCompactParts = sCompactParts;
+    lwReq->sVarParts = sVarParts;
+    lwReq->stream = stream;
 
-    request->numBucketsPlusOne = 0;
-    request->affectedBuckets = 0;
-    request->tp = this;
-    request->state = NULL;
-    request->node = true;
-    request->remote = false;
-    request->firstParticle = 0;
-    request->lastParticle = savedNumTotalParticles-1;
+    lwReq->numBucketsPlusOne = 0;
+    lwReq->affectedBuckets = 0;
+    lwReq->tp = this;
+    lwReq->state = NULL;
+    lwReq->node = true;
+    lwReq->remote = false;
+    lwReq->firstParticle = 0;
+    lwReq->lastParticle = savedNumTotalParticles-1;
 
-    request->rootIdx = 0;
-    request->theta = theta;
-    request->thetaMono = thetaMono;
-    request->nReplicas = registeredTreePieces[0].treePiece->nReplicas;
-    request->fperiod = registeredTreePieces[0].treePiece->fPeriod.x;
-    request->fperiodY = registeredTreePieces[0].treePiece->fPeriod.y;
-    request->fperiodZ = registeredTreePieces[0].treePiece->fPeriod.z;
-    request->cb = localWalkCallback;
+    lwReq->rootIdx = 0;
+    lwReq->theta = theta;
+    lwReq->thetaMono = thetaMono;
+    lwReq->nReplicas = registeredTreePieces[0].treePiece->nReplicas;
+    lwReq->fperiod = registeredTreePieces[0].treePiece->fPeriod.x;
+    lwReq->fperiodY = registeredTreePieces[0].treePiece->fPeriod.y;
+    lwReq->fperiodZ = registeredTreePieces[0].treePiece->fPeriod.z;
+    lwReq->cb = localWalkCallback;
 
-    request->list = NULL;
-    request->bucketMarkers = NULL;
-    request->bucketStarts = NULL;
-    request->bucketSizes = NULL;
-    request->numInteractions = 0;
+    lwReq->list = NULL;
+    lwReq->bucketMarkers = NULL;
+    lwReq->bucketStarts = NULL;
+    lwReq->bucketSizes = NULL;
+    lwReq->numInteractions = 0;
 
-    DataManagerLocalTreeWalk(request);
+    DataManagerLocalTreeWalk(lwReq);
 #else
     finishLocalWalk();
 #endif

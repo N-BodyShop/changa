@@ -118,6 +118,9 @@ protected:
         // TreePiece counter for multi-threaded GPU host buffer copy
 	int treePiecesBufferFilled;
 
+	// Request for local GPU tree walk
+	CudaRequest *lwReq;
+
         /// Callback pointers to pass to HAPI.
         CkCallback *localTransferCallback;
         CkCallback *localWalkCallback;
