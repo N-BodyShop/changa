@@ -41,7 +41,6 @@ void DataManager::init() {
   treePiecesDoneRemoteChunkComputation = 0;
   PEsWantParticlesBack = 0;
   treePiecesParticlesUpdated = 0;
-  cudaStreamCreate(&stream);
   memLog = new MemLog();
   lockMemLog = CmiCreateLock();
   bGpuMemLogger = 0; // Default disabled
