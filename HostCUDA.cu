@@ -2195,21 +2195,32 @@ __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
 }
 
 #ifdef CUDACOOL
+/// @brief Wrapper function to launch a StiffStep kernel on the GPU
+/// @param d_Stiff Pointer to IntegratorContexts on the GPU
+/// @param d_y Pointer to dependent variables to integrate on the GPU
+/// @param d_dtg Pointer to integration times for each particle on the GPU
+/// @param tstart Starting time for integration
+/// @param numParts Number of GPU threads to launch
+/// @param stream CUDA stream to handle the calculation
 void PeODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double tstart, int numParts, cudaStream_t stream) {
     CudaStiffStep<<<numParts / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(d_Stiff, d_y, tstart, d_dtg, numParts);
 }
 
-__global__ void CudaclRatesRedshift( COOL *cl, double z, double dTime ) {
-  clRatesRedshift(cl, z, dTime);
+__global__ void CudaclRatesRedshift( COOL *d_cl, double z, double dTime ) {
+  clRatesRedshift(d_cl, z, dTime);
 }
 
-void CudaCoolSetTime( COOL *cl, double dTime, double z, cudaStream_t stream ) {
-    CudaclRatesRedshift<<<1, 1, 0, stream>>>( cl, z, dTime );
+/// @brief Wrapper function to update the cooling table on the GPU to the
+///        current redshift
+/// @param d_cl Pointer to the cooling table on the GPU
+/// @param z Current redshift of the simulation
+/// @param dTime Current simulation time
+void CudaCoolSetTime( COOL *d_cl, double dTime, double z, cudaStream_t stream ) {
+    CudaclRatesRedshift<<<1, 1, 0, stream>>>( d_cl, z, dTime );
     cudaStreamSynchronize(stream);
 }
 
 __global__ void CudaStiffStep(STIFF *s0, double *_y, double tstart, double *dtg, int nVars) {
-
     int id;
     id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
     if(id >= nVars) return;

@@ -147,7 +147,7 @@ void TreePiecePartListDataTransferRemote(CudaRequest *data);
 void TreePiecePartListDataTransferRemoteResume(CudaRequest *data);
 
 #ifdef CUDACOOL
-void CudaCoolSetTime( COOL *cl, double dTime, double z, cudaStream_t stream );
+void CudaCoolSetTime( COOL *d_cl, double dTime, double z, cudaStream_t stream );
 void PeODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double tstart, int numParts, cudaStream_t stream);
 #endif
 

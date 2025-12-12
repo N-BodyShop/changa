@@ -148,6 +148,8 @@ void Main::initCooling()
     }
 
 #ifdef CUDACOOL
+/// @brief Copy the cooling table to GPU memory
+/// @param cb Callback function to re-start main thread
 void DataManager::coolDataToGPU(const CkCallback& cb) {
     COOL h_Cool;
     h_Cool = *Cool;
@@ -182,7 +184,6 @@ void DataManager::coolDataToGPU(const CkCallback& cb) {
     cudaChk(cudaMemcpy(d_MetalCoolln, coolBuf, tableSize, cudaMemcpyHostToDevice));
     cudaChk(cudaMemcpy(d_MetalHeatln, heatBuf, tableSize, cudaMemcpyHostToDevice));
 
-    // See above comment about flattened arrays
     h_Cool.MetalCoolln = (float*** )d_MetalCoolln;
     h_Cool.MetalHeatln = (float*** )d_MetalHeatln;
 

@@ -191,6 +191,8 @@ void DataManager::assignCUDAStreams(const CkCallback& cb) {
 }
 
 #ifdef CUDACOOL
+/// @brief Count the number of active gas particles on this node
+/// @param cb Callback function to re-start the main thread
 void DataManager::setupuDot(const CkCallback& cb){
    numActiveGasParts = 0;
    for (int i = 0; i < registeredTreePieces.size(); i++) {

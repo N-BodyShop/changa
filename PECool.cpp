@@ -2,14 +2,10 @@
 #include "PECool.h"
 #include "HostCUDA.h"
 
-int PECool::getNumActiveGasParts() {
-    int numActiveGasParts = 0;
-    for (int i = 0; i < vtpLocal.size(); ++i) {
-      numActiveGasParts += vtpLocal[i]->getNumActiveGasParticles();
-    }
-    return numActiveGasParts;
-}
-
+/// @brief Each TreePiece on this PE checks in once it completes updateuDot
+///        Once all TreePieces are done, copy the particle cooling data to
+///        the GPU and launch StiffStep
+/// @param treePiece A reference to the treePiece that checked in
 void PECool::finish(TreePiece *treePiece) {
     vtpLocal.push_back(treePiece);
 
@@ -47,7 +43,8 @@ void PECool::finish(TreePiece *treePiece) {
     cudaChk(cudaMallocAsync(&d_rtaus, numParts*nv*sizeof(double), stream));
     cudaChk(cudaMallocAsync(&d_scrarray, numParts*nv*sizeof(double), stream));
 
-    for (int i = 0; i < coolData.size(); i++) {
+    // Deep copy each IntegratorContext
+    for (int i = 0; i < numParts; i++) {
         coolData[i].IntegratorContext = &d_Stiff[i];
 
         stiff[i].ymin = &d_ymin[i*nv];
@@ -79,12 +76,18 @@ void PECool::finish(TreePiece *treePiece) {
     hapiAddCallback(stream, finishCb);
 }
 
+/// @brief Callback that triggers after the StiffStep kernel finishes. Calls finishuDot
+///        every TreePiece on this PE
 void PECool::finishIntegrateCb() {
     for (int i = 0; i < vtpLocal.size(); i++) {
        vtpLocal[i]->finishuDot();
     }
 }
 
+/// @brief Used by updateuDot to accumulate cooling data for individual particles
+/// @param data A struct containing the data to eventually be shipped to the GPU
+/// @return Current number of particles accumulated on this PE. Used to map TreePiece
+///         arrays onto the PE arrays
 int PECool::sendData(CoolRequest data) {
   d_Cool = data.d_Cool;
 
@@ -101,7 +104,10 @@ int PECool::sendData(CoolRequest data) {
   return coolData.size()-1;
 }
 
+/// @brief Wipes the accumulated PE-level data for the next cooling calculation
 void PECool::reset() {
+    // This function is called by every TreePiece
+    // Dont reset until the final TreePiece checks in
     treePiecesDone++;
     if (treePiecesDone == vtpLocal.size()) {
       treePiecesDone = 0;

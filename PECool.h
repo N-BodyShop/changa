@@ -5,12 +5,24 @@
 
 #include "ParallelGravity.h"
 
+/// @brief PE-level group to coordinate cooling calculations for gas particles
+/// on the GPU
+///
+/// TreePieces call updateuDot, which loops over individual particles. This loop
+/// calls sendData, which accumulates IntegratorContext and clDerivsData for each
+/// particle. One all TreePieces have checked in, the finish routine copies this
+/// data to device memory and launches a GPU version of StiffStep. A callback
+/// function finishIntegrateCb then updates the internal energies of the particles
+/// on each TreePiece accordingly.
 class PECool : public CBase_PECool
 {
   /// TreePieces on this PE
   CkVec<TreePiece*> vtpLocal;
   /// Count of TreePieces with particles on this PE
   NonEmptyGasTreePieceCounter cTreePieces;
+
+  /// Counter to ensure all TreePieces have finished
+  /// before clearing PE-level data
   int treePiecesDone;
 
   // vectors for host data
@@ -25,7 +37,6 @@ class PECool : public CBase_PECool
   clDerivsData *d_CoolData;
   STIFF *d_Stiff;
   double *d_dtg;
-
   double *d_ymin;
   double *d_y;
   double *d_y0;
@@ -50,7 +61,6 @@ public:
   clDerivsData* getCoolData() { return coolData.data(); }
   double* getYInt() { return yInt.data(); }
 
-  int getNumActiveGasParts();
   void finish(TreePiece *treePiece);
   void finishIntegrateCb();
   int sendData(CoolRequest data);

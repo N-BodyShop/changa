@@ -1156,6 +1156,8 @@ private:
 	/// particle count for output
 	int myIOParticles;
 
+	/// updateuDot is split into two functions.
+	/// These quantities are shared between them
 	CkCallback udotCb;
 	int bCpuGas;
 	std::vector<int> myPartIdx;
