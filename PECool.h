@@ -42,7 +42,7 @@ class PECool : public CBase_PECool
   CkCallback *finishCb;
 
 public:
-  PECool() { treePiecesDone=0; cudaStreamCreate(&stream); }
+  PECool() { finishCb=nullptr; treePiecesDone=0; cudaStreamCreate(&stream); }
   PECool(CkMigrateMessage *m) : CBase_PECool(m) {}
   ~PECool() { cudaStreamDestroy(stream); }
   void pup(PUP::er &p) {}

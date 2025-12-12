@@ -1086,11 +1086,7 @@ void TreePiece::updateuDot(int activeRung,
 	       < p->fTimeCoolIsOffUntil()) {
 	        /* This flags cooling shutoff (e.g., from SNe) to
 	           the cooling functions. */
-         	// TODO fix
-		//dtCur = -dtCur;
-#if defined(COOLING_MOLECULARH) || defined(COOLING_METAL)
-               //h_CoolData[pIdx].bCool = 0; // TODO fix
-#endif
+		dtCur = -dtCur;
 		p->uDot() = ExternalHeatingCur;
 		}
             columnLcur = sqrt(0.25)*p->fBall;

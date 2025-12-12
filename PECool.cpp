@@ -89,7 +89,7 @@ int PECool::sendData(CoolRequest data) {
   d_Cool = data.d_Cool;
 
   coolData.push_back(*data.coolData);
-  stiff.push_back(*data.coolData->IntegratorContext);
+  stiff.push_back(*(data.coolData->IntegratorContext));
   int nv = data.coolData->IntegratorContext->nv;
   for (int i = 0; i < nv; i++) {
     yMin.push_back(data.coolData->IntegratorContext->ymin[i]);
@@ -105,8 +105,11 @@ void PECool::reset() {
     treePiecesDone++;
     if (treePiecesDone == vtpLocal.size()) {
       treePiecesDone = 0;
-      if (!coolData.empty()) {
+      if (finishCb != nullptr) {
         delete finishCb;
+        finishCb = nullptr;
+      }
+      if (!coolData.empty()) {
         cudaChk(cudaFree(d_CoolData));
         cudaChk(cudaFree(d_Stiff));
         cudaChk(cudaFree(d_dtg));
