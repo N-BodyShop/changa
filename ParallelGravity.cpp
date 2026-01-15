@@ -2460,6 +2460,9 @@ void Main::setupICs() {
 #ifdef CUDA
   dMProxy.createStreams(numStreams, CkCallbackResumeThread());
 #endif
+  // External parameters need to be checked to calculate orbital
+  // frequency before calling setPeriodic()
+  param.externalForce.CheckParams(prm, param);
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,
@@ -2609,7 +2612,6 @@ void Main::setupICs() {
       if(param.iStartStep) restartNSIDM();
   }
   
-  param.externalForce.CheckParams(prm, param);
 #ifdef COLLISION
   if(param.bCollision)
       param.collision.CheckParams(prm, param);
