@@ -1472,7 +1472,7 @@ inline void openPatch(int bClosing, double dDelta, GravityParticle* p,
 #ifdef SLIDING_PATCH
 #ifndef NO_HILL
     if (!bClosing) {
-        p->dPy = p->velocity.x + 2.0 * dOrbFreq * p->position.x;
+        p->dPy = p->velocity.y + 2.0 * dOrbFreq * p->position.x;
 
         // Cross hamiltonian
         p->velocity.x += 2.0 * dDelta * dOrbFreq * p->dPy;
