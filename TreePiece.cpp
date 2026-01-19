@@ -6378,13 +6378,14 @@ void TreePiece::finishWalk()
 #endif
 
 #ifdef HAPI_TRACE
-  CkPrintf("[%d] (%d) HAPI_TRACE localnode: %lld\n", thisIndex, activeRung, localNodeInteractions);
-  CkPrintf("[%d] (%d) HAPI_TRACE remotenode: %lld\n", thisIndex, activeRung, remoteNodeInteractions);
-  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumenode: %lld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
-  CkPrintf("[%d] (%d) HAPI_TRACE localpart: %lld\n", thisIndex, activeRung, localPartInteractions);
-  CkPrintf("[%d] (%d) HAPI_TRACE remotepart: %lld\n", thisIndex, activeRung, remotePartInteractions);
-  CkPrintf("[%d] (%d) HAPI_TRACE remoteresumepart: %lld\n", thisIndex, activeRung, remoteResumePartInteractions);
-  
+  if(verbosity > 1) {
+      CkPrintf("[%d] (%d) HAPI_TRACE localnode: %lld\n", thisIndex, activeRung, localNodeInteractions);
+      CkPrintf("[%d] (%d) HAPI_TRACE remotenode: %lld\n", thisIndex, activeRung, remoteNodeInteractions);
+      CkPrintf("[%d] (%d) HAPI_TRACE remoteresumenode: %lld\n", thisIndex, activeRung, remoteResumeNodeInteractions);
+      CkPrintf("[%d] (%d) HAPI_TRACE localpart: %lld\n", thisIndex, activeRung, localPartInteractions);
+      CkPrintf("[%d] (%d) HAPI_TRACE remotepart: %lld\n", thisIndex, activeRung, remotePartInteractions);
+      CkPrintf("[%d] (%d) HAPI_TRACE remoteresumepart: %lld\n", thisIndex, activeRung, remoteResumePartInteractions);
+  }
 #endif
 
   gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
