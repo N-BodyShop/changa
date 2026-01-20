@@ -84,17 +84,21 @@ protected:
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
 #ifdef CUDA
-	//CkVec<int> registeredTreePieceIndices;
         /// @brief counter for the number of tree nodes that are
         /// replicated by TreePieces that share the same address space.
         int cumNumReplicatedNodes;
+        /// Counter for TreePieces ready for serializeLocalTree()
         int treePiecesDone;
         int savedChunk;
+        /// Counter for TreePieces which have completed their remote Prefetch.
         int treePiecesDonePrefetch;
-        int treePiecesDoneLocalComputation;
-        // XXX - assumes that only one chunk can be on the gpu
-        // at a given time
-        int treePiecesDoneRemoteChunkComputation;
+public:
+        /// Indicates that the local Tree data is on the GPU
+        bool bLocalDataTransferred;
+        /// Indicates that the remote Tree data is on the GPU
+        bool bRemoteDataTransferred;
+protected:
+        /// Counter for PEs that are ready to get their acclerations updated.
         int PEsWantParticlesBack;
         /// Keep track of which PEs have TreePieces
         std::set<int> registeredPEs;

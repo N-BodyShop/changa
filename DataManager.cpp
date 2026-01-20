@@ -37,8 +37,6 @@ void DataManager::init() {
 #ifdef CUDA
   treePiecesDone = 0;
   treePiecesDonePrefetch = 0;
-  treePiecesDoneLocalComputation = 0;
-  treePiecesDoneRemoteChunkComputation = 0;
   PEsWantParticlesBack = 0;
   treePiecesParticlesUpdated = 0;
   memLog = new MemLog();
@@ -56,6 +54,8 @@ void DataManager::init() {
   d_localVars = nullptr;
   d_remoteMoments = nullptr;
   d_remoteParts = nullptr;
+  bLocalDataTransferred = false;
+  bRemoteDataTransferred = false;
 #endif
   Cool = CoolInit();
   LWData = LymanWernerTableInit();
@@ -660,6 +660,7 @@ void DataManager::finishLocalWalk() {
 /// in one big kernel launch
 void DataManager::startLocalWalk() {
     delete localTransferCallback;
+    bLocalDataTransferred = true;
 
     // We arent calculating local gravity on the CPU, but bookkeeping
     // still needs to be handled
@@ -717,12 +718,11 @@ void DataManager::startLocalWalk() {
 /// remote walk.
 void DataManager::resumeRemoteChunk() {
   if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk registered: %lu\n", CkMyPe(), registeredTreePieces.length());
-  int chunk = 0;
-  chunk = currentChunkBuffers->chunk;
   delete currentChunkBuffers->moments;
   delete currentChunkBuffers->particles;
   delete currentChunkBuffers->cb;
   delete currentChunkBuffers;
+  bRemoteDataTransferred = true;
 
   // Check and see if the remote walks already finished and are waiting
   // to launch their GPU kernels
@@ -747,8 +747,6 @@ void DataManager::donePrefetch(int chunk){
   if(treePiecesDonePrefetch == registeredTreePieces.length()){
     treePiecesDonePrefetch = 0;
 
-    // The chunk infrastructure is not used, this should always be 0
-    int savedChunk = 0;
 #ifdef HAPI_TRACE
     double starttime = CmiWallTimer();
 #endif
@@ -856,7 +854,6 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   int numTreePieces = registeredTreePieces.length();
   int numNodes = 0;
   int numParticles = 0;
-  int totalNumBuckets = 0;
 
   cacheType *wholeNodeCache = cacheNode.ckLocalBranch()->getCache();
   cacheType *ctNode = &wholeNodeCache[chunk];
@@ -1221,8 +1218,6 @@ void DataManager::transferParticleVarsBack(){
 void DataManager::updateParticles(UpdateParticlesStruct *data){
   int partIndex = 0;
 
-  VariablePartData *deviceParticles = data->buf;
-
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
   CkPrintf("(%d) In DM::updateParticles %d tps\n", CkMyPe(), registeredTreePieces.length());
 #endif
@@ -1283,6 +1278,8 @@ void DataManager::updateParticlesFreeMemory(UpdateParticlesStruct *data)
     gpuPoolFree(d_remoteMoments, stream, funcTag);
     gpuPoolFree(d_remoteParts, stream, funcTag);
 
+    bLocalDataTransferred = false;
+    bRemoteDataTransferred = false;
     // Set device pointers to nullptr
     d_localMoments = nullptr;
     d_localParts = nullptr;
