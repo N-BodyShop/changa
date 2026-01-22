@@ -293,6 +293,10 @@ Main::Main(CkArgMsg* m) {
         prmAddParam(prm, "killAt", paramInt, &killAt,
 		    sizeof(int),"killat", "Stop the simulation after this step");
 
+        param.bSingleStep = 0;
+        prmAddParam(prm,"bSingleStep",paramBool,&param.bSingleStep,
+                    sizeof(int), "sstep",
+                    "Single stepping: all particles use the same timestep");
 	param.bEpsAccStep = 1;
 	prmAddParam(prm, "bEpsAccStep", paramBool, &param.bEpsAccStep,
 		    sizeof(int),"epsacc", "Use sqrt(eps/a) timestepping");
@@ -4043,6 +4047,10 @@ int Main::adjust(int iKickRung)
             iCurrSinkRung = iCurrMaxRungGas;
         treeProxy.SinkStep(iCurrSinkRung, iKickRung, CkCallbackResumeThread());
         }
+    if(param.bSingleStep) {
+        treeProxy.SingleStep(iCurrMaxRung, iKickRung, CkCallbackResumeThread());
+    }
+
     delete msg;
     double tAdjust = CkWallTimer() - startTime;
     timings[iKickRung].tAdjust += tAdjust;
