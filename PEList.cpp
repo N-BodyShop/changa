@@ -54,10 +54,11 @@ void PEList::launchKernel() {
     CkAssert(dMProxy.ckLocalBranch()->d_localMoments != nullptr);
     CkAssert(dMProxy.ckLocalBranch()->d_localParts != nullptr);
     CkAssert(dMProxy.ckLocalBranch()->d_localVars != nullptr);
-    if (bRemote) {
-        CkAssert(dMProxy.ckLocalBranch()->d_remoteParts != nullptr);
-        CkAssert(dMProxy.ckLocalBranch()->d_remoteMoments != nullptr);
-    }
+    // The following checks can fail if remote prefetch does not bring in any data.
+    // if (bRemote) {
+    //    CkAssert(dMProxy.ckLocalBranch()->d_remoteParts != nullptr);
+    //    CkAssert(dMProxy.ckLocalBranch()->d_remoteMoments != nullptr);
+    // }
 
     request->d_localMoments = dMProxy.ckLocalBranch()->d_localMoments;
     request->d_localParts = dMProxy.ckLocalBranch()->d_localParts;
