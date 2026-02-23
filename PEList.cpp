@@ -28,10 +28,13 @@ void PEList::finishWalk(TreePiece *treePiece) {
 
     // If the DataManager device pointer is NULL, the GPU data transfer is
     // still in progress and we need to delay the kernel launch
-    if ((!bRemote && !dMProxy.ckLocalBranch()->bLocalDataTransferred) ||
-        (bRemote && !dMProxy.ckLocalBranch()->bRemoteDataTransferred))
+    bool dataReady = (!bRemote &&
+        dMProxy.ckLocalBranch()->bLocalDataTransferred.load()) ||
+        (bRemote && dMProxy.ckLocalBranch()->bRemoteDataTransferred.load());
+    if (!dataReady)
         bKernelDelayed = 1;
-    else launchKernel();
+    else
+        launchKernel();
 }
 
 /// @brief Called from DataManager after remote transfer finishes. Launch our kernel if it was delayed

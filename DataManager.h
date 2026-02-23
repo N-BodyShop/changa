@@ -9,6 +9,7 @@
 
 #include <vector>
 #include <map>
+#include <atomic>
 #include <string>
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
@@ -94,9 +95,9 @@ protected:
         int treePiecesDonePrefetch;
 public:
         /// Indicates that the local Tree data is on the GPU
-        bool bLocalDataTransferred;
+        std::atomic<bool> bLocalDataTransferred;
         /// Indicates that the remote Tree data is on the GPU
-        bool bRemoteDataTransferred;
+        std::atomic<bool> bRemoteDataTransferred;
 protected:
         /// Counter for PEs that are ready to get their acclerations updated.
         int PEsWantParticlesBack;

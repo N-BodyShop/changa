@@ -550,7 +550,6 @@ void DataTransferBasicCleanup(CudaDevPtr *ptr, cudaStream_t stream, const char* 
  */
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts,
                               cudaStream_t stream, void *cb){
-  
   HAPI_TRACE_BEGIN();
   cudaChk(cudaMemcpyAsync(hostBuffer, d_varParts, size, cudaMemcpyDeviceToHost, stream));
   HAPI_TRACE_END(CUDA_XFER_BACK);
