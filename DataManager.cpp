@@ -35,6 +35,12 @@ void DataManager::init() {
   oldNumChunks = 0;
   chunkRoots = NULL;
 #ifdef CUDA
+  // Initialize host memory pool (per OS process)
+  hostPoolInit();
+
+  // Initialize GPU memory pool (node-level synchronization inside gpuPoolInit)
+  gpuPoolInit();
+
   treePiecesDone = 0;
   treePiecesDonePrefetch = 0;
   PEsWantParticlesBack = 0;

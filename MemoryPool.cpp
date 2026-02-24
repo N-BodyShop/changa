@@ -6,12 +6,15 @@
 #include "DataManager.h"
 #include "memlog.h"
 #include "ParallelGravity.decl.h"
+#include "formatted_string.h"
 #include <unordered_map>
 #include <vector>
+
 
 // ============================================================================
 // GPU MEMORY POOL
 // ============================================================================
+
 
 // ----------------------------------------------------------------------------
 // GPU Pool Initialization & Warmup
@@ -24,16 +27,36 @@
  * excessive memory consumption when multiple ranks share a GPU device.
  */
 void gpuPoolInit() {
+    const int maxCudaDevice = 16;
+    int nCudaDeviceCount = 0;
+    cudaGetDeviceCount(&nCudaDeviceCount);
+    CkAssert(nCudaDeviceCount <= maxCudaDevice);
+
     int dev = 0;
     cudaGetDevice(&dev);
-    
+
+    // Use PE-based coordination: only the lowest-numbered PE initializes each device
+    // This ensures one initialization per device across all processes on the node
+    static int initializedDevices[maxCudaDevice] = {0};
+
+    if (initializedDevices[dev]) {
+        return;
+    }
+
+    // Atomically mark this device as being initialized by this PE
+    initializedDevices[dev] = 1;
+
+    // Get the CUDA memory pool for this device
     cudaMemPool_t pool = nullptr;
     cudaDeviceGetDefaultMemPool(&pool, dev);
-    
+
     // Set 5GB limit (5 * 1024^3 bytes) to prevent excessive memory usage
     // with multiple ranks per GPU device
     unsigned long long threshold = 5ULL * 1024 * 1024 * 1024;
-    cudaMemPoolSetAttribute(pool, cudaMemPoolAttrReleaseThreshold, &threshold);
+    cudaError_t setResult = cudaMemPoolSetAttribute(pool, cudaMemPoolAttrReleaseThreshold, &threshold);
+    if (setResult != cudaSuccess) {
+        CkAbort("gpuPoolInit: cudaMemPoolSetAttribute failed: %s", cudaGetErrorString(setResult));
+    }
 
     // Allocation sizes based on typical ChaNGa workload patterns
     // Extended range from 64 KB to 1 GB for comprehensive coverage
@@ -79,8 +102,12 @@ void gpuPoolInit() {
     
     cudaError_t result = gpuPoolWarmup(sizes, counts, numSizes, 0);
     if (result == cudaSuccess) {
-        CkPrintf("GPU memory pool warmed up\n");
+        // Only print from one nodegroup instance to avoid spam in production
+        if (CkMyNode() == 0) {
+            CkPrintf("GPU memory pool warmed up\n");
+        }
     } else {
+        // Print warnings from all instances so we don't miss failures
         CkPrintf("WARNING: GPU memory pool warmup failed: %s\n", cudaGetErrorString(result));
     }
 }
@@ -452,7 +479,8 @@ namespace {
         int totalAllocations = 0;        // Total allocation calls
         int totalFrees = 0;              // Total free calls
         int totalHits = 0;               // Pool hits
-        int totalMisses = 0;            // Pool misses
+        int totalMisses = 0;             // Pool misses
+        int totalOsAllocations = 0;      // Blocks allocated from OS (misses + refill)
         int totalFreedToOS = 0;          // Blocks actually freed to OS (not pool)
         double totalAllocTime = 0.0;     // Total time spent in allocations
         double totalFreeTime = 0.0;     // Total time spent in frees
@@ -466,7 +494,8 @@ namespace {
         
         // Per-bucket cumulative tracking
         std::unordered_map<size_t, int> bucketTotalAllocations;
-        std::unordered_map<size_t, int> bucketTotalMisses;  // Cumulative misses per bucket
+        std::unordered_map<size_t, int> bucketTotalMisses;       // Cumulative misses per bucket
+        std::unordered_map<size_t, int> bucketTotalOsAllocations; // Cumulative OS allocations per bucket
     };
     static PoolAnalytics g_poolAnalytics;
     
@@ -656,7 +685,7 @@ void hostPoolInit() {
             void* ptr = nullptr;
             cudaError_t res = hostPoolMallocRaw(&ptr, g_warmupConfig[i].size);
             if (res != cudaSuccess) {
-                CkPrintf("WARNING: Host pool warmup failed for size %zu: %s\n", 
+                CkPrintf("WARNING: Host pool warmup failed for size %zu: %s\n",
                          g_warmupConfig[i].size, cudaGetErrorString(res));
                 return;
             }
@@ -664,8 +693,11 @@ void hostPoolInit() {
             totalWarmupBytes += g_warmupConfig[i].size;
         }
     }
-    
-    CkPrintf("Host memory pool warmed up\n");
+
+    // Only print from one nodegroup instance to avoid spam in production
+    if (CkMyNode() == 0) {
+        CkPrintf("Host memory pool warmed up\n");
+    }
 }
 
 // ----------------------------------------------------------------------------
@@ -691,6 +723,7 @@ cudaError_t hostPoolMallocRaw(void** ptr, size_t size) {
     if (g_hostPoolLock == nullptr) {
         CmiNodeLock& initLock = getInitLock();
         CmiLock(initLock);
+
         // Double-check after acquiring lock
         if (g_hostPoolLock == nullptr) {
             g_hostPoolLock = CmiCreateLock();
@@ -751,6 +784,8 @@ cudaError_t hostPoolMallocRaw(void** ptr, size_t size) {
     g_poolAnalytics.timestepAllocations++;
     g_poolAnalytics.bucketTotalAllocations[bucket]++;
     g_poolAnalytics.bucketTotalMisses[bucket]++;  // Track cumulative misses per bucket
+    g_poolAnalytics.totalOsAllocations++;
+    g_poolAnalytics.bucketTotalOsAllocations[bucket]++;
     g_poolAnalytics.totalAllocTime += allocTime;
     g_poolAnalytics.totalAllocated += bucket;
     g_poolAnalytics.currentMemory += bucket;
@@ -782,7 +817,7 @@ cudaError_t hostPoolFreeRaw(void* ptr) {
         // Pool not initialized; free directly
         return cudaFreeHost(ptr);
     }
-    
+
     CmiLock(g_hostPoolLock);
     auto it = g_hostPointerSizes.find(ptr);
     if (it == g_hostPointerSizes.end()) {
@@ -1090,13 +1125,6 @@ void hostPoolAdaptiveRefill() {
         }
     }
     
-    // Reset per-timestep analytics
-    g_poolAnalytics.timestepAllocations = 0;
-    g_poolAnalytics.timestepFrees = 0;
-    g_poolAnalytics.timestepHits = 0;
-    g_poolAnalytics.timestepMisses = 0;
-    g_poolAnalytics.timestepFreedToOS = 0;
-    
     CmiUnlock(g_hostPoolLock);
     
     // Allocate blocks unlocked (slow operation)
@@ -1129,14 +1157,29 @@ void hostPoolAdaptiveRefill() {
             g_hostFreePool[block.bucket].push_back(block.ptr);
             // Note: Free pool blocks are not tracked in g_hostPointerSizes
             // Only live (allocated) blocks are tracked there
+            g_poolAnalytics.totalOsAllocations++;
+            g_poolAnalytics.bucketTotalOsAllocations[block.bucket]++;
+            g_poolAnalytics.totalAllocated += block.bucket;
         }
         CmiUnlock(g_hostPoolLock);
     }
     
     if (totalRefilled > 0) {
+        DataManager* dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+        if (dm && dm->bHostPoolDebug) {
         CkPrintf("[HostPool] Refilled %d blocks (%.1f MB) for hot buckets\n", 
                  totalRefilled, totalRefillBytes / (1024.0 * 1024.0));
+        }
     }
+
+    // Reset per-timestep analytics after reporting/refill completes
+    CmiLock(g_hostPoolLock);
+    g_poolAnalytics.timestepAllocations = 0;
+    g_poolAnalytics.timestepFrees = 0;
+    g_poolAnalytics.timestepHits = 0;
+    g_poolAnalytics.timestepMisses = 0;
+    g_poolAnalytics.timestepFreedToOS = 0;
+    CmiUnlock(g_hostPoolLock);
 }
 
 // ----------------------------------------------------------------------------
@@ -1183,6 +1226,7 @@ void hostPoolReportStats(const char* prefix, double targetCapacityGB) {
     int timestepHits = g_poolAnalytics.timestepHits;
     int timestepMisses = g_poolAnalytics.timestepMisses;
     int timestepFreedToOS = g_poolAnalytics.timestepFreedToOS;
+    int totalOsAllocations = g_poolAnalytics.totalOsAllocations;
     size_t peakMemory = g_poolAnalytics.peakMemory;
     size_t currentMemory = g_poolAnalytics.currentMemory;
     double totalAllocTime = g_poolAnalytics.totalAllocTime;
@@ -1237,7 +1281,7 @@ void hostPoolReportStats(const char* prefix, double targetCapacityGB) {
     // Pool accounting check
     // Total blocks owned by pool = (allocated from OS) - (freed to OS)
     // These blocks are either: (1) free in pool, or (2) currently checked out (live)
-    size_t totalOwnedBlocks = totalMisses - totalFreedToOS;
+    size_t totalOwnedBlocks = totalOsAllocations - totalFreedToOS;
     size_t accountedBlocks = totalBlocks + liveBlocks;
     
     if (totalOwnedBlocks != accountedBlocks) {
@@ -1257,11 +1301,21 @@ void hostPoolReportStats(const char* prefix, double targetCapacityGB) {
     for (const auto &kv : g_hostFreePool) {
         bucketSizes.push_back(kv.first);
     }
+    
+    // Track live blocks per bucket for accurate usage
+    std::unordered_map<size_t, int> liveCounts;
+    for (const auto &kv : g_hostPointerSizes) {
+        liveCounts[kv.second]++;
+        if (g_hostFreePool.find(kv.second) == g_hostFreePool.end()) {
+            bucketSizes.push_back(kv.second);
+        }
+    }
     std::sort(bucketSizes.begin(), bucketSizes.end());
+    bucketSizes.erase(std::unique(bucketSizes.begin(), bucketSizes.end()), bucketSizes.end());
     
     // Print header
-    CkPrintf("%s   %10s | %6s | %6s | %10s | %8s\n", prefix, 
-             "Bucket", "Free", "Misses", "TotalAllocs", "Usage");
+    CkPrintf("%s   %10s | %6s | %6s | %6s | %10s | %8s\n", prefix, 
+             "Bucket", "Free", "Live", "Misses", "TotalAllocs", "Usage");
     CkPrintf("%s   %s\n", prefix, "----------------------------------------------------------------");
     
     for (size_t bucket : bucketSizes) {
@@ -1270,24 +1324,21 @@ void hostPoolReportStats(const char* prefix, double targetCapacityGB) {
                          g_poolAnalytics.bucketTotalMisses[bucket] : 0;
         int totalAllocs = g_poolAnalytics.bucketTotalAllocations.count(bucket) ? 
                          g_poolAnalytics.bucketTotalAllocations[bucket] : 0;
-        
+        int liveCount = liveCounts.count(bucket) ? liveCounts[bucket] : 0;
+
         // Format bucket size nicely
-        char bucketStr[16];
-        if (bucket < 1024) {
-            snprintf(bucketStr, sizeof(bucketStr), "%zu B", bucket);
-        } else if (bucket < 1024 * 1024) {
-            snprintf(bucketStr, sizeof(bucketStr), "%zu KB", bucket / 1024);
-        } else {
-            snprintf(bucketStr, sizeof(bucketStr), "%zu MB", bucket / (1024 * 1024));
-        }
+        auto bucketStr = (bucket < 1024) ? make_formatted_string("%zu B", bucket)
+            : (bucket < 1024 * 1024) ? make_formatted_string("%zu KB", bucket / 1024)
+            : make_formatted_string("%zu MB", bucket / (1024 * 1024));
+
+        // Calculate usage percentage based on current pool state.
+        // This avoids negative values when free blocks exceed historical misses
+        // (e.g., due to adaptive refills).
+        int totalCurrent = freeCount + liveCount;
+        double usagePct = (totalCurrent > 0) ? (100.0 * liveCount / totalCurrent) : 0.0;
         
-        // Calculate usage percentage: (blocks in use) / (total blocks allocated from OS) * 100
-        // Total blocks from OS = totalMisses (each miss allocates a new block from OS)
-        // Blocks in use = totalMisses - freeCount
-        double usagePct = (totalMisses > 0) ? (100.0 * (totalMisses - freeCount) / totalMisses) : 0.0;
-        
-        CkPrintf("%s   %10s | %6d | %6d | %10d | %7.1f%%\n", prefix,
-                 bucketStr, freeCount, totalMisses, totalAllocs, usagePct);
+        CkPrintf("%s   %10s | %6d | %6d | %6d | %10d | %7.1f%%\n", prefix,
+                 bucketStr.c_str(), freeCount, liveCount, totalMisses, totalAllocs, usagePct);
     }
     
     CkPrintf("%s   %s\n", prefix, "----------------------------------------------------------------");
