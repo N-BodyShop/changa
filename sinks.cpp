@@ -1135,13 +1135,13 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    q = NULL;
 	    for (i=0;i<nSmooth;++i) {
 		double fDist2 = nnList[i].fKey;
-		r2 = fDist2;
+		r2 = fDist2*ih2;
 		if(TYPETest(nnList[i].p,TYPE_DELETED)) continue;
 		    /* don't accrete a deleted particle!  JMB 10/1/08 */
 		rs = KERNEL(r2, nSmooth);
 		fW = rs*nnList[i].p->mass;
 		double fBall = nnList[i].p->fBall;
-		if(!s.bBHAccreteAll && r2 > 0.25*fBall*fBall) continue; 
+		if(!s.bBHAccreteAll && fDist2 > 0.25*fBall*fBall) continue; 
 		/* don't accrete gas that doesn't have the BH
 		 * in its smoothing length  JMB 10/22/08 */
 		/* make this an optional parameter JMB 9/21/12 */
