@@ -4574,6 +4574,10 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       }
 #endif
 
+      if (particleInterRemote == NULL) {
+        CkPrintf("ERROR [%d] TP %d particleInterRemote NULL at chunk %d (calculateGravityRemote)\n", CkMyPe(), thisIndex, msg->chunkNum);
+        CkAbort("particleInterRemote NULL");
+      }
       cacheGravPart[CkMyPe()].finishedChunk(msg->chunkNum, particleInterRemote[msg->chunkNum]);
 #ifdef CHECK_WALK_COMPLETIONS
       CkPrintf("[%d] finishedChunk TreePiece::calculateGravityRemote\n", thisIndex);
@@ -5022,6 +5026,25 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   if (numChunks == 0 && myNumParticles == 0) numChunks = 1;
   int dummy;
 
+  // Allocate particleInterRemote/nodeInterRemote before PEList::finishWalk()
+  // is invoked (e.g. in the myNumParticles==0 path via finishedTPWork).
+  // They must be valid if any callback arrives. PUP sets them to NULL on
+  // unpack; allocation must happen before any cache/Compute path can touch them.
+  if (oldNumChunks != numChunks) {
+    delete[] nodeInterRemote;
+    delete[] particleInterRemote;
+    nodeInterRemote = new u_int64_t[numChunks];
+    particleInterRemote = new u_int64_t[numChunks];
+  }
+  if (nodeInterRemote == NULL)
+    nodeInterRemote = new u_int64_t[numChunks];
+  if (particleInterRemote == NULL)
+    particleInterRemote = new u_int64_t[numChunks];
+  for (int i = 0; i < numChunks; ++i) {
+    nodeInterRemote[i] = 0;
+    particleInterRemote[i] = 0;
+  }
+
   cacheNode.ckLocalBranch()->cacheSync(numChunks, idxMax, localIndex);
   cacheGravPart.ckLocalBranch()->cacheSync(numChunks, idxMax, dummy);
 
@@ -5049,29 +5072,13 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     bBucketsInited = true;
     return;
   }
-  
-  // allocate and zero out statistics counters
-  if (oldNumChunks != numChunks ) {
-    delete[] nodeInterRemote;
-    delete[] particleInterRemote;
-    nodeInterRemote = new u_int64_t[numChunks];
-    particleInterRemote = new u_int64_t[numChunks];
-  }
 
-  if(nodeInterRemote == NULL)
-	nodeInterRemote = new u_int64_t[numChunks];
-  if(particleInterRemote == NULL)
-	particleInterRemote = new u_int64_t[numChunks];
 #if COSMO_STATS > 0
   nodesOpenedLocal = 0;
   nodesOpenedRemote = 0;
   numOpenCriterionCalls=0;
 #endif
   nodeInterLocal = 0;
-  for (int i=0; i<numChunks; ++i) {
-    nodeInterRemote[i] = 0;
-    particleInterRemote[i] = 0;
-  }
   particleInterLocal = 0;
 
   if(verbosity>1)
