@@ -3,7 +3,7 @@
 
 #include "HostCUDA.h"
 
-#define NEWH 80
+#define NEWH 400
 #define BLOCK_SIZE 128
 
 /** @brief Data for the Ewald h loop in the CUDA kernel
