@@ -1,6 +1,7 @@
 #ifdef CUDA
 
 #include "PEList.h"
+#include "DataManager.h"
 #include "HostCUDA.h"
 
 /// @brief Each TreePiece on a given PE checks in as its tree walk completes
@@ -27,21 +28,30 @@ void PEList::finishWalk(TreePiece *treePiece) {
     finishCb = new CkCallback(CkIndex_PEList::finishWalkCb(), CkMyPe(), thisProxy);
 
     // If the DataManager device pointer is NULL, the GPU data transfer is
-    // still in progress and we need to delay the kernel launch
-    bool dataReady = (!bRemote &&
-        dMProxy.ckLocalBranch()->bLocalDataTransferred.load()) ||
-        (bRemote && dMProxy.ckLocalBranch()->bRemoteDataTransferred.load());
+    // still in progress and we need to delay the kernel launch.
+    // launchKernel() always uses d_localMoments/d_localParts; remote also needs remote data.
+    DataManager *dm = dMProxy.ckLocalBranch();
+    bool dataReady = dm->bLocalDataTransferred.load() &&
+        (!bRemote || dm->bRemoteDataTransferred.load());
     if (!dataReady)
         bKernelDelayed = 1;
     else
         launchKernel();
 }
 
-/// @brief Called from DataManager after remote transfer finishes. Launch our kernel if it was delayed
+/// @brief Called from DataManager when remote or local transfer finishes.
+/// Launch our kernel only if it was delayed AND the data we need is now ready.
+/// launchKernel() always uses d_localMoments/d_localParts; remote also needs remote data.
 void PEList::tryLaunchDelayedKernel() {
-    if (bKernelDelayed) {
-        launchKernel();
-    }
+    if (!bKernelDelayed)
+        return;
+    DataManager *dm = dMProxy.ckLocalBranch();
+    bool dataReady = dm->bLocalDataTransferred.load() &&
+        (!bRemote || dm->bRemoteDataTransferred.load());
+    if (!dataReady)
+        return;
+    bKernelDelayed = 0;
+    launchKernel();
 }
 
 void PEList::finishWalkCb() {

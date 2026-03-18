@@ -704,6 +704,17 @@ void DataManager::startLocalWalk() {
     delete localTransferCallback;
     bLocalDataTransferred.store(true);
 
+    // Delayed local kernels can now launch (remote may have completed first).
+    int pe;
+    int firstPE = CkNodeFirst(CkMyNode());
+    int nPEs = CkNodeSize(CkMyNode());
+    for (int i = 0; i < numPEListProxies; i++) {
+        for (int j = 0; j < nPEs; j++) {
+            pe = firstPE + j;
+            (*(PEListProxies[i]))[pe].tryLaunchDelayedKernel();
+        }
+    }
+
     // We arent calculating local gravity on the CPU, but bookkeeping
     // still needs to be handled
     for(int i = 0; i < registeredTreePieces.length(); i++){
