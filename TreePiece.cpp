@@ -3659,9 +3659,11 @@ int reEncodeOffset(int reqID, int offsetID)
 /**
  * Initialize all particles for gravity force calculation.
  * This includes zeroing out the acceleration and potential.
+ * @returns Number of active particles on this TreePiece.
  */
-void TreePiece::initBuckets() {
+int TreePiece::initBuckets() {
   int ewaldCondition = (bEwald ? 0 : 1);
+  int nActive = 0;
   for (unsigned int j=0; j<numBuckets; ++j) {
     GenericTreeNode* node = bucketList[j];
 
@@ -3671,6 +3673,7 @@ void TreePiece::initBuckets() {
 				// Active bounds
     for(int i = node->firstParticle; i <= node->lastParticle; ++i) {
       if (myParticles[i].rung >= activeRung) {
+        nActive++;
         myParticles[i].treeAcceleration = 0;
         myParticles[i].potential = 0;
 	myParticles[i].dtGrav = 0;
@@ -3701,6 +3704,7 @@ void TreePiece::initBuckets() {
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   bucketcheckList.resize(numBuckets);
 #endif
+  return nActive;
 }
 
 void TreePiece::startNextBucket() {
@@ -3803,7 +3807,7 @@ void TreePiece::finishBucket(int iBucket) {
 
   CkAssert(remaining >= 0);
 #ifdef COSMO_PRINT
-  CkPrintf("[%d] Is finished %d? finished=%d, %d still missing!\n",thisIndex,iBucket,req->finished, remaining);
+  CkPrintf("[%d] Is finished %d? finished=%d, %d still missing; remote %d local %d!\n",thisIndex,iBucket,req->finished, remaining, sRemoteGravityState->counterArrays[0][iBucket], sLocalGravityState->counterArrays[0][iBucket]);
 #endif
 
   // XXX finished means Ewald is done.
@@ -5056,19 +5060,16 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
       cacheGravPart.ckLocalBranch()->finishedChunk(i, 0);
     }
     nodeLBMgrProxy.ckLocalBranch()->finishedTPWork();
-    if (bUseCpu) {
-      CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
-      gravityProxy[thisIndex].ckLocal()->contribute(cbf);
-    }
 #ifdef CUDA
-    else {
+    if (!bUseCpu) {
       // Every PE must call TransferParticleVarsBack, even if no particle data
       for (int i = 0; i < numPEListProxies; i++) {
         PEListProxies[i]->ckLocalBranch()->finishWalk(this);
       }
-      gravityProxy[thisIndex].ckLocal()->contribute();
     }
 #endif
+    CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
+    gravityProxy[thisIndex].ckLocal()->contribute(cbf);
     bBucketsInited = true;
     return;
   }
@@ -5097,8 +5098,35 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   traceUserBracketEvent(START_REG, starttime, CmiWallTimer());
 
   starttime = CmiWallTimer();
-  initBuckets();
+  myNumActiveParticles = initBuckets();
   traceUserBracketEvent(START_IB, starttime, CmiWallTimer());
+  if(getNumActiveParticles() == 0) {
+      // No active particles on this TreePiece; Short-circuit the tree
+      // walk.  This is similar to the code above for no particles on
+      // the TreePiece.
+      for (int i=0; i< numChunks; ++i) {
+          cacheGravPart.ckLocalBranch()->finishedChunk(i, 0);
+      }
+      nodeLBMgrProxy.ckLocalBranch()->finishedTPWork();
+#ifdef CUDA
+      if (!bUseCpu) {
+          // This trees particles and nodes still need to be loaded
+          // onto the GPU
+          dm->serializeLocalTree();
+          // Let DM know we have "completed" the prefetch as well
+          dm->donePrefetch(0);  // 0 is the chunk number; assuming
+                                // only one chunk
+          // Every PE must call TransferParticleVarsBack, even if no particle data
+          for (int i = 0; i < numPEListProxies; i++) {
+              PEListProxies[i]->ckLocalBranch()->finishWalk(this);
+              }
+      }
+#endif
+      CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
+      gravityProxy[thisIndex].ckLocal()->contribute(cbf);
+      bBucketsInited = true;
+      return;
+  }
 
   starttime = CmiWallTimer();
   prefetchReq.reset();
@@ -5178,7 +5206,6 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #ifdef CUDA
 
   numActiveBuckets = 0;
-  calculateNumActiveParticles();
 
   if (!bUseCpu) {
 

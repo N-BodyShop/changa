@@ -518,8 +518,10 @@ void DataManager::startEwaldGPU() {
   // to avoid deadlock: TPs are waiting for their buckets to be marked finished.
   if (savedNumTotalParticles <= 0 || d_localParts == nullptr || d_localVars == nullptr) {
     for (int i = 0; i < registeredTreePieces.length(); i++) {
-      int in = registeredTreePieces[i].treePiece->getIndex();
-      treePieces[in].cudaFinishAllBuckets(1);
+        if(registeredTreePieces[i].treePiece->getNumActiveParticles() > 0) {
+            int in = registeredTreePieces[i].treePiece->getIndex();
+            treePieces[in].cudaFinishAllBuckets(1);
+        }
     }
     return;
   }
@@ -654,8 +656,10 @@ void DataManager::finishEwaldGPU() {
 #endif
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
-      int in = registeredTreePieces[i].treePiece->getIndex();
-      treePieces[in].cudaFinishAllBuckets(1);
+      if(registeredTreePieces[i].treePiece->getNumActiveParticles() > 0) {
+          int in = registeredTreePieces[i].treePiece->getIndex();
+          treePieces[in].cudaFinishAllBuckets(1);
+      }
   }
 }
 
@@ -681,8 +685,10 @@ void DataManager::finishLocalWalk() {
 #endif
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
-    int in = registeredTreePieces[i].treePiece->getIndex();
-    treePieces[in].cudaFinishAllBuckets(0);
+      if(registeredTreePieces[i].treePiece->getNumActiveParticles() > 0) {
+          int in = registeredTreePieces[i].treePiece->getIndex();
+          treePieces[in].cudaFinishAllBuckets(0);
+      }
   }
 #endif
 
@@ -701,8 +707,11 @@ void DataManager::startLocalWalk() {
     // We arent calculating local gravity on the CPU, but bookkeeping
     // still needs to be handled
     for(int i = 0; i < registeredTreePieces.length(); i++){
-      int in = registeredTreePieces[i].treePiece->getIndex();
-      treePieces[in].commenceCalculateGravityLocal();
+        /// Pieces with no active particles have been short-cut.
+        if(registeredTreePieces[i].treePiece->getNumActiveParticles() > 0) {
+            int in = registeredTreePieces[i].treePiece->getIndex();
+            treePieces[in].commenceCalculateGravityLocal();
+        }
     }
 
 #ifdef GPU_LOCAL_TREE_WALK
@@ -793,12 +802,15 @@ void DataManager::donePrefetch(int chunk){
 
   // Commence the remote walk
   for(int i = 0; i < registeredTreePieces.length(); i++){
-      if(verbosity > 1) CkPrintf("[%d] resumeRemoteChunk %d\n", CkMyPe(), i);
-      int in = registeredTreePieces[i].treePiece->getIndex();
+      if(verbosity > 1) CkPrintf("[%d] continueStartRemoteChunk %d\n", CkMyNode(), i);
+      if(registeredTreePieces[i].treePiece->getNumActiveParticles() > 0) {
+          int in = registeredTreePieces[i].treePiece->getIndex();
 #if COSMO_PRINT_BK > 1
-      CkPrintf("(%d) dm->%d\n", CkMyPe(), in);
+          CkPrintf("(%d) dm->%d\n", CkMyNode(), in);
 #endif
-      treePieces[in].continueStartRemoteChunk(0);
+          treePieces[in].continueStartRemoteChunk(0); // 0 is the chunk number;
+                                                      // assuming only one remote chunk
+      }
     }
 
     PendingBuffers *buffers = currentChunkBuffers;
@@ -1242,7 +1254,7 @@ void DataManager::transferParticleVarsBack(){
     data->buf = buf;
     data->size = savedNumTotalParticles;
 
-    if(verbosity > 1) CkPrintf("[%d] transferParticleVarsBack\n", CkMyPe());
+    if(verbosity > 1) CkPrintf("[%d] transferParticleVarsBack\n", CkMyNode());
     TransferParticleVarsBack(buf, 
                              savedNumTotalParticles*sizeof(VariablePartData),
 			     d_localVars,
@@ -1256,7 +1268,7 @@ void DataManager::updateParticles(UpdateParticlesStruct *data){
   int partIndex = 0;
 
 #ifdef CUDA_PRINT_TRANSFER_BACK_PARTICLES
-  CkPrintf("(%d) In DM::updateParticles %d tps\n", CkMyPe(), registeredTreePieces.length());
+  CkPrintf("(%d) In DM::updateParticles %d tps\n", CkMyNode(), (int) registeredTreePieces.length());
 #endif
 
   for(int i = 0; i < registeredTreePieces.length(); i++){

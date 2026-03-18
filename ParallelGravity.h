@@ -906,6 +906,14 @@ class TreePiece : public CBase_TreePiece {
   /// Return the pointer to the particles on this TreePiece.
   GravityParticle *getParticles(){return myParticles;}
 
+    /// Number of particles on this TreePiece needing force calculations
+    int myNumActiveParticles;
+
+    /// Access method for number of active particles on this TreePiece
+    int getNumActiveParticles(){
+        return myNumActiveParticles;
+    }
+
 
 #ifdef CUDA
         // this variable holds the number of buckets active at
@@ -918,7 +926,6 @@ class TreePiece : public CBase_TreePiece {
         // in the list of interations to the sent to the gpu, we flush
         // the list
         int numActiveBuckets; 
-        int myNumActiveParticles;
         // First and Last indices of GPU particle
         int FirstGPUParticleIndex;
         int LastGPUParticleIndex;
@@ -948,19 +955,6 @@ class TreePiece : public CBase_TreePiece {
         // total count.
         int getDMNumParticles(){
           return myNumParticles;
-        }
-
-        int getNumActiveParticles(){
-          return myNumActiveParticles;
-        }
-
-        void calculateNumActiveParticles(){ 
-          myNumActiveParticles = 0;
-          for(int i = 1; i <= myNumParticles; i++){
-            if(myParticles[i].rung >= activeRung){
-              myNumActiveParticles++;
-            }
-          }
         }
 
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
@@ -1375,8 +1369,7 @@ private:
 
 
 	/// Initialize all the buckets for the tree walk
-	/// @TODO: Eliminate this redundant copy!
-	void initBuckets();
+	int initBuckets();
 	template <class Tsmooth>
 	void initBucketsSmooth(Tsmooth tSmooth);
 	void smoothNextBucket();
