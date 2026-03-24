@@ -46,8 +46,6 @@ class PEList : public CBase_PEList
     int bRemote;
     int bResume;
 
-    /// Indicate whether remote prefetch data has transferred to the GPU
-    int bRemoteReady;
     /// Flags whether the GPU kernel launch was delayed due to the data transfer
     int bKernelDelayed;
 

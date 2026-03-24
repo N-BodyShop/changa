@@ -220,7 +220,6 @@ void PEList::reset() {
 
     cTreePieces.reset();
     vtpLocal.clear();
-    bRemoteReady = 0;
     bKernelDelayed = 0;
     finalBucketMarker = -1;
     delete finishCb;
