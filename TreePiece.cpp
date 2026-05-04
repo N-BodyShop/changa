@@ -3807,7 +3807,9 @@ void TreePiece::finishBucket(int iBucket) {
 
   CkAssert(remaining >= 0);
 #ifdef COSMO_PRINT
-  CkPrintf("[%d] Is finished %d? finished=%d, %d still missing; remote %d local %d!\n",thisIndex,iBucket,req->finished, remaining, sRemoteGravityState->counterArrays[0][iBucket], sLocalGravityState->counterArrays[0][iBucket]);
+  CkPrintf("[%d %d] Is finished %d? finished=%d, %d still missing; remote %d local %d!\n",
+           CkMyPe(), thisIndex,iBucket,req->finished, remaining,
+           sRemoteGravityState->counterArrays[0][iBucket], sLocalGravityState->counterArrays[0][iBucket]);
 #endif
 
   // XXX finished means Ewald is done.
@@ -3879,23 +3881,26 @@ void TreePiece::fillGPUBuffer(fillGPUMsg *msg)
 void TreePiece::updateParticles(intptr_t data, int partIndex) {
     VariablePartData *deviceParticles = ((UpdateParticlesStruct *)data)->buf;
 
-    for(int j = 1; j <= myNumParticles; j++){
-        if(isActive(j)){
-#ifndef CUDA_NO_ACC_UPDATES
-            myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x;
-            myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y;
-            myParticles[j].treeAcceleration.z += deviceParticles[partIndex].a.z;
-            myParticles[j].potential += deviceParticles[partIndex].potential;
-            myParticles[j].dtGrav = fmax(myParticles[j].dtGrav,
-                                         deviceParticles[partIndex].dtGrav);
-#endif
-            }
-        partIndex++;
+    if(getNumActiveParticles() > 0) {
+        for(int j = 1; j <= myNumParticles; j++){
+            if(isActive(j)){
+    #ifndef CUDA_NO_ACC_UPDATES
+                myParticles[j].treeAcceleration.x += deviceParticles[partIndex].a.x;
+                myParticles[j].treeAcceleration.y += deviceParticles[partIndex].a.y;
+                myParticles[j].treeAcceleration.z += deviceParticles[partIndex].a.z;
+                myParticles[j].potential += deviceParticles[partIndex].potential;
+                myParticles[j].dtGrav = fmax(myParticles[j].dtGrav,
+                                             deviceParticles[partIndex].dtGrav);
+    #endif
+                }
+            partIndex++;
         }
-
-    dm->updateParticlesFreeMemory((UpdateParticlesStruct *)data);
-    continueWrapUp();
     }
+    dm->updateParticlesFreeMemory((UpdateParticlesStruct *)data);
+    if(getNumActiveParticles() > 0)
+        continueWrapUp();       // Only appropriate if a walk was
+                                // actually started
+}
 #endif
 
 void TreePiece::continueWrapUp(){
@@ -6396,9 +6401,10 @@ void TreePiece::markWalkDone() {
 	// there may be outstanding requests by other pieces.  We need to
 	// wait for all walks to complete before freeing data structures.
 #ifdef CHECK_WALK_COMPLETIONS
-        CkPrintf("[%d] inside markWalkDone, completedActiveWalks: %d, activeWalks: %d, contrib finishWalk\n", thisIndex, completedActiveWalks, activeWalks.size());
+        CkPrintf("[%d] inside markWalkDone, completedActiveWalks: %d, activeWalks: %d, contrib finishWalk\n", thisIndex, completedActiveWalks, (int) activeWalks.size());
 #endif
     nodeLBMgrProxy.ckLocalBranch()->finishedTPWork();
+    CkAssert(myNumParticles > 0 && getNumActiveParticles() > 0);
 	CkCallback cb = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
 	gravityProxy[thisIndex].ckLocal()->contribute(cb);
 	}
