@@ -1601,7 +1601,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 #endif
 		      }
 #ifdef HYPCOND
-      p->dQCond() +=  p->dQCondDot()*duDelta[p->rung];
+      double tinv = (p->dThermalCondTau() > 0 ? 1.0/(p->dThermalCondTau() + duDelta[p->rung]) : 0.0);
+      Vector3D<double> QdotCorrected;
+      QdotCorrected = (p->dQCondDot() - p->dQCond())*tinv;
+      p->dQCond() +=  QdotCorrected*duDelta[p->rung];
       p->dQCondPred() = p->dQCond();
 #endif
 #ifdef DIFFUSION
@@ -1656,8 +1659,11 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 #endif
 		      }
 #ifdef HYPCOND
+        double tinv = (p->dThermalCondTau() > 0 ? 1.0/(p->dThermalCondTau() + duDelta[p->rung]) : 0.0);
+        Vector3D<double> QdotCorrected;
+        QdotCorrected = (p->dQCondDot() - p->dQCond())*tinv;
         p->dQCondPred() = p->dQCond();
-        p->dQCond() +=  p->dQCondDot()*duDelta[p->rung];
+        p->dQCond() +=  QdotCorrected*duDelta[p->rung];
 #endif
 #ifdef DIFFUSION
 		  p->fMetalsPred() = p->fMetals();
@@ -1856,10 +1862,17 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
           dTEdot = dt;
 #ifdef SUPERBUBBLE
     /* Prevent rapid overconduction */
+    #ifndef HYPCOND
     if (p->fThermalCond() > 0 || (p->diff() > 0 && dDiffCoeff > 0)) {
         dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + p->fThermalCond()/p->fDensity);
         if (dt < dTIdeal) dTIdeal = dt;
     }
+    #else
+    if ((p->diff() > 0 && dDiffCoeff > 0)) {
+        dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff());
+        if (dt < dTIdeal) dTIdeal = dt;
+    }
+    #endif
     double x = p->massHot()/p->mass;
 	double uTotDot = p->uHotDot()*x+p->uDot()*(1-x);
     if (uTotDot > 0 && p->dt < FLT_MAX) {
@@ -1868,11 +1881,13 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
     }
 #else
 #ifdef DIFFUSION
+#ifndef HYPCOND
 	  /* h^2/(2.77Q) Linear stability from Brookshaw */
 	  if (p->diff() > 0 && dDiffCoeff > 0) {
 	      dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff());  
 	      if (dt < dTIdeal) dTIdeal = dt;
 	      }
+#endif
 #endif
           dTEdot = dt;
 #endif
@@ -2100,7 +2115,10 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  }
 #ifdef SUPERBUBBLE
 #ifdef HYPCOND
-              p->dQCondPred() += p->dQCondDot()*duDelta;
+              double tinv = (p->dThermalCondTau() > 0 ? 1.0/(p->dThermalCondTau() + duDelta) : 0.0);
+              Vector3D<double> QdotCorrected;
+              QdotCorrected = (p->dQCondDot() - p->dQCond())*tinv;
+              p->dQCondPred() += QdotCorrected*duDelta;
 #endif
               p->uHotPred() += p->uHotDot()*duDelta;
 	      if (p->uHotPred() < 0) {

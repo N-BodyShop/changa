@@ -116,6 +116,9 @@ typedef struct parameters {
     double dThermalCond2SatCoeff;
     double dThermalCondCoeffCode;
     double dThermalCond2CoeffCode;
+#ifdef HYPCOND
+    double dThermalCondTau;
+#endif
     double dEvapMinTemp;
     double dEvapCoeff;
     double dEvapCoeffCode;

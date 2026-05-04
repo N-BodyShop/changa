@@ -647,7 +647,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dThermalCond2SatCoeff",paramDouble,&param.dThermalCond2SatCoeff,
 				sizeof(double),"thermalcond2sat",
 				"<Coefficient in Saturated Thermal Conductivity 2, e.g. 0.5 > = 0.5");
-
+        param.dThermalCondTau = 0.1;
+        prmAddParam(prm,"dThermalCondTau",paramDouble,&param.dThermalCondTau,
+                                sizeof(double),"thermalcondtau",
+                                "<Relaxation time for hyperbolic conduction, e.g. 0.04 > = 0");
         param.bDoExternalForce = 0;
         prmAddParam(prm, "bDoExternalForce", paramBool, &param.bDoExternalForce,
             sizeof(int), "bDoExternalForce", "<Apply external force field to particles> = 0");
@@ -2508,10 +2511,6 @@ void Main::setupICs() {
 
           treeProxy.loadTipsy(basefilename, dTuFac, bInDPos, bInDVel,
               CkCallbackResumeThread());
-#ifdef HYPCOND
-          nTotalParticles = treeProxy[0].ckLocal()->nTotalParticles;
-          initQCond();
-#endif
           }
   }
   catch (std::ios_base::failure e) {
@@ -2557,6 +2556,9 @@ void Main::setupICs() {
           }
       }
   getStartTime();
+#ifdef HYPCOND
+  initQCond();
+#endif
   /* The following is used to help restart DumpFrame. */
   dTime0 = dTime - param.dDelta*param.iStartStep;
   if(param.nSteps > 0) getOutTimes();

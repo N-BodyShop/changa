@@ -154,6 +154,7 @@ class PressureSmoothParams : public SmoothParams
     double alpha, beta; // SPH viscosity parameters
     double dThermalDiffusionCoeff;
     double dMetalDiffusionCoeff;
+    double dThermalCondTau;
     double dtFacCourant; // Courant timestep factor
     double dtFacDiffusion; // Diffusion timestep factor
     
@@ -177,7 +178,7 @@ class PressureSmoothParams : public SmoothParams
     PressureSmoothParams(int _iType, int am, CSM csm, double _dTime,
 			 double _alpha, double _beta,
                          double _dThermalDiff, double _dMetalDiff,
-                         double dEtaCourant, double dEtaDiffusion) {
+                         double dEtaCourant, double dEtaDiffusion, double _dThermalCondTau) {
 	iType = _iType;
 	activeRung = am;
         dTime = _dTime;
@@ -192,6 +193,7 @@ class PressureSmoothParams : public SmoothParams
 	alpha = _alpha;
 	beta = _beta;
 	dThermalDiffusionCoeff = _dThermalDiff;
+        dThermalCondTau = _dThermalCondTau;
 	dMetalDiffusionCoeff = _dMetalDiff;
 	dtFacCourant = dEtaCourant*a*2.0/1.6;
 	dtFacDiffusion = 2.0*dEtaDiffusion;
@@ -206,6 +208,7 @@ class PressureSmoothParams : public SmoothParams
 	p|alpha;
 	p|beta;
 	p|dThermalDiffusionCoeff;
+        p|dThermalCondTau;
 	p|dMetalDiffusionCoeff;
 	p|dtFacCourant;
 	p|dtFacDiffusion;
