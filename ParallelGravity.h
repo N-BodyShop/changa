@@ -1487,7 +1487,7 @@ public:
 	  prefetchRoots = NULL;
           ewt = NULL;
           nEwhLoop = 0;
-	  nMaxEwhLoop = 100;
+          nMaxEwhLoop = 100;
 	  root = NULL;
 	  pTreeNodes = NULL;
 
