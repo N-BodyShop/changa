@@ -1445,6 +1445,7 @@ public:
 	  numChunks=-1;
 	  prefetchRoots = NULL;
 	  ewt = NULL;
+          nEwhLoop = 0;
 	  nMaxEwhLoop = 100;
 
           incomingParticlesMsg.clear();
@@ -1484,8 +1485,9 @@ public:
 	  nPartCacheEntries = 0;
 	  completedActiveWalks = 0;
 	  prefetchRoots = NULL;
-	  //remaining Chunk = NULL;
           ewt = NULL;
+          nEwhLoop = 0;
+	  nMaxEwhLoop = 100;
 	  root = NULL;
 	  pTreeNodes = NULL;
 
