@@ -57,6 +57,7 @@ class Stfm {
     double dDeltaStarForm;	/* timestep in system units */
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
+    void NullStarForm() { imf = new Kroupa01(); } /* Place holder */
     bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
     GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
 			      double dDelta, double dCosmoFac, double *T, double *H2Fraction, LWDATA *LWData, Rand& rndGen);

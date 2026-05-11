@@ -434,6 +434,9 @@ Main::Main(CkArgMsg* m) {
 	param.bEwald = 1;
 	prmAddParam(prm,"bEwald",paramBool, &param.bEwald, sizeof(int),
 		    "ewald", "enable/disable Ewald correction = +ewald");
+	param.bEwald2D = 0;
+	prmAddParam(prm,"bEwald2D",paramBool, &param.bEwald2D, sizeof(int),
+		    "ewald2d", "enable/disable 2D Ewald correction = -ewald");
 	param.dEwCut = 2.6;
 	prmAddParam(prm,"dEwCut", paramDouble, &param.dEwCut, sizeof(double),
 		    "ewc", "<dEwCut> = 2.6");
@@ -1098,7 +1101,9 @@ Main::Main(CkArgMsg* m) {
 	    param.fPeriod = 1.0e38;
 	    param.vPeriod = Vector3D<double>(1.0e38);
 	    param.bEwald = 0;
+	    param.bEwald2D = 0;
 	    }
+        if(param.bEwald2D) param.vPeriod.z = 1.0e38;
 #ifdef CUDA
           double mil = 1e6;
           localNodesPerReq = (int) (localNodesPerReqDouble * mil);
@@ -2464,6 +2469,7 @@ void Main::setupICs() {
   // frequency before calling setPeriodic()
   param.externalForce.CheckParams(prm, param);
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
+                        param.bEwald2D,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,
                         0.5*param.csm->dHubble0*param.csm->dHubble0*param.csm->dOmega0,
@@ -2576,6 +2582,8 @@ void Main::setupICs() {
       if(param.sinks.bBHSink)
 	  param.sinks.dDeltaStarForm = param.stfm->dDeltaStarForm;
       }
+  else
+      param.stfm->NullStarForm();
   if(param.bStarForm || param.bFeedback || param.iSIDMSelect) {
       treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
   }

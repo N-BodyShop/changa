@@ -84,6 +84,7 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
 					  // each direction
 			    Vector3D<cosmoType> fPeriodPar, // Size of periodic box
 			    int bEwaldPar,     // Use Ewald summation
+			    int bEwald2DPar,   // Use 2D Ewald summation
 			    double fEwCutPar,  // Cutoff on real summation
 			    double dEwhCutPar, // Cutoff on Fourier summation
 			    int bPeriodPar,    // Periodic boundaries
@@ -95,6 +96,7 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
     nReplicas = nRepsPar;
     fPeriod = fPeriodPar;
     bEwald = bEwaldPar;
+    bEwald2D = bEwald2DPar;
     fEwCut  = fEwCutPar;
     dEwhCut = dEwhCutPar;
     bPeriodic = bPeriodPar;
@@ -3828,6 +3830,8 @@ void TreePiece::startNextBucket() {
           for(int x = -nReplicas; x <= nReplicas; x++) {
             for(int y = -nReplicas; y <= nReplicas; y++) {
               for(int z = -nReplicas; z <= nReplicas; z++) {
+                  if(bEwald2D && z != 0)
+                      continue; // no z replicas for 2D periodic
 #if INTERLIST_VER > 0
                 // place chunk root on chklist of lcaLevel:
                 OffsetNode on;
@@ -4281,7 +4285,10 @@ void TreePiece::ewaldCPU(EwaldMsg *msg) {
   unsigned int i=0;
   while (i < yield_num && ewaldCurrentBucket < numBuckets) {
     if (!useckloop) {
-      BucketEwald(bucketList[ewaldCurrentBucket], nReplicas, fEwCut);
+        if(bEwald2D)
+            BucketEwald2D(bucketList[ewaldCurrentBucket], nReplicas, fEwCut);
+        else
+            BucketEwald(bucketList[ewaldCurrentBucket], nReplicas, fEwCut);
     }
 
     bucketReqs[ewaldCurrentBucket].finished = 1;
@@ -4325,7 +4332,10 @@ bool TreePiece::otherIdlePesAvail() {
 }
 
 void TreePiece::callBucketEwald(int id) {
-  BucketEwald(bucketList[id], nReplicas, fEwCut);
+    if(bEwald2D)
+        BucketEwald2D(bucketList[id], nReplicas, fEwCut);
+    else
+        BucketEwald(bucketList[id], nReplicas, fEwCut);
 }
 
 void doCalcEwald(int start, int end, void *result, int pnum, void * param) {
@@ -4484,6 +4494,8 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
         for(int x = -nReplicas; x <= nReplicas; x++) {
           for(int y = -nReplicas; y <= nReplicas; y++) {
     	    for(int z = -nReplicas; z <= nReplicas; z++) {
+                if(bEwald2D && z != 0)
+                    continue;   // no z replicas for 2D periodic
 #if CHANGA_REFACTOR_DEBUG > 1
     	      CkPrintf("[%d]: starting remote walk with chunk=%d, current remote bucket=%d, (%d,%d,%d)\n", thisIndex, msg->chunkNum, sRemoteGravityState->currentBucket, x, y, z);
 #endif
@@ -5039,6 +5051,8 @@ void TreePiece::calculateForces(GenericTreeNode *foreignBuckets, int numForeignB
     for(int x = -nReplicas; x <= nReplicas; x++){
       for(int y = -nReplicas; y <= nReplicas; y++){
         for(int z = -nReplicas; z <= nReplicas; z++){
+            if(bEwald2d && z != 0)
+                continue;       // no z replicas for 2D periodic
           // begin walk at root
           // -1 for chunk and active walk index
           // bucket number 'i' doesn't serve any purpose,
@@ -5352,6 +5366,8 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   sPrefetchState = sPrefetch->getNewState(1);
   // instead of prefetchWaiting, we count through state->counters[0]
   sPrefetchState->counterArrays[0][0] = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
+  if(bEwald2D)
+      sPrefetchState->counterArrays[0][0] = (2*nReplicas + 1)*(2*nReplicas + 1);
 
   activeWalks.reserve(maxAwi);
   addActiveWalk(prefetchAwi, sTopDown,sPrefetch,sPref,sPrefetchState);
@@ -5382,7 +5398,12 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #endif
   traceUserBracketEvent(START_PW, starttime, CmiWallTimer());
 
-  if (bEwald) thisProxy[thisIndex].EwaldInit();
+  if (bEwald) {
+      if (bEwald2D)
+          thisProxy[thisIndex].EwaldInit2D();
+      else
+          thisProxy[thisIndex].EwaldInit();
+  }
 #if defined CUDA
   // ask datamanager to serialize local trees
   // prefetch can occur concurrently with this, 
@@ -5424,6 +5445,8 @@ void TreePiece::initiatePrefetch(int chunk){
   for(int x = -nReplicas; x <= nReplicas; x++) {
     for(int y = -nReplicas; y <= nReplicas; y++) {
       for(int z = -nReplicas; z <= nReplicas; z++) {
+          if(bEwald2D && z !=0)
+              continue;
         if (child == NULL) {
           nodeOwnership(prefetchRoots[chunk], first, last);
           child = requestNode(dm->responsibleIndex[(first+last)>>1],
@@ -5532,9 +5555,9 @@ void TreePiece::continueStartRemoteChunk(int chunk){
     // sPref
     sPrefetch->reassoc((void *)0,activeRung,sPref);
 
-    // instead of prefetchWaiting, we count through state->counters[0]
-    //prefetchWaiting = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
     sPrefetchState->counterArrays[0][0] = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
+    if(bEwald2D)
+        sPrefetchState->counterArrays[0][0] = (2*nReplicas + 1)*(2*nReplicas + 1);
 
     // variable currentBucket masquerades as current chunk
     initiatePrefetch(sPrefetchState->currentBucket);
@@ -5799,6 +5822,8 @@ void TreePiece::checkWalkCorrectness(){
 
   Tree::NodeKey endKey = Key(1);
   int count = (2*nReplicas+1) * (2*nReplicas+1) * (2*nReplicas+1);
+  if(bEwald2D)
+      count = (2*nReplicas+1) * (2*nReplicas+1);
   CkPrintf("[%d] checking walk correctness...\n",thisIndex);
   bool someWrong = false;
 
@@ -5949,6 +5974,7 @@ void TreePiece::pup(PUP::er& p) {
   p | fPeriod;
   p | dOrbFreq;
   p | bEwald;
+  p | bEwald2D;
   p | fEwCut;
   p | dEwhCut;
   p | bPeriodic;

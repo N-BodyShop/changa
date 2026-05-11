@@ -1223,6 +1223,7 @@ private:
         double dOrbFreq; ///< Orbital frequency of patch
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
+	int bEwald2D;		/* Perform 2D Ewald */
 	double fEwCut;
 	double dEwhCut;
 	EWT *ewt;
@@ -1593,10 +1594,13 @@ public:
 	}
 
 	void setPeriodic(int nReplicas, Vector3D<cosmoType> fPeriod, int bEwald,
+                         int bEwald2D,
 			 double fEwCut, double fEwhCut, int bPeriod,
                          int bComove, double dRhoFac, double dOrbFreq);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
+	void BucketEwald2D(GenericTreeNode *req, int nReps,double fEwCut);
+	void EwaldInit2D();
        void ewaldCPU(EwaldMsg *msg);
 	void calculateEwald(EwaldMsg *m);
   void calculateEwaldUsingCkLoop(int yield_num);
