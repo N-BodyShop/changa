@@ -1883,10 +1883,12 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
 	if(p->isGas())
 		CkError("Small gas dt: %g, dtgrav: %g, dtcourant: %g, dtEdot: %g dtCond: %g mass: %g\n",
 			dTIdeal, dTGrav, dTCourant, dTEdot, dTCond, p->mass);
+#ifdef SUPERBUBBLE
         CkError("Cond props dEtaDiffusion: %g ph: %g dDiffCoeff: %g diff %g fThermalCond %g fDensity: %g\n", 
                 dEtaDiffusion, ph, dDiffCoeff, p->diff(), p->fThermalCond(), p->fDensity);
         CkError("Cond2 props dEtaCourant: %g dCosmoFac: %g c: %g uTotDot: %g mass: %g massHot: %g uDot: %g uHotDot: %g dt %g\n", dEtaCourant, 
                 dCosmoFac, p->c(), uTotDot, p->mass, p->massHot(), p->uDot(), p->uHotDot(), p->dt);
+#endif
 	}
       if(iNewRung > MAXRUNG) {
 	CkError("dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
