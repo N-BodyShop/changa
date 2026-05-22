@@ -940,7 +940,8 @@ void TreePiece::updateuDot(int activeRung,
                 dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
                 if (isnan(fDensityHot)) 
-                    CkPrintf("fDensityHot is NaN in updateuDot! iOrder: %d uHot: %g u: %g mass: %g hotmass: %g fdensity: %g fdensityHot: %g\n", p->iOrder, p->uHot(), p->u(), p->mass, p->massHot(), p->fDensity, fDensityHot);
+                    CkPrintf("fDensityHot is NaN in updateuDot! iOrder: %lld uHot: %g u: %g mass: %g hotmass: %g fdensity: %g fdensityHot: %g\n",
+                             p->iOrder, p->uHot(), p->u(), p->mass, p->massHot(), p->fDensity, fDensityHot);
                 CkAssert(fDensityHot < 1e100);
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
                             ExternalHeating, fDensityHot,
@@ -1018,7 +1019,8 @@ void TreePiece::updateuDot(int activeRung,
 		dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
                 if (isnan(fDensity))
-                    CkPrintf("fDensity is NaN in updateuDot! iOrder: %d uHot: %g u: %g mass: %g hotmass: %g fdensity: %g\n", p->iOrder, p->uHot(), p->u(), p->mass, p->massHot(), p->fDensity);
+                    CkPrintf("fDensity is NaN in updateuDot! iOrder: %lld u: %g mass: %g fdensity: %g\n",
+                             p->iOrder, p->u(), p->mass, p->fDensity);
                 CkAssert(fDensity < 1e100);
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, fDensity,
