@@ -1639,6 +1639,10 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 		      p->uHotPred() = p->uHot();
 		      p->uHot() = p->uHot() + p->uHotDot()*duDelta[p->rung];
               if (p->cpHotInit()) {
+	         /* The hot phase needs a minimum energy to prevent the
+                  * inferred density to become very large */
+                 if(p->uHot() < U_FLOOR(dm->Cool))
+                     p->uHot() = U_FLOOR(dm->Cool);
                  double E = p->uHot();
                  CkAssert(E > 0.0);
                  double frac = p->massHot()/p->mass;
@@ -1654,6 +1658,7 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               }
 		      if (p->uHot() < 0) {
 			  double uold = p->uHot() - p->uHotDot()*duDelta[p->rung];
+			  CkAssert(uold > 0);
 			  p->uHot() = uold*exp(p->uHotDot()*duDelta[p->rung]/uold);
 			  }
 #endif
@@ -1771,7 +1776,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
 
     if(p->rung >= iKickRung) {
       double dTIdeal = dDelta;
-      double dTGrav, dTCourant, dTEdot;
+      double dTGrav, dTCourant, dTEdot, dTCond, uTotDot, ph;
       if(bEpsAccStep) {
          CkMustAssert(p->soft > 0, "Cannot use bEpsAccStep with zero softening length particle\n");
 	  double acc = dAccFac*p->treeAcceleration.length();
@@ -1811,7 +1816,7 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
 #endif
       if(bSphStep && TYPETest(p, TYPE_GAS)) {
 	  double dt;
-	  double ph = 0.5*p->fBall;
+	  ph = 0.5*p->fBall;
 #ifdef DTADJUST
 	  dt = p->dtNew();
 	  p->dtNew() = FLT_MAX;
@@ -1837,6 +1842,10 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
               uTotDot = p->uDot();
 #else
               uTotDot = p->PdV();
+#endif
+#ifdef SUPERBUBBLE
+        double x = p->massHot()/p->mass;
+        uTotDot = p->uHotDot()*x+p->uDot()*(1-x);
 #endif
               if (uTotDot > 0) { // Extrapolate Courant time to end of
                                  // timestep.
@@ -1865,20 +1874,10 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
     #ifndef HYPCOND
     if (p->fThermalCond() > 0 || (p->diff() > 0 && dDiffCoeff > 0)) {
         dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + p->fThermalCond()/p->fDensity);
-        if (dt < dTIdeal) dTIdeal = dt;
-    }
-    #else
-    if ((p->diff() > 0 && dDiffCoeff > 0)) {
-        dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff());
+        dTCond = dt;
         if (dt < dTIdeal) dTIdeal = dt;
     }
     #endif
-    double x = p->massHot()/p->mass;
-	double uTotDot = p->uHotDot()*x+p->uDot()*(1-x);
-    if (uTotDot > 0 && p->dt < FLT_MAX) {
-        dt = dEtaCourant*dCosmoFac*ph/sqrt(4*(p->c()*p->c()+1.6667*uTotDot*p->dt));
-        if (dt < dTIdeal) dTIdeal = dt;
-    }
 #else
 #ifdef DIFFUSION
 #ifndef HYPCOND
@@ -1902,8 +1901,14 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
 	CkError("Small timestep dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
 		p->treeAcceleration.length());
 	if(p->isGas())
-		CkError("Small gas dt: %g, dtgrav: %g, dtcourant: %g, dtEdot: %g\n",
-			dTIdeal, dTGrav, dTCourant, dTEdot);
+		CkError("Small gas dt: %g, dtgrav: %g, dtcourant: %g, dtEdot: %g dtCond: %g mass: %g\n",
+			dTIdeal, dTGrav, dTCourant, dTEdot, dTCond, p->mass);
+#ifdef SUPERBUBBLE
+        CkError("Cond props dEtaDiffusion: %g ph: %g dDiffCoeff: %g diff %g fThermalCond %g fDensity: %g\n", 
+                dEtaDiffusion, ph, dDiffCoeff, p->diff(), p->fThermalCond(), p->fDensity);
+        CkError("Cond2 props dEtaCourant: %g dCosmoFac: %g c: %g uTotDot: %g mass: %g massHot: %g uDot: %g uHotDot: %g dt %g\n", dEtaCourant, 
+                dCosmoFac, p->c(), uTotDot, p->mass, p->massHot(), p->uDot(), p->uHotDot(), p->dt);
+#endif
 	}
       if(iNewRung > MAXRUNG) {
 	CkError("dt: %g, soft: %g, accel: %g\n", dTIdeal, p->soft,
@@ -1957,14 +1962,24 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
   int64_t nActive[2];
 
   nActive[0] = nActive[1] = 0;
-  for(unsigned int i = 1; i <= myNumParticles; ++i) {
-      if(myParticles[i].rung >= activeRung) {
-	  nActive[0]++;
-	  if(TYPETest(&myParticles[i], TYPE_GAS)) {
-	      nActive[1]++;
-	      }
-	  }
+  if(activeRung == 0){
+      nActive[0] = myNumParticles;
+      nActive[1] = myNumSPH;
+  }
+  else if(activeRung == PHASE_FEEDBACK) {
+      nActive[0] = myNumSPH + myNumStar;
+  }
+  else{
+      for(unsigned int i = 1; i <= myNumParticles; ++i) {
+          if(myParticles[i].rung >= activeRung) {
+              nActive[0]++;
+              if(TYPETest(&myParticles[i], TYPE_GAS)) {
+                  nActive[1]++;
+              }
+          }
       }
+  }
+  numActiveParticles = nActive[0];
   contribute(2*sizeof(int64_t), nActive, CkReduction::sum_long, cb);
 }
 
@@ -5507,9 +5522,11 @@ void TreePiece::setTreePieceLoad(int activeRung) {
     setObjTime(dLoadExp);
 }
 
-  // jetley - contribute your centroid. AtSync is now called by the load balancer (broadcast) when it has
-  // all centroids.
-void TreePiece::startlb(const CkCallback &cb, int activeRung){
+/// @brief Save piece loads and call AtSync() if we should load balance.
+/// @param cb Callback for ResumeFromSync().
+/// @param activeRung Rung we are load balancing for.
+/// @param bDoLB Whether we should call AtSync()
+void TreePiece::startlb(const CkCallback &cb, int activeRung, bool bDoLB){
 
   if(verbosity > 1)
      CkPrintf("[%d] actual load: %g\n", thisIndex, getObjTime());  
@@ -5518,39 +5535,31 @@ void TreePiece::startlb(const CkCallback &cb, int activeRung){
   iActiveRungLB = activeRung;
   if(verbosity > 1)
     CkPrintf("[%d] TreePiece %d calling AtSync()\n",CkMyPe(),thisIndex);
-  
-  unsigned int i;
 
-  if(activeRung == 0){
-    numActiveParticles = myNumParticles;
-  }
-  else if(activeRung == PHASE_FEEDBACK) {
-      numActiveParticles = myNumSPH + myNumStar;
-      }
-  else{
-    for(numActiveParticles = 0, i = 1; i <= myNumParticles; i++)
-      if(myParticles[i].rung >= activeRung)
-        numActiveParticles++;
-  }
-
-  int64_t active_tp[2];
-  active_tp[0] = numActiveParticles;
-  active_tp[1] = myNumParticles;
-
-  contribute(2*sizeof(int64_t), &active_tp, CkReduction::sum_long,
-      CkCallback(CkReductionTarget(TreePiece,getParticleInfoForLB),thisProxy));
-}
-
-// This is called by startlb to check whether to call the load balancer
-void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
-  bool doLB = ((float)active_part/total_part > dFracLoadBalance) ? true : false;
-  // Don't do LB
-  if (!doLB) {
+  // Don't do LB; just save and reset loads.
+  if (!bDoLB) {
     setTreePieceLoad(iActiveRungLB);
     iPrevRungLB = iActiveRungLB;
     setObjTime(0.0);
     contribute(callback);
     return;
+  }
+
+  // We need to recount the number of active particles since DD has
+  // moved particles around
+  if(activeRung == 0){ // Everybody is active; no need to count
+      numActiveParticles = myNumParticles;
+  }
+  else if(activeRung == PHASE_FEEDBACK) { // Also no need to recount
+      numActiveParticles = myNumSPH + myNumStar;
+  }
+  else{
+      numActiveParticles = 0;
+      for(unsigned int i = 1; i <= myNumParticles; ++i) {
+          if(myParticles[i].rung >= activeRung) {
+              numActiveParticles++;
+          }
+      }
   }
 
   LDObjHandle myHandle = myRec->getLdHandle();
@@ -5568,11 +5577,8 @@ void TreePiece::getParticleInfoForLB(int64_t active_part, int64_t total_part) {
           *(TaggedVector3D *) data = tv;
           }
       }
-  thisProxy[thisIndex].doAtSync();
   iPrevRungLB = iActiveRungLB;
-}
 
-void TreePiece::doAtSync(){
   if(verbosity > 1)
       CkPrintf("[%d] TreePiece %d calling AtSync() at %g\n",CkMyPe(),thisIndex, CkWallTimer());
   AtSync();
@@ -5884,8 +5890,6 @@ void TreePiece::pup(PUP::er& p) {
   p | boundingBox;
   p | iterationNo;
 
-  p | nSetupWriteStage;
-
   p | rndGen;
 
   // Periodic variables
@@ -5915,7 +5919,6 @@ void TreePiece::pup(PUP::er& p) {
   p | numOpenCriterionCalls;
   p | piecemass;
 #endif
-  p | packed;
 
   if (p.isUnpacking()) {
     particleInterRemote = NULL;
@@ -6671,10 +6674,9 @@ void TreePiece::balanceBeforeInitialForces(const CkCallback &cb){
           *(TaggedVector3D *)data = tv;
           }
       }
-  thisProxy[thisIndex].doAtSync();
-
   // this will be called in resumeFromSync()
   callback = cb;
+  AtSync();
 }
 
 // Choose a piece from among the owners from which to

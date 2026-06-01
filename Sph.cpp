@@ -960,7 +960,11 @@ void TreePiece::updateuDot(int activeRung,
         PoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
         PoverRho = PoverRhoGas;
         if(PoverRho < PoverRhoJeans) PoverRho = PoverRhoJeans;
-        ExternalHeating = p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
+        double duDotPdV = p->uDotPdV();
+        if(PoverRho != 0.0)
+            duDotPdV *= (PoverRhoGas/PoverRho);  // scale out Jeans
+                                                 // Pressure Floor
+        ExternalHeating = duDotPdV + p->uDotAV() + p->uDotDiff() + p->fESNrate();
 	    if ( bCool ) {
 		COOLPARTICLE cp = p->CoolParticle();
 		double r[3];  // For conversion to C
@@ -979,9 +983,13 @@ void TreePiece::updateuDot(int activeRung,
         /*
          * If we have mass in the hot phase, we need to cool it appropriately.
          */
-        if (p->massHot() > 0) { 
-            ExternalHeating = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
+        if (p->massHot() > 0) {
+            ExternalHeating = (duDotPdV + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
             if (p->uHot() > 0) {
+                /* The hot phase needs a minimum energy to prevent the
+                 * inferred density to become very large */
+                if(p->uHot() < U_FLOOR(dm->Cool))
+                    p->uHot() = U_FLOOR(dm->Cool);
                 E = p->uHot();
                 fDensityHot = p->fDensity*(p->uHot()*frac+p->u()*(1-frac))/p->uHot();
                 cp = p->CoolParticleHot();
@@ -992,6 +1000,10 @@ void TreePiece::updateuDot(int activeRung,
 #ifdef COOLDEBUG
                 dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
+                if (isnan(fDensityHot)) 
+                    CkPrintf("fDensityHot is NaN in updateuDot! iOrder: %lld uHot: %g u: %g mass: %g hotmass: %g fdensity: %g fdensityHot: %g\n",
+                             p->iOrder, p->uHot(), p->u(), p->mass, p->massHot(), p->fDensity, fDensityHot);
+                CkAssert(fDensityHot < 1e100);
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
                             ExternalHeating, fDensityHot,
                             p->fMetals(), r, dt, columnLHot);
@@ -999,6 +1011,7 @@ void TreePiece::updateuDot(int activeRung,
                 CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensityHot,
                         p->fMetals(), r, dt);
 #endif
+                assert(E > 0.0);
                 p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
                 if(bUpdateState) p->CoolParticleHot() = cp;
             }
@@ -1012,14 +1025,20 @@ void TreePiece::updateuDot(int activeRung,
                 p->cpHotInit() = 1;
                 CkAssert(ExternalHeating >= 0.0);
             }
-            ExternalHeating = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
+            /* The cold phase needs a minimum energy to prevent the
+             * inferred density to become very large */
+            if(p->u() < U_FLOOR(dm->Cool))
+                p->u() = U_FLOOR(dm->Cool);
+            ExternalHeating = (duDotPdV + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
         }
         else { /* We have a single phase particle, treat it normally*/
             p->uHotDot() = 0;
-            ExternalHeating =  p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
+            ExternalHeating =  duDotPdV + p->uDotAV() + p->uDotDiff() + p->fESNrate();
         }
+        CkAssert(p->u() > 0.0);
         fDensity = p->fDensity*PoverRho/(gammam1*p->u());
         if (p->fDensityU() < p->fDensity) fDensity = p->fDensityU()*PoverRho/(gammam1*p->u());
+        if(fDensity == 0.0) fDensity = p->fDensity;
         CkAssert(fDensity > 0);
         cp = p->CoolParticle();
 #endif
@@ -1053,13 +1072,17 @@ void TreePiece::updateuDot(int activeRung,
 #elif defined(SUPERBUBBLE)
         // Assume the cold phase is a shell surrounding the hot phase,
         // which is a sphere
-        assert(columnL > columnLHot);
+        assert(columnL >= columnLHot);
         columnL = columnL - columnLHot;
 #endif
 
 #ifdef COOLDEBUG
 		dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
 #endif
+                if (isnan(fDensity))
+                    CkPrintf("fDensity is NaN in updateuDot! iOrder: %lld u: %g mass: %g fdensity: %g\n",
+                             p->iOrder, p->u(), p->mass, p->fDensity);
+                CkAssert(fDensity < 1e100);
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, fDensity,
 					p->fMetals(), r, dtUse, columnL);
@@ -1072,6 +1095,17 @@ void TreePiece::updateuDot(int activeRung,
 		if(dtUse > 0 || ExternalHeating*duDelta[p->rung] + p->u() < 0)
 		    // linear interpolation over interval
 		    p->uDot() = (E - p->u())/duDelta[p->rung];
+#ifdef SUPERBUBBLE
+                // For a two phase particle, we can't let the cold
+                // phase go to zero thermal energy since that will
+                // drive the density to infinity to maintain pressure
+                // equilibrium with the hot phase.
+                if(p->massHot() > 0) {          // We have a two-phase particle
+                    if(E < U_FLOOR(dm->Cool))
+                        // linear interpolation over interval
+                        p->uDot() = (E - p->u())/duDelta[p->rung];
+                }
+#endif
 		if (bUpdateState) p->CoolParticle() = cp;
 		}
 	    else { 
@@ -1079,7 +1113,7 @@ void TreePiece::updateuDot(int activeRung,
 		}
             CkAssert(isfinite(p->uDot()));
 	    }
-	}
+        }
 #endif
     // Use shadow array to avoid reduction conflict
     smoothProxy[thisIndex].ckLocal()->contribute(cb);

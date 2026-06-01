@@ -464,6 +464,7 @@ public:
           p | dtKep;
           p | w;
 #endif
+          p | potential;
           p | dtGrav;
           p | fDensity;
           p | fBall;

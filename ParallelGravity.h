@@ -149,11 +149,11 @@ extern unsigned int _yieldPeriod;
 extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;
-extern double dFracLoadBalance;
 extern double dGlassDamper;
 extern int bUseCkLoopPar;
 extern GenericTrees useTree;
 extern CProxy_TreePiece treeProxy;
+extern CProxy_Writer writeProxy;
 #ifdef REDUCTION_HELPER
 extern CProxy_ReductionHelper reductionHelperProxy;
 #endif
@@ -437,6 +437,19 @@ inline double PoverRhoFloorJeans(double dResolveJeans, GravityParticle *p)
 const double GAMMA_JEANS = 2.0;
 const double GAMMA_NONCOOL = 5.0/3.0;
 
+#include "physconst.h"
+
+/// @brief Set a minimum thermal energy to avoid problems with cooling
+inline double U_FLOOR(const COOL *Cool) {
+#ifdef COOLING_NONE
+    return 0.0;
+#else
+    const double T_FLOOR = 2.0; // Temperature floor in Kelvin
+    const double MOL_WEIGHT = 2.0; // Assume molecular hydrogen for
+                                   // molecular weight
+    return KBOLTZ*T_FLOOR/(MOL_WEIGHT*MHYDR*(Cool->dErgPerGmUnit));
+#endif
+}
 
 /// @brief Overall flow control of the simulation.
 ///
@@ -452,10 +465,10 @@ class Main : public CBase_Main {
 	std::string basefilename;
         /// Save parameters for output
         OutputParams *pOutput;
-    // NChilada file names used to generate the XML description
-    CkVec<std::string> *NCgasNames;
-    CkVec<std::string> *NCdarkNames;
-    CkVec<std::string> *NCstarNames;
+        // NChilada file names used to generate the XML description
+        std::vector<std::string> NCgasNames;
+        std::vector<std::string> NCdarkNames;
+        std::vector<std::string> NCstarNames;
 	/// globally finished IO
 	CkCallback cbIO;
         /// Save file token for CkIO
@@ -587,6 +600,7 @@ public:
 	void getStartTime();
 	void getOutTimes();
 	int bOutTime();
+        void reOrder();
 	void writeOutput(int iStep) ;
         void outputBinary(OutputParams& params, int bParaWrite,
                           const CkCallback& cb);
@@ -596,7 +610,8 @@ public:
         void cbIOClosed(CkMessage *msg);
         std::string getNCNextOutput(OutputParams& params);
     void writeNCXML(std::string filename);
-    void NCXMLattrib(ofstream *desc, CkVec<std::string> *names, std::string family);
+    void NCXMLattrib(ofstream *desc, std::vector<std::string>& names,
+                     std::string family);
 	void updateSoft();
 	void growMass(double dTime, double dDelta);
 	void initSph();
@@ -1160,12 +1175,6 @@ private:
 	/// holds the total mass of the current TreePiece
 	double piecemass;
 
-	/// used to determine which coordinate we are outputting, while printing
-	/// accelerations in ASCII format
-	int cnt;
-	/// used to determine if the x, y, z coordinates should be printed
-	/// together while outputting accelerations in ASCII format
-	int packed;
 
           // the index assigned by the CacheManager upon registration
           int localIndex;
@@ -1238,10 +1247,6 @@ private:
 #endif
         /// indices of my newly formed particles in the starlog table
         std::vector<int> iSeTab;
-	/// Setup for writing
-	int nSetupWriteStage;
-	int64_t nStartWrite;	// Particle number at which this piece starts
-				// to write file.
 
 	/// Map between Keys and TreeNodes, used to get a node from a key
 	NodeLookupType nodeLookupTable;
@@ -1449,7 +1454,6 @@ public:
 	  nPartCacheEntries = 0;
 	  completedActiveWalks = 0;
 	  myPlace = -1;
-	  nSetupWriteStage = -1;
     //openingDiffCount=0;
     chunkRootLevel=0;
     //splitters = NULL;
@@ -1463,9 +1467,6 @@ public:
 
 	  piecemass = 0.0;
 #endif
-	  packed=0;			/* output accelerations in x,y,z
-					   packed format */
-	  cnt=0;			/* Counter over x,y,z when not packed */
 	  particleInterRemote = NULL;
 	  nodeInterRemote = NULL;
 
@@ -1547,7 +1548,6 @@ public:
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
 
-	  cnt=0;
 	  nodeInterRemote = NULL;
           particleInterRemote = NULL;
 
@@ -1635,61 +1635,7 @@ public:
         void findTotalMass(const CkCallback &cb);
         void recvTotalMass(CkReductionMsg *msg);
 
-	// Write a Tipsy file
-	void writeTipsy(Tipsy::TipsyWriter& w,
-			const double dvFac, // scale velocities
-			const double duTFac, // convert temperature
-                        const bool bDoublePos,
-                        const bool bDoubleVel,
-			const int bCool);
-	// Find position in the file to start writing
-	void setupWrite(int iStage, u_int64_t iPrevOffset,
-			const std::string& filename, const double dTime,
-			const double dvFac, const double duTFac,
-                        const bool bDoublePos,
-                        const bool bDoubleVel,
-			const int bCool, const CkCallback& cb);
-	// control parallelism in the write
-	void parallelWrite(int iPass, const CkCallback& cb,
-			   const std::string& filename, const double dTime,
-			   const double dvFac, // scale velocities
-			   const double duTFac, // convert temperature
-                           const bool bDoublePos,
-                           const bool bDoubleVel,
-			   const int bCool);
-	// serial output
-	void serialWrite(u_int64_t iPrevOffset, const std::string& filename,
-			 const double dTime,
-			 const double dvFac, const double duTFac,
-                         const bool bDoublePos,
-                         const bool bDoubleVel,
-			 const int bCool, const CkCallback& cb);
-	// setup for serial output
-	void oneNodeWrite(int iIndex,
-			       int iOutParticles,
-			       int iOutSPH,
-			       int iOutStar,
-			       GravityParticle *particles, // particles to
-						     // write
-			       extraSPHData *pGas, // SPH data
-			       extraStarData *pStar, // Star data
-			       int *piSPH, // SPH data offsets
-			       int *piStar, // Star data offsets
-			       const u_int64_t iPrevOffset,
-			       const std::string& filename,  // output file
-			       const double dTime,      // time or expansion
-			       const double dvFac,  // velocity conversion
-			     const double duTFac, // temperature
-						  // conversion
-                           const bool bDoublePos,
-                           const bool bDoubleVel,
-			  const int bCool,
-			  const CkCallback &cb);
-	// Reorder for output
-        void reOrder(int64_t nMaxOrder, const CkCallback& cb);
-	// move particles around for output
-	void ioShuffle(CkReductionMsg *msg);
-	void ioAcceptSortedParticles(ParticleShuffleMsg *);
+        void fillWriters(int64_t _nMaxOrder);
         /// @brief Set the load balancing data after a restart from
         /// checkpoint.
         void resetObjectLoad(const CkCallback& cb);
@@ -2015,8 +1961,7 @@ public:
 	void flushSmoothParticles(CkCacheFillMsg<KeyType> *msg);
 	void processReqSmoothParticles();
 
-	void getParticleInfoForLB(int64_t active_part, int64_t total_part);
-        void startlb(const CkCallback &cb, int activeRung);
+    void startlb(const CkCallback &cb, int activeRung, bool bDoLB);
   void setTreePieceLoad(int activeRung);
   void populateSavedPhaseData(int phase, double tpload, unsigned int activeparts);
   bool havePhaseData(int phase);
@@ -2024,21 +1969,6 @@ public:
     &parts_per_phase, double* shuffleloads, unsigned int *shuffleparts,
     int shufflelen);
 	void ResumeFromSync();
-
-	void outputASCII(OutputParams& params, int bParaWrite,
-			 const CkCallback& cb);
-	void oneNodeOutVec(OutputParams& params, Vector3D<double>* avOut,
-			   int nPart, int iIndex, int bDone,
-			   const CkCallback& cb) ;
-	void oneNodeOutArr(OutputParams& params, double* adOut,
-			   int nPart, int iIndex, int bDone,
-			   const CkCallback& cb) ;
-	void oneNodeOutIntArr(OutputParams& params, int *aiOut,
-                              int nPart, int iIndex, const CkCallback& cb);
-        void outputBinaryStart(OutputParams& params, int64_t nStart,
-                               const CkCallback& cb);
-	void outputBinary(Ck::IO::Session, OutputParams& params);
-        void minmaxNCOut(OutputParams& params, const CkCallback& cb);
 
 	void outputStatistics(const CkCallback& cb);
 	/// Collect the total statistics from the various chares
@@ -2077,7 +2007,6 @@ public:
         void receiveNodeCallback(GenericTreeNode *node, int chunk, int reqID, int awi, void *source);
         void receiveParticlesCallback(ExternalGravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
         void receiveParticlesFullCallback(GravityParticle *egp, int num, int chunk, int reqID, Tree::NodeKey &remoteBucket, int awi, void *source);
-        void doAtSync();
 
         void balanceBeforeInitialForces(const CkCallback &cb);
 
