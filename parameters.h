@@ -116,9 +116,7 @@ typedef struct parameters {
     double dThermalCond2SatCoeff;
     double dThermalCondCoeffCode;
     double dThermalCond2CoeffCode;
-#ifdef HYPCOND
     double dThermalCondTau;
-#endif
     double dEvapMinTemp;
     double dEvapCoeff;
     double dEvapCoeffCode;
@@ -273,6 +271,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dThermalCond2SatCoeff;
     p|param.dThermalCondCoeffCode;
     p|param.dThermalCond2CoeffCode;
+    p|param.dThermalCondTau;
     p|param.dEvapMinTemp;
     p|param.dEvapCoeff;
     p|param.dEvapCoeffCode;
