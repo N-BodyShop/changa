@@ -154,7 +154,7 @@ void Main::initQCond()
   if(!bIsRestarting) {
       struct stat s;
       int err = stat(basefilename.c_str(), &s);
-      printf("nTotalParticles %d",nTotalParticles);
+      printf("nTotalParticles %ld",nTotalParticles);
       if(err != -1 && S_ISDIR(s.st_mode)) {
             // The file is a directory; assume NChilada
             int64_t nGas = 0;
@@ -1643,14 +1643,12 @@ void HypGrads::fcnSmooth(GravityParticle *p, int nSmooth,
     PressSmoothParticle pParams;
     PressSmoothParticle qParams;
     double ih2,r2,rs1;
-    Vector3D<double> crossdvdr;
-    double ph,absmu;
-    double fNorm1,vFac;
-    double dt;
+    double ph;
+    double fNorm1;
     int i;
 
     if(nSmooth < 2) {
-        CkPrintf("nSmooth %d ,iOrder %d fball %f ",nSmooth,p->iOrder,p->fBall);
+        CkPrintf("nSmooth %d ,iOrder %ld fball %f ",nSmooth,p->iOrder,p->fBall);
         CkError("WARNING: lonely SPH particle\n");
         return;
     }
