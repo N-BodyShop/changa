@@ -3749,13 +3749,13 @@ void Main::writeOutput(int iStep)
            * (multiphase properties and effective temperature)
            */
 #ifdef HYPCOND
-              HypCondOutputParams pdQCondOut(achFile,param.iBinaryOut,0.0);
+              HypCondOutputParams pdQCondOut(achFile,param.iBinaryOut,dOutTime);
 #endif
-	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, 0.0);
-	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, 0.0);
-	      uOutputParams puOut(achFile, param.iBinaryOut, 0.0);
+	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, dOutTime);
+	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, dOutTime);
+	      uOutputParams puOut(achFile, param.iBinaryOut, dOutTime);
           double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
-	      TempEffOutputParams pTeffOut(achFile, param.iBinaryOut, 0.0, param.bGasCooling, dTuFac);
+	      TempEffOutputParams pTeffOut(achFile, param.iBinaryOut, dOutTime, param.bGasCooling, dTuFac);
 #endif
 #ifdef DIFFUSION
     MetalsDotOutputParams pMetalsDotOut(achFile, param.iBinaryOut, dOutTime);
