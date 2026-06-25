@@ -2105,47 +2105,59 @@ void clIntegrateEnergy(COOL *cl, clDerivsData *clData, PERBARYON *Y, double *E,
 
  {
      double ymin[array_length];
+     ymin[0] = EMin;
      ymin[1] = YHMIN;
      ymin[2] = YHeMIN;
      ymin[3] = YHeMIN;
 
-      YTotal = (d->Y_H) + (d->Y_H - ymin[1]) + d->Y_He + ymin[3] +
-	2.0*(d->Y_He - ymin[2] - ymin[3]) + d->ZMetal/MU_METAL;
-      EMin = clThermalEnergy( YTotal, cl->TMin );
-      ymin[0] = EMin;
       StiffSetYMin(sbs, ymin);
       
       StiffStep( sbs, y, t, tStep);
-      if(y[1] > d->Y_H) y[1] = d->Y_H;
-      if(y[2] > d->Y_He) y[2] = d->Y_He;
-      if(y[3] > d->Y_He) y[3] = d->Y_He;
-      if (fabs(y[2])+fabs(y[3]) > d->Y_He) {
-	  if(y[2] > y[3]) y[3] = d->Y_He - y[2]; 
-	  else y[2] = d->Y_He - y[3]; 
-	  } 
 
-      if(y[1] < YHMIN) y[1] = YHMIN;
-      if(y[2] < YHeMIN) {
-	y[2] = YHeMIN;
-	if (d->Y_He - y[2] - y[3] < YHeMIN) y[3] = d->Y_He - y[2] - YHeMIN;
+      // If the integrator went off the bottom temperature edge of the table, clamp to minimum
+      // energy and calculate current abundances using clAbunds
+      if (y[0] < EMin) {
+        clAbunds( d->cl, Y, &d->Rate, d->rho, d->ZMetal);
+	YTotal = Y->HII + Y->HeII + 2*Y->HeIII + d->Y_H + d->Y_He + d->ZMetal/MU_METAL;
+	y[0] = clThermalEnergy( YTotal, cl->TMin );
+	y[1] = Y->HI;
+	y[2] = Y->HeI;
+	y[3] = Y->HeII;
       }
-      if(y[3] < YHeMIN) {
-	y[3] = YHeMIN;
-	if (d->Y_He - y[2] - y[3] < YHeMIN) y[2] = d->Y_He - y[3] - YHeMIN;
-      }
+      // Otherwise, use the integrator result and ensure abundances aren't too large or small
+      // Also ensure we havent fallen off the bottom of the table after updating abundances
+      else {
+	if(y[1] > d->Y_H) y[1] = d->Y_H;
+	if(y[2] > d->Y_He) y[2] = d->Y_He;
+	if(y[3] > d->Y_He) y[3] = d->Y_He;
+	if (fabs(y[2])+fabs(y[3]) > d->Y_He) {
+	    if(y[2] > y[3]) y[3] = d->Y_He - y[2];
+	    else y[2] = d->Y_He - y[3];
+	    }
 
-      YTotal = (d->Y_H) + (d->Y_H - y[1]) + d->Y_He + y[3] +
-	2.0*(d->Y_He - y[2] - y[3]) + d->ZMetal/MU_METAL;
-      EMin = clThermalEnergy( YTotal, cl->TMin );
+	if(y[1] < YHMIN) y[1] = YHMIN;
+	if(y[2] < YHeMIN) {
+	  y[2] = YHeMIN;
+	  if (d->Y_He - y[2] - y[3] < YHeMIN) y[3] = d->Y_He - y[2] - YHeMIN;
+	}
+	if(y[3] < YHeMIN) {
+	  y[3] = YHeMIN;
+	  if (d->Y_He - y[2] - y[3] < YHeMIN) y[2] = d->Y_He - y[3] - YHeMIN;
+	}
+
+	YTotal = (d->Y_H) + (d->Y_H - y[1]) + d->Y_He + y[3] +
+	  2.0*(d->Y_He - y[2] - y[3]) + d->ZMetal/MU_METAL;
+	EMin = clThermalEnergy( YTotal, cl->TMin );
 
 
 #ifdef ASSERTENEG      
-      assert(*y > 0.0);
+	assert(*y > 0.0);
 #else
-      if (y[0] < EMin) {
-	y[0] = EMin;
-      }
+	if (y[0] < EMin) {
+	  y[0] = EMin;
+	}
 #endif   
+   }
    cl->its = 1;
    }
 
