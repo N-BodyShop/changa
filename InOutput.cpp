@@ -12,6 +12,7 @@
 #include "Reductions.h"
 #include "Writer.h"
 #include "InOutput.h"
+#include "PEUnshuffle.h"
 #include "ckio.h"
 #include <errno.h>
 #include <float.h>
@@ -1545,7 +1546,6 @@ void Writer::receive(std::vector<GravityParticle> vPart, std::vector<extraSPHDat
     vMySPHParticles.insert(vMySPHParticles.end(), vSPH.begin(), vSPH.end());
     vMyStarParticles.insert(vMyStarParticles.end(), vStar.begin(), vStar.end());
 }
-
 
 /// @ brief Reorder particles according to iOrder once they have all
 /// been received

@@ -32,6 +32,7 @@
 #include "smooth.h"
 
 #include "PETreeMerger.h"
+#include "PEUnshuffle.h"
 #include "IntraNodeLBManager.h"
 #include "CkLoopAPI.h"
 #include "formatted_string.h"
@@ -1037,9 +1038,15 @@ void TreePiece::unshuffleParticles(CkReductionMsg* m){
     delete m;
     return;
   }
-
-  sendParticlesDuringDD(false);
-  acceptSortedParticles(NULL);
+  // XXX make this a run-time parameter.
+  bool bUsePEUnshuffle = true;
+  if(bUsePEUnshuffle) {
+      peUnshuffleProxy.ckLocalBranch()->sendParticlesDuringDD(this);
+  }
+  else {
+      sendParticlesDuringDD(false);
+      acceptSortedParticles(NULL);
+  }
   delete m;
 }
 

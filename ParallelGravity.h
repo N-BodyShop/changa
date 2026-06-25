@@ -169,6 +169,7 @@ extern int nIOProcessor;
 
 extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
+extern CProxy_PEUnshuffle peUnshuffleProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
@@ -816,10 +817,17 @@ class TreePiece : public CBase_TreePiece {
 		       // know when writebacks complete.  XXX this
 		       // should be part of the smooth state
    
+   double treePieceLoad; // used to store CPU load data for incoming particles
+   double treePieceLoadTmp; // temporary accumulator for above
+   double treePieceLoadExp;
+   unsigned int treePieceActivePartsTmp;
    /// number of active particles on the last active rung for load balancing
    unsigned int nPrevActiveParts;
+ public:
+    // These need to be accessed from PEUnshuffle
    std::vector<double> savedPhaseLoad;
    std::vector<unsigned int> savedPhaseParticle;
+private:
    /// temporary accumulator for phase load information during domain decomposition
    std::vector<double> savedPhaseLoadTmp;
    /// temporary accumulator for phase particle counts during domain decomposition
@@ -1165,12 +1173,14 @@ private:
 	std::vector<ParticleShuffleMsg*> incomingParticlesMsg;
         /// How many particles have already arrived during domain decomposition
         int incomingParticlesArrived;
+public:
         /// Flag to acknowledge that the current TreePiece has already
         /// contributed to itself, prevents that acceptSortedParticles will
         /// change the TreePiece particles before the one belonging to someone
         /// else have been sent out
+        /// This needs to be accessed from PEUnshuffle
         bool incomingParticlesSelf;
-
+private:
 	/// holds the total mass of the current TreePiece
 	double piecemass;
 
