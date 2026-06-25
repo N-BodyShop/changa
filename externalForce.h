@@ -11,6 +11,7 @@ public:
     double dCentMass;        ///< Central mass
     double dCentRad;         ///< Radius of central star
     double dOrbDist;         ///< Distance of the patch from the center
+    double dOrbFreq;         ///< Orbital frequency
     int bCentralBody;        ///< Mass at the origin
     double dEqRad;           ///< Equatorial radius of central body
     double dJ2;              ///< Oblateness coefficients of central body
@@ -42,6 +43,7 @@ inline void ExternalForce::pup(PUP::er &p) {
      p | dCentMass;
      p | dCentRad;
      p | dOrbDist;
+     p | dOrbFreq;
      p | bCentralBody;
      p | dEqRad;
      p | dJ2;
