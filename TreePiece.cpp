@@ -1928,6 +1928,24 @@ void TreePiece::truncateRung(int iCurrMaxRung, const CkCallback& cb) {
     contribute(cb);
     }
 
+/// @brief Set all particles to the same timestep, if appropriate
+///
+/// @param iCurrMaxRung The rung to set particle timesteps
+/// @param iKickRung    Timesteps can only be modified when being kicked
+/// @param cb           Callback when complete.
+///
+void TreePiece::SingleStep(int iCurrMaxRung, int iKickRung,
+                           const CkCallback &cb)
+{
+    for(unsigned int i = 1; i <= myNumParticles; ++i) {
+        GravityParticle *p = &myParticles[i];
+        if(p->rung >= iKickRung) {
+           p->rung = iCurrMaxRung;
+       }
+    }
+    contribute(cb);
+}
+
 void TreePiece::rungStats(const CkCallback& cb) {
   int64_t nInRung[MAXRUNG+1];
 
