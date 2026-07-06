@@ -1228,6 +1228,13 @@ Main::Main(CkArgMsg* m) {
 		/* code comoving density --> g per cc = param.dGmPerCcUnit (1+z)^3 */
 		param.dComovingGmPerCcUnit = param.dGmPerCcUnit;
 #ifdef SUPERBUBBLE
+#ifdef THERMALDIFFONLY
+        /*if this is set, then the diffusion coefficient is hard-set to the
+          value given by dThermalCondCoeff*/
+        param.dThermalCondCoeffCode = param.dThermalCondCoeff;
+        param.dThermalCond2CoeffCode = 0.;
+        param.dEvapCoeffCode = 0.;
+#else
         /* Thermal conductivity, c.f. Tielens p. 448 
            Heat flux = K(T) grad T,  dE/dt = div K(T) grad T   E = rho u
               K(T) = 6.1e-7 T^2.5 erg s^-1 deg^-7/2 cm^-1 
@@ -1249,6 +1256,7 @@ Main::Main(CkArgMsg* m) {
         /* Convert to code units */
         param.dThermalCondCoeffCode /= 
             pow(param.dErgPerGmUnit,-3.5)
+
             *param.dErgPerGmUnit*param.dGmPerCcUnit
             *pow(param.dKpcUnit*KPCCM,2.0)
             /param.dSecUnit;
@@ -1267,13 +1275,13 @@ Main::Main(CkArgMsg* m) {
             pow(param.dErgPerGmUnit,-2.5)
             *param.dGmPerCcUnit*pow(param.dKpcUnit*KPCCM,2.0)
             /param.dSecUnit;
+#endif
 #else
         param.dThermalCondCoeffCode = 0;
         param.dThermalCond2CoeffCode = 0;
         param.dEvapCoeffCode = 0;
 #endif
-		}
-
+        }
 #ifndef DIFFUSION
         CkMustAssert(!prmSpecified(prm,"dMetalDiffusionCoeff"), "Metal Diffusion Rate specified but not compiled for\nUse -DDIFFUSION during compilation\n");
 #endif

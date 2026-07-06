@@ -136,7 +136,6 @@ mainmodule ParallelGravity {
 
 #ifdef SUPERBUBBLE
 #ifdef HYPCOND
-  PUPable HypGrads;
   PUPable HypCondOutputParams;
 #endif
   PUPable PromoteToHotGasSmoothParams;

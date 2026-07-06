@@ -159,10 +159,4 @@ void updateParticle(GravityParticle *a, GravityParticle *b,
                     PressSmoothUpdate *params, PressSmoothParticle *aParams, 
                     PressSmoothParticle *bParams, int sign);
 
-void getInitialGrad(GravityParticle *a, GravityParticle *b,
-                    PressSmoothUpdate *params, PressSmoothParticle *aParams,
-                    PressSmoothParticle *bParams, int sign);
-
-void minMod(double val1, double val2, double &slope_1, double &slope_2);
-
 #endif // SPHUTILS_H

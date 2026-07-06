@@ -1433,7 +1433,7 @@ Optional Features:
   --enable-hypcond        use hyperbolic conduction
   --enable-acczero        force zero acceleration
   --enable-thermaldiffonly
-                          set all thermaldiffusion values to 1
+                          set conduction coefficient to a constant value (for testing)
   --enable-shieldsf       Dust self-shielding star formation
   --enable-cullenalpha    Cullen Dehnen artificial viscosity
   --enable-vsigvisc       alternative Monahan artificial viscosity

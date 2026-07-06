@@ -305,12 +305,13 @@ if test "$FLAG_HYPCOND" = "-DHYPCOND" -a x"$FLAG_SUPERBUBBLE" = x ; then
     AC_MSG_ERROR([HYPCOND requires SUPERBUBBLE.  Enable it with --enable-superbubble]);
 fi
 
+
 #ACCZERO
-ARG_ENABLE([acczero], [zero acceleration], [FLAG_ACCZERO], [-DACCZERO], [no])
+ARG_ENABLE([acczero], [set particle acceleration to always be zero], [FLAG_ACCZERO], [-DACCZERO], [no])
 
 
 #THERMALDIFFONLY
-ARG_ENABLE([thermaldiffonly], [only thermal diffusion], [FLAG_THERMALDIFFONLY], [-DTHERMALDIFFONLY], [no])
+ARG_ENABLE([thermaldiffonly], [for testing, thermal diffusion set by constant coefficient, in code units], [FLAG_THERMALDIFFONLY], [-DTHERMALDIFFONLY], [no])
 if test "$FLAG_THERMALDIFFONLY" = "-DTHERMALDIFFONLY" -a x"$FLAG_SUPERBUBBLE" = x ; then
     AC_MSG_ERROR([THERMALDIFFONLY requires SUPERBUBBLE.  Enable it with --enable-superbubble]);
 fi
