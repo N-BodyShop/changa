@@ -1465,7 +1465,9 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
               }
           }
 #endif
-
+#ifdef ACCZERO
+          p->treeAcceleration.x=0;p->treeAcceleration.y=0;p->treeAcceleration.z=0;
+#endif
 	  if(bNeedVPred && TYPETest(p, TYPE_GAS)) {
 	      if(bClosing) { // update predicted quantities to end of step
 		  p->vPred() = p->velocity
@@ -1598,6 +1600,14 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
                   
 #endif
 		      }
+#ifdef HYPCOND
+                  /*Sem-implicit time step for hyperbolic conduction*/
+                  double tinv = (p->dThermalCondTau() > 0 ? 1.0/(p->dThermalCondTau() + duDelta[p->rung]) : 0.0);
+                  Vector3D<double> QdotCorrected;
+                  QdotCorrected = (p->dQCondDot() - p->dQCond())*tinv;
+                  p->dQCond() +=  QdotCorrected*duDelta[p->rung];
+                  p->dQCondPred() = p->dQCond();
+#endif
 #ifdef DIFFUSION
 		  p->fMetals() += p->fMetalsDot()*duDelta[p->rung];
 		  p->fMetalsPred() = p->fMetals();
@@ -1654,6 +1664,14 @@ void TreePiece::kick(int iKickRung, double dDelta[MAXRUNG+1],
 			  }
 #endif
 		      }
+#ifdef HYPCOND
+                  /*Sem-implicit time step for hyperbolic conduction*/
+                  double tinv = (p->dThermalCondTau() > 0 ? 1.0/(p->dThermalCondTau() + duDelta[p->rung]) : 0.0);
+                  Vector3D<double> QdotCorrected;
+                  QdotCorrected = (p->dQCondDot() - p->dQCond())*tinv;
+                  p->dQCondPred() = p->dQCond();
+                  p->dQCond() +=  QdotCorrected*duDelta[p->rung];
+#endif
 #ifdef DIFFUSION
 		  p->fMetalsPred() = p->fMetals();
 		  p->fMetals() += p->fMetalsDot()*duDelta[p->rung];
@@ -1855,18 +1873,22 @@ void TreePiece::adjust(int iKickRung, int bEpsAccStep,
           dTEdot = dt;
 #ifdef SUPERBUBBLE
     /* Prevent rapid overconduction */
+    #ifndef HYPCOND
     if (p->fThermalCond() > 0 || (p->diff() > 0 && dDiffCoeff > 0)) {
         dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff() + p->fThermalCond()/p->fDensity);
         dTCond = dt;
         if (dt < dTIdeal) dTIdeal = dt;
     }
+    #endif
 #else
 #ifdef DIFFUSION
+#ifndef HYPCOND
 	  /* h^2/(2.77Q) Linear stability from Brookshaw */
 	  if (p->diff() > 0 && dDiffCoeff > 0) {
 	      dt = dEtaDiffusion*ph*ph/(dDiffCoeff*p->diff());  
 	      if (dt < dTIdeal) dTIdeal = dt;
 	      }
+#endif
 #endif
           dTEdot = dt;
 #endif
@@ -2005,6 +2027,9 @@ void TreePiece::emergencyAdjust(int iRung, double dDelta, double dDeltaThresh,
             p->velocity = p->vPred();
 #ifndef COOLING_NONE
             p->u() = p->uPred();
+#ifdef HYPCOND
+            p->dQCond() = p->dQCondPred();
+#endif
 #ifdef SUPERBUBBLE
             p->uHot() = p->uHotPred();
 #endif
@@ -2106,6 +2131,13 @@ void TreePiece::drift(double dDelta,  // time step in x containing
 		  else p->uPred() = uold*exp(p->uDot()*duDelta/uold);
 		  }
 #ifdef SUPERBUBBLE
+#ifdef HYPCOND
+              /*Sem-implicit time step for hyperbolic conduction*/
+              double tinv = (p->dThermalCondTau() > 0 ? 1.0/(p->dThermalCondTau() + duDelta) : 0.0);
+              Vector3D<double> QdotCorrected;
+              QdotCorrected = (p->dQCondDot() - p->dQCond())*tinv;
+              p->dQCondPred() += QdotCorrected*duDelta;
+#endif
               p->uHotPred() += p->uHotDot()*duDelta;
 	      if (p->uHotPred() < 0) {
 		  // Backout the update to upred
