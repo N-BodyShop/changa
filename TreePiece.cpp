@@ -3824,7 +3824,7 @@ void TreePiece::finishBucket(int iBucket) {
 #ifdef CUDA
       if (!bUseCpu) {
         for (int i = 0; i < numPEListProxies; i++) {
-          PEListProxies[i]->ckLocalBranch()->finishWalk(this);
+          PEListProxies[i]->ckLocalBranch()->finishWalk();
         }
       }
 #endif
@@ -5115,7 +5115,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
                                 // only one chunk
           // Every PE must call TransferParticleVarsBack, even if no particle data
           for (int i = 0; i < numPEListProxies; i++) {
-              PEListProxies[i]->ckLocalBranch()->finishWalk(this);
+              PEListProxies[i]->ckLocalBranch()->finishWalk();
               }
       }
 #endif

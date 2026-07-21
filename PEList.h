@@ -17,8 +17,8 @@
 /// walks are handled here.
 class PEList : public CBase_PEList
 {
-    /// TreePieces on this PE
-    std::vector<TreePiece*> vtpLocal;
+    /// non-empty TreePieces that have completed their walk on this PE
+    int nCompleted;
     /// Count of TreePieces with particles on this PE
     NonEmptyTreePieceCounter cTreePieces;
 
@@ -65,17 +65,31 @@ class PEList : public CBase_PEList
         bRemote = _bRemote;
         bResume = _bResume;
 
+        nCompleted = 0;
+        bKernelDelayed = 0;
+
+        finalBucketMarker = -1;
+        request = nullptr;
+        cudaStreamCreate(&stream);
+    }
+    PEList(CkMigrateMessage *m) : CBase_PEList(m) {
+        nCompleted = 0;
 	bKernelDelayed = 0;
 
 	finalBucketMarker = -1;
 	request = nullptr;
 	cudaStreamCreate(&stream);
     }
-    PEList(CkMigrateMessage *m) : CBase_PEList(m) {}
     ~PEList() { cudaStreamDestroy(stream); }
-    void pup(PUP::er &p) {}
+    void pup(PUP::er &p) {
+        CBase_PEList::pup(p);
 
-    void finishWalk(TreePiece *treePiece);
+        p|bNode;
+        p|bRemote;
+        p|bResume;
+    }
+
+    void finishWalk();
     void launchKernel();
     void finishWalkCb();
     void tryLaunchDelayedKernel();

@@ -7,21 +7,21 @@
 /// @brief Each TreePiece on a given PE checks in as its tree walk completes
 ///        Once all TreePieces are done, launch a gravity kernel on the GPU
 /// @param treePiece A reference to the TreePiece that checked in
-void PEList::finishWalk(TreePiece *treePiece) {
-    vtpLocal.push_back(treePiece);
+void PEList::finishWalk() {
+    nCompleted++;
 
     // On first call, find the total number of active pieces on this PE.
     // The charm++ location manager gives us this count in cTreePieces
-    if(vtpLocal.size() == 1) {
+    if(nCompleted  == 1) {
         CkLocMgr *locMgr = treeProxy.ckLocMgr();
         locMgr->iterate(cTreePieces);
     }
 
     // check if we have everyone
-    if(vtpLocal.size() < cTreePieces.count)
+    if(nCompleted < cTreePieces.count)
         return;
 
-    CkAssert(vtpLocal.size() == cTreePieces.count); // a treepiece
+    CkAssert(nCompleted == cTreePieces.count); // a treepiece
                                                     // checked in more
                                                     // than once?
 
@@ -223,7 +223,7 @@ void PEList::reset() {
     bucketSizes.clear();
 
     cTreePieces.reset();
-    vtpLocal.clear();
+    nCompleted = 0;
     bKernelDelayed = 0;
     finalBucketMarker = -1;
     delete finishCb;
