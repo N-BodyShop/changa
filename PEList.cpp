@@ -21,6 +21,10 @@ void PEList::finishWalk(TreePiece *treePiece) {
     if(vtpLocal.size() < cTreePieces.count)
         return;
 
+    CkAssert(vtpLocal.size() == cTreePieces.count); // a treepiece
+                                                    // checked in more
+                                                    // than once?
+
     // bucketMarkers[i+1] is needed to determine # of IL entries per bucket
     if(finalBucketMarker != -1)
 	bucketMarkers.push_back(finalBucketMarker);
