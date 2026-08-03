@@ -910,6 +910,10 @@ void TreePiece::updateuDot(int activeRung,
 		p->position.array_form(r);
         CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
         CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        /* The gas needs a minimum energy to prevent the
+         * inferred density to become very large */
+        if(p->u() < U_FLOOR(dm->Cool))
+            p->u() = U_FLOOR(dm->Cool);
 #ifdef SUPERBUBBLE
 #ifdef COOLING_MOLECULARH
         double columnLHot = 0;
@@ -964,10 +968,6 @@ void TreePiece::updateuDot(int activeRung,
                 p->cpHotInit() = 1;
                 CkAssert(ExternalHeating >= 0.0);
             }
-            /* The cold phase needs a minimum energy to prevent the
-             * inferred density to become very large */
-            if(p->u() < U_FLOOR(dm->Cool))
-                p->u() = U_FLOOR(dm->Cool);
             ExternalHeating = (duDotPdV + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
         }
         else { /* We have a single phase particle, treat it normally*/
