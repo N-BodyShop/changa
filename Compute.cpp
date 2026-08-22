@@ -1394,9 +1394,6 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
   DoubleWalkState *state = (DoubleWalkState *)state_;
 
 #ifdef CUDA
-  bool resume = state->resume;
-  int numActiveBuckets = tp->numActiveBuckets;
-
   // for local particles
   //std::map<NodeKey, int> &lpref = tp->dm->getLocalPartsOnGpuTable();
   // for cached particles
@@ -1516,7 +1513,6 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 	      continue;
 	    }
 #endif
-	    int computed = 0;
 	    // check whether it is already on the gpu
 	    int index = node->nodeArrayIndex;
 
@@ -1779,7 +1775,6 @@ void ListCompute::initCudaState(DoubleWalkState *state, int numBuckets, int node
 
 /// @brief Reset node array after interactions have been sent to the GPU.
 void ListCompute::resetCudaNodeState(DoubleWalkState *state){
-  GenericTreeNode *tmp;
   state->nodeLists.reset();
   if(state->nodes){
     state->nodes->length() = 0;
