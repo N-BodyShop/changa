@@ -1953,7 +1953,7 @@ void TreePiece::countActive(int activeRung, const CkCallback& cb) {
           }
       }
   }
-  numActiveParticles = nActive[0];
+  myNumActiveParticles = nActive[0];
   contribute(2*sizeof(int64_t), nActive, CkReduction::sum_long, cb);
 }
 
@@ -3817,7 +3817,7 @@ void TreePiece::finishBucket(int iBucket) {
     sLocalGravityState->myNumParticlesPending -= 1;
 
 #ifdef COSMO_PRINT_BK
-    CkPrintf("[%d] Finished bucket %d, %d particles remaining\n",thisIndex,iBucket, sLocalGravityState->myNumParticlesPending);
+    CkPrintf("[%d %d] Finished bucket %d, %d buckets remaining\n",CkMyPe(), thisIndex,iBucket, sLocalGravityState->myNumParticlesPending);
 #endif
 
     if(sLocalGravityState->myNumParticlesPending == 0) {
@@ -5068,6 +5068,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     CkCallback cbf = CkCallback(CkIndex_TreePiece::finishWalk(), pieces);
     gravityProxy[thisIndex].ckLocal()->contribute(cbf);
     bBucketsInited = true;
+    myNumActiveParticles = 0;
     return;
   }
 
@@ -5446,13 +5447,13 @@ void TreePiece::continueStartRemoteChunk(int chunk){
 /// @param activeRung Rung to use.
 void TreePiece::setTreePieceLoad(int activeRung) {
     double dLoadExp;
-    nPrevActiveParts = numActiveParticles;
+    nPrevActiveParts = myNumActiveParticles;
     if (havePhaseData(activeRung)) {
         dLoadExp = savedPhaseLoad[activeRung];
     } else if (havePhaseData(0)) {
         float ratio = 1.0;
         if(myNumParticles != 0){
-            ratio = numActiveParticles/(float)myNumParticles;
+            ratio = myNumActiveParticles/(float)myNumParticles;
         }
 
         dLoadExp  = ratio * savedPhaseLoad[0];
@@ -5490,23 +5491,23 @@ void TreePiece::startlb(const CkCallback &cb, int activeRung, bool bDoLB){
   // We need to recount the number of active particles since DD has
   // moved particles around
   if(activeRung == 0){ // Everybody is active; no need to count
-      numActiveParticles = myNumParticles;
+      myNumActiveParticles = myNumParticles;
   }
   else if(activeRung == PHASE_FEEDBACK) { // Also no need to recount
-      numActiveParticles = myNumSPH + myNumStar;
+      myNumActiveParticles = myNumSPH + myNumStar;
   }
   else{
-      numActiveParticles = 0;
+      myNumActiveParticles = 0;
       for(unsigned int i = 1; i <= myNumParticles; ++i) {
           if(myParticles[i].rung >= activeRung) {
-              numActiveParticles++;
+              myNumActiveParticles++;
           }
       }
   }
 
   LDObjHandle myHandle = myRec->getLdHandle();
 
-  TaggedVector3D tv(savedCentroid, myHandle, numActiveParticles, myNumParticles,
+  TaggedVector3D tv(savedCentroid, myHandle, getNumActiveParticles(), myNumParticles,
     iActiveRungLB, iPrevRungLB);
   tv.tp = thisIndex;
   tv.tag = thisIndex;
@@ -5779,6 +5780,7 @@ void TreePiece::pup(PUP::er& p) {
   p | myNumParticles;
   p | nTotalSPH;
   p | myNumSPH;
+  p | myNumActiveParticles;
   p | nTotalDark;
   p | nTotalStar;
   p | myNumStar;

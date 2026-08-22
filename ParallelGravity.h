@@ -906,9 +906,6 @@ class TreePiece : public CBase_TreePiece {
   /// Return the pointer to the particles on this TreePiece.
   GravityParticle *getParticles(){return myParticles;}
 
-    /// Number of particles on this TreePiece needing force calculations
-    int myNumActiveParticles;
-
     /// Access method for number of active particles on this TreePiece
     int getNumActiveParticles(){
         return myNumActiveParticles;
@@ -1064,7 +1061,9 @@ private:
   CkCallback after_dd_callback;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
-	unsigned int numActiveParticles;
+        /// Number of particles on this TreePiece needing force calculations
+        int myNumActiveParticles;
+
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
   int nbor_msgs_count_;
@@ -1456,6 +1455,7 @@ public:
           mySPHParticles = NULL;
           myStarParticles = NULL;
 	  myNumParticles = myNumSPH = myNumStar = 0;
+          myNumActiveParticles = 0;
 	  nStore = nStoreSPH = nStoreStar = 0;
           bBucketsInited = false;
 	  myTreeParticles = -1;
