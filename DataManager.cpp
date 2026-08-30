@@ -899,6 +899,8 @@ static inline void addTreeNodeToList(GenericTreeNode *nd,
     CudaMultipoleMoments cmm(nd->moments);
     cmm.lesser_corner = nd->boundingBox.lesser_corner;
     cmm.greater_corner = nd->boundingBox.greater_corner;
+    cmm.children[0] = -1;
+    cmm.children[0] = -1;
     list.push_back(cmm);
     index++;
     }
@@ -1134,6 +1136,24 @@ void DataManager::serializeLocal(GenericTreeNode *nodeRoot){
       }
 }
 
+#ifdef GPU_LOCAL_TREE_WALK_DEBUG
+static std::unordered_set<int> myLoopCheck;
+int maxDepth(int iNode, CkVec<CudaMultipoleMoments>& localMoments, int inDepth = 0) {
+    if(iNode == -1) return 0;
+    if(inDepth > 64)
+        CkPrintf("%d: indepth %d\n", CkMyNode(), inDepth);
+    if(myLoopCheck.find(iNode) != myLoopCheck.end())
+        CkPrintf("%d: duplicate node %d depth %d type %d\n", CkMyNode(), iNode, inDepth,
+                 localMoments[iNode].type);
+    CkAssert(myLoopCheck.find(iNode) == myLoopCheck.end());
+    myLoopCheck.insert(iNode);
+    CkAssert((iNode >= -1) && (iNode < (int) localMoments.length()));
+    int depth = 1 + max(maxDepth(localMoments[iNode].children[0], localMoments, inDepth+1),
+                        maxDepth(localMoments[iNode].children[1], localMoments, inDepth+1));
+    return depth;
+}
+#endif
+
 ///
 // @brief After all pieces have filled the buffer, initiate the transfer.
 /// @param numParticles total number of particles on this node
@@ -1154,6 +1174,38 @@ void DataManager::transferLocalToGPU(int numParticles)
   double starttime = CmiWallTimer();
 #ifdef GPU_LOCAL_TREE_WALK
   transformLocalTreeRecursive(root, localMoments);
+  // Sanitiy check on tree
+#ifdef GPU_LOCAL_TREE_WALK_DEBUG
+  myLoopCheck.clear();
+  for(int i = 0; i < localMoments.length(); i++) {
+      CkAssert(localMoments[i].type != NonLocal);
+      CkAssert(localMoments[i].type != Empty);
+      CkAssert(localMoments[i].type != CachedEmpty);
+      for (int j = 0; j < 2; j ++) {
+          int child = localMoments[i].children[j];
+          if((child < -1) || (child >= (int) localMoments.length()))
+              CkPrintf("%d %d: Bad moment %d of %ld: type %d child %d %d %d\n",
+                       CkMyNode(), CkMyPe(),
+                       i, localMoments.length(),
+                       localMoments[i].type,
+                       child,
+                       localMoments[i].children[0],
+                       localMoments[i].children[1]);
+          if(child >= 0) {
+              if(myLoopCheck.find(child) != myLoopCheck.end())
+                  CkPrintf("%d: duplicate child node %d type %d child %d index %d\n",
+                           CkMyNode(), i, localMoments[i].type, j, child);
+              CkAssert(myLoopCheck.find(child) == myLoopCheck.end());
+              myLoopCheck.insert(child);
+          }
+          CkAssert((child >= -1) && (child < (int) localMoments.length()));
+      }
+  }
+  myLoopCheck.clear();
+  CkPrintf("%d %d: maxDepth: %d\n", CkMyNode(), CkMyPe(),
+           maxDepth(0, localMoments));
+#endif
+
 #endif //GPU_LOCAL_TREE_WALK
 #ifdef HAPI_TRACE
   traceUserBracketEvent(SER_LOCAL_TRANSFORM, starttime, CmiWallTimer());
@@ -1173,6 +1225,7 @@ void DataManager::transferLocalToGPU(int numParticles)
   traceUserBracketEvent(SER_LOCAL_MEMCPY, starttime, CmiWallTimer());
 #endif
 
+  /// XXX bufLocalVars is not needed! Memory is initialized on the device.
 #ifdef PINNED_HOST_MEMORY
   // Bypass pool for large local tree buffers (but log analytics)
   const char* funcTag = "DataManager::transferLocalToGPU";
@@ -1194,6 +1247,8 @@ void DataManager::transferLocalToGPU(int numParticles)
 void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments) {
   NodeType type = node->getType();
   int node_index = node->nodeArrayIndex;
+
+  CkAssert(type != NonLocal);
 
   if(type == Empty || type == CachedEmpty){ // skip
     return;
@@ -1220,14 +1275,17 @@ void DataManager::transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaM
     }
     for(int i = 0; i < node->numChildren(); i++){
       GenericTreeNode *child = node->getChildren(i);
-      int child_index = child->nodeArrayIndex;
-      localMoments[node_index].children[i] = child_index;
-      transformLocalTreeRecursive(child, localMoments);
+      if(child->getType() != NonLocal) { // NonLocal nodes are not in
+                                         // the localMoments vector.
+          int child_index = child->nodeArrayIndex;
+          localMoments[node_index].children[i] = child_index;
+          transformLocalTreeRecursive(child, localMoments);
 
-      // child_index == -1 can indicate an empty node or a non-local node.
-      if (child_index != -1 && localMoments[child_index].bucketSize > 0) {
-        localMoments[node_index].bucketStart = std::min(localMoments[node_index].bucketStart, localMoments[child_index].bucketStart);
-        localMoments[node_index].bucketSize += localMoments[child_index].bucketSize;
+          // child_index == -1 can indicate an empty node or a non-local node.
+          if (child_index != -1 && localMoments[child_index].bucketSize > 0) {
+            localMoments[node_index].bucketStart = std::min(localMoments[node_index].bucketStart, localMoments[child_index].bucketStart);
+            localMoments[node_index].bucketSize += localMoments[child_index].bucketSize;
+          }
       }
     }
   }
