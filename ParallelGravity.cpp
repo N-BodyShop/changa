@@ -50,8 +50,10 @@
 #endif
 
 #ifdef CUDA
+#include "PEList.h"
 // for default per-list parameters
 #include "cuda_typedef.h"
+#include "MemoryPool.h"
 #endif
 
 extern char *optarg;
@@ -89,7 +91,26 @@ CProxy_DumpFrameData dfDataProxy;
 /// @brief Proxy for the PETreeMerger group.
 CProxy_PETreeMerger peTreeMergerProxy;
 
+#ifdef CUDA
+/// @brief Proxies for the PE groups that ship interactions to the GPU
+CProxy_PEList peNodeLocalListProxy;
+CProxy_PEList peNodeRemoteListProxy;
+CProxy_PEList peNodeRemoteResumeListProxy;
+CProxy_PEList pePartLocalListProxy;
+CProxy_PEList pePartRemoteListProxy;
+CProxy_PEList pePartRemoteResumeListProxy;
 
+/// @brief Array for quickly iterating over interaction list proxies
+CProxy_PEList* PEListProxies[] = {
+    &peNodeLocalListProxy,
+    &peNodeRemoteListProxy,
+    &peNodeRemoteResumeListProxy,
+    &pePartLocalListProxy,
+    &pePartRemoteListProxy,
+    &pePartRemoteResumeListProxy
+};
+const int numPEListProxies = sizeof(PEListProxies) / sizeof(PEListProxies[0]);
+#endif
 
 /// @brief Use the cache (always on)
 bool _cache;
@@ -115,10 +136,6 @@ GenericTrees useTree;
 CProxy_TreePiece streamingProxy;
 /// @brief Number of pieces into which to divide the tree.
 unsigned int numTreePieces;
-#ifdef CUDA
-    /// @brief Number of CUDA streams to use
-    unsigned int numStreams;
-#endif
 /// @brief Number of particles per TreePiece.  Used to determine the
 /// number of TreePieces.
 unsigned int particlesPerChare;
@@ -140,10 +157,6 @@ int remoteResumeNodesPerReq;
 int localPartsPerReq;
 int remotePartsPerReq;
 int remoteResumePartsPerReq;
-
-// multi-stepping particle transfer strategy 
-// switch threshold
-double largePhaseThreshold;
 
 cosmoType theta;                   ///< BH-like opening criterion
 cosmoType thetaMono;               ///< Criterion of excepting monopole
@@ -255,12 +268,13 @@ Main::Main(CkArgMsg* m) {
 
         traceRegisterUserEvent("Xfer Local", CUDA_XFER_LOCAL);
         traceRegisterUserEvent("Xfer Remote", CUDA_XFER_REMOTE);
-        traceRegisterUserEvent("Grav Local", CUDA_GRAV_LOCAL);
-        traceRegisterUserEvent("Grav Remote", CUDA_GRAV_REMOTE);
-        traceRegisterUserEvent("Remote Resume", CUDA_REMOTE_RESUME);
-        traceRegisterUserEvent("Part Gravity Local", CUDA_PART_GRAV_LOCAL);
-        traceRegisterUserEvent("Part Gravity Local Small", CUDA_PART_GRAV_LOCAL_SMALL);
-        traceRegisterUserEvent("Part Gravity Remote", CUDA_PART_GRAV_REMOTE);
+        traceRegisterUserEvent("Grav Tree Local", CUDA_GRAV_TREE_LOCAL);
+        traceRegisterUserEvent("Grav Nodelist Local", CUDA_GRAV_NODELIST_LOCAL);
+        traceRegisterUserEvent("Grav Partlist Local", CUDA_GRAV_PARTLIST_LOCAL);
+        traceRegisterUserEvent("Grav Nodelist Remote", CUDA_GRAV_NODELIST_REMOTE);
+        traceRegisterUserEvent("Grav Partlist Remote", CUDA_GRAV_PARTLIST_REMOTE);
+        traceRegisterUserEvent("Grav Nodelist Remote Resume", CUDA_GRAV_NODELIST_REMOTE_RESUME);
+        traceRegisterUserEvent("Grav Partlist Remote Resume", CUDA_GRAV_PARTLIST_REMOTE_RESUME);
         traceRegisterUserEvent("Xfer Back", CUDA_XFER_BACK);
         traceRegisterUserEvent("Ewald", CUDA_EWALD);
 #endif
@@ -772,12 +786,31 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "nTreePieces", paramInt, &numTreePieces,
 		    sizeof(int),"p", "Number of TreePieces (default: 8*procs)");
 #ifdef CUDA
-        numStreams = 100;
-        prmAddParam(prm, "nStreams", paramInt, &numStreams,
-                    sizeof(int),"str", "Number of CUDA streams (default: 100)");
         param.nGpuMinParts = 1000;
         prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
                     sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
+        param.bGpuMemLogger = 0;
+        prmAddParam(prm, "bGpuMemLogger", paramBool, &param.bGpuMemLogger,
+                    sizeof(int), "gpumemlog",
+                    "Enable GPU memory pool logger");
+        param.bCpuMemLogger = 0;
+        prmAddParam(prm, "bCpuMemLogger", paramBool, &param.bCpuMemLogger,
+                    sizeof(int), "cpumemlog",
+                    "Enable CPU memory pool logger");
+        param.dHostPoolTargetCapacityGB = 5.0;
+        prmAddParam(prm, "dHostPoolTargetCapacityGB", paramDouble, 
+                    &param.dHostPoolTargetCapacityGB,
+                    sizeof(double), "hptarget",
+                    "Target capacity for host pool (per DM) in GB (default: 5.0)");
+        param.nHostPoolMinCapacityPerBucketMB = 50;
+        prmAddParam(prm, "nHostPoolMinCapacityPerBucketMB", paramInt,
+                    &param.nHostPoolMinCapacityPerBucketMB,
+                    sizeof(int), "hpminbucket",
+                    "Min capacity per host pool bucket size during trim in MB (default: 50)");
+        param.bHostPoolDebug = 0;
+        prmAddParam(prm, "bHostPoolDebug", paramBool, &param.bHostPoolDebug,
+                    sizeof(int), "hpdebug",
+                    "Enable host pool debug output and statistics");
 #endif
 	particlesPerChare = 0;
 	prmAddParam(prm, "nPartPerChare", paramInt, &particlesPerChare,
@@ -909,10 +942,6 @@ Main::Main(CkArgMsg* m) {
           remoteResumePartsPerReqDouble = PART_INTERACTIONS_PER_REQUEST_RR;
           prmAddParam(prm, "remoteResumePartsPerReq", paramDouble, &remoteResumePartsPerReqDouble,
               sizeof(double),"remoteresumeparts", "Num. remote resume particle interactions allowed per CUDA request (in millions)");
-
-          largePhaseThreshold = TP_LARGE_PHASE_THRESHOLD_DEFAULT;
-//          prmAddParam(prm, "largePhaseThreshold", paramDouble, &largePhaseThreshold,
-//              sizeof(double),"largephasethresh", "Ratio of active to total particles at which all particles (not just active ones) are sent to gpu in the target buffer (No source particles are sent.)");
 
 #endif
 
@@ -1118,9 +1147,6 @@ Main::Main(CkArgMsg* m) {
           ckout << "remoteParts: " << remotePartsPerReqDouble << endl;
           ckout << "INFO: ";
           ckout << "remoteResumeParts: " << remoteResumePartsPerReqDouble << endl;
-
-          ckout << "INFO: largePhaseThreshold: " << largePhaseThreshold << endl;
-
 #endif
 
 	if(prmSpecified(prm, "bGeometric")) {
@@ -1392,6 +1418,15 @@ Main::Main(CkArgMsg* m) {
 
         peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
         dfDataProxy = CProxy_DumpFrameData::ckNew();
+
+#ifdef CUDA
+	peNodeLocalListProxy = CProxy_PEList::ckNew(1, 0, 0);
+	peNodeRemoteListProxy = CProxy_PEList::ckNew(1, 1, 0);
+	peNodeRemoteResumeListProxy = CProxy_PEList::ckNew(1, 1, 1);
+	pePartLocalListProxy = CProxy_PEList::ckNew(0, 0, 0);
+	pePartRemoteListProxy = CProxy_PEList::ckNew(0, 1, 0);
+	pePartRemoteResumeListProxy = CProxy_PEList::ckNew(0, 1, 1);
+#endif
 	
 	// create CacheManagers
 	// Gravity particles
@@ -1987,6 +2022,7 @@ void Main::buildTree(int iPhase)
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
+
     double tTB =  CkWallTimer()-startTime;
     timings[iPhase].tTBuild += tTB;
     CkPrintf("took %g seconds.\n", tTB);
@@ -2468,8 +2504,9 @@ void Main::setupICs() {
   double startTime;
 
 #ifdef CUDA
-  dMProxy.createStreams(numStreams, CkCallbackResumeThread());
+  dMProxy.createStream(CkCallbackResumeThread());
 #endif
+
   treeProxy.setPeriodic(param.nReplicas, param.vPeriod, param.bEwald,
 			param.dEwCut, param.dEwhCut, param.bPeriodic,
                         param.csm->bComove,
@@ -2590,6 +2627,13 @@ void Main::setupICs() {
 
   if(param.bStarForm) {
       initStarLog();
+
+#ifdef CUDA
+  if(param.bGpuMemLogger)
+      initMemLog(); // Initialize GPU memory logging
+  if(param.bCpuMemLogger)
+      initCpuMemLog(); // Initialize CPU memory logging
+#endif
       if(param.feedback->sn.bUseStoch)
         initHMStarLog();
   }
@@ -3138,6 +3182,38 @@ Main::doSimulation()
     ckout << "Big step " << iStep << " took " << stepTime << " seconds."
 	  << endl;
     writeTimings(iStep);
+
+#ifdef CUDA
+    
+    // Host pool diagnostics and maintenance
+    if (param.bHostPoolDebug) {
+        char prefix[64];
+        sprintf(prefix, "[Step %d]", iStep);
+        hostPoolReportStats(prefix, param.dHostPoolTargetCapacityGB);
+        
+        // Periodic growth analysis every 10 steps
+        if (iStep % 10 == 0) {
+            hostPoolAnalyzeGrowth();
+        }
+        
+        // Early warmup effectiveness check
+        if (iStep == 5) {
+            hostPoolAnalyzeWarmupEffectiveness();
+        }
+    }
+    
+    // Trim host pool to reclaim memory (always runs)
+    dMProxy.trimHostPool(param.dHostPoolTargetCapacityGB, CkCallbackResumeThread());
+    
+    // Refill host pool hot buckets to prepare for next timestep
+    dMProxy.refillHostPool(CkCallbackResumeThread());
+    
+    // Flush memory logs
+    if(param.bGpuMemLogger)
+        dMProxy[0].flushMemLog(CkCallbackResumeThread());
+    if(param.bCpuMemLogger)
+        dMProxy[0].flushCpuMemLog(CkCallbackResumeThread());
+#endif
 
     if(iStep%param.iOrbitOutInterval == 0) {
 	outputBlackHoles(dTime);

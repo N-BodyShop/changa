@@ -9,10 +9,16 @@
 
 #include <vector>
 #include <map>
+#include <atomic>
 #include <string>
 #include "GenericTreeNode.h"
 #include "ParallelGravity.decl.h"
 #include "lymanwerner.h"
+
+#ifdef CUDA
+#include "memlog.h"
+#include "MemoryPool.h"
+#endif
 
 #if CHARM_VERSION > 60401 && CMK_BALANCED_INJECTION_API
 #include "ckBIconfig.h"
@@ -79,18 +85,24 @@ protected:
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
 #ifdef CUDA
-	//CkVec<int> registeredTreePieceIndices;
         /// @brief counter for the number of tree nodes that are
         /// replicated by TreePieces that share the same address space.
         int cumNumReplicatedNodes;
+        /// Counter for TreePieces ready for serializeLocalTree()
         int treePiecesDone;
         int savedChunk;
+        /// Counter for TreePieces which have completed their remote Prefetch.
         int treePiecesDonePrefetch;
-        int treePiecesDoneLocalComputation;
-        // XXX - assumes that only one chunk can be on the gpu
-        // at a given time
-        int treePiecesDoneRemoteChunkComputation;
-        int treePiecesWantParticlesBack;
+public:
+        /// Indicates that the local Tree data is on the GPU
+        std::atomic<bool> bLocalDataTransferred;
+        /// Indicates that the remote Tree data is on the GPU
+        std::atomic<bool> bRemoteDataTransferred;
+protected:
+        /// Counter for PEs that are ready to get their acclerations updated.
+        int PEsWantParticlesBack;
+        /// Keep track of which PEs have TreePieces
+        std::set<int> registeredPEs;
         /// Reference count for Pieces that have finished updating
         /// their acclerations.
         int treePiecesParticlesUpdated;
@@ -111,11 +123,13 @@ protected:
         // TreePiece counter for multi-threaded GPU host buffer copy
 	int treePiecesBufferFilled;
 
-        // can the gpu accept a chunk of remote particles/nodes?
-        bool gpuFree;
+	// Request for local GPU tree walk
+	CudaRequest *lwReq;
 
-        /// Callback pointer to pass to HAPI.
+        /// Callback pointers to pass to HAPI.
         CkCallback *localTransferCallback;
+        CkCallback *localWalkCallback;
+        CkCallback *ewaldCallback;
 
         PendingBuffers *currentChunkBuffers;
         // queue that stores all pending chunk transfers
@@ -138,18 +152,10 @@ protected:
         /// host buffer to transfer initial accelerations to GPU
         VariablePartData *bufLocalVars;
 
-	// Pointers to particle and tree data on GPU
-	CudaMultipoleMoments *d_localMoments;
-        CudaMultipoleMoments *d_remoteMoments;
-        CompactPartData *d_localParts;
-	CompactPartData *d_remoteParts;
-        VariablePartData *d_localVars;
-        size_t sMoments;
-        size_t sCompactParts;
-        size_t sVarParts;
+        EwtData *ewt;
+        EwaldReadOnlyData *cachedData;
 
-	int numStreams;
-	cudaStream_t *streams;
+	cudaStream_t stream; // For data transfers and local tree walk
 
 #endif
 	/// The root of the combined trees
@@ -166,6 +172,8 @@ protected:
         Tree::NodeLookupType chunkRootTable;
 
 public:
+  CProxy_TreePiece getTreePieces() { return treePieces; }
+  CkVec<TreePieceDescriptor> getRegisteredTreePieces() { return registeredTreePieces; }
 
 	/* 
 	 ** Cooling 
@@ -186,13 +194,54 @@ public:
 	/// @brief Lock for accessing hmstarlog from TreePieces
     CmiNodeLock lockHMStarLog;
 
+#ifdef CUDA
+	// Pointers to particle and tree data on GPU
+	CudaMultipoleMoments *d_localMoments;
+        CudaMultipoleMoments *d_remoteMoments;
+        CompactPartData *d_localParts;
+	CompactPartData *d_remoteParts;
+        VariablePartData *d_localVars;
+        size_t sMoments;
+        size_t sCompactParts;
+        size_t sVarParts;
+
+	/// @brief log of CUDA memory events.
+	MemLog *memLog;
+	/// @brief Lock for accessing memlog from CUDA wrappers
+	CmiNodeLock lockMemLog;
+	/// @brief Flag to enable GPU memory logging
+	int bGpuMemLogger;
+	
+	/// @brief log of CPU (host) memory events.
+	MemLog *cpuMemLog;
+	/// @brief Lock for accessing CPU memlog
+	CmiNodeLock lockCpuMemLog;
+	/// @brief Flag to enable CPU memory logging
+	int bCpuMemLogger;
+	/// @brief Target capacity for host pool trim in GB
+	double dHostPoolTargetCapacityGB;
+	/// @brief Minimum capacity per bucket during trim in MB
+	int nHostPoolMinCapacityPerBucketMB;
+	/// @brief Flag to enable host pool debug output
+	int bHostPoolDebug;
+
+	/// Allow TreePiece::fillGPUBuffer to access node-wide buffers and data
+	CudaMultipoleMoments* getLocalMoments() { return localMoments.getVec(); }
+	CudaMultipoleMoments* getBufLocalMoments() { return bufLocalMoments; }
+	CompactPartData* getBufLocalParts() { return bufLocalParts; }
+	VariablePartData* getBufLocalVars() { return bufLocalVars; }
+#endif
+
 	DataManager(const CkArrayID& treePieceID);
 	DataManager(CkMigrateMessage *);
 
         void startLocalWalk();
+        void finishLocalWalk();
         void resumeRemoteChunk();
 #ifdef CUDA
-	void createStreams(int _numStreams, const CkCallback& cb);
+        void startEwaldGPU();
+        void finishEwaldGPU();
+        void createStream(const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
 
@@ -203,7 +252,7 @@ public:
         // actual serialization methods
         PendingBuffers *serializeRemoteChunk(GenericTreeNode *);
 	void serializeLocal(GenericTreeNode *);
-	void transferLocalToGPU(int nParts, GenericTreeNode *node);
+	void transferLocalToGPU(int nParts);
         void freeLocalTreeMemory();
         void freeRemoteChunkMemory(int chunk);
         void transferParticleVarsBack();
@@ -225,6 +274,10 @@ public:
     		}
     	    nodeTable.clear();
 
+#ifdef CUDA
+	    cudaStreamDestroy(stream);
+#endif
+
 	    CoolFinalize(Cool);
         LymanWernerTableFinalize(LWData);
 	    delete starLog;
@@ -232,10 +285,8 @@ public:
 	    CmiDestroyLock(lockStarLog);
         CmiDestroyLock(lockHMStarLog);
 #ifdef CUDA
-            for (int i = 0; i < numStreams; i++) {
-                cudaStreamDestroy(streams[i]);
-	    }
-	    delete[] streams;
+	    delete memLog;
+	    CmiDestroyLock(lockMemLog);
 #endif
 	    }
 
@@ -289,6 +340,14 @@ public:
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);
     void initStarLog(std::string _fileName, const CkCallback &cb);
+    void initMemLog(std::string _fileName, int bGpuMemLoggerFlag, const CkCallback &cb);
+    void initCpuMemLog(std::string _fileName, int bCpuMemLoggerFlag, const CkCallback &cb);
+#ifdef CUDA
+    void flushMemLog(const CkCallback& cb);
+    void flushCpuMemLog(const CkCallback& cb);
+    void trimHostPool(double targetCapacityGB, const CkCallback& cb);
+    void refillHostPool(const CkCallback& cb);
+#endif
     void initLWData(const CkCallback& cb);
     void initHMStarLog(std::string _fileName, const CkCallback &cb);
     void dmCoolTableRead(double *dTableData, int nData, const CkCallback& cb);
@@ -329,8 +388,8 @@ class ProjectionsControl : public CBase_ProjectionsControl {
 #ifdef CUDA
     // GPUs are assigned to nodes in a round-robin fashion. This allows the user to define
     // one virtual node per device and utilize multiple GPUs on a single node
-    // Beacuse devices are assigned per-PE, this is a convenient place to call setDevice
-    // Note that this code has nothing to do with initalizing projections
+    // Because devices are assigned per-PE, this is a convenient place to call setDevice
+    // Note that this code has nothing to do with initializing projections
     int numGpus;
     cudaGetDeviceCount(&numGpus);
     cudaSetDevice(CmiMyNode() % numGpus);
