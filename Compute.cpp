@@ -383,14 +383,8 @@ void ListCompute::nodeRecvdEvent(TreePiece *owner, int chunk, State *state, int 
       // flush the interactions remaining in the state
       DoubleWalkState *ds = (DoubleWalkState *)state;
 
-      if(ds->nodeLists.totalNumInteractions > 0){
-        sendNodeInteractionsToGpu(ds, owner);
-        resetCudaNodeState(ds);
-      }
-      if(ds->particleLists.totalNumInteractions > 0){
-        sendPartInteractionsToGpu(ds, owner);
-        resetCudaPartState(ds);
-      }
+      treeProxy[owner->getIndex()].flushInteractionsToGpu((intptr_t) this,
+                                                          (intptr_t) ds);
     }
 
 #endif
@@ -958,14 +952,8 @@ void ListCompute::recvdParticles(ExternalGravityParticle *part,int num,int chunk
   if (remainingChunk == 0) {
 #ifdef CUDA
     if (!bUseCpu) {
-      if(state->nodeLists.totalNumInteractions > 0){
-        sendNodeInteractionsToGpu(state, tp);
-        resetCudaNodeState(state);
-      }
-      if(state->particleLists.totalNumInteractions > 0){
-        sendPartInteractionsToGpu(state, tp);
-        resetCudaPartState(state);
-      }
+        treeProxy[tp->getIndex()].flushInteractionsToGpu((intptr_t) this,
+                                                         (intptr_t) state);
     }
 #endif
 #if COSMO_PRINT_BK > 1
@@ -1077,6 +1065,7 @@ CudaRequest *GenericList<T>::serialize(TreePiece *tp){
       sizes = (int *) malloc(numFilledBuckets*sizeof(int));
       affectedBuckets = new int[numFilledBuckets];
 
+      CkAssert(tp->bGPUBufferFilled == 1); // Needed for getBucketParameters()
       // populate flat lists
       int listslen = lists.length();
       for(int i = 0; i < listslen; i++){
@@ -1789,6 +1778,39 @@ void ListCompute::resetCudaPartState(DoubleWalkState *state){
     state->particles->length() = 0;
     state->partMap.clear();
   }
+}
+
+/// @brief Entry method to send interaction lists gathered by the
+/// treewalk to the GPU for calculation.  This has a busy wait on
+/// bGPUBufferFilled because the placement of buckets on the GPU needs
+/// to be known before the interactions are sent.
+/// @param ptr_lc a pointer to the ListCompute object containing the
+/// interactions to be calculated.  This is declared as an opaque
+/// pointer so it can be passed via a Charm++ entry method.
+/// @param ptr_ds a pointer to the DoubleWalkState object associated
+/// with the walk. This is declared as an opaque pointer so it can
+/// be passed via a Charm++ entry method.
+
+void TreePiece::flushInteractionsToGpu(intptr_t ptr_lc,
+                                       intptr_t ptr_ds) {
+    if(bGPUBufferFilled == 0) { // Need to wait for the buffer
+                                // to be filled before sending
+                                // node interaction lists.
+        thisProxy[thisIndex].flushInteractionsToGpu(ptr_lc, ptr_ds);
+        return;
+    }
+
+    ListCompute *lc = (ListCompute *)ptr_lc;
+    DoubleWalkState *ds = (DoubleWalkState *)ptr_ds;
+
+    if(ds->nodeLists.totalNumInteractions > 0){
+        lc->sendNodeInteractionsToGpu(ds, this);
+        lc->resetCudaNodeState(ds);
+    }
+    if(ds->particleLists.totalNumInteractions > 0){
+        lc->sendPartInteractionsToGpu(ds, this);
+        lc->resetCudaPartState(ds);
+    }
 }
 
 void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,

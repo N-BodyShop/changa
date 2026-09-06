@@ -3858,6 +3858,7 @@ void TreePiece::fillGPUBuffer(fillGPUMsg *msg)
     for (int j = 0; j < numBuckets; ++j) {
 	GenericTreeNode *bucketNode = bucketList[j];
 	int id = bucketNode->nodeArrayIndex;
+        CkAssert(id >= 0);
 	aLocalMoments[id].bucketStart = bucketNode->bucketArrayIndex;
 	aLocalMoments[id].bucketSize = bucketNode->lastParticle
 	    - bucketNode->firstParticle + 1;
@@ -3866,6 +3867,7 @@ void TreePiece::fillGPUBuffer(fillGPUMsg *msg)
     for (int j = 0; j < numBuckets; ++j) {
       GenericTreeNode *bucketNode = bucketList[j];
       int id = bucketNode->nodeArrayIndex;
+      CkAssert(id >= 0);
       int start = aLocalMoments[id].bucketStart;
       int end = start + aLocalMoments[id].bucketSize;
       for (int k = start; k < end; k ++) {
@@ -3874,6 +3876,7 @@ void TreePiece::fillGPUBuffer(fillGPUMsg *msg)
     }
 #endif
     delete msg;
+    bGPUBufferFilled = 1;
     dm->transferLocalToGPU(nParts);
 }
 
@@ -4136,14 +4139,8 @@ void TreePiece::nextBucket(dummyMsg *msg){
         // these are local or remote interactions, which it learns from
         // sGravity.
         sGravity->init(NULL, activeRung, sLocal);
-        if(ds->nodeLists.totalNumInteractions > 0){
-          lc->sendNodeInteractionsToGpu(ds, this);
-          lc->resetCudaNodeState(ds);
-        }
-        if(ds->particleLists.totalNumInteractions > 0){
-          lc->sendPartInteractionsToGpu(ds, this);
-          lc->resetCudaPartState(ds);
-        }
+        thisProxy[thisIndex].flushInteractionsToGpu((intptr_t) lc,
+                                                    (intptr_t) ds);
       }
     }
 #endif
@@ -4533,14 +4530,8 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
       ListCompute *lc = (ListCompute *)sGravity;
 
       if(lc && ds){
-        if(ds->nodeLists.totalNumInteractions > 0){
-          lc->sendNodeInteractionsToGpu(ds, this);
-          lc->resetCudaNodeState(ds);
-        }
-        if(ds->particleLists.totalNumInteractions > 0){
-          lc->sendPartInteractionsToGpu(ds, this);
-          lc->resetCudaPartState(ds);
-        }
+          thisProxy[thisIndex].flushInteractionsToGpu((intptr_t) lc,
+                                                      (intptr_t) ds);
       }
     }
 
@@ -4571,14 +4562,8 @@ void TreePiece::calculateGravityRemote(ComputeChunkMsg *msg) {
 
 
         if(lc && ds){
-          if(ds->nodeLists.totalNumInteractions > 0){
-            lc->sendNodeInteractionsToGpu(ds, this);
-            lc->resetCudaNodeState(ds);
-          }
-          if(ds->particleLists.totalNumInteractions > 0){
-            lc->sendPartInteractionsToGpu(ds, this);
-            lc->resetCudaPartState(ds);
-          }
+          thisProxy[thisIndex].flushInteractionsToGpu((intptr_t) lc,
+                                                      (intptr_t) ds);
         }
       }
 #endif
@@ -5025,6 +5010,9 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
   theta = myTheta;
   thetaMono = theta*theta*theta*theta;
 
+#ifdef CUDA
+  bGPUBufferFilled = 0;
+#endif
   starttime = CmiWallTimer();
 
   int oldNumChunks = numChunks;

@@ -927,6 +927,11 @@ class TreePiece : public CBase_TreePiece {
         int FirstGPUParticleIndex;
         int LastGPUParticleIndex;
         int NumberOfGPUParticles;
+        /// Specifies that the Treepiece has filled the buffer with
+        /// particle data to be sent to the GPU.  This implies that
+        /// this TreePiece's buckets now know where their particles
+        /// are in the GPU particle array.
+        int bGPUBufferFilled;
         BucketActiveInfo *bucketActiveInfo;
 
 	int getParentPE() { return CkMyPe(); }
@@ -1002,6 +1007,7 @@ class TreePiece : public CBase_TreePiece {
 #ifdef CUDA
        void fillGPUBuffer(fillGPUMsg *msg);
         void updateParticles(intptr_t data, int partIndex);
+        void flushInteractionsToGpu(intptr_t ptr_lc, intptr_t ptr_ds);
 #endif
         void continueStartRemoteChunk(int chunk);
         void continueWrapUp();

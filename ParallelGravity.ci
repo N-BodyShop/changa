@@ -534,6 +534,7 @@ mainmodule ParallelGravity {
 #ifdef CUDA
     entry void fillGPUBuffer(fillGPUMsg* msg);
     entry void updateParticles(intptr_t data, int partIndex);
+    entry void flushInteractionsToGpu(intptr_t ptr_lc, intptr_t ptr_ds);
 #endif
     entry void continueStartRemoteChunk(int chunk);
     entry void continueWrapUp();
