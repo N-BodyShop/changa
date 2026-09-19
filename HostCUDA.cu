@@ -163,6 +163,9 @@ void DataManagerTransferRemoteChunk(void *moments, size_t sMoments,
   cudaChk(gpuPoolMalloc(d_remoteParts, sRemoteParts, stream, funcTag));
   cudaChk(cudaMemcpyAsync(*d_remoteMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(*d_remoteParts, remoteParts, sRemoteParts, cudaMemcpyHostToDevice, stream));
+  // Synchronize stream so that d_remoteMoments and d_remoteParts will be
+  // available to other streams
+  cudaChk(cudaStreamSynchronize(stream));
 
   HAPI_TRACE_END(CUDA_XFER_REMOTE);
 
@@ -645,7 +648,7 @@ __device__ __forceinline__ void stackPop(int &sp) {
   --sp;
 }
 
-const int stackDepth = 64;
+const int stackDepth = 128;
 
 //__launch_bounds__(1024,1)
 __global__ void gpuLocalTreeWalk(
@@ -1353,11 +1356,12 @@ extern unsigned int timerHandle;
 /// @param stream The CUDA stream to launch the calculation on
 /// @param cb Callback function after the kernel finishes
 void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_cachedData, int numParts, cudaStream_t stream, void *cb) {
-  int numBlocks = (int) ceilf((float)numParts/BLOCK_SIZE);
+  // The following rounds up.
+  int numBlocks = (numParts + (THREADS_PER_BLOCK - 1)) / THREADS_PER_BLOCK;
 
 #ifdef CUDA_VERBOSE_OPS
   printf("(%d) DM EWALD numParts: %d\n",
-        CmiMyPe(),
+        CmiMyNode(),
         numParts
         );
 #endif
@@ -1368,9 +1372,9 @@ void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_
   cudaMemcpyToSymbolAsync(cachedData, _cachedData, sizeof(EwaldReadOnlyData), 0, cudaMemcpyHostToDevice, stream);
 
 #ifndef CUDA_NO_KERNELS
-  EwaldKernel<<<numBlocks, BLOCK_SIZE, 0, stream>>>((CompactPartData *)d_localParts,
+  EwaldKernel<<<numBlocks, THREADS_PER_BLOCK, 0, stream>>>((CompactPartData *)d_localParts,
                                           (VariablePartData *)d_localVars,
-            0, numParts);
+                                          numParts);
 #endif
   HAPI_TRACE_END(CUDA_EWALD);
 
@@ -1380,13 +1384,13 @@ void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_
 
 __global__ void EwaldKernel(CompactPartData *particleCores, 
                                VariablePartData *particleVars, 
-                               int First, int Last) {
+                               int nParts) {
   /////////////////////////////////////
   ////////////// Ewald TOP ////////////
   /////////////////////////////////////
   int id;
-  id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
-  if(id > Last) return;
+  id = blockIdx.x * THREADS_PER_BLOCK + threadIdx.x;
+  if(id >= nParts) return;
 
   CompactPartData *p;
 
@@ -1610,7 +1614,7 @@ __global__ void EwaldKernel(CompactPartData *particleCores,
 // initialize accelerations and potentials to zero
 __global__ void ZeroVars(VariablePartData *particleVars, int nVars) {
     int id;
-    id = blockIdx.x * BLOCK_SIZE + threadIdx.x;
+    id = blockIdx.x * THREADS_PER_BLOCK + threadIdx.x;
     if(id >= nVars) return;
 
     particleVars[id].a.x = 0.0;

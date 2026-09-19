@@ -4,7 +4,6 @@
 #include "HostCUDA.h"
 
 #define NEWH 400
-#define BLOCK_SIZE 128
 
 /** @brief Data for the Ewald h loop in the CUDA kernel
  */
@@ -42,7 +41,7 @@ typedef struct {
   MultipoleMomentsData mm; 
   MomcData momcRoot;
   
-  int n, nReps, nEwReps, nEwhLoop;
+  int nReps, nEwReps, nEwhLoop;
   cudatype L, fEwCut, alpha, alpha2, k1, ka, fEwCut2, fInner2;
 
 } EwaldReadOnlyData; 
@@ -53,7 +52,7 @@ typedef struct {
   EwaldReadOnlyData *cachedData; /**< Root moment and other Ewald parameters  */
 } EwaldData; 
 
-__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int First, int Last);
+__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int nParts);
 
 #endif
 
