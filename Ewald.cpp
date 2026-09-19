@@ -74,7 +74,7 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 #ifndef BENCHMARK_NO_WORK
 	GravityParticle *p;
 #ifdef HEXADECAPOLE
-	MOMC mom = momcRoot;
+        MOMC mom = dm->momcRoot;
 	MultipoleMoments momQuad = root->moments;
 	double xx,xxx,xxy,xxz,yy,yyy,yyz,xyy,zz,zzz,xzz,yzz,xy,xyz,xz,yz;
 	double Q4mirx,Q4miry,Q4mirz,Q4mir,Q4x,Q4y,Q4z;
@@ -262,7 +262,8 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 		 **		Total        = (22,36)
 		 **					 = 58
 		 */
-		for (i=0;i<nEwhLoop;++i) {
+                std::vector<EWT> &ewt = dm->ewt;
+                for (i=0;i<ewt.size();++i) {
 			hdotx = ewt[i].hx*dx + ewt[i].hy*dy + ewt[i].hz*dz;
 			c = cos(hdotx);
 			s = sin(hdotx);
@@ -280,16 +281,15 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 #endif
 }
 
-// Set up table for Ewald h (Fourier space) loop
+/// @brief Set up table for Ewald h (Fourier space) loop
 
-void TreePiece::EwaldInit()
+void DataManager::EwaldInit()
 {
-	int i,hReps,hx,hy,hz,h2;
+        int hReps,hx,hy,hz,h2;
 	double alpha,k4,L;
 	double gam[6],mfacc,mfacs;
 	double ax,ay,az;
 
-        CkAssert(bBucketsInited);
 #ifdef HEXADECAPOLE
 	/* convert to complete moments */
 	momRescaleFmomr(&(root->moments.mom),1.0f,root->moments.getRadius());
@@ -305,24 +305,13 @@ void TreePiece::EwaldInit()
 	L = fPeriod.x;
 	alpha = 2.0/L;
 	k4 = M_PI*M_PI/(alpha*alpha*L*L);
-	i = 0;
+        ewt.clear();
 	for (hx=-hReps;hx<=hReps;++hx) {
 		for (hy=-hReps;hy<=hReps;++hy) {
 			for (hz=-hReps;hz<=hReps;++hz) {
 				h2 = hx*hx + hy*hy + hz*hz;
 				if (h2 == 0) continue;
 				if (h2 > dEwhCut*dEwhCut) continue;
-				if (i == nMaxEwhLoop) {
-				    nMaxEwhLoop *= 2;
-				    /* avoid realloc() */
-				    EWT *ewtTmp = new EWT[nMaxEwhLoop];
-				    assert(ewtTmp != NULL);
-				    for(int j = 0; j < i; j++) {
-					ewtTmp[j] = ewt[j];
-					}
-				    delete[] ewt;
-				    ewt = ewtTmp;
-				    }
 				gam[0] = exp(-k4*h2)/(M_PI*h2*L);
 				gam[1] = 2*M_PI/L*gam[0];
 				gam[2] = -2*M_PI/L*gam[1];
@@ -363,20 +352,15 @@ void TreePiece::EwaldInit()
 				QEVAL(root->moments, gam,hx,hy,hz,
 				      ax,ay,az,mfacs);
 #endif
-				ewt[i].hx = 2*M_PI/L*hx;
-				ewt[i].hy = 2*M_PI/L*hy;
-				ewt[i].hz = 2*M_PI/L*hz;
-				ewt[i].hCfac = mfacc;
-				ewt[i].hSfac = mfacs;
-				++i;
+                                EWT ewtTmp;
+                                ewtTmp.hx = 2*M_PI/L*hx;
+                                ewtTmp.hy = 2*M_PI/L*hy;
+                                ewtTmp.hz = 2*M_PI/L*hz;
+                                ewtTmp.hCfac = mfacc;
+                                ewtTmp.hSfac = mfacs;
+                                ewt.push_back(ewtTmp);
 				}
 			}
 		}
-	nEwhLoop = i;
 
-	dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
-        // Make priority lower than gravity or smooth.
-	*((int *)CkPriorityPtr(msg)) = 3*numTreePieces * numChunks + thisIndex + 1;
-	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-	thisProxy[thisIndex].calculateEwald(msg);
 }

@@ -103,9 +103,6 @@ void TreePiece::setPeriodic(int nRepsPar, // Number of replicas in
     bPeriodic = bPeriodPar;
     bComove = bComovePar;
     dRhoFac = dRhoFacPar;
-    if(ewt == NULL) {
-	ewt = new EWT[nMaxEwhLoop];
-    }
 }
 
 // Scale velocities (needed to convert to canonical momenta for
@@ -4180,9 +4177,6 @@ void TreePiece::calculateGravityLocal() {
   doAllBuckets();
 }
 
-void TreePiece::ewaldCPU() {
-}
-
 /// @brief Start the ewald calculation on this TreePiece
 void TreePiece::calculateEwald(dummyMsg *msg) {
   if (bUseCpu)
@@ -5291,16 +5285,14 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
 #endif
   traceUserBracketEvent(START_PW, starttime, CmiWallTimer());
 
-  if (bEwald) EwaldInit();  // With the GPU consolidation, we lost the
-                            // interlock that ensured that the
-                            // EwaldInit() entry was called before
-                            // evaluating the Ewald forces.
-                            // So now it needs to be called
-                            // synchronously.
-                            // XXX - this is the same on all
-                            // TreePieces, so it should really be done
-                            // in the DataManager, perhaps at the end
-                            // of the tree build stage.
+  if (bEwald) {
+      dummyMsg *msg = new (8*sizeof(int)) dummyMsg;
+      // Make priority lower than gravity or smooth.
+      *((int *)CkPriorityPtr(msg)) = 3*numTreePieces * numChunks + thisIndex + 1;
+      CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+      thisProxy[thisIndex].calculateEwald(msg);
+  }
+
 #if defined CUDA
   // ask datamanager to serialize local trees
   // prefetch can occur concurrently with this, 
@@ -5833,10 +5825,6 @@ void TreePiece::pup(PUP::er& p) {
   p | bPeriodic;
   p | bComove;
   p | dRhoFac;
-  p | nMaxEwhLoop;
-  if (p.isUnpacking() && bEwald) {
-    ewt = new EWT[nMaxEwhLoop];
-  }
 
   p | numBuckets;
 #if INTERLIST_VER > 0

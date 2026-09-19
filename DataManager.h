@@ -36,6 +36,14 @@ struct TreePieceDescriptor{
 	}
 };
 
+/* IBM brain damage */
+#undef hz
+/// @brief Coefficients for the Fourier space part of the Ewald sum.
+typedef struct ewaldTable {
+  double hx,hy,hz;
+  double hCfac,hSfac;
+} EWT;
+
 #ifdef CUDA
 
 struct UpdateParticlesStruct{
@@ -152,7 +160,7 @@ protected:
         /// host buffer to transfer initial accelerations to GPU
         VariablePartData *bufLocalVars;
 
-        EwtData *ewt;
+        EwtData *ewtGPU;
         EwaldReadOnlyData *cachedData;
 
 	cudaStream_t stream; // For data transfers and local tree walk
@@ -336,6 +344,20 @@ public:
       else return NULL;
     }
     inline Tree::GenericTreeNode *getRoot() { return root; }
+
+    /// table for the Ewald h-loop
+    std::vector<EWT> ewt;
+#ifdef HEXADECAPOLE
+    MOMC momcRoot;		/* complete moments of root */
+#endif
+    /// Periodic size of box
+    Vector3D<cosmoType> fPeriod;
+    /// Limit of Ewald h-loop
+    double dEwhCut;
+    double fEwCut;
+    int nReplicas;
+    void EwaldInit();
+
     void initCooling(double dGmPerCcUnit, double dComovingGmPerCcUnit,
 		     double dErgPerGmUnit, double dSecUnit, double dKpcUnit,
 		     COOLPARAM inParam, const CkCallback& cb);

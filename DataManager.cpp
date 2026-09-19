@@ -266,6 +266,17 @@ void DataManager::combineLocalTrees(CkReductionMsg *msg) {
       }
     }
 
+    TreePiece *tp = registeredTreePieces[0].treePiece;
+    // Get periodic parameters into DataManager
+    // and build Ewald Table for use by all TPs on this node
+    if(tp->bEwald) {
+        fPeriod = tp->fPeriod;
+        dEwhCut = tp->dEwhCut;
+        fEwCut = tp->fEwCut;
+        nReplicas = tp->nReplicas;
+        EwaldInit();
+    }
+    
   }
   contribute(*(CkCallback*)msg->getData());
   delete msg;
@@ -507,7 +518,8 @@ void DataManager::serializeLocalTree(){
       CmiUnlock(__nodelock);
 }
 
-/// @brief Get the data produced by TreePiece::EwaldInit and launch the Ewald kernel on the GPU
+/// @brief Get the data produced by DataManager::EwaldInit and launch
+/// the Ewald kernel on the GPU
 void DataManager::startEwaldGPU() {
   // Early exit when no Ewald work to do: no particles on this node, or GPU
   // buffers were never allocated (e.g. no-local-parts run).
@@ -526,21 +538,7 @@ void DataManager::startEwaldGPU() {
     return;
   }
 
-  // Find a TreePiece with valid Ewald data (root, ewt, nEwhLoop from
-  // EwaldInit). registeredTreePieces[0] may be empty or lack Ewald data.
-  TreePiece *tp = NULL;
-  for (int i = 0; i < registeredTreePieces.length(); i++) {
-    TreePiece *candidate = registeredTreePieces[i].treePiece;
-    if (candidate->root != NULL && candidate->ewt != NULL && candidate->nEwhLoop > 0) {
-      tp = candidate;
-      break;
-    }
-  }
-  if (tp == NULL) {
-    CkAbort("DataManager::startEwaldGPU: no TreePiece with valid Ewald data (root, ewt, nEwhLoop)");
-  }
-
-  int nEwhLoop = tp->nEwhLoop;
+  int nEwhLoop = ewt.size();
   if (nEwhLoop > NEWH) {
     CkAbort("DataManager::startEwaldGPU: nEwhLoop (%d) exceeds NEWH (%d); increase NEWH in EwaldCUDA.h",
             nEwhLoop, NEWH);
@@ -548,56 +546,55 @@ void DataManager::startEwaldGPU() {
 
 #ifdef PINNED_HOST_MEMORY
   const char* funcTag = "DataManager::startEwaldGPU";
-  hostMalloc(&ewt, sizeof(EwtData)*NEWH, funcTag);
+  hostMalloc(&ewtGPU, sizeof(EwtData)*NEWH, funcTag);
   hostMalloc(&cachedData, sizeof(EwaldReadOnlyData), funcTag);
 #else
-  ewt = (EwtData *) malloc(sizeof(EwtData)*NEWH);
+  ewtGPU = (EwtData *) malloc(sizeof(EwtData)*NEWH);
   cachedData = (EwaldReadOnlyData *) malloc(sizeof(EwaldReadOnlyData));
 #endif
 
-  MultipoleMoments *mm = &tp->root->moments;
+  MultipoleMoments *mm = &root->moments;
   for (int i=0; i<nEwhLoop; i++) {
-    ewt[i].hx = (cudatype) tp->ewt[i].hx;
-    ewt[i].hy = (cudatype) tp->ewt[i].hy;
-    ewt[i].hz = (cudatype) tp->ewt[i].hz;
-    ewt[i].hCfac = (cudatype) tp->ewt[i].hCfac;
-    ewt[i].hSfac = (cudatype) tp->ewt[i].hSfac;
-    }
+      ewtGPU[i].hx = (cudatype) ewt[i].hx;
+      ewtGPU[i].hy = (cudatype) ewt[i].hy;
+      ewtGPU[i].hz = (cudatype) ewt[i].hz;
+      ewtGPU[i].hCfac = (cudatype) ewt[i].hCfac;
+      ewtGPU[i].hSfac = (cudatype) ewt[i].hSfac;
+  }
 
 #ifdef HEXADECAPOLE
-  MOMC *momcRoot = &tp->momcRoot;
-  cachedData->momcRoot.m    = (cudatype)     momcRoot->m;
-  cachedData->momcRoot.xx   = (cudatype)    momcRoot->xx;
-  cachedData->momcRoot.yy   = (cudatype)    momcRoot->yy;
-  cachedData->momcRoot.xy   = (cudatype)    momcRoot->xy;
-  cachedData->momcRoot.xz   = (cudatype)    momcRoot->xz;
-  cachedData->momcRoot.yz   = (cudatype)    momcRoot->yz;
-  cachedData->momcRoot.xxx  = (cudatype)   momcRoot->xxx;
-  cachedData->momcRoot.xyy  = (cudatype)   momcRoot->xyy;
-  cachedData->momcRoot.xxy  = (cudatype)   momcRoot->xxy;
-  cachedData->momcRoot.yyy  = (cudatype)   momcRoot->yyy;
-  cachedData->momcRoot.xxz  = (cudatype)   momcRoot->xxz;
-  cachedData->momcRoot.yyz  = (cudatype)   momcRoot->yyz;
-  cachedData->momcRoot.xyz  = (cudatype)   momcRoot->xyz;
-  cachedData->momcRoot.xxxx = (cudatype)  momcRoot->xxxx;
-  cachedData->momcRoot.xyyy = (cudatype)  momcRoot->xyyy;
-  cachedData->momcRoot.xxxy = (cudatype)  momcRoot->xxxy;
-  cachedData->momcRoot.yyyy = (cudatype)  momcRoot->yyyy;
-  cachedData->momcRoot.xxxz = (cudatype)  momcRoot->xxxz;
-  cachedData->momcRoot.yyyz = (cudatype)  momcRoot->yyyz;
-  cachedData->momcRoot.xxyy = (cudatype)  momcRoot->xxyy;
-  cachedData->momcRoot.xxyz = (cudatype)  momcRoot->xxyz;
-  cachedData->momcRoot.xyyz = (cudatype)  momcRoot->xyyz;
-  cachedData->momcRoot.zz   = (cudatype)    momcRoot->zz;
-  cachedData->momcRoot.xzz  = (cudatype)   momcRoot->xzz;
-  cachedData->momcRoot.yzz  = (cudatype)   momcRoot->yzz;
-  cachedData->momcRoot.zzz  = (cudatype)   momcRoot->zzz;
-  cachedData->momcRoot.xxzz = (cudatype)  momcRoot->xxzz;
-  cachedData->momcRoot.xyzz = (cudatype)  momcRoot->xyzz;
-  cachedData->momcRoot.xzzz = (cudatype)  momcRoot->xzzz;
-  cachedData->momcRoot.yyzz = (cudatype)  momcRoot->yyzz;
-  cachedData->momcRoot.yzzz = (cudatype)  momcRoot->yzzz;
-  cachedData->momcRoot.zzzz = (cudatype)  momcRoot->zzzz;
+  cachedData->momcRoot.m    = (cudatype)     momcRoot.m;
+  cachedData->momcRoot.xx   = (cudatype)    momcRoot.xx;
+  cachedData->momcRoot.yy   = (cudatype)    momcRoot.yy;
+  cachedData->momcRoot.xy   = (cudatype)    momcRoot.xy;
+  cachedData->momcRoot.xz   = (cudatype)    momcRoot.xz;
+  cachedData->momcRoot.yz   = (cudatype)    momcRoot.yz;
+  cachedData->momcRoot.xxx  = (cudatype)   momcRoot.xxx;
+  cachedData->momcRoot.xyy  = (cudatype)   momcRoot.xyy;
+  cachedData->momcRoot.xxy  = (cudatype)   momcRoot.xxy;
+  cachedData->momcRoot.yyy  = (cudatype)   momcRoot.yyy;
+  cachedData->momcRoot.xxz  = (cudatype)   momcRoot.xxz;
+  cachedData->momcRoot.yyz  = (cudatype)   momcRoot.yyz;
+  cachedData->momcRoot.xyz  = (cudatype)   momcRoot.xyz;
+  cachedData->momcRoot.xxxx = (cudatype)  momcRoot.xxxx;
+  cachedData->momcRoot.xyyy = (cudatype)  momcRoot.xyyy;
+  cachedData->momcRoot.xxxy = (cudatype)  momcRoot.xxxy;
+  cachedData->momcRoot.yyyy = (cudatype)  momcRoot.yyyy;
+  cachedData->momcRoot.xxxz = (cudatype)  momcRoot.xxxz;
+  cachedData->momcRoot.yyyz = (cudatype)  momcRoot.yyyz;
+  cachedData->momcRoot.xxyy = (cudatype)  momcRoot.xxyy;
+  cachedData->momcRoot.xxyz = (cudatype)  momcRoot.xxyz;
+  cachedData->momcRoot.xyyz = (cudatype)  momcRoot.xyyz;
+  cachedData->momcRoot.zz   = (cudatype)    momcRoot.zz;
+  cachedData->momcRoot.xzz  = (cudatype)   momcRoot.xzz;
+  cachedData->momcRoot.yzz  = (cudatype)   momcRoot.yzz;
+  cachedData->momcRoot.zzz  = (cudatype)   momcRoot.zzz;
+  cachedData->momcRoot.xxzz = (cudatype)  momcRoot.xxzz;
+  cachedData->momcRoot.xyzz = (cudatype)  momcRoot.xyzz;
+  cachedData->momcRoot.xzzz = (cudatype)  momcRoot.xzzz;
+  cachedData->momcRoot.yyzz = (cudatype)  momcRoot.yyzz;
+  cachedData->momcRoot.yzzz = (cudatype)  momcRoot.yzzz;
+  cachedData->momcRoot.zzzz = (cudatype)  momcRoot.zzzz;
 #else
   cachedData->mm.xx = (cudatype) mm->xx;
   cachedData->mm.xy = (cudatype) mm->xy;
@@ -606,16 +603,15 @@ void DataManager::startEwaldGPU() {
   cachedData->mm.yz = (cudatype) mm->yz;
   cachedData->mm.zz = (cudatype) mm->zz;
 #endif
-  cudatype L = tp->fPeriod.x;
+  cudatype L = fPeriod.x;
   cudatype alpha = 2.0f/L;
-  cudatype fEwCut = tp->fEwCut;
 
   cachedData->mm.totalMass = (cudatype) mm->totalMass;
   cachedData->mm.cmx = (cudatype) mm->cm.x;
   cachedData->mm.cmy = (cudatype) mm->cm.y;
   cachedData->mm.cmz = (cudatype) mm->cm.z;
   cachedData->fEwCut = (cudatype) fEwCut;
-  cachedData->nReps = tp->nReplicas;
+  cachedData->nReps = nReplicas;
   cachedData->nEwReps = (int) ceil(fEwCut);
   cachedData->nEwhLoop = nEwhLoop;
   cachedData->L = L;
@@ -638,7 +634,7 @@ void DataManager::startEwaldGPU() {
   ewaldCallback
     = new CkCallback(CkIndex_DataManager::finishEwaldGPU(), CkMyNode(), dMProxy);
 
-  DataManagerEwald(d_localParts, d_localVars, ewt, cachedData,
+  DataManagerEwald(d_localParts, d_localVars, ewtGPU, cachedData,
                    savedNumTotalParticles, stream, ewaldCallback);
 }
 
@@ -648,10 +644,10 @@ void DataManager::finishEwaldGPU() {
 
 #ifdef PINNED_HOST_MEMORY
   const char* funcTag = "DataManager::finishEwaldGPU";
-  hostFree(ewt, funcTag);
+  hostFree(ewtGPU, funcTag);
   hostFree(cachedData, funcTag);
 #else
-  free(ewt);
+  free(ewtGPU);
   free(cachedData);
 #endif
 

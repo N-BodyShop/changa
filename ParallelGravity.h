@@ -646,14 +646,6 @@ public:
         void restartNSIDM();
 };
 
-/* IBM brain damage */
-#undef hz
-/// @brief Coefficients for the Fourier space part of the Ewald sum.
-typedef struct ewaldTable {
-  double hx,hy,hz;
-  double hCfac,hSfac;
-} EWT;
-
 // jetley
 class MissRecord;
 class State;
@@ -1193,18 +1185,14 @@ private:
 	int bComove;
 	/// Background density of the Universe
 	double dRhoFac;
+public:
 	Vector3D<cosmoType> fPeriod;
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
 	double dEwhCut;
-	EWT *ewt;
-	int nMaxEwhLoop;
-	int nEwhLoop;
-#ifdef HEXADECAPOLE
-	MOMC momcRoot;		/* complete moments of root */
-#endif
 
+private:
 	int bGasCooling;
 #ifndef COOLING_NONE
 	clDerivsData *CoolData;
@@ -1449,9 +1437,6 @@ public:
 	  // temporarely set to -1, it will updated after the tree is built
 	  numChunks=-1;
 	  prefetchRoots = NULL;
-	  ewt = NULL;
-          nEwhLoop = 0;
-	  nMaxEwhLoop = 100;
 
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
@@ -1491,9 +1476,6 @@ public:
 	  nPartCacheEntries = 0;
 	  completedActiveWalks = 0;
 	  prefetchRoots = NULL;
-          ewt = NULL;
-          nEwhLoop = 0;
-          nMaxEwhLoop = 100;
 	  root = NULL;
 	  pTreeNodes = NULL;
 
@@ -1541,7 +1523,6 @@ public:
 	  delete[] nodeInterRemote;
 	  delete[] particleInterRemote;
 	  delete[] bucketReqs;
-          delete[] ewt;
 
 	  deleteTree();
 
@@ -1559,8 +1540,6 @@ public:
 			 double fEwCut, double fEwhCut, int bPeriod,
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
-	void EwaldInit();
-       void ewaldCPU();
        void calculateEwald(dummyMsg *msg);
        void calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num);
   void callBucketEwald(int id);
