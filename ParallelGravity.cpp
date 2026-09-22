@@ -3000,6 +3000,9 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	}
 	
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
+#ifdef CUDA
+        dMProxy.createStream(CkCallbackResumeThread());
+#endif
         if (bUseCkLoopPar) {
             CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
         } else {

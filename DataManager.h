@@ -425,6 +425,15 @@ class ProjectionsControl : public CBase_ProjectionsControl {
 #endif
   } 
   ProjectionsControl(CkMigrateMessage *m) : CBase_ProjectionsControl(m) {
+#ifdef CUDA
+    // GPUs are assigned to nodes in a round-robin fashion. This allows the user to define
+    // one virtual node per device and utilize multiple GPUs on a single node
+    // Because devices are assigned per-PE, this is a convenient place to call setDevice
+    // Note that this code has nothing to do with initializing projections
+    int numGpus;
+    cudaGetDeviceCount(&numGpus);
+    cudaSetDevice(CmiMyNode() % numGpus);
+#endif
     setBIconfig();
     LBTurnCommOff();
 #ifndef LB_MANAGER_VERSION
