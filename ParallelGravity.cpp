@@ -2625,15 +2625,15 @@ void Main::setupICs() {
       treeProxy.initRand(param.iRandomSeed, CkCallbackResumeThread());
   }
 
-  if(param.bStarForm) {
-      initStarLog();
-
 #ifdef CUDA
   if(param.bGpuMemLogger)
       initMemLog(); // Initialize GPU memory logging
   if(param.bCpuMemLogger)
       initCpuMemLog(); // Initialize CPU memory logging
 #endif
+
+  if(param.bStarForm) {
+      initStarLog();
       if(param.feedback->sn.bUseStoch)
         initHMStarLog();
   }
