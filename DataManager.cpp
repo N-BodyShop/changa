@@ -1150,7 +1150,7 @@ int maxDepth(int iNode, CkVec<CudaMultipoleMoments>& localMoments, int inDepth =
 #endif
 
 ///
-// @brief After all pieces have filled the buffer, initiate the transfer.
+/// @brief After all pieces have filled the buffer, initiate the transfer.
 /// @param numParticles total number of particles on this node
 ///
 void DataManager::transferLocalToGPU(int numParticles)
