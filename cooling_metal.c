@@ -932,7 +932,7 @@ void clRateMetalTable(COOL *cl, RATE *Rate, double T, double rho, double Y_H, do
   tempz = cl->z; 
 
   if (T >= cl->MetalTMax) tempT = cl->MetalTMax*(1.0-EPS);
-  if (T < cl->MetalTMin) tempT=cl->MetalTMin;
+  if (T < cl->MetalTMin) tempT=cl->MetalTMin*(1.0+EPS);
 
   if (nH >= cl->MetalnHMax) tempnH = cl->MetalnHMax*(1.0-EPS);
   if (nH < cl->MetalnHMin) tempnH = cl->MetalnHMin; 

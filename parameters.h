@@ -261,7 +261,9 @@ inline void operator|(PUP::er &p, Parameters &param) {
  	param.stfm = new Stfm();
     p|*param.stfm;
     p|param.bFeedback;
-    p|param.feedback;
+    if(p.isUnpacking())
+        param.feedback = new Fdbk();
+    p|*param.feedback;
     p|param.dThermalCondCoeff;
     p|param.dThermalCondSatCoeff;
     p|param.dThermalCond2Coeff;

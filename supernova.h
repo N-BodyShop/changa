@@ -35,6 +35,8 @@ class SN
     double AGORAsnE;            /* Energy (erg) to be released from a single SN */
     double AGORAsnPerMass;      /* Number of supernovae to set off per solar mass of star particle */
     double dESN;		/* how much energy comes from a supernova */
+    int bUseStoch;   /* use stochastic IMF */
+    double dStochCut;           /*  Mass boundary (in Msun) between the low-mass continuous IMF and the high-mass individually tracked stars */
     int iNSNIIQuantum;	/* minimum amount of supernovae */
     double dFracBinSNIa;	/* fraction of binary systems in mass
 				   range that go SNIa  (van den Bergh
@@ -70,6 +72,8 @@ class SN
 	dMOxexp = 2.721;
 	dMOxconst = 4.586e-4; 
 	dESN = 0.1e51;
+    bUseStoch = 0;  //Stochastically sample the IMF.
+    dStochCut= 8.0;
 	iNSNIIQuantum = 0;
 	dFracBinSNIa = 0.05; 	/* .05 is in line with chemical evolution
 				   models of the Milky Way (Francois
@@ -87,6 +91,8 @@ class SN
     friend double dMSIMFSec(const SN *sn, double dMass2);
     void pup(PUP::er& p) {
 	p|dESN;
+    p|bUseStoch;
+    p|dStochCut;
 	p|dMSNrem;
 	p|dMSNIImin;
 	p|dMSNIImax;

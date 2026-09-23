@@ -6,6 +6,7 @@
 #include "imf.h"
 #include "starlifetime.h"
 #include "rand.h"
+#include "lymanwerner.h"
 #define NFEEDBACKS 5
 
 /**
@@ -37,29 +38,35 @@ class SFEvent {
     double dMetals;           /*  metallicity of stars in event */
     double dMFracOxygen;           /*  metallicity of stars in event */
     double dMFracIron;           /*  metallicity of stars in event */
- SFEvent() : dMass(0), dTimeForm(0), dMetals(0), dMFracIron(0), dMFracOxygen(0) { }
- SFEvent(double mass, double tform, double mets, double fefrac, double oxfrac) : 
+    double dLowNorm;         /* normalization constant for low mass IMF */
+#ifdef STOCH24
+    double rgdHMStars[24];      /* high mass stars in stochastic IMF */
+    SFEvent(double mass, double tform, double mets, double fefrac, double oxfrac, double lownorm, double *hmstars) : 
+    dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac), dLowNorm(lownorm) {
+        for(int i=0;i<24;i++) rgdHMStars[i]=hmstars[i];
+        }
+#else
+    double rgdHMStars[12];      /* high mass stars in stochastic IMF */
+    SFEvent(double mass, double tform, double mets, double fefrac, double oxfrac, double lownorm, double *hmstars) : 
+    dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac), dLowNorm(lownorm) {
+        for(int i=0;i<12;i++) rgdHMStars[i]=hmstars[i];
+        }
+#endif
+
+    SFEvent() : dMass(0), dTimeForm(0), dMetals(0), dMFracIron(0), dMFracOxygen(0) { }
+    SFEvent(double mass, double tform, double mets, double fefrac, double oxfrac) : 
     dMass(mass), dTimeForm(tform), dMetals(mets), dMFracIron(fefrac), dMFracOxygen(oxfrac) { }
     };
 
 /// @brief Stellar/Supernova feedback parameters and routines.
-class Fdbk : public PUP::able {
- private:
-    Fdbk& operator=(const Fdbk& fb);
-    void CalcWindFeedback(SFEvent *sfEvent, double dTime, 
-                          double dDelta, FBEffects *fbEffects) const;
-    void CalcUVFeedback(SFEvent *sfEvent, double dTime, double dDelta,
-                        FBEffects *fbEffects) const;
-#ifdef COOLING_MOLECULARH
-    double CalcLWFeedback(SFEvent *sfEvent, double dTime, double dDelta) const;
-#endif /*COOLING_MOLECULARH*/
-
-    char achIMF[32];	        /* initial mass function */
+class Fdbk_Shallow {
+ protected:
     double dGmUnit;		/* system mass in grams */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dErgUnit;		/* system energy in ergs */
     Padova pdva;
  public:
+    char achIMF[32];	        /* initial mass function */
     mutable SN sn;
     double dDeltaStarForm;
     double dErgPerGmUnit;	/* system specific energy in ergs/gm */
@@ -82,64 +89,52 @@ class Fdbk : public PUP::able {
     double dMultiPhaseMinTemp;
     double dMultiPhaseMaxTime;
     double dEarlyETotal;  /* Total E in early FB per solar mass of stars */
-    IMF *imf;
+    };
 
+/// @ brief Derived class to handle the deep copy for the IMF pointer.
+/// N.B.  All attributes except imf need to be in Fdbk_Shallow.
+class Fdbk : public Fdbk_Shallow {
+private:
+    Fdbk& operator=(const Fdbk& fb); /* private to prevent use */
+    void CalcWindFeedback(SFEvent *sfEvent, double dTime, 
+                          double dDelta, FBEffects *fbEffects) const;
+    void CalcUVFeedback(SFEvent *sfEvent, double dTime, double dDelta,
+                        FBEffects *fbEffects) const;
+#ifdef COOLING_MOLECULARH
+    double CalcLWFeedback(SFEvent *sfEvent, double dTime, double dDelta, LWDATA *LWData) const;
+#endif /*COOLING_MOLECULARH*/
+
+public:
+    IMF *imf;
     void AddParams(PRM prm);
     void CheckParams(PRM prm, struct parameters &param);
     void NullFeedback() { imf = new Kroupa01(); } /* Place holder */
     void DoFeedback(GravityParticle *p, double dTime, double dDeltaYr, 
-                    FBEffects *fbTotals, Rand& rndGen) const;
+                    FBEffects *fbTotals, LWDATA *LWData, Rand& rndGen) const;
     double NSNIa (double dMassT1, double dMassT2);
-    Fdbk() { }
 
-    PUPable_decl(Fdbk);
+    Fdbk() { }
     Fdbk(const Fdbk& fb);
-    Fdbk(CkMigrateMessage *m) : PUP::able(m) {}
     ~Fdbk() {
 	delete imf;
 	}
     inline void pup(PUP::er &p);
-    };
+};
 
 //  "Deep copy" constructer is need because of imf pointer.
-inline Fdbk::Fdbk(const Fdbk& fb) {
-    strcpy(achIMF, fb.achIMF);
-    dDeltaStarForm = fb.dDeltaStarForm;
-    dErgPerGmUnit = fb.dErgPerGmUnit;
-    dGmUnit = fb.dGmUnit;
-    dGmPerCcUnit = fb.dGmPerCcUnit;
-    dErgUnit = fb.dErgUnit;
-    dSecUnit = fb.dSecUnit;
-    dMaxGasMass = fb.dMaxGasMass;
-#ifdef SPLITGAS
-    dInitGasMass = fb.dInitGasMass;
-#endif
-    bSNTurnOffCooling = fb.bSNTurnOffCooling;
-    bSmallSNSmooth = fb.bSmallSNSmooth;
-    bShortCoolShutoff = fb.bShortCoolShutoff;
-    bAGORAFeedback = fb.bAGORAFeedback;
-    dExtraCoolShutoff = fb.dExtraCoolShutoff;
-    dRadPreFactor = fb.dRadPreFactor;
-    dTimePreFactor = fb.dTimePreFactor;
-    nSmoothFeedback = fb.nSmoothFeedback;
-    dMaxCoolShutoff = fb.dMaxCoolShutoff;
-    dEarlyFeedbackFrac = fb.dEarlyFeedbackFrac;
-    dFBInitialMassLoad = fb.dFBInitialMassLoad;
-    dMultiPhaseMinTemp = fb.dMultiPhaseMinTemp;
-    dMultiPhaseMaxTime = fb.dMultiPhaseMaxTime;
-    dEarlyETotal = fb.dEarlyETotal;
-    sn = fb.sn;
-    pdva = fb.pdva;
+inline Fdbk::Fdbk(const Fdbk& fb) : Fdbk_Shallow(fb) {
     imf = fb.imf->clone();
 }
 
 inline void Fdbk::pup(PUP::er &p) {
-    p(achIMF, 32);
-    p | dDeltaStarForm;
-    p | dErgPerGmUnit;
     p | dGmUnit;
     p | dGmPerCcUnit;
     p | dErgUnit;
+    p | pdva;
+    p(achIMF, 32);
+    p | sn;
+    p | dDeltaStarForm;
+    p | dErgPerGmUnit;
     p | dSecUnit;
     p | dMaxGasMass;
 #ifdef SPLITGAS
@@ -159,8 +154,6 @@ inline void Fdbk::pup(PUP::er &p) {
     p | dMultiPhaseMinTemp;
     p | dMultiPhaseMaxTime;
     p | dEarlyETotal;
-    p | sn;
-    p | pdva;
     p | imf;
     }
 
@@ -273,7 +266,7 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
 	    a = 1.0;
 	    }
 	}
-    /*    ~DistStellarFeedbackSmoothParams() {
+        /*~DistStellarFeedbackSmoothParams() {
 	delete fb;
 	}*/
     PUPable_decl(DistStellarFeedbackSmoothParams);
@@ -289,5 +282,4 @@ class DistStellarFeedbackSmoothParams : public SmoothParams
     };
 
 #endif
-
     

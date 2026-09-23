@@ -4,6 +4,7 @@
 /** @brief basic random number generator
  *  This is implemented as an object so that it can easily be used in
  *  threads: one Rand instance per thread.
+ * See Press et al, Numerical Recipes, 3rd Edition, chapter 7.
  */
 class Rand 
 {
