@@ -3190,9 +3190,8 @@ Main::doSimulation()
     
     // Host pool diagnostics and maintenance
     if (param.bHostPoolDebug) {
-        char prefix[64];
-        sprintf(prefix, "[Step %d]", iStep);
-        hostPoolReportStats(prefix, param.dHostPoolTargetCapacityGB);
+        auto prefix = make_formatted_string("[Step %d]", iStep);
+        hostPoolReportStats(prefix.c_str(), param.dHostPoolTargetCapacityGB);
         
         // Periodic growth analysis every 10 steps
         if (iStep % 10 == 0) {
