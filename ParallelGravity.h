@@ -1732,6 +1732,7 @@ public:
    * @param cb callback.
    */
   void truncateRung(int iCurrMaxRung, const CkCallback& cb);
+  void SingleStep(int iCurrMaxRung, int iKickRung, const CkCallback &cb);
   void rungStats(const CkCallback& cb);
   void countActive(int activeRung, const CkCallback& cb);
   /// @brief count total number of particles of given type
