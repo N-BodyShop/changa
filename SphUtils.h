@@ -124,6 +124,14 @@ typedef struct PressSmoothUpdateStruct {
 //        #else
             #ifndef NODIFFUSIONTHERMAL /* compile-time flag */
                 double diffu;
+#ifdef HYPCOND
+                double diffuHypCond;
+                Vector3D<double> gradU1;
+                Vector3D<double> diffq;
+                Vector3D<double> gradQ1x;
+                Vector3D<double> gradQ1y;
+                Vector3D<double> gradQ1z;
+#endif
             #endif
 //        #endif //DIFFUSIONPRICE
         /* not implemented */
