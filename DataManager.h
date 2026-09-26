@@ -293,6 +293,17 @@ public:
 	    CmiDestroyLock(lockStarLog);
         CmiDestroyLock(lockHMStarLog);
 #ifdef CUDA
+        if(ewtGPU != nullptr) {
+#ifdef PINNED_HOST_MEMORY
+            const char* funcTag = "DataManager::finishEwaldGPU";
+            hostFree(ewtGPU, funcTag);
+            hostFree(cachedData, funcTag);
+#else
+            free(ewtGPU);
+            free(cachedData);
+#endif
+        }
+
 	    delete memLog;
 	    CmiDestroyLock(lockMemLog);
 #endif

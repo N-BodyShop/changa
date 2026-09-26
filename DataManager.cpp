@@ -60,6 +60,8 @@ void DataManager::init() {
   d_localVars = nullptr;
   d_remoteMoments = nullptr;
   d_remoteParts = nullptr;
+  ewtGPU = nullptr;
+  cachedData = nullptr;
   bLocalDataTransferred.store(false);
   bRemoteDataTransferred.store(false);
 #endif
@@ -544,14 +546,16 @@ void DataManager::startEwaldGPU() {
             nEwhLoop, NEWH);
   }
 
+  if(ewtGPU == nullptr) {
 #ifdef PINNED_HOST_MEMORY
-  const char* funcTag = "DataManager::startEwaldGPU";
-  hostMalloc(&ewtGPU, sizeof(EwtData)*NEWH, funcTag);
-  hostMalloc(&cachedData, sizeof(EwaldReadOnlyData), funcTag);
+      const char* funcTag = "DataManager::startEwaldGPU";
+      hostMalloc(&ewtGPU, sizeof(EwtData)*NEWH, funcTag);
+      hostMalloc(&cachedData, sizeof(EwaldReadOnlyData), funcTag);
 #else
-  ewtGPU = (EwtData *) malloc(sizeof(EwtData)*NEWH);
-  cachedData = (EwaldReadOnlyData *) malloc(sizeof(EwaldReadOnlyData));
+      ewtGPU = (EwtData *) malloc(sizeof(EwtData)*NEWH);
+      cachedData = (EwaldReadOnlyData *) malloc(sizeof(EwaldReadOnlyData));
 #endif
+  }
 
   MultipoleMoments *mm = &root->moments;
   for (int i=0; i<nEwhLoop; i++) {
@@ -641,15 +645,6 @@ void DataManager::startEwaldGPU() {
 /// @brief Callback from Ewald kernel launch on GPU
 void DataManager::finishEwaldGPU() {
   delete ewaldCallback;
-
-#ifdef PINNED_HOST_MEMORY
-  const char* funcTag = "DataManager::finishEwaldGPU";
-  hostFree(ewtGPU, funcTag);
-  hostFree(cachedData, funcTag);
-#else
-  free(ewtGPU);
-  free(cachedData);
-#endif
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
       if(registeredTreePieces[i].treePiece->getNumActiveParticles() > 0) {
