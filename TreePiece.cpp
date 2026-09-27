@@ -5356,7 +5356,7 @@ void TreePiece::initiatePrefetch(int chunk){
       for(int z = -nReplicas; z <= nReplicas; z++) {
         if (child == NULL) {
           nodeOwnership(prefetchRoots[chunk], first, last);
-          child = requestNode(dm->responsibleIndex[(first+last)>>1],
+          child = requestNode(NULL, -1, dm->responsibleIndex[(first+last)>>1],
               prefetchRoots[chunk], chunk,
               encodeOffset(0, x, y, z),
               prefetchAwi, (void *)0);
@@ -5569,7 +5569,8 @@ const GravityParticle *TreePiece::lookupParticles(int begin) {
   return &myParticles[begin];
 }
 
-GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
+GenericTreeNode* TreePiece::requestNode(GenericTreeNode *parent, int which,
+                       int remoteIndex, Tree::NodeKey key,
                        int chunk, int reqID, int awi, void *source) {
 
   CkAssert(remoteIndex < (int) numTreePieces);
@@ -5589,7 +5590,9 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
 
     CkCacheRequestorData<KeyType> request(thisElement, &EntryTypeGravityNode::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
-    GenericTreeNode *res = (GenericTreeNode *) cacheNode.ckLocalBranch()->requestData(key,remIdx,chunk,&gravityNodeEntry,request);
+    GenericTreeNode *res = (GenericTreeNode *) (parent != NULL
+        ? cacheNode.ckLocalBranch()->requestDataAt((Tree::BinaryTreeNode *)parent, which, key, remIdx, chunk, &gravityNodeEntry, request)
+        : cacheNode.ckLocalBranch()->requestData(key, remIdx, chunk, &gravityNodeEntry, request));
 
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_BUCKET_START_FIN
     if(source && !res){

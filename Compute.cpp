@@ -2275,7 +2275,7 @@ void ListCompute::addChildrenToCheckList(GenericTreeNode *node, int reqID, int c
     {
       Tree::NodeKey childKey = node->getChildKey(i);
       // child not in my tree, look in cache
-      child = tp->requestNode(node->remoteIndex, childKey, chunk, reqID, awi,
+      child = tp->requestNode(node, i, node->remoteIndex, childKey, chunk, reqID, awi,
                               computeEntity);
       if(!child)
       {
