@@ -171,7 +171,7 @@ extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
-extern CProxy_CkCacheManager<KeyType> cacheNode;
+extern CProxy_NodeCache cacheNode;
 
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;

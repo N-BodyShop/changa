@@ -78,7 +78,7 @@ CProxy_CkCacheManager<KeyType> cacheGravPart;
 /// @brief Proxy for the smooth particle cache group.
 CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 /// @brief Proxy for the tree node cache group.
-CProxy_CkCacheManager<KeyType> cacheNode;
+CProxy_NodeCache cacheNode;
 /// @brief Proxy for the DataManager
 CProxy_DataManager dMProxy;
 /// @brief Proxy for Managing IntraNode load balancing with ckloop.
@@ -1399,7 +1399,8 @@ Main::Main(CkArgMsg* m) {
 	// Smooth particles
 	cacheSmoothPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Nodes
-	cacheNode = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+	CkGroupID nodeCacheLocMgr = pieces.ckLocMgr()->getGroupID();
+	cacheNode = CProxy_NodeCache::ckNew(1, &nodeCacheLocMgr);
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
