@@ -3002,6 +3002,10 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	dMProxy.resetReadOnly(param, CkCallbackResumeThread());
 #ifdef CUDA
         dMProxy.createStream(CkCallbackResumeThread());
+        if(param.bGpuMemLogger)
+            initMemLog(); // Initialize GPU memory logging
+        if(param.bCpuMemLogger)
+            initCpuMemLog(); // Initialize CPU memory logging
 #endif
         if (bUseCkLoopPar) {
             CkPrintf("Using CkLoop %d\n", param.bUseCkLoopPar);
