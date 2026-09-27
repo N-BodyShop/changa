@@ -4406,8 +4406,15 @@ void Main::memoryStatsCache()
 
 void registerStatistics() {
 #if COSMO_STATS > 0
-  CkCacheStatistics::sum = CkReduction::addReducer(CkCacheStatistics::sumFn);
-  TreePieceStatistics::sum = CkReduction::addReducer(TreePieceStatistics::sumFn);
+  // initproc runs on every PE of a process, but the reducer table is
+  // process-wide and unlocked: register once per process, as
+  // registerReductions() does, or the PEs race and each process ends up
+  // with a different reducer index (a crash in the first reduction on
+  // SMP builds).
+  if (CkMyRank() == 0) {
+    CkCacheStatistics::sum = CkReduction::addReducer(CkCacheStatistics::sumFn);
+    TreePieceStatistics::sum = CkReduction::addReducer(TreePieceStatistics::sumFn);
+  }
 #endif
 #ifdef HPM_COUNTER
   hpmInit(1,"ChaNGa");
