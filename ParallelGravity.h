@@ -1912,7 +1912,10 @@ public:
   void finishNodeCache(const CkCallback& cb);
 
     /// @brief Retrieve the remote node, goes through the cache if present
-    GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey,
+    /// parent/which: the slot the walker read as empty (NULL parent =
+    /// look the key up from the root, for prefetch chunk roots).
+    GenericTreeNode* requestNode(GenericTreeNode *parent, int which,
+                                 int remoteIndex, Tree::NodeKey lookupKey,
                                  int chunk, int reqID, int awi, void *source);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
