@@ -381,17 +381,26 @@ public:
 
     GenericTreeNode* getChildren(int i) {
       CkAssert(i>=0 && i<2);
+#if CHANGA_SMPCACHE
       // A node-cache placeholder (type Invalid, see CkTreeCache.h) reads
       // as "no child": the walker then asks the cache for it.
       BinaryTreeNode *c = children[i];
       return (c != NULL && c->getType() == Invalid) ? NULL : c;
+#else
+      return children[i];
+#endif
     }
 
-    /// Child i as seen by a cache reply: placeholders and fetched
-    /// (Cached*) subtrees the node cache linked in are not ours to send.
+    /// Child i as seen by a cache reply: with the SMP node cache,
+    /// placeholders and fetched (Cached*) subtrees it linked in are not
+    /// ours to send.
     bool isPackableChild(int i) {
       BinaryTreeNode *c = children[i];
+#if CHANGA_SMPCACHE
       return c != NULL && c->getType() != Invalid && !c->isCached();
+#else
+      return c != NULL;
+#endif
     }
 
     void setChildren(int i, GenericTreeNode* node) {

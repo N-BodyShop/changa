@@ -3,8 +3,10 @@
 mainmodule ParallelGravity {
 
   extern module Reductions;
+#if CHANGA_SMPCACHE
   extern module CkCache;
   group CkTreeCacheManager<KeyType, GravityNodeTraits>;
+#endif
 
   include "keytype.h";
 

@@ -1399,8 +1399,12 @@ Main::Main(CkArgMsg* m) {
 	// Smooth particles
 	cacheSmoothPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Nodes
+#if CHANGA_SMPCACHE
 	CkGroupID nodeCacheLocMgr = pieces.ckLocMgr()->getGroupID();
 	cacheNode = CProxy_NodeCache::ckNew(1, &nodeCacheLocMgr);
+#else
+	cacheNode = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+#endif
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
