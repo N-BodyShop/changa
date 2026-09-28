@@ -928,29 +928,13 @@ class TreePiece : public CBase_TreePiece {
         // in the list of interations to the sent to the gpu, we flush
         // the list
         int numActiveBuckets; 
-        // First and Last indices of GPU particle
-        int FirstGPUParticleIndex;
-        int LastGPUParticleIndex;
-        int NumberOfGPUParticles;
         /// Specifies that the Treepiece has filled the buffer with
         /// particle data to be sent to the GPU.  This implies that
         /// this TreePiece's buckets now know where their particles
         /// are in the GPU particle array.
         int bGPUBufferFilled;
-        BucketActiveInfo *bucketActiveInfo;
 
 	int getParentPE() { return CkMyPe(); }
-
-	// For accessing GPU memory
-	CudaMultipoleMoments *d_localMoments;
-        CudaMultipoleMoments *d_remoteMoments;
-        CompactPartData *d_localParts;
-	CompactPartData *d_remoteParts;
-        VariablePartData *d_localVars;
-        size_t sMoments;
-        size_t sCompactParts;
-        size_t sVarParts;
-	cudaStream_t stream;
 
         int getNumBuckets(){
         	return numBuckets;
@@ -965,8 +949,6 @@ class TreePiece : public CBase_TreePiece {
         }
 
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
-          NumberOfGPUParticles = 0;
-          FirstGPUParticleIndex = fillIndex;//This is for the GPU Ewald
 	  for(int b = 0; b < numBuckets; b++){
 	    GenericTreeNode *bucket = bucketList[b];
 	    int buckstart = bucket->firstParticle;
@@ -978,17 +960,6 @@ class TreePiece : public CBase_TreePiece {
 	      fillIndex++;
 	    }
 	  }
-          //This is for the GPU Ewald
-          if(FirstGPUParticleIndex == fillIndex){
-            //This means no particle is on GPU
-            FirstGPUParticleIndex = -1;
-            LastGPUParticleIndex = -1;
-            NumberOfGPUParticles = 0;
-          }
-          else{
-            LastGPUParticleIndex = fillIndex - 1;
-            NumberOfGPUParticles = LastGPUParticleIndex - FirstGPUParticleIndex + 1;
-          }
         }
 
         bool isActive(int partNum){

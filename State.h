@@ -89,23 +89,7 @@ class GenericList{
 	CkAssert(bucketStart >= 0);
   }
 
-  void getActiveBucketParameters(TreePiece *tp, 
-                           int bucket, 
-                           int &bucketStart, int &bucketSize){
-                           //std::map<NodeKey, int>&lpref){
-	// bucket is listed in this offload
-	GenericTreeNode *bucketNode = tp->bucketList[bucket];
-        BucketActiveInfo *binfo = &(tp->bucketActiveInfo[bucket]);
-
-	//bucketSize = bucketNode->lastParticle - bucketNode->firstParticle + 1;
-        //bucketStart = bucketNode->bucketArrayIndex;
-        bucketSize = tp->bucketActiveInfo[bucket].size;
-        bucketStart = tp->bucketActiveInfo[bucket].start;
-	CkAssert(bucketStart >= 0);
-  }
-
   void push_back(int b, T &ilc, DoubleWalkState *state, TreePiece *tp);
-  
 
 };
 

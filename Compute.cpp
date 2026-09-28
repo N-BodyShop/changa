@@ -1830,8 +1830,6 @@ void ListCompute::sendNodeInteractionsToGpu(DoubleWalkState *state,
   data->remote = (getOptType() == Remote);
   data->missedNodes = NULL;
   data->missedParts = NULL;
-  
-  data->stream = tp->stream;
 
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS
   CkPrintf("*************\n");
@@ -1916,8 +1914,6 @@ void ListCompute::sendPartInteractionsToGpu(DoubleWalkState *state,
   data->remote = (getOptType() == Remote);
   data->missedNodes = NULL;
   data->missedParts = NULL;
-
-  data->stream = tp->stream;
 
 #ifdef CUDA_PRINT_TRANSFERRED_INTERACTIONS
   CkPrintf("*************\n");
