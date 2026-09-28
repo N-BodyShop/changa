@@ -157,8 +157,6 @@ protected:
         CudaMultipoleMoments *bufLocalMoments;
         /// host buffer to transfer local particles to GPU
         CompactPartData *bufLocalParts;
-        /// host buffer to transfer initial accelerations to GPU
-        VariablePartData *bufLocalVars;
 
         EwtData *ewtGPU;
         EwaldReadOnlyData *cachedData;
@@ -237,7 +235,6 @@ public:
 	CudaMultipoleMoments* getLocalMoments() { return localMoments.getVec(); }
 	CudaMultipoleMoments* getBufLocalMoments() { return bufLocalMoments; }
 	CompactPartData* getBufLocalParts() { return bufLocalParts; }
-	VariablePartData* getBufLocalVars() { return bufLocalVars; }
 #endif
 
 	DataManager(const CkArrayID& treePieceID);

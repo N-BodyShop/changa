@@ -668,11 +668,9 @@ void DataManager::finishLocalWalk() {
   const char* funcTag = "DataManager::finishLocalWalk";
   hostFree(bufLocalMoments, funcTag);
   hostFree(bufLocalParts, funcTag);
-  hostFree(bufLocalVars, funcTag);
 #else
   free(bufLocalMoments);
   free(bufLocalParts);
-  free(bufLocalVars);
 #endif
 
   for(int i = 0; i < registeredTreePieces.length(); i++){
@@ -1215,18 +1213,9 @@ void DataManager::transferLocalToGPU(int numParticles)
   traceUserBracketEvent(SER_LOCAL_MEMCPY, starttime, CmiWallTimer());
 #endif
 
-  /// XXX bufLocalVars is not needed! Memory is initialized on the device.
-#ifdef PINNED_HOST_MEMORY
-  // Bypass pool for large local tree buffers (but log analytics)
-  const char* funcTag = "DataManager::transferLocalToGPU";
-  hostMalloc(&bufLocalVars, sLocalVars, funcTag);
-#else
-  bufLocalVars = (VariablePartData *) malloc(sLocalVars);
-#endif
-
   // Transfer moments and particle cores to gpu
   DataManagerTransferLocalTree(bufLocalMoments, sLocalMoments, bufLocalParts,
-                               sLocalParts, bufLocalVars, sLocalVars,
+                               sLocalParts, sLocalVars,
 			       (void **)&d_localMoments, (void **)&d_localParts, (void **)&d_localVars,
 			       stream, numParticles,
                                localTransferCallback);

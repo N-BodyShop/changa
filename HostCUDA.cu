@@ -86,7 +86,6 @@ void freePinnedHostMemory(void *ptr){
 /// @param sMoments Size of moments array
 /// @param compactParts Array of particles
 /// @param sCompactParts Size of particle array
-/// @param varParts Zeroed-out particle acceleration fields
 /// @param sVarParts Size of acceleration array
 /// @param d_localMoments Uninitalized pointer to moments on GPU
 /// @param d_compactParts Uninitalized pointer to particles on GPU
@@ -95,7 +94,7 @@ void freePinnedHostMemory(void *ptr){
 /// @param numParticles Total number of particle accelerations to initalize
 void DataManagerTransferLocalTree(void *moments, size_t sMoments,
                                   void *compactParts, size_t sCompactParts,
-                                  void *varParts, size_t sVarParts,
+                                  size_t sVarParts,
 				  void **d_localMoments, void **d_compactParts, void **d_varParts,
 				  cudaStream_t stream, int numParticles,
                                   void *callback) {
@@ -120,10 +119,10 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
 
   cudaChk(cudaMemcpyAsync(*d_localMoments, moments, sMoments, cudaMemcpyHostToDevice, stream));
   cudaChk(cudaMemcpyAsync(*d_compactParts, compactParts, sCompactParts, cudaMemcpyHostToDevice, stream));
-  cudaChk(cudaMemcpyAsync(*d_varParts, varParts, sVarParts, cudaMemcpyHostToDevice, stream));
 
 #ifndef CUDA_NO_KERNELS
-  ZeroVars<<<numParticles / THREADS_PER_BLOCK + 1, dim3(THREADS_PER_BLOCK), 0, stream>>>(
+  int numBlocks = (numParticles + (THREADS_PER_BLOCK - 1)) / THREADS_PER_BLOCK;
+  ZeroVars<<<numBlocks, dim3(THREADS_PER_BLOCK), 0, stream>>>(
       (VariablePartData *) *d_varParts,
       numParticles);
 #endif
