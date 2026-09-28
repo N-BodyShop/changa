@@ -8,8 +8,10 @@
  */
 
 #include <CkCache.h>
+#if CHANGA_SMPCACHE
 #include <CkTreeCache.h>
 #include <atomic>
+#endif
 #include "config.h"
 #include "gravity.h"
 #include "GenericTreeNode.h"
@@ -110,6 +112,7 @@ public:
   static void callback(CkArrayID, CkArrayIndexMax&, KeyType, CkCacheUserData &, void*, int);
 };
 
+#if CHANGA_SMPCACHE
 /*********************************************************
  * Process-shared node cache (CkTreeCacheManager, charm ck-libs/cache)
  *********************************************************/
@@ -165,6 +168,10 @@ struct GravityNodeTraits {
 };
 
 typedef CProxy_CkTreeCacheManager<KeyType, GravityNodeTraits> CProxy_NodeCache;
+#else
+/// The node cache: charm's per-PE CkCacheManager (configure --enable-smpcache=no).
+typedef CProxy_CkCacheManager<KeyType> CProxy_NodeCache;
+#endif
 
 #endif
 

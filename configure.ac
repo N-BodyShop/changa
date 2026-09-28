@@ -167,6 +167,29 @@ ARG_ENABLE([collision], [collision detection], [FLAG_COLLISION], [-DCOLLISION], 
 # 128 bit keys:
 ARG_ENABLE([bigkeys], [128 bit hash keys], [FLAG_BIGKEYS], [-DBIGKEYS], [no])
 
+# Tree-node cache: charm's process-shared CkTreeCacheManager (SMP node
+# cache) or the per-PE CkCacheManager. Default: the SMP cache when this
+# charm build provides CkTreeCache.h.
+AC_ARG_ENABLE([smpcache], [AS_HELP_STRING([--enable-smpcache],
+	[process-shared SMP tree-node cache (charm CkTreeCacheManager); default yes if the charm build has CkTreeCache.h])],
+	[case "$enableval" in
+		  yes | no ) smpcache=$enableval;;
+		  *) AC_MSG_ERROR([invalid argument for '--enable-smpcache': $enableval]);;
+	 esac],
+	[if test -f "$CHARMINC/CkTreeCache.h"; then smpcache=yes; else
+	   smpcache=no
+	   AC_MSG_NOTICE([$CHARMINC/CkTreeCache.h not found: tree nodes use CkCacheManager (--enable-smpcache=no)])
+	 fi])
+if test x$smpcache = xyes; then
+	if test ! -f "$CHARMINC/CkTreeCache.h"; then
+		AC_MSG_ERROR([--enable-smpcache=yes needs $CHARMINC/CkTreeCache.h (charm branch with CkTreeCacheManager)])
+	fi
+	FLAG_SMPCACHE=-DCHANGA_SMPCACHE=1
+else
+	FLAG_SMPCACHE=""
+fi
+AC_SUBST([FLAG_SMPCACHE])
+
 # DTADJUST
 ARG_ENABLE([dtadjust], [emergency timestep adjust], [FLAG_DTADJUST], [-DDTADJUST], [yes])
 
@@ -384,7 +407,7 @@ echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
-echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS smpcache=$smpcache sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
 

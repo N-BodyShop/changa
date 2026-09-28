@@ -115,8 +115,8 @@ void TopDownTreeWalk::dft(GenericTreeNode *node, State *state, int chunk, int re
           CkPrintf("%s%ld SM\n", s.c_str(), node->getChildKey(i));
         }
 #endif
-        child = ownerTP->requestNode(node, i, node->remoteIndex, globalKey, chunk,
-                                     reqID, awi, comp->getComputeEntity());
+        child = ownerTP->requestNode(node->remoteIndex, globalKey, chunk,
+                                     reqID, awi, comp->getComputeEntity(), node, i);
         if(child == NULL){     // missed in cache, skip node for now
 #if CHANGA_REFACTOR_DEBUG > 2
           CkPrintf("[%d]: child not found in cache\n", ownerTP->getIndex());
@@ -180,8 +180,8 @@ void TopDownTreeWalk::bft(GenericTreeNode *node, State *state, int chunk, int re
         // check whether child is NULL and get from cache if necessary/possible
         if(child == NULL){
           // needed to descend, but couldn't because node wasn't available
-          child = ownerTP->requestNode(node, i, node->remoteIndex, globalKey, chunk,
-                                       reqID, awi, comp->getComputeEntity());
+          child = ownerTP->requestNode(node->remoteIndex, globalKey, chunk,
+                                       reqID, awi, comp->getComputeEntity(), node, i);
           if(child == NULL){     // missed in cache, skip node for now
             comp->nodeMissedEvent(reqID, chunk, state, ownerTP);
             continue;
@@ -247,9 +247,9 @@ void BottomUpTreeWalk::walk(GenericTreeNode *startNode, State *state,
 		if(child == NULL){
 		    // needed to descend, but couldn't because node
 		    // wasn't available
-                    child = ownerTP->requestNode(node, i, node->remoteIndex,
+                    child = ownerTP->requestNode(node->remoteIndex,
                                                  currentGlobalKey, chunk,
-                                                 reqID, awi, comp->getComputeEntity());
+                                                 reqID, awi, comp->getComputeEntity(), node, i);
 		    if(child == NULL){   // missed in cache, skip node for now
 			comp->nodeMissedEvent(reqID, chunk, state, ownerTP);
 			continue;
