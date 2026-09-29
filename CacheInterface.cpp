@@ -339,9 +339,9 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg<KeyType> *msg) {
 
 EntryTypeGravityNode::EntryTypeGravityNode() {
   BinaryTreeNode node;
-  // save the virtual function table.
-  // Note that this is compiler dependent; also note that it is unused
-  // at the moment -- see unpackSingle() below.
+  // save the virtual function table pointer; unpackSingle() below
+  // writes it into every node received from another process.
+  // Note that this is compiler dependent.
   memcpy((void *)&vptr, (void *)&node, sizeof(void*));
 }
 
@@ -380,11 +380,13 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg<KeyType> *msg, Tree::Bina
 
   *(CkCacheFillMsg<KeyType> **) (((char*)node)-PAD_reply) = msg;
 
-  // Overwrite virtual pointer table.  Something like this will be
-  // needed for heterogeneous architectures.  Commented out for now
-  // since it breaks on the PGI compiler.
+  // Restore the virtual function table pointer: the nodes arrive as raw
+  // bytes from another process, and where processes map the executable
+  // at different addresses (position-independent executables under
+  // address-space randomization, e.g. macOS) the sender's pointer is not
+  // valid here. Harmless where the addresses agree.
 
-  // memcpy(node, &vptr, sizeof(void*));
+  memcpy(node, &vptr, sizeof(void*));
 
   if (!isRoot) CmiReference(UsrToEnv(msg));
   for (int i=0; i < 2; ++i) {
