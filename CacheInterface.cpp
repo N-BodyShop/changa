@@ -339,9 +339,9 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg<KeyType> *msg) {
 
 EntryTypeGravityNode::EntryTypeGravityNode() {
   BinaryTreeNode node;
-  // save the virtual function table.
-  // Note that this is compiler dependent; also note that it is unused
-  // at the moment -- see unpackSingle() below.
+  // save the virtual function table pointer; unpackSingle() below
+  // writes it into every node received from another process.
+  // Note that this is compiler dependent.
   memcpy((void *)&vptr, (void *)&node, sizeof(void*));
 }
 
