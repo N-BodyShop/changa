@@ -339,9 +339,9 @@ void TreePiece::flushSmoothParticles(CkCacheFillMsg<KeyType> *msg) {
 
 EntryTypeGravityNode::EntryTypeGravityNode() {
   BinaryTreeNode node;
-  // save the virtual function table.
-  // Note that this is compiler dependent; also note that it is unused
-  // at the moment -- see unpackSingle() below.
+  // save the virtual function table pointer; the unpack methods below
+  // writes it into every node received from another process.
+  // Note that this is compiler dependent.
   memcpy((void *)&vptr, (void *)&node, sizeof(void*));
 }
 
@@ -358,6 +358,12 @@ void * EntryTypeGravityNode::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, CkA
   // recreate the entire tree inside this message
   Tree::BinaryTreeNode *node = (Tree::BinaryTreeNode *) (((char*)msg->data) + PAD_reply);
   node->unpackNodes();
+#if CHANGA_SMPCACHE
+  // Retype the nodes of this message; linking them into the process-shared
+  // tree (parent, cut children, publication) is CkTreeCacheManager's job,
+  // and it frees the message once per line, so no per-node references.
+  unpackSingle(msg, node, chunk, from, true);
+#else
   // recursively add all the nodes in this message to the cache
   // and link the leaves of this message to nodes in the cache (if present)
   unpackSingle(msg, node, chunk, from, true);
@@ -369,6 +375,7 @@ void * EntryTypeGravityNode::unpack(CkCacheFillMsg<KeyType> *msg, int chunk, CkA
     node->parent = parent;
     parent->setChildren(parent->whichChild(node->getKey()), node);
   }
+#endif
 
   return (void *) node;
 }
@@ -380,16 +387,21 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg<KeyType> *msg, Tree::Bina
 
   *(CkCacheFillMsg<KeyType> **) (((char*)node)-PAD_reply) = msg;
 
-  // Overwrite virtual pointer table.  Something like this will be
-  // needed for heterogeneous architectures.  Commented out for now
-  // since it breaks on the PGI compiler.
+  // Restore the virtual function table pointer: the nodes arrive as raw
+  // bytes from another process, and where processes map the executable
+  // at different addresses (position-independent executables under
+  // address-space randomization, e.g. macOS) the sender's pointer is not
+  // valid here. Harmless where the addresses agree.
 
-  // memcpy(node, &vptr, sizeof(void*));
+  memcpy(node, &vptr, sizeof(void*));
 
+#if !CHANGA_SMPCACHE
   if (!isRoot) CmiReference(UsrToEnv(msg));
+#endif
   for (int i=0; i < 2; ++i) {
     if (node->children[i] != NULL) {
       unpackSingle(msg, node->children[i], chunk, from, false);
+#if !CHANGA_SMPCACHE
     } else {
       KeyType ckey = node->getChildKey(i);
       Tree::BinaryTreeNode *child = (Tree::BinaryTreeNode *) cacheNode.ckLocalBranch()->requestDataNoFetch(ckey, chunk);
@@ -397,6 +409,7 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg<KeyType> *msg, Tree::Bina
         child->parent = node;
         node->setChildren(node->whichChild(child->getKey()), child);
       }
+#endif
     }
   }
   switch (node->getType()) {
@@ -412,9 +425,17 @@ void EntryTypeGravityNode::unpackSingle(CkCacheFillMsg<KeyType> *msg, Tree::Bina
   default:
     node->setType(Tree::Cached);
   }
+#if CHANGA_SMPCACHE
+}
+
+Tree::BinaryTreeNode *GravityNodeTraits::root() {
+  return (Tree::BinaryTreeNode *) dMProxy.ckLocalBranch()->getRoot();
+}
+#else
   KeyType ckey(node->getKey());
   if (!isRoot) cacheNode.ckLocalBranch()->recvData(ckey, from, (EntryTypeGravityNode*)this, chunk, (void*)node);
 }
+#endif
 
 void EntryTypeGravityNode::writeback(CkArrayIndexMax& idx, KeyType k, void *data) { }
 

@@ -3,6 +3,10 @@
 mainmodule ParallelGravity {
 
   extern module Reductions;
+#if CHANGA_SMPCACHE
+  extern module CkCache;
+  group CkTreeCacheManager<KeyType, GravityNodeTraits>;
+#endif
 
   include "keytype.h";
 
@@ -17,7 +21,7 @@ mainmodule ParallelGravity {
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
   readonly CProxy_TreePiece streamingProxy;
-  readonly CProxy_CkCacheManager<KeyType> cacheNode;
+  readonly CProxy_NodeCache cacheNode;
   readonly CProxy_CkCacheManager<KeyType> cacheGravPart;
   readonly CProxy_CkCacheManager<KeyType> cacheSmoothPart;
   readonly CProxy_DataManager dMProxy;

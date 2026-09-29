@@ -171,7 +171,7 @@ extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
-extern CProxy_CkCacheManager<KeyType> cacheNode;
+extern CProxy_NodeCache cacheNode;
 
 /// The group ID of your DataManager.  You must set this!
 extern CkGroupID dataManagerID;
@@ -1912,8 +1912,12 @@ public:
   void finishNodeCache(const CkCallback& cb);
 
     /// @brief Retrieve the remote node, goes through the cache if present
+    /// parent/which: the slot the walker read as empty; the SMP node
+    /// cache starts there (NULL: look the key up from the root, as for
+    /// prefetch chunk roots). CkCacheManager ignores them.
     GenericTreeNode* requestNode(int remoteIndex, Tree::NodeKey lookupKey,
-                                 int chunk, int reqID, int awi, void *source);
+                                 int chunk, int reqID, int awi, void *source,
+                                 GenericTreeNode *parent = NULL, int which = -1);
 	/// @brief Receive a request for Nodes from a remote processor, copy the
 	/// data into it, and send back a message.
 	void fillRequestNode(CkCacheRequestMsg<KeyType> *msg);

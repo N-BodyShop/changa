@@ -78,7 +78,7 @@ CProxy_CkCacheManager<KeyType> cacheGravPart;
 /// @brief Proxy for the smooth particle cache group.
 CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 /// @brief Proxy for the tree node cache group.
-CProxy_CkCacheManager<KeyType> cacheNode;
+CProxy_NodeCache cacheNode;
 /// @brief Proxy for the DataManager
 CProxy_DataManager dMProxy;
 /// @brief Proxy for Managing IntraNode load balancing with ckloop.
@@ -1399,7 +1399,12 @@ Main::Main(CkArgMsg* m) {
 	// Smooth particles
 	cacheSmoothPart = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
 	// Nodes
+#if CHANGA_SMPCACHE
+	CkGroupID nodeCacheLocMgr = pieces.ckLocMgr()->getGroupID();
+	cacheNode = CProxy_NodeCache::ckNew(1, &nodeCacheLocMgr);
+#else
 	cacheNode = CProxy_CkCacheManager<KeyType>::ckNew(cacheSize, pieces.ckLocMgr()->getGroupID());
+#endif
 
 	//create the DataManager
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
@@ -4405,8 +4410,15 @@ void Main::memoryStatsCache()
 
 void registerStatistics() {
 #if COSMO_STATS > 0
-  CkCacheStatistics::sum = CkReduction::addReducer(CkCacheStatistics::sumFn);
-  TreePieceStatistics::sum = CkReduction::addReducer(TreePieceStatistics::sumFn);
+  // initproc runs on every PE of a process, but the reducer table is
+  // process-wide and unlocked: register once per process, as
+  // registerReductions() does, or the PEs race and each process ends up
+  // with a different reducer index (a crash in the first reduction on
+  // SMP builds).
+  if (CkMyRank() == 0) {
+    CkCacheStatistics::sum = CkReduction::addReducer(CkCacheStatistics::sumFn);
+    TreePieceStatistics::sum = CkReduction::addReducer(TreePieceStatistics::sumFn);
+  }
 #endif
 #ifdef HPM_COUNTER
   hpmInit(1,"ChaNGa");
