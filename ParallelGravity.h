@@ -1525,7 +1525,7 @@ public:
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
        void calculateEwald(dummyMsg *msg);
-       void calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num);
+       void calculateEwaldUsingCkLoop(int yield_num);
   void callBucketEwald(int id);
   void doParallelNextBucketWork(int id, LoopParData* lpdata);
 	void initCoolingData(const CkCallback& cb);

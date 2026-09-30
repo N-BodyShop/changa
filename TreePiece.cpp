@@ -4199,7 +4199,7 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
       // This value was chosen to be32*Nodesize so that we have enough buckets for
       // all the PEs in the node and also giving some extra for load balance.
       yield_num = 3 * CkMyNodeSize();
-      calculateEwaldUsingCkLoop(msg, yield_num);
+      calculateEwaldUsingCkLoop(yield_num);
     }
 
     unsigned int i=0;
@@ -4246,7 +4246,7 @@ void doCalcEwald(int start, int end, void *result, int pnum, void * param) {
   *(double *)result = tend - tstart;
 }
 
-void TreePiece::calculateEwaldUsingCkLoop(dummyMsg *msg, int yield_num) {
+void TreePiece::calculateEwaldUsingCkLoop(int yield_num) {
   unsigned int i=0;
   LoopParData* lpdata = new LoopParData();
   lpdata->tp = this;
