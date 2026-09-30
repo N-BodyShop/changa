@@ -35,6 +35,11 @@ typedef struct parameters {
     int iMaxRung;
 #ifdef CUDA
     int nGpuMinParts;
+    int bGpuMemLogger;
+    int bCpuMemLogger;
+    double dHostPoolTargetCapacityGB;
+    int nHostPoolMinCapacityPerBucketMB;
+    int bHostPoolDebug;
 #endif
     int bCannonical;
     int bKDK;
@@ -189,6 +194,11 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.nTruncateRung;
 #ifdef CUDA
     p|param.nGpuMinParts;
+    p|param.bGpuMemLogger;
+    p|param.bCpuMemLogger;
+    p|param.dHostPoolTargetCapacityGB;
+    p|param.nHostPoolMinCapacityPerBucketMB;
+    p|param.bHostPoolDebug;
 #endif
     p|param.iMaxRung;
     p|param.bCannonical;

@@ -3,8 +3,7 @@
 
 #include "HostCUDA.h"
 
-#define NEWH 80
-#define BLOCK_SIZE 128
+#define NEWH 400
 
 /** @brief Data for the Ewald h loop in the CUDA kernel
  */
@@ -42,26 +41,18 @@ typedef struct {
   MultipoleMomentsData mm; 
   MomcData momcRoot;
   
-  int n, nReps, nEwReps, nEwhLoop;
+  int nReps, nEwReps, nEwhLoop;
   cudatype L, fEwCut, alpha, alpha2, k1, ka, fEwCut2, fInner2;
 
 } EwaldReadOnlyData; 
 
 /// @brief structure to hold information specific to GPU Ewald
 typedef struct {
-  int EwaldRange[2];            /**< First and last particle on the
-                                 * GPU; only used for small phase  */
-  int *EwaldMarkers;            /**< indices of active particles  */
   EwtData *ewt;                 /**< h-loop table  */
   EwaldReadOnlyData *cachedData; /**< Root moment and other Ewald parameters  */
 } EwaldData; 
 
-void EwaldHostMemorySetup(EwaldData *h_idata, int size, int nEwhLoop, int largephase); 
-void EwaldHostMemoryFree(EwaldData *h_idata, int largephase); 
-void EwaldHost(CompactPartData *d_localParts, VariablePartData *d_localVars,
-               EwaldData *h_idata, cudaStream_t stream, void *cb, int myIndex, int largephase);
-
-__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int *markers, int largephase, int First, int Last);
+__global__ void EwaldKernel(CompactPartData *particleCores, VariablePartData *particleVars, int nParts);
 
 #endif
 
