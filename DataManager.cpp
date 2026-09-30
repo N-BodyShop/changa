@@ -43,6 +43,7 @@ void DataManager::init() {
 
   treePiecesDone = 0;
   treePiecesDonePrefetch = 0;
+  bEwaldDone = false;
   PEsWantParticlesBack = 0;
   treePiecesParticlesUpdated = 0;
   memLog = new MemLog();
@@ -652,6 +653,7 @@ void DataManager::finishEwaldGPU() {
           treePieces[in].cudaFinishAllBuckets(1);
       }
   }
+  transferParticleVarsBack(true);
 }
 
 
@@ -683,6 +685,9 @@ void DataManager::finishLocalWalk() {
 
   if (registeredTreePieces[0].treePiece->bEwald) {
     startEwaldGPU();
+  }
+  else {
+      transferParticleVarsBack(true);
   }
 }
 
@@ -1276,11 +1281,17 @@ void updateParticlesCallback(void *, void *);
 /// @brief Copy particle accelerations back from GPU to host memory and
 ///        deallocate the device memory
 /// This is triggered when all TreePieces call finishBucket
-void DataManager::transferParticleVarsBack(){
+/// @param bFromEwald the checkin is from the finishEwaldGPU OR Ewald
+///        was skipped (non-periodic)
+void DataManager::transferParticleVarsBack(bool bFromEwald){
   UpdateParticlesStruct *data;
   CmiLock(__nodelock);
-  PEsWantParticlesBack++;
-  if(PEsWantParticlesBack == registeredPEs.size()*numPEListProxies){
+  if(bFromEwald)
+      bEwaldDone = true;
+  else
+      PEsWantParticlesBack++;
+  if(PEsWantParticlesBack == registeredPEs.size()*numPEListProxies && bEwaldDone){
+    bEwaldDone = false;
     PEsWantParticlesBack = 0;
     VariablePartData *buf;
     

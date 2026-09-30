@@ -107,6 +107,8 @@ public:
         /// Indicates that the remote Tree data is on the GPU
         std::atomic<bool> bRemoteDataTransferred;
 protected:
+        /// Indicates that Ewald is done or is not needed.
+        bool bEwaldDone;
         /// Counter for PEs that are ready to get their acclerations updated.
         int PEsWantParticlesBack;
         /// Keep track of which PEs have TreePieces
@@ -260,7 +262,7 @@ public:
 	void transferLocalToGPU(int nParts);
         void freeLocalTreeMemory();
         void freeRemoteChunkMemory(int chunk);
-        void transferParticleVarsBack();
+        void transferParticleVarsBack(bool bFromEwald);
         void updateParticles(UpdateParticlesStruct *data);
         void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();

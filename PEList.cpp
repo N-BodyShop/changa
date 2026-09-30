@@ -59,7 +59,7 @@ void PEList::tryLaunchDelayedKernel() {
 }
 
 void PEList::finishWalkCb() {
-     dMProxy.ckLocalBranch()->transferParticleVarsBack();
+     dMProxy.ckLocalBranch()->transferParticleVarsBack(false);
      reset();
 }
 
