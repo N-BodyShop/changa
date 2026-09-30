@@ -2352,6 +2352,22 @@ USER_LDFLAGS=$LDFLAGS
 
 if test "x$STRUCT_DIR" = "x"; then
 	STRUCT_DIR=$srcdir/../utility/structures
+	if [ ! -d $STRUCT_DIR ]; then
+	    echo 
+	    echo "WARNING!  STRUCT_DIR points to $STRUCT_DIR"
+	    echo "which does not exist.  This may mean you have"
+	    echo "not installed the N-BodyShop 'utility' package."
+	    echo "Without that package, your ChaNGa configure will fail."
+	    echo
+	    # As far as I can see, if it gets past this point and
+	    # STRUC_DIR doesn't point to anything valid, then the configure will
+	    # fail at the point where it tries to pull the Makefile.in from the
+	    # utility directory to build the Makefile.  So I would configure it to
+	    # fail and exit here rather than continuing, so that the user would definitely
+	    # see the warning, but I think whether to include the exit or not is a matter
+	    # of build style/policy.  
+	    exit
+	fi
 fi
 
 
