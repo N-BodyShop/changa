@@ -34,6 +34,7 @@
 #include "Sorter.h"
 #include "ParallelGravity.h"
 #include "DataManager.h"
+#include "TreePieceReplica.h"
 #include "IntraNodeLBManager.h"
 #include "TipsyFile.h"
 #include "param.h"
@@ -81,6 +82,7 @@ CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 CProxy_CkCacheManager<KeyType> cacheNode;
 /// @brief Proxy for the DataManager
 CProxy_DataManager dMProxy;
+CProxy_TreePieceReplica tpReplicaProxy;
 /// @brief Proxy for Managing IntraNode load balancing with ckloop.
 CProxy_IntraNodeLBManager nodeLBMgrProxy;
 
@@ -101,6 +103,8 @@ int _cacheLineDepth;
 /// @brief The number of buckets to process in the local gravity walk
 /// before yielding the processor.
 unsigned int _yieldPeriod;
+/// @brief Number of TreePiece replicas (0 = off).
+int _nTPReplicas;
 /// @brief The type of domain decomposition to use.
 DomainsDec domainDecomposition;
 double dExtraStore;		///< fraction of extra particle storage
@@ -791,6 +795,9 @@ Main::Main(CkArgMsg* m) {
 	_yieldPeriod=5;
 	prmAddParam(prm, "nYield", paramInt, &_yieldPeriod,
 		    sizeof(int),"y", "Yield Period (default: 5)");
+	_nTPReplicas=2;
+	prmAddParam(prm, "nTPReplicas", paramInt, &_nTPReplicas,
+		    sizeof(int),"ntprep", "Number of TreePiece replicas (default: 2, 0 = off)");
 	param.cacheLineDepth=4;
 	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
 		    sizeof(int),"d", "Cache Line Depth (default: 4)");
@@ -808,6 +815,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
 		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
 		    "Fraction of active particles for no new DD = 0.0");
+	param.dFracNoTPReplication = 0.0;
+	prmAddParam(prm, "dFracNoTPReplication", paramDouble,
+		    &param.dFracNoTPReplication, sizeof(double),"fntpr",
+		    "Fraction of active particles below which TP replication is skipped = 0.0");
 	param.bConcurrentSph = 1;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
@@ -1405,6 +1416,8 @@ Main::Main(CkArgMsg* m) {
 	CProxy_DataManager dataManager = CProxy_DataManager::ckNew(pieces);
 	dataManagerID = dataManager;
         dMProxy = dataManager;
+	CProxy_TreePieceReplica tpReplica = CProxy_TreePieceReplica::ckNew();
+	tpReplicaProxy = tpReplica;
   nodeLBMgrProxy = CProxy_IntraNodeLBManager::ckNew(1,pieces.ckLocMgr()->getGroupID());
 
 	streamingProxy = pieces;
@@ -1987,6 +2000,15 @@ void Main::buildTree(int iPhase)
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
+
+    if (_nTPReplicas > 0) {
+        bool bReplicate = nActiveGrav >= param.dFracNoTPReplication * nTotalParticles;
+        tpReplicaProxy.clearTable(bReplicate, CkCallbackResumeThread());
+        if (bReplicate) {
+            treeProxy.replicateTreePieces(CkCallbackResumeThread());
+        }
+    }
+
     double tTB =  CkWallTimer()-startTime;
     timings[iPhase].tTBuild += tTB;
     CkPrintf("took %g seconds.\n", tTB);
@@ -2947,6 +2969,9 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
 		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
 		    "Fraction of active particles for no new DD = 0.0");
+	prmAddParam(prm, "dFracNoTPReplication", paramDouble,
+		    &param.dFracNoTPReplication, sizeof(double),"fntpr",
+		    "Fraction of active particles below which TP replication is skipped = 0.0");
 	prmAddParam(prm, "bUseCkLoopPar", paramBool, &param.bUseCkLoopPar, sizeof(int),
 		    "useckloop", "enable CkLoop to parallelize within node");
 

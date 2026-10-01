@@ -146,6 +146,7 @@ extern bool _cache;
 extern int _nocache;
 extern int _cacheLineDepth;
 extern unsigned int _yieldPeriod;
+extern int _nTPReplicas;
 extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;
@@ -162,6 +163,7 @@ extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
 extern CProxy_TreePiece streamingProxy;
 extern CProxy_DataManager dMProxy;
+extern CProxy_TreePieceReplica tpReplicaProxy;
 extern CProxy_IntraNodeLBManager nodeLBMgrProxy;
 extern unsigned int numTreePieces;
 extern unsigned int particlesPerChare;
@@ -787,6 +789,7 @@ class TreePiece : public CBase_TreePiece {
 
    friend class RemoteTreeBuilder; 
    friend class LocalTreeBuilder; 
+	 friend class TreePieceReplica;
 
    /// @brief Walk for gravity prefetch
    TreeWalk *sTopDown;
@@ -1341,6 +1344,9 @@ private:
   int phase;
 
   double myTotalMass;
+	CkCallback cbrepl;
+	int acks_count;
+
 
  #if INTERLIST_VER > 0
 
@@ -1932,6 +1938,10 @@ public:
 	/// @brief Check if we have done with the treewalk on a specific bucket,
 	/// and if we have, check also if we are done with all buckets
 	void finishBucket(int iBucket);
+
+	void replicateTreePieces(const CkCallback& cb);
+
+  void recvAck();
 
 	/** @brief Routine which does the tree walk on non-local nodes. It is
 	 * called back for every incoming node (which are those requested to the
