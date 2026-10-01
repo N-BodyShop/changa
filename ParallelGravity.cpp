@@ -103,6 +103,8 @@ int _cacheLineDepth;
 /// @brief The number of buckets to process in the local gravity walk
 /// before yielding the processor.
 unsigned int _yieldPeriod;
+/// @brief Number of TreePiece replicas (0 = off).
+int _nTPReplicas;
 /// @brief The type of domain decomposition to use.
 DomainsDec domainDecomposition;
 double dExtraStore;		///< fraction of extra particle storage
@@ -793,6 +795,9 @@ Main::Main(CkArgMsg* m) {
 	_yieldPeriod=5;
 	prmAddParam(prm, "nYield", paramInt, &_yieldPeriod,
 		    sizeof(int),"y", "Yield Period (default: 5)");
+	_nTPReplicas=2;
+	prmAddParam(prm, "nTPReplicas", paramInt, &_nTPReplicas,
+		    sizeof(int),"ntprep", "Number of TreePiece replicas (default: 2, 0 = off)");
 	param.cacheLineDepth=4;
 	prmAddParam(prm, "nCacheDepth", paramInt, &param.cacheLineDepth,
 		    sizeof(int),"d", "Cache Line Depth (default: 4)");
@@ -810,6 +815,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
 		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
 		    "Fraction of active particles for no new DD = 0.0");
+	param.dFracNoTPReplication = 0.0;
+	prmAddParam(prm, "dFracNoTPReplication", paramDouble,
+		    &param.dFracNoTPReplication, sizeof(double),"fntpr",
+		    "Fraction of active particles below which TP replication is skipped = 0.0");
 	param.bConcurrentSph = 1;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
@@ -1992,8 +2001,13 @@ void Main::buildTree(int iPhase)
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
 
-    tpReplicaProxy.clearTable(CkCallbackResumeThread());
-    treeProxy.replicateTreePieces(CkCallbackResumeThread());
+    if (_nTPReplicas > 0) {
+        bool bReplicate = nActiveGrav >= param.dFracNoTPReplication * nTotalParticles;
+        tpReplicaProxy.clearTable(bReplicate, CkCallbackResumeThread());
+        if (bReplicate) {
+            treeProxy.replicateTreePieces(CkCallbackResumeThread());
+        }
+    }
 
     double tTB =  CkWallTimer()-startTime;
     timings[iPhase].tTBuild += tTB;
@@ -2955,6 +2969,9 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	prmAddParam(prm, "dFracNoDomainDecomp", paramDouble,
 		    &param.dFracNoDomainDecomp, sizeof(double),"fndd",
 		    "Fraction of active particles for no new DD = 0.0");
+	prmAddParam(prm, "dFracNoTPReplication", paramDouble,
+		    &param.dFracNoTPReplication, sizeof(double),"fntpr",
+		    "Fraction of active particles below which TP replication is skipped = 0.0");
 	prmAddParam(prm, "bUseCkLoopPar", paramBool, &param.bUseCkLoopPar, sizeof(int),
 		    "useckloop", "enable CkLoop to parallelize within node");
 

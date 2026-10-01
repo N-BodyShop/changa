@@ -30,6 +30,7 @@ mainmodule ParallelGravity {
   readonly int _nocache;
   readonly int _cacheLineDepth;
   readonly unsigned int _yieldPeriod;
+  readonly int _nTPReplicas;
   readonly DomainsDec domainDecomposition;
   readonly double dExtraStore;
   readonly double dMaxBalance;
@@ -238,7 +239,7 @@ mainmodule ParallelGravity {
     entry TreePieceReplica();
     entry [expedited] void fillRequestNodeFromReplica(CkCacheRequestMsg<KeyType> *msg);
     entry [expedited] void recvTreePiece(TreeReplicaMsg *msg);
-    entry void clearTable(const CkCallback &cb);
+    entry void clearTable(bool active, const CkCallback &cb);
   };
 
   chare [migratable] Sorter {

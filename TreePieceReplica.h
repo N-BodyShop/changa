@@ -3,6 +3,15 @@
 
 #include "ParallelGravity.decl.h"
 
+extern int _nTPReplicas;
+
+// Keep replica creation and cache requests on the same, distinct PEs.
+inline int replicaPe(int tpIdx, int replica) {
+    int npes = CkNumPes();
+    int stride = npes / _nTPReplicas;
+    return ((tpIdx % npes) + replica * stride) % npes;
+}
+
 class TreeReplicaMsg : public CMessage_TreeReplicaMsg {
 public:
     NodeKey key;                ///< Key of the root of this replica
@@ -19,6 +28,7 @@ class TreePieceReplica : public CBase_TreePieceReplica {
                                                 /// pointers for memory management
 
 	public:
+		bool bActive = false;	///< Replicas are valid for the current tree
 		TreePieceReplica();
 		TreePieceReplica(CkMigrateMessage *);
 
@@ -37,9 +47,8 @@ class TreePieceReplica : public CBase_TreePieceReplica {
 		}
 
 		void fillNodeLookupTable(Tree::BinaryTreeNode *node);
-		void clearTable(const CkCallback &cb);
+		void clearTable(bool active, const CkCallback &cb);
 };
 
 
 #endif
-

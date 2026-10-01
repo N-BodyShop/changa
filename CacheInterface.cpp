@@ -4,6 +4,7 @@
 ///
 #include "CacheInterface.h"
 #include "ParallelGravity.h"
+#include "TreePieceReplica.h"
 #include "Opt.h"
 #include "smooth.h"
 #include "Compute.h"
@@ -350,11 +351,15 @@ void * EntryTypeGravityNode::request(CkArrayIndexMax& idx, KeyType key) {
   *(int*)CkPriorityPtr(msg) = -110000000;
   CkSetQueueing(msg, CK_QUEUEING_IFIFO);
 
-	int hash_pe = (*idx.data()) % CkNumPes();
-	//CkPrintf(" requesting gravityNode %d key %d to pe %d\n", *idx.data(), key, hash_pe);
-	//treeProxy[*idx.data()].fillRequestNode(msg);
-	hash_pe += (rand() % 4) * 23;
-	hash_pe %= CkNumPes();
+	// If replication set to off, or active nr is below threshold, request directly from the owning TreePiece.
+	if (_nTPReplicas == 0 || !tpReplicaProxy.ckLocalBranch()->bActive) {
+		treeProxy[*idx.data()].fillRequestNode(msg);
+		return NULL;
+	}
+
+	// Round-robin requests with a different starting offset on each PE.
+	static thread_local unsigned int ctr = CkMyPe();
+	int hash_pe = replicaPe(*idx.data(), (ctr++) % _nTPReplicas);
 	tpReplicaProxy[hash_pe].fillRequestNodeFromReplica(msg);
 
 	return NULL;

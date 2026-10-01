@@ -146,6 +146,7 @@ extern bool _cache;
 extern int _nocache;
 extern int _cacheLineDepth;
 extern unsigned int _yieldPeriod;
+extern int _nTPReplicas;
 extern DomainsDec domainDecomposition;
 extern double dExtraStore;
 extern double dMaxBalance;

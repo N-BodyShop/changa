@@ -6674,12 +6674,8 @@ void TreePiece::replicateTreePieces(const CkCallback& cb) {
 	int depth_count = ((Tree::BinaryTreeNode*)root)->countDepth(100000000);
 	// CkPrintf("[%d] Depth %d ^^^^ root key %d\n", thisIndex, depth_count, root->getKey());
 
-	int hash_pe = thisIndex % CkNumPes();
-	int k;
-	for (int i = 0; i < 4; i++) {
-		k = hash_pe;
-		k += i*23;
-		k %= CkNumPes();
+	for (int i = 0; i < _nTPReplicas; i++) {
+		int k = replicaPe(thisIndex, i);
 
                 TreeReplicaMsg *reply = new (depth_count * ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode)))
                     TreeReplicaMsg(root->getKey(), thisIndex);
@@ -6789,5 +6785,4 @@ void ReductionHelper::senseLocalTreePieces(){
 }
 
 #endif
-
 

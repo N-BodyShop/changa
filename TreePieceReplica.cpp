@@ -74,10 +74,11 @@ void TreePieceReplica::fillNodeLookupTable(Tree::BinaryTreeNode *node) {
 	}
 }
 
-void TreePieceReplica::clearTable(const CkCallback &cb) {
+void TreePieceReplica::clearTable(bool active, const CkCallback &cb) {
         for(int i = 0; i < msgRecvd.size(); i++)
             delete msgRecvd[i];
         msgRecvd.clear();
 	nodeLookupTable.clear();
+	bActive = active;
 	contribute(cb);
 }
