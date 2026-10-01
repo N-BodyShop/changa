@@ -646,7 +646,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm,"dThermalCond2SatCoeff",paramDouble,&param.dThermalCond2SatCoeff,
 				sizeof(double),"thermalcond2sat",
 				"<Coefficient in Saturated Thermal Conductivity 2, e.g. 0.5 > = 0.5");
-
+        param.dThermalCondTau = 0.1;
+        prmAddParam(prm,"dThermalCondTau",paramDouble,&param.dThermalCondTau,
+                                sizeof(double),"thermalcondtau",
+                                "<Relaxation time for hyperbolic conduction, e.g. 0.04 > = 0");
         param.bDoExternalForce = 0;
         prmAddParam(prm, "bDoExternalForce", paramBool, &param.bDoExternalForce,
             sizeof(int), "bDoExternalForce", "<Apply external force field to particles> = 0");
@@ -1225,6 +1228,13 @@ Main::Main(CkArgMsg* m) {
 		/* code comoving density --> g per cc = param.dGmPerCcUnit (1+z)^3 */
 		param.dComovingGmPerCcUnit = param.dGmPerCcUnit;
 #ifdef SUPERBUBBLE
+#ifdef THERMALDIFFONLY
+        /*if this is set, then the diffusion coefficient is hard-set to the
+          value given by dThermalCondCoeff*/
+        param.dThermalCondCoeffCode = param.dThermalCondCoeff;
+        param.dThermalCond2CoeffCode = 0.;
+        param.dEvapCoeffCode = 0.;
+#else
         /* Thermal conductivity, c.f. Tielens p. 448 
            Heat flux = K(T) grad T,  dE/dt = div K(T) grad T   E = rho u
               K(T) = 6.1e-7 T^2.5 erg s^-1 deg^-7/2 cm^-1 
@@ -1246,6 +1256,7 @@ Main::Main(CkArgMsg* m) {
         /* Convert to code units */
         param.dThermalCondCoeffCode /= 
             pow(param.dErgPerGmUnit,-3.5)
+
             *param.dErgPerGmUnit*param.dGmPerCcUnit
             *pow(param.dKpcUnit*KPCCM,2.0)
             /param.dSecUnit;
@@ -1264,13 +1275,13 @@ Main::Main(CkArgMsg* m) {
             pow(param.dErgPerGmUnit,-2.5)
             *param.dGmPerCcUnit*pow(param.dKpcUnit*KPCCM,2.0)
             /param.dSecUnit;
+#endif
 #else
         param.dThermalCondCoeffCode = 0;
         param.dThermalCond2CoeffCode = 0;
         param.dEvapCoeffCode = 0;
 #endif
-		}
-
+        }
 #ifndef DIFFUSION
         CkMustAssert(!prmSpecified(prm,"dMetalDiffusionCoeff"), "Metal Diffusion Rate specified but not compiled for\nUse -DDIFFUSION during compilation\n");
 #endif
@@ -2563,6 +2574,9 @@ void Main::setupICs() {
           }
       }
   getStartTime();
+#ifdef HYPCOND
+  initQCond();
+#endif
   /* The following is used to help restart DumpFrame. */
   dTime0 = dTime - param.dDelta*param.iStartStep;
   if(param.nSteps > 0) getOutTimes();
@@ -3217,6 +3231,9 @@ Main::doSimulation()
            * Write out additional variables when using superbubble
            * (multiphase properties and effective temperature)
            */
+#ifdef HYPCOND
+              HypCondOutputParams pdQCondOut(achFile,param.iBinaryOut,0.0);
+#endif
 	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, 0.0);
 	      uOutputParams puOut(achFile, param.iBinaryOut, 0.0);
 	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, 0.0);
@@ -3233,6 +3250,10 @@ Main::doSimulation()
 	      CsOutputParams pCsOut(achFile, param.iBinaryOut, 0.0);
               if (param.iBinaryOut) {
 #ifdef SUPERBUBBLE
+#ifdef HYPCOND
+                  outputBinary(pdQCondOut,param.bParaWrite,
+                      CkCallbackResumeThread());
+#endif
                   outputBinary(puHotOut, param.bParaWrite,
                       CkCallbackResumeThread());
                   outputBinary(puOut, param.bParaWrite,
@@ -3264,6 +3285,9 @@ Main::doSimulation()
                   }
               else {
 #ifdef SUPERBUBBLE
+#ifdef HYPCOND
+                  writeProxy[0].outputASCII(pdQCondOut, param.bParaWrite, CkCallbackResumeThread());
+#endif
                   writeProxy[0].outputASCII(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
                   writeProxy[0].outputASCII(puHotOut, param.bParaWrite, CkCallbackResumeThread());
                   writeProxy[0].outputASCII(puOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3732,11 +3756,14 @@ void Main::writeOutput(int iStep)
            * Write out additional variables when using superbubble
            * (multiphase properties and effective temperature)
            */
-	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, 0.0);
-	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, 0.0);
-	      uOutputParams puOut(achFile, param.iBinaryOut, 0.0);
+#ifdef HYPCOND
+              HypCondOutputParams pdQCondOut(achFile,param.iBinaryOut,dOutTime);
+#endif
+	      MassHotOutputParams pmHotOut(achFile, param.iBinaryOut, dOutTime);
+	      uHotOutputParams puHotOut(achFile, param.iBinaryOut, dOutTime);
+	      uOutputParams puOut(achFile, param.iBinaryOut, dOutTime);
           double dTuFac = param.dGasConst/(param.dConstGamma-1)/param.dMeanMolWeight;
-	      TempEffOutputParams pTeffOut(achFile, param.iBinaryOut, 0.0, param.bGasCooling, dTuFac);
+	      TempEffOutputParams pTeffOut(achFile, param.iBinaryOut, dOutTime, param.bGasCooling, dTuFac);
 #endif
 #ifdef DIFFUSION
     MetalsDotOutputParams pMetalsDotOut(achFile, param.iBinaryOut, dOutTime);
@@ -3756,6 +3783,9 @@ void Main::writeOutput(int iStep)
 #endif
         if (param.bStarForm || param.bFeedback) {
 #ifdef SUPERBUBBLE
+#ifdef HYPCOND
+      outputBinary(pdQCondOut,param.bParaWrite,CkCallbackResumeThread());
+#endif
       outputBinary(puHotOut, param.bParaWrite, CkCallbackResumeThread());
       outputBinary(puOut, param.bParaWrite, CkCallbackResumeThread());
       outputBinary(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
@@ -3834,6 +3864,9 @@ void Main::writeOutput(int iStep)
 #endif
 	if (param.bStarForm || param.bFeedback) {
 #ifdef SUPERBUBBLE
+#ifdef HYPCOND
+      writeProxy[0].outputASCII(pdQCondOut, param.bParaWrite, CkCallbackResumeThread());
+#endif
       writeProxy[0].outputASCII(pmHotOut, param.bParaWrite, CkCallbackResumeThread());
       writeProxy[0].outputASCII(puHotOut, param.bParaWrite, CkCallbackResumeThread());
       writeProxy[0].outputASCII(puOut, param.bParaWrite, CkCallbackResumeThread());
