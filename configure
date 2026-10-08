@@ -2457,7 +2457,9 @@ fi
 
 test "$HAVE_GIT" == "no" && as_fn_error $? "git not found" "$LINENO" 5
 
-MINIMUM_CHARM_VERSION=60800
+# 7.0.1: the domain decomposition particle exchange uses the zero-copy
+# post API (CkMatchBuffer/CkPostBuffer).
+MINIMUM_CHARM_VERSION=70001
 if test $($CHARMC -V | awk '{print $3}') -lt $MINIMUM_CHARM_VERSION; then
 	as_fn_error $? "At least Charm++ $MINIMUM_CHARM_VERSION is required" "$LINENO" 5
 fi
@@ -4583,6 +4585,7 @@ case $tree_build in
 	split-phase  ) FLAG_TREE_BUILD="-DSPLIT_PHASE_TREE_BUILD";;
 	*            ) as_fn_error $? "invalid argument for '--enable-tree-build': $tree_build" "$LINENO" 5;;
 esac
+
 
 
 # -----------------------------------------------------------------------------

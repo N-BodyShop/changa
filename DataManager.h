@@ -11,6 +11,8 @@
 #include <map>
 #include <string>
 #include "GenericTreeNode.h"
+#include "NodeShuffle.h"
+struct NodeShuffleBuf;
 #include "ParallelGravity.decl.h"
 #include "lymanwerner.h"
 
@@ -78,6 +80,26 @@ protected:
 	/// A list of roots of the TreePieces in this node
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
+
+	/// @name Node-aggregated particle exchange (bNodeShuffle)
+	//@{
+	/// Lock for the counters below and for NodeShuffleBuf::nPending
+	CmiNodeLock lockShuffle;
+	/// Local TreePieces with particles to send, registered in
+	/// TreePiece::unshuffleParticles
+	std::vector<TreePiece *> shufflePieces;
+	/// Outgoing buffer per destination node (NULL if nothing to send)
+	std::vector<NodeShuffleBuf *> outShuffleBufs;
+	/// Zero-copy sends whose completion callbacks are outstanding
+	std::vector<NodeShuffleBuf *> sentShuffleBufs;
+	/// Zero-copy receives posted but not yet delivered, by source node
+	std::map<int, NodeShuffleBuf *> postedShuffleBufs;
+	/// Local pieces that have not yet copied their bins into
+	/// outShuffleMsgs
+	int nShuffleFillPending;
+	/// Node of every TreePiece, from the reduction that starts the exchange
+	std::vector<int> nodeOfPiece;
+	//@}
 #ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
         /// @brief counter for the number of tree nodes that are
@@ -278,6 +300,19 @@ public:
     void notifyPresence(Tree::GenericTreeNode *root, TreePiece *treePiece);
     void clearRegisteredPieces(const CkCallback& cb);
     void combineLocalTrees(CkReductionMsg *msg);
+    void registerShuffle(TreePiece *tp);
+    void startNodeShuffle(CkReductionMsg *msg);
+    void nodeShuffleFillDone();
+    void acceptNodeShuffle(int srcNode, int nBins, ShuffleBin *bins,
+        int nLoads, double *loads, unsigned int *parts,
+        int nPart, int nGas, int nStar, int nBytes, char *data,
+        CkNcpyBufferPost *ncpyPost);
+    void acceptNodeShuffle(int srcNode, int nBins, ShuffleBin *bins,
+        int nLoads, double *loads, unsigned int *parts,
+        int nPart, int nGas, int nStar, int nBytes, char *data);
+    void nodeShuffleSent(CkDataMsg *msg);
+    void deliverNodeShuffle(NodeShuffleBuf *buf);
+    void releaseNodeShuffle(NodeShuffleBuf *buf);
     void getChunks(int &num, Tree::NodeKey *&roots);
     inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
       NodeLookupType::iterator iter = chunkRootTable.find(k);

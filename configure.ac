@@ -35,7 +35,9 @@ fi
 AC_CHECK_PROG(HAVE_GIT,[git],[yes],[no])
 test "$HAVE_GIT" == "no" && AC_MSG_ERROR([git not found])
 
-MINIMUM_CHARM_VERSION=60800
+# 7.0.1: the domain decomposition particle exchange uses the zero-copy
+# post API (CkMatchBuffer/CkPostBuffer).
+MINIMUM_CHARM_VERSION=70001
 if test $($CHARMC -V | awk '{print $3}') -lt $MINIMUM_CHARM_VERSION; then
 	AC_MSG_ERROR([[At least Charm++ $MINIMUM_CHARM_VERSION is required]])
 fi

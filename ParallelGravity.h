@@ -138,6 +138,8 @@ class NewMaxOrder
 
 #include "InOutput.h"
 
+#include "NodeShuffle.h"
+
 #include "ParallelGravity.decl.h"
 
 extern CProxy_Main mainChare;
@@ -169,6 +171,8 @@ extern int nIOProcessor;
 
 extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
+/// Aggregate the domain decomposition particle exchange per node
+extern int bNodeShuffle;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_NodeCache cacheNode;
@@ -318,6 +322,104 @@ public:
     extraStarData *pStar;
     ParticleShuffleMsg(int nload, int npart, int nsph, int nstar): 
       nloads(nload), n(npart), nSPH(nsph), nStar(nstar) {}
+};
+
+
+/// @brief One node-to-node share of the domain decomposition particle
+/// exchange, on either side.
+///
+/// Between processes: the bin table and per-phase loads travel as
+/// marshalled arrays and the particle, gas and star data as ONE
+/// nocopypost buffer (`data`), owned here on the sending side until
+/// the transfer completes and on the receiving side until every
+/// destination piece has copied its bins out.  Inside a process:
+/// no buffer; the bins point into the source pieces' own arrays
+/// (selfSources).  TreePieces only ever see this holder.
+struct NodeShuffleBuf {
+    int srcNode;
+    int nBins;
+    int nPart;
+    int nGas;
+    int nStar;
+    int nLoads;
+    /// receiver: bins not yet consumed by their TreePiece
+    int nPending;
+    ShuffleBin *bins;
+    double *loads;
+    unsigned int *parts_per_phase;
+    /// Inter-process: one byte buffer holding particles, then pGas,
+    /// then pStar (each 16-byte aligned), transferred as ONE nocopypost
+    /// buffer so that one RDMA operation moves a node pair's data.
+    /// NULL for the intra-process holder.
+    char *data;
+    int nBytes;
+    GravityParticle *particles;
+    extraSPHData *pGas;
+    extraStarData *pStar;
+
+    /// Intra-process mode: bins point into the source pieces' own
+    /// arrays (ShuffleBin::srcIndex selects the entry, srcFirst the
+    /// offset).  The arrays are owned here from the handoff in
+    /// TreePiece::fillNodeShuffle until the holder is freed, so the
+    /// particles that stay inside the process are copied once, by the
+    /// destination piece, with no intermediate buffer.
+    struct SelfSource {
+        GravityParticle *particles;
+        extraSPHData *pGas;
+        extraStarData *pStar;
+    };
+    std::vector<SelfSource> selfSources;
+    bool isSelf() const { return !selfSources.empty(); }
+
+    static int alignUp(int n) { return (n + 15) & ~15; }
+    static int offGas(int npart) { return alignUp(npart*sizeof(GravityParticle)); }
+    static int offStar(int npart, int ngas) {
+        return offGas(npart) + alignUp(ngas*sizeof(extraSPHData));
+    }
+    /// Size of the owned data buffer; never zero so that it is always a
+    /// valid buffer to send or post.
+    static int dataBytes(int npart, int ngas, int nstar) {
+        int n = offStar(npart, ngas) + alignUp(nstar*sizeof(extraStarData));
+        return n > 0 ? n : 16;
+    }
+
+    /// Inter-process holder (send or receive side)
+    NodeShuffleBuf(int srcnode, int nbins, int npart, int ngas, int nstar,
+                   int nloads)
+        : srcNode(srcnode), nBins(nbins), nPart(npart), nGas(ngas),
+          nStar(nstar), nLoads(nloads), nPending(0) {
+        bins = new ShuffleBin[nbins > 0 ? nbins : 1];
+        loads = new double[nloads > 0 ? nloads : 1];
+        parts_per_phase = new unsigned int[nloads > 0 ? nloads : 1];
+        nBytes = dataBytes(npart, ngas, nstar);
+        data = new char[nBytes];
+        particles = (GravityParticle *)data;
+        pGas = (extraSPHData *)(data + offGas(npart));
+        pStar = (extraStarData *)(data + offStar(npart, ngas));
+    }
+    /// Intra-process holder: bins and loads only; particle arrays come
+    /// from the nsources local pieces by handoff.
+    NodeShuffleBuf(int srcnode, int nbins, int nloads, int nsources)
+        : srcNode(srcnode), nBins(nbins), nPart(0), nGas(0), nStar(0),
+          nLoads(nloads), nPending(0), data(NULL), nBytes(0),
+          particles(NULL), pGas(NULL), pStar(NULL) {
+        bins = new ShuffleBin[nbins > 0 ? nbins : 1];
+        loads = new double[nloads > 0 ? nloads : 1];
+        parts_per_phase = new unsigned int[nloads > 0 ? nloads : 1];
+        SelfSource none = {NULL, NULL, NULL};
+        selfSources.assign(nsources > 0 ? nsources : 1, none);
+    }
+    ~NodeShuffleBuf() {
+        delete[] bins;
+        delete[] loads;
+        delete[] parts_per_phase;
+        delete[] data;
+        for(size_t i = 0; i < selfSources.size(); i++) {
+            delete[] selfSources[i].particles;
+            delete[] selfSources[i].pGas;
+            delete[] selfSources[i].pStar;
+        }
+    }
 };
 
 #ifdef PUSH_GRAVITY
@@ -768,6 +870,8 @@ struct NonLocalMomentsClientList {
 
 /// Fundamental structure that holds particle and tree data.
 class TreePiece : public CBase_TreePiece {
+   /// the DataManager reads myShuffleBins for the node-aggregated exchange
+   friend class DataManager;
    // jetley
    friend class PrefetchCompute;
    friend class GravityCompute;
@@ -1170,6 +1274,18 @@ private:
         /// change the TreePiece particles before the one belonging to someone
         /// else have been sent out
         bool incomingParticlesSelf;
+        /// Node-aggregated exchange (bNodeShuffle): my outgoing bins,
+        /// one per destination TreePiece, computed in
+        /// computeShuffleBins() and copied into the DataManager's node
+        /// messages in fillNodeShuffle().
+        std::vector<ShuffleBin> myShuffleBins;
+        /// Per-phase loads of the outgoing bins (ShuffleBin::iLoad indexes it)
+        std::vector<double> myShuffleLoads;
+        /// Per-phase particle counts of the outgoing bins
+        std::vector<unsigned int> myShuffleParts;
+        /// Incoming bins: (node message, bin index), held until all
+        /// my particles have arrived.
+        std::vector<std::pair<NodeShuffleBuf *, int> > incomingNodeBins;
 
 	/// holds the total mass of the current TreePiece
 	double piecemass;
@@ -1496,6 +1612,7 @@ public:
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
+          incomingNodeBins.clear();
 
           myParticles = NULL;
           mySPHParticles = NULL;
@@ -1546,6 +1663,7 @@ public:
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
+          incomingNodeBins.clear();
 
 	  nodeInterRemote = NULL;
           particleInterRemote = NULL;
@@ -1643,6 +1761,11 @@ public:
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
+	void computeShuffleBins();
+	void fillNodeShuffle();
+	void acceptNodeShuffleBin(intptr_t bufAddr, int iBin);
+	void checkNodeShuffleComplete();
+	void finishSortedParticles();
   void shuffleAfterQD();
   void unshuffleParticlesWoDD(const CkCallback& cb);
   void acceptSortedParticlesFromOther(ParticleShuffleMsg *);

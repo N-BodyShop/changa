@@ -26,6 +26,7 @@ mainmodule ParallelGravity {
   readonly CProxy_CkCacheManager<KeyType> cacheSmoothPart;
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
+  readonly int bNodeShuffle;
   readonly CProxy_DumpFrameData dfDataProxy;
   readonly CProxy_IntraNodeLBManager nodeLBMgrProxy;
 
@@ -259,6 +260,12 @@ mainmodule ParallelGravity {
         const CkCallback& cb);
     entry void clearRegisteredPieces(const CkCallback& cb);
     entry void combineLocalTrees(CkReductionMsg *m);
+    entry void startNodeShuffle(CkReductionMsg *m);
+    entry void acceptNodeShuffle(int srcNode, int nBins, ShuffleBin bins[nBins],
+        int nLoads, double loads[nLoads], unsigned int parts[nLoads],
+        int nPart, int nGas, int nStar,
+        int nBytes, nocopypost char data[nBytes]);
+    entry void nodeShuffleSent(CkDataMsg *m);
 #ifdef CUDA
     entry void startLocalWalk();
     entry void resumeRemoteChunk();
@@ -323,6 +330,8 @@ mainmodule ParallelGravity {
     entry [nokeep] void evaluateBoundaries(SFC::Key keys[n], const int n, int isRefine, const CkCallback& cb);
     entry void unshuffleParticles(CkReductionMsg* m);
     entry void acceptSortedParticles(ParticleShuffleMsg *);
+    entry void fillNodeShuffle();
+    entry void acceptNodeShuffleBin(intptr_t bufAddr, int iBin);
     entry void unshuffleParticlesWoDD(const CkCallback& cb);
     entry void shuffleAfterQD();
     entry void acceptSortedParticlesFromOther(ParticleShuffleMsg *);

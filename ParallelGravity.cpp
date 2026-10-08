@@ -88,6 +88,8 @@ CProxy_IntraNodeLBManager nodeLBMgrProxy;
 CProxy_DumpFrameData dfDataProxy;
 /// @brief Proxy for the PETreeMerger group.
 CProxy_PETreeMerger peTreeMergerProxy;
+/// @brief Aggregate the domain decomposition particle exchange per node.
+int bNodeShuffle;
 
 
 
@@ -811,6 +813,10 @@ Main::Main(CkArgMsg* m) {
 	param.bConcurrentSph = 1;
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph", "Enable SPH running concurrently with Gravity");
+	param.bNodeShuffle = 1;
+	prmAddParam(prm, "bNodeShuffle", paramBool, &param.bNodeShuffle,
+		    sizeof(int),"nodeshuffle",
+		    "Aggregate domain decomposition particle exchange per node = +nodeshuffle");
         // Recognize (and ignore) gasoline compatibility parameters.
         static int iDummy = 0;
 	prmAddParam(prm, "bRestart", paramBool, &iDummy,
@@ -993,6 +999,7 @@ Main::Main(CkArgMsg* m) {
 	theta = param.dTheta;
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
+	bNodeShuffle = param.bNodeShuffle;
 	dMaxBalance = param.dMaxBalance;
 	dGlassDamper = param.dGlassDamper;
 	_cacheLineDepth = param.cacheLineDepth;
@@ -2924,6 +2931,9 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	prmAddParam(prm, "bConcurrentSph", paramBool, &param.bConcurrentSph,
 		    sizeof(int),"consph",
 		    "Enable SPH running concurrently with Gravity");
+	prmAddParam(prm, "bNodeShuffle", paramBool, &param.bNodeShuffle,
+		    sizeof(int),"nodeshuffle",
+		    "Aggregate domain decomposition particle exchange per node");
 	prmAddParam(prm, "bFastGas", paramBool, &param.bFastGas,
 		    sizeof(int),"Fgas", "Fast Gas Method");
 	prmAddParam(prm,"dFracFastGas",paramDouble,&param.dFracFastGas,
