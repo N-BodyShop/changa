@@ -60,6 +60,7 @@ struct PendingBuffers {
 class DataManager : public CBase_DataManager {
 	friend class TreePiece;
         friend class OctTreeBuildPhaseIWorker;
+	friend class PEUnshuffle;
 
 	/// The array of TreePieces I hold data for.
 	CProxy_TreePiece treePieces;
