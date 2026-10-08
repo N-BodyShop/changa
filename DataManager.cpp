@@ -48,6 +48,8 @@ void DataManager::init() {
   hmStarLog = new HMStarLog();
   lockStarLog = CmiCreateLock();
   lockHMStarLog = CmiCreateLock();
+  lockShuffle = CmiCreateLock();
+  nShuffleFillPending = 0;
 }
 
 #ifdef CUDA
@@ -142,6 +144,136 @@ public:
     return first < k.first;
   }
 };
+
+
+/// @brief Register a TreePiece's outgoing bins for the node-aggregated
+/// particle exchange (bNodeShuffle).
+///
+/// Called on the piece's own PE from TreePiece::unshuffleParticles,
+/// after computeShuffleBins().  The bins are read by startNodeShuffle()
+/// once the array reduction that follows has completed.
+void DataManager::registerShuffle(TreePiece *tp) {
+  CmiLock(lockShuffle);
+  shufflePieces.push_back(tp);
+  CmiUnlock(lockShuffle);
+}
+
+/// @brief Reduction target: every TreePiece has registered its bins
+/// and contributed its (index, node) pair.
+///
+/// Builds the piece-to-node map, sizes one NodeShuffleMsg per
+/// destination node with data, assigns every bin its offsets in that
+/// message, then asks each local piece to copy its bins in
+/// (TreePiece::fillNodeShuffle, which runs in parallel on the pieces'
+/// PEs).  The last piece to finish sends the messages
+/// (nodeShuffleFillDone).
+void DataManager::startNodeShuffle(CkReductionMsg *msg) {
+  nodeOfPiece.assign(numTreePieces, -1);
+  CkReduction::setElement *el = (CkReduction::setElement *)msg->getData();
+  while(el != NULL) {
+    int *d = (int *)el->data;
+    nodeOfPiece[d[0]] = d[1];
+    el = el->next();
+  }
+  delete msg;
+
+  int nNodes = CkNumNodes();
+  std::vector<int> nBins(nNodes, 0), nPart(nNodes, 0), nGas(nNodes, 0),
+      nStar(nNodes, 0), nLoads(nNodes, 0);
+  for(size_t i = 0; i < shufflePieces.size(); i++) {
+    std::vector<ShuffleBin> &bins = shufflePieces[i]->myShuffleBins;
+    for(size_t j = 0; j < bins.size(); j++) {
+      ShuffleBin &b = bins[j];
+      b.destNode = nodeOfPiece[b.destPiece];
+      CkAssert(b.destNode >= 0 && b.destNode < nNodes);
+      b.iBin = nBins[b.destNode]++;
+      b.iPart = nPart[b.destNode];
+      nPart[b.destNode] += b.nPart;
+      b.iGas = nGas[b.destNode];
+      nGas[b.destNode] += b.nGas;
+      b.iStar = nStar[b.destNode];
+      nStar[b.destNode] += b.nStar;
+      b.iLoad = nLoads[b.destNode];
+      nLoads[b.destNode] += b.nLoads;
+    }
+  }
+
+  outShuffleMsgs.assign(nNodes, (NodeShuffleMsg *)NULL);
+  int nMsgs = 0;
+  long nSent = 0;
+  for(int n = 0; n < nNodes; n++) {
+    if(nBins[n] == 0)
+      continue;
+    outShuffleMsgs[n]
+      = new (nBins[n], nLoads[n], nLoads[n], nPart[n], nGas[n], nStar[n])
+        NodeShuffleMsg(nBins[n], nPart[n], nGas[n], nStar[n], nLoads[n]);
+    nMsgs++;
+    nSent += nPart[n];
+  }
+  if(verbosity >= 2)
+    CkPrintf("Node %d: node shuffle: %d pieces send %ld particles in %d node messages\n",
+             CkMyNode(), (int)shufflePieces.size(), nSent, nMsgs);
+
+  nShuffleFillPending = shufflePieces.size();
+  if(nShuffleFillPending == 0) {
+    // No particles on this node; nothing to fill or send.
+    outShuffleMsgs.clear();
+    return;
+  }
+  for(size_t i = 0; i < shufflePieces.size(); i++)
+    treePieces[shufflePieces[i]->thisIndex].fillNodeShuffle();
+}
+
+/// @brief A local TreePiece has copied its bins into the node
+/// messages; the last one to do so sends them.
+///
+/// Called on the pieces' PEs.  The message for this node itself is
+/// delivered by a direct call, outside the lock.
+void DataManager::nodeShuffleFillDone() {
+  CmiLock(lockShuffle);
+  int left = --nShuffleFillPending;
+  CmiUnlock(lockShuffle);
+  if(left > 0)
+    return;
+  std::vector<NodeShuffleMsg *> msgs;
+  msgs.swap(outShuffleMsgs);
+  shufflePieces.clear();
+  NodeShuffleMsg *mine = NULL;
+  for(size_t n = 0; n < msgs.size(); n++) {
+    if(msgs[n] == NULL)
+      continue;
+    if((int)n == CkMyNode())
+      mine = msgs[n];
+    else
+      dMProxy[n].acceptNodeShuffle(msgs[n]);
+  }
+  if(mine != NULL)
+    acceptNodeShuffle(mine);
+}
+
+/// @brief Receive one source node's particles for the TreePieces on
+/// this node and hand each bin to its destination piece.
+///
+/// The message stays whole; each piece copies its bin out of it and
+/// releases it (releaseNodeShuffle).  The bin handoff is a local array
+/// message carrying the message address, so it may run on any PE of
+/// this node.
+void DataManager::acceptNodeShuffle(NodeShuffleMsg *msg) {
+  msg->nPending = msg->nBins;
+  for(int i = 0; i < msg->nBins; i++) {
+    treePieces[msg->bins[i].destPiece].acceptNodeShuffleBin((intptr_t)msg, i);
+  }
+}
+
+/// @brief A destination TreePiece is done with one bin of msg; free
+/// the message when the last bin is released.
+void DataManager::releaseNodeShuffle(NodeShuffleMsg *msg) {
+  CmiLock(lockShuffle);
+  int left = --msg->nPending;
+  CmiUnlock(lockShuffle);
+  if(left == 0)
+    delete msg;
+}
 
 void DataManager::pup(PUP::er& p) {
     CBase_DataManager::pup(p);

@@ -78,6 +78,22 @@ protected:
 	/// A list of roots of the TreePieces in this node
 	// holds chare array indices of registered treepieces
 	CkVec<TreePieceDescriptor> registeredTreePieces;
+
+	/// @name Node-aggregated particle exchange (bNodeShuffle)
+	//@{
+	/// Lock for the counters below and for NodeShuffleMsg::nPending
+	CmiNodeLock lockShuffle;
+	/// Local TreePieces with particles to send, registered in
+	/// TreePiece::unshuffleParticles
+	std::vector<TreePiece *> shufflePieces;
+	/// Outgoing message per destination node (NULL if nothing to send)
+	std::vector<NodeShuffleMsg *> outShuffleMsgs;
+	/// Local pieces that have not yet copied their bins into
+	/// outShuffleMsgs
+	int nShuffleFillPending;
+	/// Node of every TreePiece, from the reduction that starts the exchange
+	std::vector<int> nodeOfPiece;
+	//@}
 #ifdef CUDA
 	//CkVec<int> registeredTreePieceIndices;
         /// @brief counter for the number of tree nodes that are
@@ -278,6 +294,11 @@ public:
     void notifyPresence(Tree::GenericTreeNode *root, TreePiece *treePiece);
     void clearRegisteredPieces(const CkCallback& cb);
     void combineLocalTrees(CkReductionMsg *msg);
+    void registerShuffle(TreePiece *tp);
+    void startNodeShuffle(CkReductionMsg *msg);
+    void nodeShuffleFillDone();
+    void acceptNodeShuffle(NodeShuffleMsg *msg);
+    void releaseNodeShuffle(NodeShuffleMsg *msg);
     void getChunks(int &num, Tree::NodeKey *&roots);
     inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {
       NodeLookupType::iterator iter = chunkRootTable.find(k);

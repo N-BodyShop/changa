@@ -169,6 +169,8 @@ extern int nIOProcessor;
 
 extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
+/// Aggregate the domain decomposition particle exchange per node
+extern int bNodeShuffle;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
@@ -318,6 +320,52 @@ public:
     extraStarData *pStar;
     ParticleShuffleMsg(int nload, int npart, int nsph, int nstar): 
       nloads(nload), n(npart), nSPH(nsph), nStar(nstar) {}
+};
+
+/// @brief One destination TreePiece's share of a NodeShuffleMsg.
+///
+/// Offsets index the arrays of the NodeShuffleMsg that carries the
+/// bin.  On the sending side, srcFirst is the index of the first
+/// particle of the bin in the source TreePiece's myParticles.
+struct ShuffleBin {
+    int destPiece;      ///< destination TreePiece
+    int destNode;       ///< node (process) of destPiece
+    int iBin;           ///< index of this record in the message
+    int srcFirst;       ///< source-side: first particle in myParticles
+    int srcLoad;        ///< source-side: first entry in myShuffleLoads/Parts
+    int iPart, nPart;   ///< range in particles[]
+    int iGas, nGas;     ///< range in pGas[]
+    int iStar, nStar;   ///< range in pStar[]
+    int iLoad, nLoads;  ///< range in loads[] and parts_per_phase[]
+};
+
+/// @brief Domain decomposition particle exchange aggregated per node.
+///
+/// One message per (source node, destination node) carries the
+/// particles of every TreePiece on the source node destined for every
+/// TreePiece on the destination node.  Sent and received by the
+/// DataManager nodegroup; destination TreePieces copy their bins out
+/// of the message in place (no per-piece message is made).
+class NodeShuffleMsg : public CMessage_NodeShuffleMsg {
+public:
+    int srcNode;
+    int nBins;
+    int nPart;
+    int nGas;
+    int nStar;
+    int nLoads;
+    /// Receiver-side count of bins not yet consumed; the message is
+    /// freed when it reaches zero (DataManager::releaseNodeShuffle).
+    int nPending;
+    ShuffleBin *bins;
+    double *loads;
+    unsigned int *parts_per_phase;
+    GravityParticle *particles;
+    extraSPHData *pGas;
+    extraStarData *pStar;
+    NodeShuffleMsg(int nbins, int npart, int ngas, int nstar, int nloads)
+        : srcNode(CkMyNode()), nBins(nbins), nPart(npart), nGas(ngas),
+          nStar(nstar), nLoads(nloads), nPending(0) {}
 };
 
 #ifdef PUSH_GRAVITY
@@ -768,6 +816,8 @@ struct NonLocalMomentsClientList {
 
 /// Fundamental structure that holds particle and tree data.
 class TreePiece : public CBase_TreePiece {
+   /// the DataManager reads myShuffleBins for the node-aggregated exchange
+   friend class DataManager;
    // jetley
    friend class PrefetchCompute;
    friend class GravityCompute;
@@ -1170,6 +1220,18 @@ private:
         /// change the TreePiece particles before the one belonging to someone
         /// else have been sent out
         bool incomingParticlesSelf;
+        /// Node-aggregated exchange (bNodeShuffle): my outgoing bins,
+        /// one per destination TreePiece, computed in
+        /// computeShuffleBins() and copied into the DataManager's node
+        /// messages in fillNodeShuffle().
+        std::vector<ShuffleBin> myShuffleBins;
+        /// Per-phase loads of the outgoing bins (ShuffleBin::iLoad indexes it)
+        std::vector<double> myShuffleLoads;
+        /// Per-phase particle counts of the outgoing bins
+        std::vector<unsigned int> myShuffleParts;
+        /// Incoming bins: (node message, bin index), held until all
+        /// my particles have arrived.
+        std::vector<std::pair<NodeShuffleMsg *, int> > incomingNodeBins;
 
 	/// holds the total mass of the current TreePiece
 	double piecemass;
@@ -1496,6 +1558,7 @@ public:
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
+          incomingNodeBins.clear();
 
           myParticles = NULL;
           mySPHParticles = NULL;
@@ -1546,6 +1609,7 @@ public:
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
           incomingParticlesSelf = false;
+          incomingNodeBins.clear();
 
 	  nodeInterRemote = NULL;
           particleInterRemote = NULL;
@@ -1643,6 +1707,11 @@ public:
 	void evaluateBoundaries(SFC::Key* keys, const int n, int isRefine, const CkCallback& cb);
 	void unshuffleParticles(CkReductionMsg* m);
 	void acceptSortedParticles(ParticleShuffleMsg *);
+	void computeShuffleBins();
+	void fillNodeShuffle();
+	void acceptNodeShuffleBin(intptr_t msgAddr, int iBin);
+	void checkNodeShuffleComplete();
+	void finishSortedParticles();
   void shuffleAfterQD();
   void unshuffleParticlesWoDD(const CkCallback& cb);
   void acceptSortedParticlesFromOther(ParticleShuffleMsg *);
