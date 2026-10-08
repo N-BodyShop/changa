@@ -1997,7 +1997,7 @@ void ListCompute::addChildrenToCheckList(GenericTreeNode *node, int reqID, int c
       Tree::NodeKey childKey = node->getChildKey(i);
       // child not in my tree, look in cache
       child = tp->requestNode(node->remoteIndex, childKey, chunk, reqID, awi,
-                              computeEntity);
+                              computeEntity, node, i);
       if(!child)
       {
 #if COSMO_PRINT_BK > 1

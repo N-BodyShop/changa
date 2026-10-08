@@ -654,6 +654,7 @@ FLAG_NSMOOTHINNER
 FLAG_TREE_BUILD
 FLAG_INTERLIST
 FLAG_DTADJUST
+FLAG_SMPCACHE
 FLAG_BIGKEYS
 FLAG_COLLISION
 FLAG_CHANGESOFT
@@ -739,6 +740,7 @@ enable_hexadecapole
 enable_changesoft
 enable_collision
 enable_bigkeys
+enable_smpcache
 enable_dtadjust
 enable_interlist
 enable_tree_build
@@ -1409,6 +1411,9 @@ Optional Features:
   --enable-changesoft     physical softening
   --enable-collision      collision detection
   --enable-bigkeys        128 bit hash keys
+  --enable-smpcache       process-shared SMP tree-node cache (charm
+                          CkTreeCacheManager); default yes if the charm build
+                          has CkTreeCache.h
   --enable-dtadjust       emergency timestep adjust
   --enable-interlist      interaction list version
   --enable-tree-build     tree building (merge-remote,split-phase)
@@ -4507,6 +4512,33 @@ fi
 
 
 
+# Tree-node cache: charm's process-shared CkTreeCacheManager (SMP node
+# cache) or the per-PE CkCacheManager. Default: the SMP cache when this
+# charm build provides CkTreeCache.h.
+# Check whether --enable-smpcache was given.
+if test "${enable_smpcache+set}" = set; then :
+  enableval=$enable_smpcache; case "$enableval" in
+		  yes | no ) smpcache=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-smpcache': $enableval" "$LINENO" 5;;
+	 esac
+else
+  if test -f "$CHARMINC/CkTreeCache.h"; then smpcache=yes; else
+	   smpcache=no
+	   { $as_echo "$as_me:${as_lineno-$LINENO}: $CHARMINC/CkTreeCache.h not found: tree nodes use CkCacheManager (--enable-smpcache=no)" >&5
+$as_echo "$as_me: $CHARMINC/CkTreeCache.h not found: tree nodes use CkCacheManager (--enable-smpcache=no)" >&6;}
+	 fi
+fi
+
+if test x$smpcache = xyes; then
+	if test ! -f "$CHARMINC/CkTreeCache.h"; then
+		as_fn_error $? "--enable-smpcache=yes needs $CHARMINC/CkTreeCache.h (charm branch with CkTreeCacheManager)" "$LINENO" 5
+	fi
+	FLAG_SMPCACHE=-DCHANGA_SMPCACHE=1
+else
+	FLAG_SMPCACHE=""
+fi
+
+
 # DTADJUST
 	# Check whether --enable-dtadjust was given.
 if test "${enable_dtadjust+set}" = set; then :
@@ -5729,6 +5761,18 @@ fi
 
 
 ##################### END CUDA #####################
+
+# The GPU path (DataManager::serializeRemoteChunk) reads CkCacheManager's
+# per-chunk maps directly, so CUDA builds keep CkCacheManager for now.
+if test x$ENABLE_CUDA = xyes -a x$smpcache = xyes; then
+	if test "${enable_smpcache+set}" = set; then
+		as_fn_error $? "--enable-smpcache=yes is not supported with CUDA yet; use --enable-smpcache=no" "$LINENO" 5
+	fi
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: CUDA build: tree nodes use CkCacheManager (--enable-smpcache=no)" >&5
+$as_echo "$as_me: CUDA build: tree nodes use CkCacheManager (--enable-smpcache=no)" >&6;}
+	smpcache=no
+	FLAG_SMPCACHE=""
+fi
 
 ac_config_files="$ac_config_files Makefile $STRUCT_DIR/Makefile"
 
@@ -7017,7 +7061,7 @@ echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
-echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
+echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS smpcache=$smpcache sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
 

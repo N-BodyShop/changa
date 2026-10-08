@@ -5532,7 +5532,8 @@ const GravityParticle *TreePiece::lookupParticles(int begin) {
 }
 
 GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
-                       int chunk, int reqID, int awi, void *source) {
+                       int chunk, int reqID, int awi, void *source,
+                       GenericTreeNode *parent, int which) {
 
   CkAssert(remoteIndex < (int) numTreePieces);
   CkAssert(chunk < numChunks);
@@ -5551,7 +5552,13 @@ GenericTreeNode* TreePiece::requestNode(int remoteIndex, Tree::NodeKey key,
 
     CkCacheRequestorData<KeyType> request(thisElement, &EntryTypeGravityNode::callback, userData);
     CkArrayIndexMax remIdx = CkArrayIndex1D(remoteIndex);
+#if CHANGA_SMPCACHE
+    GenericTreeNode *res = (GenericTreeNode *) (parent != NULL
+        ? cacheNode.ckLocalBranch()->requestDataAt((Tree::BinaryTreeNode *)parent, which, key, remIdx, chunk, &gravityNodeEntry, request)
+        : cacheNode.ckLocalBranch()->requestData(key, remIdx, chunk, &gravityNodeEntry, request));
+#else
     GenericTreeNode *res = (GenericTreeNode *) cacheNode.ckLocalBranch()->requestData(key,remIdx,chunk,&gravityNodeEntry,request);
+#endif
 
 #ifdef CHANGA_REFACTOR_INTERLIST_PRINT_BUCKET_START_FIN
     if(source && !res){
