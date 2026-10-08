@@ -173,8 +173,6 @@ extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
 /// Aggregate the domain decomposition particle exchange per node
 extern int bNodeShuffle;
-/// Send the node-aggregated exchange with the zero-copy post API
-extern int bShuffleZeroCopy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
@@ -327,42 +325,16 @@ public:
 };
 
 
-/// @brief Domain decomposition particle exchange aggregated per node.
+/// @brief One node-to-node share of the domain decomposition particle
+/// exchange, on either side.
 ///
-/// One message per (source node, destination node) carries the
-/// particles of every TreePiece on the source node destined for every
-/// TreePiece on the destination node.  Sent and received by the
-/// DataManager nodegroup; destination TreePieces copy their bins out
-/// of the message in place (no per-piece message is made).
-class NodeShuffleMsg : public CMessage_NodeShuffleMsg {
-public:
-    int srcNode;
-    int nBins;
-    int nPart;
-    int nGas;
-    int nStar;
-    int nLoads;
-    /// Receiver-side count of bins not yet consumed; the message is
-    /// freed when it reaches zero (DataManager::releaseNodeShuffle).
-    int nPending;
-    ShuffleBin *bins;
-    double *loads;
-    unsigned int *parts_per_phase;
-    GravityParticle *particles;
-    extraSPHData *pGas;
-    extraStarData *pStar;
-    NodeShuffleMsg(int nbins, int npart, int ngas, int nstar, int nloads)
-        : srcNode(CkMyNode()), nBins(nbins), nPart(npart), nGas(ngas),
-          nStar(nstar), nLoads(nloads), nPending(0) {}
-};
-/// @brief Holder for one node-to-node share of the exchange, on either
-/// side.
-///
-/// The arrays either live inside a NodeShuffleMsg (bShuffleZeroCopy
-/// off: the message is sent and kept whole) or are owned here
-/// (bShuffleZeroCopy on: the sender passes them as nocopypost
-/// parameters, the receiver posts them as the landing buffers).
-/// TreePieces only ever see this holder.
+/// Between processes: the bin table and per-phase loads travel as
+/// marshalled arrays and the particle, gas and star data as ONE
+/// nocopypost buffer (`data`), owned here on the sending side until
+/// the transfer completes and on the receiving side until every
+/// destination piece has copied its bins out.  Inside a process:
+/// no buffer; the bins point into the source pieces' own arrays
+/// (selfSources).  TreePieces only ever see this holder.
 struct NodeShuffleBuf {
     int srcNode;
     int nBins;
@@ -375,19 +347,15 @@ struct NodeShuffleBuf {
     ShuffleBin *bins;
     double *loads;
     unsigned int *parts_per_phase;
+    /// Inter-process: one byte buffer holding particles, then pGas,
+    /// then pStar (each 16-byte aligned), transferred as ONE nocopypost
+    /// buffer so that one RDMA operation moves a node pair's data.
+    /// NULL for the intra-process holder.
+    char *data;
+    int nBytes;
     GravityParticle *particles;
     extraSPHData *pGas;
     extraStarData *pStar;
-    /// the message holding the arrays, or NULL if they are owned or if
-    /// the message has been handed to the runtime
-    NodeShuffleMsg *msg;
-    /// true if bins, loads, parts_per_phase and data were allocated here
-    bool owned;
-    /// Owned mode: one byte buffer holding particles, then pGas, then
-    /// pStar (each 16-byte aligned), transferred as ONE nocopypost
-    /// buffer so that one RDMA operation moves a node pair's data.
-    char *data;
-    int nBytes;
 
     /// Intra-process mode: bins point into the source pieces' own
     /// arrays (ShuffleBin::srcIndex selects the entry, srcFirst the
@@ -415,18 +383,11 @@ struct NodeShuffleBuf {
         return n > 0 ? n : 16;
     }
 
-    /// Arrays inside a message (sent, or received, as a message)
-    NodeShuffleBuf(NodeShuffleMsg *m)
-        : srcNode(m->srcNode), nBins(m->nBins), nPart(m->nPart), nGas(m->nGas),
-          nStar(m->nStar), nLoads(m->nLoads), nPending(0),
-          bins(m->bins), loads(m->loads), parts_per_phase(m->parts_per_phase),
-          particles(m->particles), pGas(m->pGas), pStar(m->pStar), msg(m),
-          owned(false), data(NULL), nBytes(0) {}
-    /// Owned arrays (zero-copy send or receive side)
+    /// Inter-process holder (send or receive side)
     NodeShuffleBuf(int srcnode, int nbins, int npart, int ngas, int nstar,
                    int nloads)
         : srcNode(srcnode), nBins(nbins), nPart(npart), nGas(ngas),
-          nStar(nstar), nLoads(nloads), nPending(0), msg(NULL), owned(true) {
+          nStar(nstar), nLoads(nloads), nPending(0) {
         bins = new ShuffleBin[nbins > 0 ? nbins : 1];
         loads = new double[nloads > 0 ? nloads : 1];
         parts_per_phase = new unsigned int[nloads > 0 ? nloads : 1];
@@ -440,8 +401,8 @@ struct NodeShuffleBuf {
     /// from the nsources local pieces by handoff.
     NodeShuffleBuf(int srcnode, int nbins, int nloads, int nsources)
         : srcNode(srcnode), nBins(nbins), nPart(0), nGas(0), nStar(0),
-          nLoads(nloads), nPending(0), particles(NULL), pGas(NULL), pStar(NULL),
-          msg(NULL), owned(true), data(NULL), nBytes(0) {
+          nLoads(nloads), nPending(0), data(NULL), nBytes(0),
+          particles(NULL), pGas(NULL), pStar(NULL) {
         bins = new ShuffleBin[nbins > 0 ? nbins : 1];
         loads = new double[nloads > 0 ? nloads : 1];
         parts_per_phase = new unsigned int[nloads > 0 ? nloads : 1];
@@ -449,14 +410,10 @@ struct NodeShuffleBuf {
         selfSources.assign(nsources > 0 ? nsources : 1, none);
     }
     ~NodeShuffleBuf() {
-        if(msg != NULL)
-            delete msg;
-        if(owned) {
-            delete[] bins;
-            delete[] loads;
-            delete[] parts_per_phase;
-            delete[] data;
-        }
+        delete[] bins;
+        delete[] loads;
+        delete[] parts_per_phase;
+        delete[] data;
         for(size_t i = 0; i < selfSources.size(); i++) {
             delete[] selfSources[i].particles;
             delete[] selfSources[i].pGas;

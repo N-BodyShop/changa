@@ -12,7 +12,6 @@
 #include <string>
 #include "GenericTreeNode.h"
 #include "NodeShuffle.h"
-class NodeShuffleMsg;
 struct NodeShuffleBuf;
 #include "ParallelGravity.decl.h"
 #include "lymanwerner.h"
@@ -84,7 +83,7 @@ protected:
 
 	/// @name Node-aggregated particle exchange (bNodeShuffle)
 	//@{
-	/// Lock for the counters below and for NodeShuffleMsg::nPending
+	/// Lock for the counters below and for NodeShuffleBuf::nPending
 	CmiNodeLock lockShuffle;
 	/// Local TreePieces with particles to send, registered in
 	/// TreePiece::unshuffleParticles
@@ -304,17 +303,14 @@ public:
     void registerShuffle(TreePiece *tp);
     void startNodeShuffle(CkReductionMsg *msg);
     void nodeShuffleFillDone();
-    void acceptNodeShuffle(NodeShuffleMsg *msg);
-#ifdef CHANGA_SHUFFLE_ZC
-    void acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin *bins,
+    void acceptNodeShuffle(int srcNode, int nBins, ShuffleBin *bins,
         int nLoads, double *loads, unsigned int *parts,
         int nPart, int nGas, int nStar, int nBytes, char *data,
         CkNcpyBufferPost *ncpyPost);
-    void acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin *bins,
+    void acceptNodeShuffle(int srcNode, int nBins, ShuffleBin *bins,
         int nLoads, double *loads, unsigned int *parts,
         int nPart, int nGas, int nStar, int nBytes, char *data);
     void nodeShuffleSent(CkDataMsg *msg);
-#endif
     void deliverNodeShuffle(NodeShuffleBuf *buf);
     void releaseNodeShuffle(NodeShuffleBuf *buf);
     void getChunks(int &num, Tree::NodeKey *&roots);

@@ -161,7 +161,7 @@ void DataManager::registerShuffle(TreePiece *tp) {
 /// @brief Reduction target: every TreePiece has registered its bins
 /// and contributed its (index, node) pair.
 ///
-/// Builds the piece-to-node map, sizes one NodeShuffleMsg per
+/// Builds the piece-to-node map, sizes one NodeShuffleBuf per
 /// destination node with data, assigns every bin its offsets in that
 /// message, then asks each local piece to copy its bins in
 /// (TreePiece::fillNodeShuffle, which runs in parallel on the pieces'
@@ -214,16 +214,11 @@ void DataManager::startNodeShuffle(CkReductionMsg *msg) {
       outShuffleBufs[n]->nGas = nGas[n];
       outShuffleBufs[n]->nStar = nStar[n];
     }
-    else if(bShuffleZeroCopy) {
-      // arrays owned by the holder; sent as nocopypost parameters
+    else {
+      // inter-process: arrays owned by the holder, sent as one
+      // nocopypost buffer
       outShuffleBufs[n] = new NodeShuffleBuf(CkMyNode(), nBins[n], nPart[n],
                                              nGas[n], nStar[n], nLoads[n]);
-    }
-    else {
-      NodeShuffleMsg *msg
-        = new (nBins[n], nLoads[n], nLoads[n], nPart[n], nGas[n], nStar[n])
-          NodeShuffleMsg(nBins[n], nPart[n], nGas[n], nStar[n], nLoads[n]);
-      outShuffleBufs[n] = new NodeShuffleBuf(msg);
     }
     nMsgs++;
     nSent += nPart[n];
@@ -234,9 +229,9 @@ void DataManager::startNodeShuffle(CkReductionMsg *msg) {
     long nBinsTotal = 0;
     for(int n = 0; n < nNodes; n++)
       nBinsTotal += nBins[n];
-    fprintf(stderr, "Node %d PE %d: node shuffle: %d pieces send %ld particles in %d node messages%s; %ld bins (= per-piece messages)\n",
+    fprintf(stderr, "Node %d PE %d: node shuffle: %d pieces send %ld particles in %d node transfers; %ld bins (= per-piece messages)\n",
              CkMyNode(), CkMyPe(), (int)shufflePieces.size(), nSent, nMsgs,
-             bShuffleZeroCopy ? " (zero-copy)" : "", nBinsTotal);
+             nBinsTotal);
   }
 
   nShuffleFillPending = shufflePieces.size();
@@ -271,18 +266,10 @@ void DataManager::nodeShuffleFillDone() {
     if((int)n == CkMyNode()) {
       mine = b;
     }
-    else if(b->msg != NULL) {
-      dMProxy[n].acceptNodeShuffle(b->msg);
-      b->msg = NULL;        // the runtime owns the message now
-      delete b;
-    }
     else {
-#ifndef CHANGA_SHUFFLE_ZC
-      CkAbort("node shuffle: zero-copy transfer requested but not compiled in");
-#else
-      // Zero-copy: the particle, gas and star arrays travel as ONE
-      // nocopypost buffer (one RDMA operation); the holder stays alive
-      // until the completion callback arrives.
+      // The particle, gas and star arrays travel as ONE nocopypost
+      // buffer (one RDMA operation); the holder stays alive until the
+      // completion callback arrives.
       CmiLock(lockShuffle);
       sentShuffleBufs.push_back(b);
       CmiUnlock(lockShuffle);
@@ -291,21 +278,19 @@ void DataManager::nodeShuffleFillDone() {
       if(verbosity >= 2)
         fprintf(stderr, "Node %d PE %d: node shuffle: zero-copy send to node %d: %d bins, %d particles, %d bytes, source %p\n",
                 CkMyNode(), CkMyPe(), (int)n, b->nBins, b->nPart, b->nBytes, (void *)b->data);
-      dMProxy[n].acceptNodeShuffleZC(CkMyNode(), b->nBins, b->bins,
+      dMProxy[n].acceptNodeShuffle(CkMyNode(), b->nBins, b->bins,
           b->nLoads, b->loads, b->parts_per_phase,
           b->nPart, b->nGas, b->nStar,
           b->nBytes, CkSendBuffer(b->data, cb));
-#endif
     }
   }
   if(mine != NULL)
     deliverNodeShuffle(mine);
 }
 
-#ifdef CHANGA_SHUFFLE_ZC
 
-/// @brief Completion of the nocopypost transfer of a zero-copy node
-/// send; the holder (and its arrays) can be freed.
+/// @brief Completion of the nocopypost transfer of a node send; the
+/// holder (and its arrays) can be freed.
 void DataManager::nodeShuffleSent(CkDataMsg *msg) {
   CkNcpyBuffer *src = (CkNcpyBuffer *)(msg->data);
   const void *ptr = src->ptr;
@@ -327,10 +312,10 @@ void DataManager::nodeShuffleSent(CkDataMsg *msg) {
   delete done;
 }
 
-/// @brief Post entry method of the zero-copy node receive: allocate
-/// the landing buffers for this source node and post them.  Runs when
-/// the metadata (bin table, loads) arrives, before the data.
-void DataManager::acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin *bins,
+/// @brief Post entry method of the node receive: allocate the landing
+/// buffer for this source node and post it.  Runs when the metadata
+/// (bin table, loads) arrives, before the data.
+void DataManager::acceptNodeShuffle(int srcNode, int nBins, ShuffleBin *bins,
     int nLoads, double *loads, unsigned int *parts,
     int nPart, int nGas, int nStar, int nBytes, char *data,
     CkNcpyBufferPost *ncpyPost) {
@@ -359,9 +344,9 @@ void DataManager::acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin *bins,
   CkPostBuffer(b->data, nBytes, srcNode);
 }
 
-/// @brief The zero-copy node receive has landed in the posted buffers;
-/// hand the bins to the destination pieces.
-void DataManager::acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin *bins,
+/// @brief The node receive has landed in the posted buffer; hand the
+/// bins to the destination pieces.
+void DataManager::acceptNodeShuffle(int srcNode, int nBins, ShuffleBin *bins,
     int nLoads, double *loads, unsigned int *parts,
     int nPart, int nGas, int nStar, int nBytes, char *data) {
   if(verbosity >= 2)
@@ -376,18 +361,6 @@ void DataManager::acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin *bins,
   CmiUnlock(lockShuffle);
   CkAssert(data == b->data);
   deliverNodeShuffle(b);
-}
-#endif // CHANGA_SHUFFLE_ZC
-
-/// @brief Receive one source node's particles as a message (bShuffleZeroCopy
-/// off) for the TreePieces on this node.
-///
-/// The message stays whole; each piece copies its bin out of it and
-/// releases the holder (releaseNodeShuffle).  The bin handoff is a local
-/// array message carrying the holder's address, so it may run on any PE
-/// of this node.
-void DataManager::acceptNodeShuffle(NodeShuffleMsg *msg) {
-  deliverNodeShuffle(new NodeShuffleBuf(msg));
 }
 
 /// @brief Hand every bin of a received (or local) node buffer to its

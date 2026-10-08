@@ -8,15 +8,15 @@
 /// message and holder classes.
 #include "pup.h"
 
-/// @brief One destination TreePiece's share of a NodeShuffleMsg.
+/// @brief One destination TreePiece's share of a NodeShuffleBuf.
 ///
-/// Offsets index the arrays of the NodeShuffleMsg that carries the
+/// Offsets index the arrays of the NodeShuffleBuf that carries the
 /// bin.  On the sending side, srcFirst is the index of the first
 /// particle of the bin in the source TreePiece's myParticles.
 struct ShuffleBin {
     int destPiece;      ///< destination TreePiece
     int destNode;       ///< node (process) of destPiece
-    int iBin;           ///< index of this record in the message
+    int iBin;           ///< index of this record in the holder's bin table
     int srcFirst;       ///< source-side: first particle in myParticles
     int srcLoad;        ///< source-side: first entry in myShuffleLoads/Parts
     int srcIndex;       ///< source piece slot in an intra-process holder (NodeShuffleBuf::selfSources)

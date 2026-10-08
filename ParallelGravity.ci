@@ -23,7 +23,6 @@ mainmodule ParallelGravity {
   readonly CProxy_DataManager dMProxy;
   readonly CProxy_PETreeMerger peTreeMergerProxy;
   readonly int bNodeShuffle;
-  readonly int bShuffleZeroCopy;
   readonly CProxy_DumpFrameData dfDataProxy;
   readonly CProxy_IntraNodeLBManager nodeLBMgrProxy;
 
@@ -99,15 +98,6 @@ mainmodule ParallelGravity {
   };
 
   message ParticleShuffleMsg {
-    double loads[];
-    unsigned int parts_per_phase[];
-    GravityParticle particles[];
-    extraSPHData pGas[];
-    extraStarData pStar[];
-  };
-
-  message NodeShuffleMsg {
-    ShuffleBin bins[];
     double loads[];
     unsigned int parts_per_phase[];
     GravityParticle particles[];
@@ -267,14 +257,11 @@ mainmodule ParallelGravity {
     entry void clearRegisteredPieces(const CkCallback& cb);
     entry void combineLocalTrees(CkReductionMsg *m);
     entry void startNodeShuffle(CkReductionMsg *m);
-    entry void acceptNodeShuffle(NodeShuffleMsg *m);
-#ifdef CHANGA_SHUFFLE_ZC
-    entry void acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin bins[nBins],
+    entry void acceptNodeShuffle(int srcNode, int nBins, ShuffleBin bins[nBins],
         int nLoads, double loads[nLoads], unsigned int parts[nLoads],
         int nPart, int nGas, int nStar,
         int nBytes, nocopypost char data[nBytes]);
     entry void nodeShuffleSent(CkDataMsg *m);
-#endif
 #ifdef CUDA
     entry void startLocalWalk();
     entry void resumeRemoteChunk();
