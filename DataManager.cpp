@@ -228,10 +228,16 @@ void DataManager::startNodeShuffle(CkReductionMsg *msg) {
     nMsgs++;
     nSent += nPart[n];
   }
-  if(verbosity >= 2)
-    fprintf(stderr, "Node %d PE %d: node shuffle: %d pieces send %ld particles in %d node messages%s\n",
+  if(verbosity >= 2) {
+    // Every bin is one (source piece, destination piece) pair with
+    // particles, i.e. exactly one message of the per-piece path.
+    long nBinsTotal = 0;
+    for(int n = 0; n < nNodes; n++)
+      nBinsTotal += nBins[n];
+    fprintf(stderr, "Node %d PE %d: node shuffle: %d pieces send %ld particles in %d node messages%s; %ld bins (= per-piece messages)\n",
              CkMyNode(), CkMyPe(), (int)shufflePieces.size(), nSent, nMsgs,
-             bShuffleZeroCopy ? " (zero-copy)" : "");
+             bShuffleZeroCopy ? " (zero-copy)" : "", nBinsTotal);
+  }
 
   nShuffleFillPending = shufflePieces.size();
   if(nShuffleFillPending == 0) {
