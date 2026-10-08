@@ -53,6 +53,7 @@ typedef struct parameters {
     int bConcurrentSph;
     double dFracNoDomainDecomp;
     int bNodeShuffle;
+    int bShuffleZeroCopy;
 #ifdef PUSH_GRAVITY
     double dFracPushParticles;
 #endif
@@ -209,6 +210,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.bConcurrentSph;
     p|param.dFracNoDomainDecomp;
     p|param.bNodeShuffle;
+    p|param.bShuffleZeroCopy;
 #ifdef PUSH_GRAVITY
     p|param.dFracPushParticles;
 #endif

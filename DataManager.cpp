@@ -198,26 +198,35 @@ void DataManager::startNodeShuffle(CkReductionMsg *msg) {
     }
   }
 
-  outShuffleMsgs.assign(nNodes, (NodeShuffleMsg *)NULL);
+  outShuffleBufs.assign(nNodes, (NodeShuffleBuf *)NULL);
   int nMsgs = 0;
   long nSent = 0;
   for(int n = 0; n < nNodes; n++) {
     if(nBins[n] == 0)
       continue;
-    outShuffleMsgs[n]
-      = new (nBins[n], nLoads[n], nLoads[n], nPart[n], nGas[n], nStar[n])
-        NodeShuffleMsg(nBins[n], nPart[n], nGas[n], nStar[n], nLoads[n]);
+    if(bShuffleZeroCopy && n != CkMyNode()) {
+      // arrays owned by the holder; sent as nocopypost parameters
+      outShuffleBufs[n] = new NodeShuffleBuf(CkMyNode(), nBins[n], nPart[n],
+                                             nGas[n], nStar[n], nLoads[n]);
+    }
+    else {
+      NodeShuffleMsg *msg
+        = new (nBins[n], nLoads[n], nLoads[n], nPart[n], nGas[n], nStar[n])
+          NodeShuffleMsg(nBins[n], nPart[n], nGas[n], nStar[n], nLoads[n]);
+      outShuffleBufs[n] = new NodeShuffleBuf(msg);
+    }
     nMsgs++;
     nSent += nPart[n];
   }
   if(verbosity >= 2)
-    CkPrintf("Node %d: node shuffle: %d pieces send %ld particles in %d node messages\n",
-             CkMyNode(), (int)shufflePieces.size(), nSent, nMsgs);
+    fprintf(stderr, "Node %d PE %d: node shuffle: %d pieces send %ld particles in %d node messages%s\n",
+             CkMyNode(), CkMyPe(), (int)shufflePieces.size(), nSent, nMsgs,
+             bShuffleZeroCopy ? " (zero-copy)" : "");
 
   nShuffleFillPending = shufflePieces.size();
   if(nShuffleFillPending == 0) {
     // No particles on this node; nothing to fill or send.
-    outShuffleMsgs.clear();
+    outShuffleBufs.clear();
     return;
   }
   for(size_t i = 0; i < shufflePieces.size(); i++)
@@ -235,44 +244,146 @@ void DataManager::nodeShuffleFillDone() {
   CmiUnlock(lockShuffle);
   if(left > 0)
     return;
-  std::vector<NodeShuffleMsg *> msgs;
-  msgs.swap(outShuffleMsgs);
+  std::vector<NodeShuffleBuf *> bufs;
+  bufs.swap(outShuffleBufs);
   shufflePieces.clear();
-  NodeShuffleMsg *mine = NULL;
-  for(size_t n = 0; n < msgs.size(); n++) {
-    if(msgs[n] == NULL)
+  NodeShuffleBuf *mine = NULL;
+  for(size_t n = 0; n < bufs.size(); n++) {
+    NodeShuffleBuf *b = bufs[n];
+    if(b == NULL)
       continue;
-    if((int)n == CkMyNode())
-      mine = msgs[n];
-    else
-      dMProxy[n].acceptNodeShuffle(msgs[n]);
+    if((int)n == CkMyNode()) {
+      mine = b;
+    }
+    else if(b->msg != NULL) {
+      dMProxy[n].acceptNodeShuffle(b->msg);
+      b->msg = NULL;        // the runtime owns the message now
+      delete b;
+    }
+    else {
+      // Zero-copy: the particle, gas and star arrays travel as ONE
+      // nocopypost buffer (one RDMA operation); the holder stays alive
+      // until the completion callback arrives.
+      CmiLock(lockShuffle);
+      sentShuffleBufs.push_back(b);
+      CmiUnlock(lockShuffle);
+      CkCallback cb(CkIndex_DataManager::nodeShuffleSent(NULL),
+                    dMProxy[CkMyNode()]);
+      if(verbosity >= 2)
+        fprintf(stderr, "Node %d PE %d: node shuffle: zero-copy send to node %d: %d bins, %d particles, %d bytes, source %p\n",
+                CkMyNode(), CkMyPe(), (int)n, b->nBins, b->nPart, b->nBytes, (void *)b->data);
+      dMProxy[n].acceptNodeShuffleZC(CkMyNode(), b->nBins, b->bins,
+          b->nLoads, b->loads, b->parts_per_phase,
+          b->nPart, b->nGas, b->nStar,
+          b->nBytes, CkSendBuffer(b->data, cb));
+    }
   }
   if(mine != NULL)
-    acceptNodeShuffle(mine);
+    deliverNodeShuffle(mine);
 }
 
-/// @brief Receive one source node's particles for the TreePieces on
-/// this node and hand each bin to its destination piece.
+/// @brief Completion of the nocopypost transfer of a zero-copy node
+/// send; the holder (and its arrays) can be freed.
+void DataManager::nodeShuffleSent(CkDataMsg *msg) {
+  CkNcpyBuffer *src = (CkNcpyBuffer *)(msg->data);
+  const void *ptr = src->ptr;
+  NodeShuffleBuf *done = NULL;
+  CmiLock(lockShuffle);
+  for(size_t i = 0; i < sentShuffleBufs.size(); i++) {
+    if(ptr == sentShuffleBufs[i]->data) {
+      done = sentShuffleBufs[i];
+      sentShuffleBufs.erase(sentShuffleBufs.begin() + i);
+      break;
+    }
+  }
+  CmiUnlock(lockShuffle);
+  delete msg;
+  if(verbosity >= 2)
+    fprintf(stderr, "Node %d PE %d: node shuffle: send complete, source %p%s\n",
+            CkMyNode(), CkMyPe(), ptr, done == NULL ? " (UNKNOWN BUFFER)" : "");
+  CkAssert(done != NULL);
+  delete done;
+}
+
+/// @brief Post entry method of the zero-copy node receive: allocate
+/// the landing buffers for this source node and post them.  Runs when
+/// the metadata (bin table, loads) arrives, before the data.
+void DataManager::acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin *bins,
+    int nLoads, double *loads, unsigned int *parts,
+    int nPart, int nGas, int nStar, int nBytes, char *data,
+    CkNcpyBufferPost *ncpyPost) {
+  NodeShuffleBuf *b = new NodeShuffleBuf(srcNode, nBins, nPart, nGas, nStar,
+                                         nLoads);
+  CkAssert(b->nBytes == nBytes);
+  if(verbosity >= 2)
+    fprintf(stderr, "Node %d PE %d: node shuffle: post for source node %d: %d bins, %d particles, %d bytes, landing %p\n",
+             CkMyNode(), CkMyPe(), srcNode, nBins, nPart, nBytes, (void *)b->data);
+  memcpy(b->bins, bins, nBins*sizeof(ShuffleBin));
+  if(nLoads > 0) {
+    memcpy(b->loads, loads, nLoads*sizeof(double));
+    memcpy(b->parts_per_phase, parts, nLoads*sizeof(unsigned int));
+  }
+  // Record the landing buffer BEFORE matching and posting: the data
+  // entry method may run before this one returns (the transfer can
+  // complete inside the runtime calls below when the peer answers
+  // within the same progress call), and it must find the entry.
+  CmiLock(lockShuffle);
+  CkAssert(postedShuffleBufs.find(srcNode) == postedShuffleBufs.end());
+  postedShuffleBufs[srcNode] = b;
+  CmiUnlock(lockShuffle);
+  // Tag: unique per source node on this node; one transfer per source
+  // node per decomposition, and decompositions do not overlap.
+  CkMatchBuffer(ncpyPost, 0, srcNode);
+  CkPostBuffer(b->data, nBytes, srcNode);
+}
+
+/// @brief The zero-copy node receive has landed in the posted buffers;
+/// hand the bins to the destination pieces.
+void DataManager::acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin *bins,
+    int nLoads, double *loads, unsigned int *parts,
+    int nPart, int nGas, int nStar, int nBytes, char *data) {
+  if(verbosity >= 2)
+    fprintf(stderr, "Node %d PE %d: node shuffle: data from source node %d: %d bins, %d particles, %d bytes, data %p\n",
+             CkMyNode(), CkMyPe(), srcNode, nBins, nPart, nBytes, (void *)data);
+  CmiLock(lockShuffle);
+  std::map<int, NodeShuffleBuf *>::iterator it = postedShuffleBufs.find(srcNode);
+  if(it == postedShuffleBufs.end())
+    CkAbort("node shuffle: data arrived from node %d with no posted buffer", srcNode);
+  NodeShuffleBuf *b = it->second;
+  postedShuffleBufs.erase(it);
+  CmiUnlock(lockShuffle);
+  CkAssert(data == b->data);
+  deliverNodeShuffle(b);
+}
+
+/// @brief Receive one source node's particles as a message (bShuffleZeroCopy
+/// off) for the TreePieces on this node.
 ///
 /// The message stays whole; each piece copies its bin out of it and
-/// releases it (releaseNodeShuffle).  The bin handoff is a local array
-/// message carrying the message address, so it may run on any PE of
-/// this node.
+/// releases the holder (releaseNodeShuffle).  The bin handoff is a local
+/// array message carrying the holder's address, so it may run on any PE
+/// of this node.
 void DataManager::acceptNodeShuffle(NodeShuffleMsg *msg) {
-  msg->nPending = msg->nBins;
-  for(int i = 0; i < msg->nBins; i++) {
-    treePieces[msg->bins[i].destPiece].acceptNodeShuffleBin((intptr_t)msg, i);
+  deliverNodeShuffle(new NodeShuffleBuf(msg));
+}
+
+/// @brief Hand every bin of a received (or local) node buffer to its
+/// destination TreePiece.
+void DataManager::deliverNodeShuffle(NodeShuffleBuf *buf) {
+  buf->nPending = buf->nBins;
+  for(int i = 0; i < buf->nBins; i++) {
+    treePieces[buf->bins[i].destPiece].acceptNodeShuffleBin((intptr_t)buf, i);
   }
 }
 
-/// @brief A destination TreePiece is done with one bin of msg; free
-/// the message when the last bin is released.
-void DataManager::releaseNodeShuffle(NodeShuffleMsg *msg) {
+/// @brief A destination TreePiece is done with one bin of buf; free
+/// the holder (and its message or arrays) when the last bin is released.
+void DataManager::releaseNodeShuffle(NodeShuffleBuf *buf) {
   CmiLock(lockShuffle);
-  int left = --msg->nPending;
+  int left = --buf->nPending;
   CmiUnlock(lockShuffle);
   if(left == 0)
-    delete msg;
+    delete buf;
 }
 
 void DataManager::pup(PUP::er& p) {

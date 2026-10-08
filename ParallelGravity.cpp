@@ -90,6 +90,8 @@ CProxy_DumpFrameData dfDataProxy;
 CProxy_PETreeMerger peTreeMergerProxy;
 /// @brief Aggregate the domain decomposition particle exchange per node.
 int bNodeShuffle;
+/// @brief Send the node-aggregated exchange with the zero-copy post API.
+int bShuffleZeroCopy;
 
 
 
@@ -817,6 +819,10 @@ Main::Main(CkArgMsg* m) {
 	prmAddParam(prm, "bNodeShuffle", paramBool, &param.bNodeShuffle,
 		    sizeof(int),"nodeshuffle",
 		    "Aggregate domain decomposition particle exchange per node = +nodeshuffle");
+	param.bShuffleZeroCopy = 1;
+	prmAddParam(prm, "bShuffleZeroCopy", paramBool, &param.bShuffleZeroCopy,
+		    sizeof(int),"shufflezc",
+		    "Node particle exchange uses the zero-copy post API = +shufflezc");
         // Recognize (and ignore) gasoline compatibility parameters.
         static int iDummy = 0;
 	prmAddParam(prm, "bRestart", paramBool, &iDummy,
@@ -1000,6 +1006,7 @@ Main::Main(CkArgMsg* m) {
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
 	bNodeShuffle = param.bNodeShuffle;
+	bShuffleZeroCopy = param.bShuffleZeroCopy;
 	dMaxBalance = param.dMaxBalance;
 	dGlassDamper = param.dGlassDamper;
 	_cacheLineDepth = param.cacheLineDepth;
@@ -2929,6 +2936,9 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	prmAddParam(prm, "bNodeShuffle", paramBool, &param.bNodeShuffle,
 		    sizeof(int),"nodeshuffle",
 		    "Aggregate domain decomposition particle exchange per node");
+	prmAddParam(prm, "bShuffleZeroCopy", paramBool, &param.bShuffleZeroCopy,
+		    sizeof(int),"shufflezc",
+		    "Node particle exchange uses the zero-copy post API");
 	prmAddParam(prm, "bFastGas", paramBool, &param.bFastGas,
 		    sizeof(int),"Fgas", "Fast Gas Method");
 	prmAddParam(prm,"dFracFastGas",paramDouble,&param.dFracFastGas,

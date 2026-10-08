@@ -138,6 +138,8 @@ class NewMaxOrder
 
 #include "InOutput.h"
 
+#include "NodeShuffle.h"
+
 #include "ParallelGravity.decl.h"
 
 extern CProxy_Main mainChare;
@@ -171,6 +173,8 @@ extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
 /// Aggregate the domain decomposition particle exchange per node
 extern int bNodeShuffle;
+/// Send the node-aggregated exchange with the zero-copy post API
+extern int bShuffleZeroCopy;
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_CkCacheManager<KeyType> cacheNode;
@@ -322,22 +326,6 @@ public:
       nloads(nload), n(npart), nSPH(nsph), nStar(nstar) {}
 };
 
-/// @brief One destination TreePiece's share of a NodeShuffleMsg.
-///
-/// Offsets index the arrays of the NodeShuffleMsg that carries the
-/// bin.  On the sending side, srcFirst is the index of the first
-/// particle of the bin in the source TreePiece's myParticles.
-struct ShuffleBin {
-    int destPiece;      ///< destination TreePiece
-    int destNode;       ///< node (process) of destPiece
-    int iBin;           ///< index of this record in the message
-    int srcFirst;       ///< source-side: first particle in myParticles
-    int srcLoad;        ///< source-side: first entry in myShuffleLoads/Parts
-    int iPart, nPart;   ///< range in particles[]
-    int iGas, nGas;     ///< range in pGas[]
-    int iStar, nStar;   ///< range in pStar[]
-    int iLoad, nLoads;  ///< range in loads[] and parts_per_phase[]
-};
 
 /// @brief Domain decomposition particle exchange aggregated per node.
 ///
@@ -366,6 +354,84 @@ public:
     NodeShuffleMsg(int nbins, int npart, int ngas, int nstar, int nloads)
         : srcNode(CkMyNode()), nBins(nbins), nPart(npart), nGas(ngas),
           nStar(nstar), nLoads(nloads), nPending(0) {}
+};
+/// @brief Holder for one node-to-node share of the exchange, on either
+/// side.
+///
+/// The arrays either live inside a NodeShuffleMsg (bShuffleZeroCopy
+/// off: the message is sent and kept whole) or are owned here
+/// (bShuffleZeroCopy on: the sender passes them as nocopypost
+/// parameters, the receiver posts them as the landing buffers).
+/// TreePieces only ever see this holder.
+struct NodeShuffleBuf {
+    int srcNode;
+    int nBins;
+    int nPart;
+    int nGas;
+    int nStar;
+    int nLoads;
+    /// receiver: bins not yet consumed by their TreePiece
+    int nPending;
+    ShuffleBin *bins;
+    double *loads;
+    unsigned int *parts_per_phase;
+    GravityParticle *particles;
+    extraSPHData *pGas;
+    extraStarData *pStar;
+    /// the message holding the arrays, or NULL if they are owned or if
+    /// the message has been handed to the runtime
+    NodeShuffleMsg *msg;
+    /// true if bins, loads, parts_per_phase and data were allocated here
+    bool owned;
+    /// Owned mode: one byte buffer holding particles, then pGas, then
+    /// pStar (each 16-byte aligned), transferred as ONE nocopypost
+    /// buffer so that one RDMA operation moves a node pair's data.
+    char *data;
+    int nBytes;
+
+    static int alignUp(int n) { return (n + 15) & ~15; }
+    static int offGas(int npart) { return alignUp(npart*sizeof(GravityParticle)); }
+    static int offStar(int npart, int ngas) {
+        return offGas(npart) + alignUp(ngas*sizeof(extraSPHData));
+    }
+    /// Size of the owned data buffer; never zero so that it is always a
+    /// valid buffer to send or post.
+    static int dataBytes(int npart, int ngas, int nstar) {
+        int n = offStar(npart, ngas) + alignUp(nstar*sizeof(extraStarData));
+        return n > 0 ? n : 16;
+    }
+
+    /// Arrays inside a message (sent, or received, as a message)
+    NodeShuffleBuf(NodeShuffleMsg *m)
+        : srcNode(m->srcNode), nBins(m->nBins), nPart(m->nPart), nGas(m->nGas),
+          nStar(m->nStar), nLoads(m->nLoads), nPending(0),
+          bins(m->bins), loads(m->loads), parts_per_phase(m->parts_per_phase),
+          particles(m->particles), pGas(m->pGas), pStar(m->pStar), msg(m),
+          owned(false), data(NULL), nBytes(0) {}
+    /// Owned arrays (zero-copy send or receive side)
+    NodeShuffleBuf(int srcnode, int nbins, int npart, int ngas, int nstar,
+                   int nloads)
+        : srcNode(srcnode), nBins(nbins), nPart(npart), nGas(ngas),
+          nStar(nstar), nLoads(nloads), nPending(0), msg(NULL), owned(true) {
+        bins = new ShuffleBin[nbins > 0 ? nbins : 1];
+        loads = new double[nloads > 0 ? nloads : 1];
+        parts_per_phase = new unsigned int[nloads > 0 ? nloads : 1];
+        nBytes = dataBytes(npart, ngas, nstar);
+        data = new char[nBytes];
+        particles = (GravityParticle *)data;
+        pGas = (extraSPHData *)(data + offGas(npart));
+        pStar = (extraStarData *)(data + offStar(npart, ngas));
+    }
+    ~NodeShuffleBuf() {
+        if(msg != NULL)
+            delete msg;
+        if(owned) {
+            delete[] bins;
+            delete[] loads;
+            delete[] parts_per_phase;
+            delete[] data;
+        }
+    }
 };
 
 #ifdef PUSH_GRAVITY
@@ -1231,7 +1297,7 @@ private:
         std::vector<unsigned int> myShuffleParts;
         /// Incoming bins: (node message, bin index), held until all
         /// my particles have arrived.
-        std::vector<std::pair<NodeShuffleMsg *, int> > incomingNodeBins;
+        std::vector<std::pair<NodeShuffleBuf *, int> > incomingNodeBins;
 
 	/// holds the total mass of the current TreePiece
 	double piecemass;
@@ -1709,7 +1775,7 @@ public:
 	void acceptSortedParticles(ParticleShuffleMsg *);
 	void computeShuffleBins();
 	void fillNodeShuffle();
-	void acceptNodeShuffleBin(intptr_t msgAddr, int iBin);
+	void acceptNodeShuffleBin(intptr_t bufAddr, int iBin);
 	void checkNodeShuffleComplete();
 	void finishSortedParticles();
   void shuffleAfterQD();

@@ -1299,7 +1299,7 @@ void TreePiece::computeShuffleBins() {
 void TreePiece::fillNodeShuffle() {
   for(size_t j = 0; j < myShuffleBins.size(); j++) {
     ShuffleBin &b = myShuffleBins[j];
-    NodeShuffleMsg *msg = dm->outShuffleMsgs[b.destNode];
+    NodeShuffleBuf *msg = dm->outShuffleBufs[b.destNode];
     GravityParticle *pPartOut = msg->particles + b.iPart;
     extraSPHData *pGasOut = msg->pGas + b.iGas;
     extraStarData *pStarOut = msg->pStar + b.iStar;
@@ -1351,15 +1351,15 @@ void TreePiece::fillNodeShuffle() {
   checkNodeShuffleComplete();
 }
 
-/// @brief One bin of a node message is for me (from
-/// DataManager::acceptNodeShuffle).  Hold it until all my particles
+/// @brief One bin of a node buffer is for me (from
+/// DataManager::deliverNodeShuffle).  Hold it until all my particles
 /// have arrived.
 ///
 /// Like acceptSortedParticles(), this can run before
 /// unshuffleParticles() for this decomposition; nothing here depends
 /// on it having run.
-void TreePiece::acceptNodeShuffleBin(intptr_t msgAddr, int iBin) {
-  NodeShuffleMsg *msg = (NodeShuffleMsg *)msgAddr;
+void TreePiece::acceptNodeShuffleBin(intptr_t bufAddr, int iBin) {
+  NodeShuffleBuf *msg = (NodeShuffleBuf *)bufAddr;
   const ShuffleBin &b = msg->bins[iBin];
   CkAssert(b.destPiece == thisIndex);
   incomingNodeBins.push_back(std::make_pair(msg, iBin));
@@ -1435,7 +1435,7 @@ void TreePiece::checkNodeShuffleComplete() {
   nSPH = 0;
   nStar = 0;
   for(size_t i = 0; i < incomingNodeBins.size(); i++) {
-    NodeShuffleMsg *msg = incomingNodeBins[i].first;
+    NodeShuffleBuf *msg = incomingNodeBins[i].first;
     const ShuffleBin &b = msg->bins[incomingNodeBins[i].second];
     memcpy(&myParticles[nPart+1], msg->particles + b.iPart,
            b.nPart*sizeof(GravityParticle));
