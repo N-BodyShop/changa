@@ -126,7 +126,6 @@ void DataManagerTransferLocalTree(void *moments, size_t sMoments,
       (VariablePartData *) *d_varParts,
       numParticles);
 #endif
-  cudaChk(cudaPeekAtLastError());
 
   HAPI_TRACE_END(CUDA_XFER_LOCAL);
 
@@ -207,7 +206,6 @@ void DataManagerLocalTreeWalk(CudaRequest *data){
     );
 #endif
 #endif
-  cudaChk(cudaPeekAtLastError());
   HAPI_TRACE_END(CUDA_GRAV_TREE_LOCAL);
 
   hapiAddCallback(stream, data->cb);
@@ -247,7 +245,6 @@ void PEListNodeListDataTransferLocal(CudaRequest *data){
 #endif
 
     DataTransferBasicCleanup(&devPtr, stream, funcTag);
-    cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_GRAV_NODELIST_LOCAL);
   }
 
@@ -286,7 +283,6 @@ void PEListPartListDataTransferLocal(CudaRequest *data){
       );
 #endif
     DataTransferBasicCleanup(&devPtr, stream, funcTag);
-    cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_GRAV_PARTLIST_LOCAL);
   }
 
@@ -326,7 +322,6 @@ void PEListNodeListDataTransferRemote(CudaRequest *data){
       );
 #endif
     DataTransferBasicCleanup(&devPtr, stream, funcTag);
-    cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_GRAV_NODELIST_REMOTE);
   }
 
@@ -374,7 +369,6 @@ void PEListNodeListDataTransferRemoteResume(CudaRequest *data){
     if (d_missedNodes != nullptr) {
       cudaChk(gpuPoolFree(d_missedNodes, stream, funcTag));
     }
-    cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_GRAV_NODELIST_REMOTE_RESUME);
   }
 
@@ -426,7 +420,6 @@ void PEListPartListDataTransferRemote(CudaRequest *data){
       );
 #endif
     DataTransferBasicCleanup(&devPtr, stream, funcTag);
-    cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_GRAV_PARTLIST_REMOTE);
   }
 
@@ -472,7 +465,6 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data){
     if (d_missedParts != nullptr) {
       cudaChk(gpuPoolFree(d_missedParts, stream, funcTag));
     }
-    cudaChk(cudaPeekAtLastError());
     HAPI_TRACE_END(CUDA_GRAV_PARTLIST_REMOTE_RESUME);
   }
 
@@ -1359,9 +1351,9 @@ void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_
   int numBlocks = (numParts + (THREADS_PER_BLOCK - 1)) / THREADS_PER_BLOCK;
 
 #ifdef CUDA_VERBOSE_OPS
-  printf("(%d) DM EWALD numParts: %d\n",
+  CkPrintf("(%d) DM EWALD numParts: %d numBlocks: %d\n",
         CmiMyNode(),
-        numParts
+        numParts, numBlocks
         );
 #endif
 
@@ -1377,7 +1369,6 @@ void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_
 #endif
   HAPI_TRACE_END(CUDA_EWALD);
 
-  cudaChk(cudaPeekAtLastError());
   hapiAddCallback(stream, cb);
 }
 
