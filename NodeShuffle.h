@@ -19,6 +19,7 @@ struct ShuffleBin {
     int iBin;           ///< index of this record in the message
     int srcFirst;       ///< source-side: first particle in myParticles
     int srcLoad;        ///< source-side: first entry in myShuffleLoads/Parts
+    int srcIndex;       ///< source piece slot in an intra-process holder (NodeShuffleBuf::selfSources)
     int iPart, nPart;   ///< range in particles[]
     int iGas, nGas;     ///< range in pGas[]
     int iStar, nStar;   ///< range in pStar[]

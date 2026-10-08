@@ -389,6 +389,20 @@ struct NodeShuffleBuf {
     char *data;
     int nBytes;
 
+    /// Intra-process mode: bins point into the source pieces' own
+    /// arrays (ShuffleBin::srcIndex selects the entry, srcFirst the
+    /// offset).  The arrays are owned here from the handoff in
+    /// TreePiece::fillNodeShuffle until the holder is freed, so the
+    /// particles that stay inside the process are copied once, by the
+    /// destination piece, with no intermediate buffer.
+    struct SelfSource {
+        GravityParticle *particles;
+        extraSPHData *pGas;
+        extraStarData *pStar;
+    };
+    std::vector<SelfSource> selfSources;
+    bool isSelf() const { return !selfSources.empty(); }
+
     static int alignUp(int n) { return (n + 15) & ~15; }
     static int offGas(int npart) { return alignUp(npart*sizeof(GravityParticle)); }
     static int offStar(int npart, int ngas) {
@@ -422,6 +436,18 @@ struct NodeShuffleBuf {
         pGas = (extraSPHData *)(data + offGas(npart));
         pStar = (extraStarData *)(data + offStar(npart, ngas));
     }
+    /// Intra-process holder: bins and loads only; particle arrays come
+    /// from the nsources local pieces by handoff.
+    NodeShuffleBuf(int srcnode, int nbins, int nloads, int nsources)
+        : srcNode(srcnode), nBins(nbins), nPart(0), nGas(0), nStar(0),
+          nLoads(nloads), nPending(0), particles(NULL), pGas(NULL), pStar(NULL),
+          msg(NULL), owned(true), data(NULL), nBytes(0) {
+        bins = new ShuffleBin[nbins > 0 ? nbins : 1];
+        loads = new double[nloads > 0 ? nloads : 1];
+        parts_per_phase = new unsigned int[nloads > 0 ? nloads : 1];
+        SelfSource none = {NULL, NULL, NULL};
+        selfSources.assign(nsources > 0 ? nsources : 1, none);
+    }
     ~NodeShuffleBuf() {
         if(msg != NULL)
             delete msg;
@@ -430,6 +456,11 @@ struct NodeShuffleBuf {
             delete[] loads;
             delete[] parts_per_phase;
             delete[] data;
+        }
+        for(size_t i = 0; i < selfSources.size(); i++) {
+            delete[] selfSources[i].particles;
+            delete[] selfSources[i].pGas;
+            delete[] selfSources[i].pStar;
         }
     }
 };

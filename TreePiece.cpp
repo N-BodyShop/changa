@@ -1297,23 +1297,36 @@ void TreePiece::computeShuffleBins() {
 /// DataManager::startNodeShuffle), so the copies of all pieces on a
 /// node proceed in parallel.
 void TreePiece::fillNodeShuffle() {
+  bool handedOff = false;
   for(size_t j = 0; j < myShuffleBins.size(); j++) {
     ShuffleBin &b = myShuffleBins[j];
     NodeShuffleBuf *msg = dm->outShuffleBufs[b.destNode];
-    GravityParticle *pPartOut = msg->particles + b.iPart;
-    extraSPHData *pGasOut = msg->pGas + b.iGas;
-    extraStarData *pStarOut = msg->pStar + b.iStar;
-    GravityParticle *pEnd = &myParticles[b.srcFirst + b.nPart];
-    for(GravityParticle *pPart = &myParticles[b.srcFirst]; pPart < pEnd;
-        pPart++, pPartOut++) {
-      *pPartOut = *pPart;
-      if(pPart->isGas()) {
-        *pGasOut = *(extraSPHData *)pPart->extraData;
-        pGasOut++;
-      }
-      if(pPart->isStar()) {
-        *pStarOut = *(extraStarData *)pPart->extraData;
-        pStarOut++;
+    if(msg->isSelf()) {
+      // Destination is in this process: no copy here.  Hand my arrays
+      // to the holder (freed when the last local destination has
+      // copied); the destination gathers straight from them.
+      NodeShuffleBuf::SelfSource &src = msg->selfSources[b.srcIndex];
+      src.particles = myParticles;
+      src.pGas = nStoreSPH > 0 ? mySPHParticles : NULL;
+      src.pStar = nStoreStar > 0 ? myStarParticles : NULL;
+      handedOff = true;
+    }
+    else {
+      GravityParticle *pPartOut = msg->particles + b.iPart;
+      extraSPHData *pGasOut = msg->pGas + b.iGas;
+      extraStarData *pStarOut = msg->pStar + b.iStar;
+      GravityParticle *pEnd = &myParticles[b.srcFirst + b.nPart];
+      for(GravityParticle *pPart = &myParticles[b.srcFirst]; pPart < pEnd;
+          pPart++, pPartOut++) {
+        *pPartOut = *pPart;
+        if(pPart->isGas()) {
+          *pGasOut = *(extraSPHData *)pPart->extraData;
+          pGasOut++;
+        }
+        if(pPart->isStar()) {
+          *pStarOut = *(extraStarData *)pPart->extraData;
+          pStarOut++;
+        }
       }
     }
     if(b.nLoads > 0) {
@@ -1328,21 +1341,22 @@ void TreePiece::fillNodeShuffle() {
   myShuffleLoads.clear();
   myShuffleParts.clear();
 
-  // All particles are copied out; their memory may be released
-  delete[] myParticles;
+  // All particles are copied out or handed over; release what is
+  // still mine (handed-over arrays are freed with the holder).
+  if(!handedOff) {
+    delete[] myParticles;
+    if (nStoreSPH > 0)
+      delete[] mySPHParticles;
+    if (nStoreStar > 0)
+      delete[] myStarParticles;
+  }
   myParticles = NULL;
+  mySPHParticles = NULL;
+  myStarParticles = NULL;
   myNumParticles = 0;
   nStore = 0;
-  if (nStoreSPH > 0){
-      delete[] mySPHParticles;
-      mySPHParticles = NULL;
-  }
   myNumSPH = 0;
   nStoreSPH = 0;
-  if (nStoreStar > 0){
-      delete[] myStarParticles;
-      myStarParticles = NULL;
-  }
   myNumStar = 0;
   nStoreStar = 0;
 
@@ -1437,17 +1451,37 @@ void TreePiece::checkNodeShuffleComplete() {
   for(size_t i = 0; i < incomingNodeBins.size(); i++) {
     NodeShuffleBuf *msg = incomingNodeBins[i].first;
     const ShuffleBin &b = msg->bins[incomingNodeBins[i].second];
-    memcpy(&myParticles[nPart+1], msg->particles + b.iPart,
-           b.nPart*sizeof(GravityParticle));
-    nPart += b.nPart;
-    if(b.nGas > 0)
-      memcpy(&mySPHParticles[nSPH], msg->pGas + b.iGas,
-             b.nGas*sizeof(extraSPHData));
-    nSPH += b.nGas;
-    if(b.nStar > 0)
-      memcpy(&myStarParticles[nStar], msg->pStar + b.iStar,
-             b.nStar*sizeof(extraStarData));
-    nStar += b.nStar;
+    if(msg->isSelf()) {
+      // gather straight from the source piece's arrays
+      const GravityParticle *src
+        = msg->selfSources[b.srcIndex].particles + b.srcFirst;
+      memcpy(&myParticles[nPart+1], src, b.nPart*sizeof(GravityParticle));
+      for(int k = 0; k < b.nPart; k++) {
+        const GravityParticle *pPart = src + k;
+        if(pPart->isGas()) {
+          mySPHParticles[nSPH] = *(extraSPHData *)pPart->extraData;
+          nSPH++;
+        }
+        if(pPart->isStar()) {
+          myStarParticles[nStar] = *(extraStarData *)pPart->extraData;
+          nStar++;
+        }
+      }
+      nPart += b.nPart;
+    }
+    else {
+      memcpy(&myParticles[nPart+1], msg->particles + b.iPart,
+             b.nPart*sizeof(GravityParticle));
+      nPart += b.nPart;
+      if(b.nGas > 0)
+        memcpy(&mySPHParticles[nSPH], msg->pGas + b.iGas,
+               b.nGas*sizeof(extraSPHData));
+      nSPH += b.nGas;
+      if(b.nStar > 0)
+        memcpy(&myStarParticles[nStar], msg->pStar + b.iStar,
+               b.nStar*sizeof(extraStarData));
+      nStar += b.nStar;
+    }
     dm->releaseNodeShuffle(msg);
   }
   incomingNodeBins.clear();

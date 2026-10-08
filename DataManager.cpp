@@ -184,6 +184,7 @@ void DataManager::startNodeShuffle(CkReductionMsg *msg) {
     std::vector<ShuffleBin> &bins = shufflePieces[i]->myShuffleBins;
     for(size_t j = 0; j < bins.size(); j++) {
       ShuffleBin &b = bins[j];
+      b.srcIndex = i;
       b.destNode = nodeOfPiece[b.destPiece];
       CkAssert(b.destNode >= 0 && b.destNode < nNodes);
       b.iBin = nBins[b.destNode]++;
@@ -204,7 +205,16 @@ void DataManager::startNodeShuffle(CkReductionMsg *msg) {
   for(int n = 0; n < nNodes; n++) {
     if(nBins[n] == 0)
       continue;
-    if(bShuffleZeroCopy && n != CkMyNode()) {
+    if(n == CkMyNode()) {
+      // intra-process: destination pieces copy straight out of the
+      // source pieces' arrays (handed over in fillNodeShuffle)
+      outShuffleBufs[n] = new NodeShuffleBuf(CkMyNode(), nBins[n], nLoads[n],
+                                             (int)shufflePieces.size());
+      outShuffleBufs[n]->nPart = nPart[n];
+      outShuffleBufs[n]->nGas = nGas[n];
+      outShuffleBufs[n]->nStar = nStar[n];
+    }
+    else if(bShuffleZeroCopy) {
       // arrays owned by the holder; sent as nocopypost parameters
       outShuffleBufs[n] = new NodeShuffleBuf(CkMyNode(), nBins[n], nPart[n],
                                              nGas[n], nStar[n], nLoads[n]);
