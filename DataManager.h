@@ -305,6 +305,7 @@ public:
     void startNodeShuffle(CkReductionMsg *msg);
     void nodeShuffleFillDone();
     void acceptNodeShuffle(NodeShuffleMsg *msg);
+#ifdef CHANGA_SHUFFLE_ZC
     void acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin *bins,
         int nLoads, double *loads, unsigned int *parts,
         int nPart, int nGas, int nStar, int nBytes, char *data,
@@ -312,8 +313,9 @@ public:
     void acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin *bins,
         int nLoads, double *loads, unsigned int *parts,
         int nPart, int nGas, int nStar, int nBytes, char *data);
-    void deliverNodeShuffle(NodeShuffleBuf *buf);
     void nodeShuffleSent(CkDataMsg *msg);
+#endif
+    void deliverNodeShuffle(NodeShuffleBuf *buf);
     void releaseNodeShuffle(NodeShuffleBuf *buf);
     void getChunks(int &num, Tree::NodeKey *&roots);
     inline Tree::GenericTreeNode *chunkRootToNode(const Tree::NodeKey k) {

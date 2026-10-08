@@ -277,6 +277,9 @@ void DataManager::nodeShuffleFillDone() {
       delete b;
     }
     else {
+#ifndef CHANGA_SHUFFLE_ZC
+      CkAbort("node shuffle: zero-copy transfer requested but not compiled in");
+#else
       // Zero-copy: the particle, gas and star arrays travel as ONE
       // nocopypost buffer (one RDMA operation); the holder stays alive
       // until the completion callback arrives.
@@ -292,11 +295,14 @@ void DataManager::nodeShuffleFillDone() {
           b->nLoads, b->loads, b->parts_per_phase,
           b->nPart, b->nGas, b->nStar,
           b->nBytes, CkSendBuffer(b->data, cb));
+#endif
     }
   }
   if(mine != NULL)
     deliverNodeShuffle(mine);
 }
+
+#ifdef CHANGA_SHUFFLE_ZC
 
 /// @brief Completion of the nocopypost transfer of a zero-copy node
 /// send; the holder (and its arrays) can be freed.
@@ -371,6 +377,7 @@ void DataManager::acceptNodeShuffleZC(int srcNode, int nBins, ShuffleBin *bins,
   CkAssert(data == b->data);
   deliverNodeShuffle(b);
 }
+#endif // CHANGA_SHUFFLE_ZC
 
 /// @brief Receive one source node's particles as a message (bShuffleZeroCopy
 /// off) for the TreePieces on this node.

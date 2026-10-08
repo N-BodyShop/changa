@@ -193,6 +193,18 @@ case $tree_build in
 esac
 AC_SUBST([FLAG_TREE_BUILD])
 
+# Node-aggregated particle exchange: its zero-copy transfer uses the Charm++
+# zero-copy post API (CkMatchBuffer/CkPostBuffer), present from Charm++ 7.0.1
+# on.  Without it the exchange sends one ordinary message per process pair.
+if grep -q CkMatchBuffer $CHARMINC/ckrdma.h 2>/dev/null; then
+	FLAG_SHUFFLE_ZC="-DCHANGA_SHUFFLE_ZC"
+	AC_MSG_NOTICE([Charm++ zero-copy post API found: the node particle exchange can use zero-copy])
+else
+	FLAG_SHUFFLE_ZC=""
+	AC_MSG_NOTICE([Charm++ zero-copy post API not found (needs Charm++ 7.0.1 or later): the node particle exchange uses messages])
+fi
+AC_SUBST([FLAG_SHUFFLE_ZC])
+
 # -----------------------------------------------------------------------------
 # ---- Gas Options ------------------------------------------------------------
 # -----------------------------------------------------------------------------

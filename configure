@@ -651,6 +651,7 @@ flag_sph_m6kernel_deprecated
 flag_sph_wendland_deprecated
 FLAG_SPLITGAS
 FLAG_NSMOOTHINNER
+FLAG_SHUFFLE_ZC
 FLAG_TREE_BUILD
 FLAG_INTERLIST
 FLAG_DTADJUST
@@ -4553,6 +4554,21 @@ case $tree_build in
 esac
 
 
+# Node-aggregated particle exchange: its zero-copy transfer uses the Charm++
+# zero-copy post API (CkMatchBuffer/CkPostBuffer), present from Charm++ 7.0.1
+# on.  Without it the exchange sends one ordinary message per process pair.
+if grep -q CkMatchBuffer $CHARMINC/ckrdma.h 2>/dev/null; then
+	FLAG_SHUFFLE_ZC="-DCHANGA_SHUFFLE_ZC"
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: Charm++ zero-copy post API found: the node particle exchange can use zero-copy" >&5
+$as_echo "$as_me: Charm++ zero-copy post API found: the node particle exchange can use zero-copy" >&6;}
+else
+	FLAG_SHUFFLE_ZC=""
+	{ $as_echo "$as_me:${as_lineno-$LINENO}: Charm++ zero-copy post API not found (needs Charm++ 7.0.1 or later): the node particle exchange uses messages" >&5
+$as_echo "$as_me: Charm++ zero-copy post API not found (needs Charm++ 7.0.1 or later): the node particle exchange uses messages" >&6;}
+fi
+
+
+
 # -----------------------------------------------------------------------------
 # ---- Gas Options ------------------------------------------------------------
 # -----------------------------------------------------------------------------
@@ -7015,7 +7031,7 @@ echo "    "Charm path "      " $CHARM_PATH
 echo "    "Charm compiler"   " $CHARMC
 echo "    "C++ compiler"     " $CXX
 echo
-echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
+echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT $FLAG_SHUFFLE_ZC
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB

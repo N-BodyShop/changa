@@ -1006,6 +1006,12 @@ Main::Main(CkArgMsg* m) {
         thetaMono = theta*theta*theta*theta;
 	dExtraStore = param.dExtraStore;
 	bNodeShuffle = param.bNodeShuffle;
+#ifndef CHANGA_SHUFFLE_ZC
+	if(param.bShuffleZeroCopy) {
+	    CkPrintf("bShuffleZeroCopy needs the Charm++ zero-copy post API (Charm++ 7.0.1 or later): the node particle exchange uses messages\n");
+	    param.bShuffleZeroCopy = 0;
+	}
+#endif
 	bShuffleZeroCopy = param.bShuffleZeroCopy;
 	dMaxBalance = param.dMaxBalance;
 	dGlassDamper = param.dGlassDamper;
