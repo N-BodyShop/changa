@@ -284,6 +284,18 @@ void TreePiece::BucketEwald(GenericTreeNode *req, int nReps,double fEwCut)
 
 void TreePiece::EwaldInit()
 {
+	EwaldSetup();
+	EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
+        msg->fromInit = true;
+        // Make priority lower than gravity or smooth.
+	*((int *)CkPriorityPtr(msg)) = 3*numTreePieces * numChunks + thisIndex + 1;
+	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
+	thisProxy[thisIndex].calculateEwald(msg);
+}
+
+/// @brief Complete root moments and h-loop table for BucketEwald().
+void TreePiece::EwaldSetup()
+{
 	int i,hReps,hx,hy,hz,h2;
 	double alpha,k4,L;
 	double gam[6],mfacc,mfacs;
@@ -373,13 +385,6 @@ void TreePiece::EwaldInit()
 			}
 		}
 	nEwhLoop = i;
-
-	EwaldMsg *msg = new (8*sizeof(int)) EwaldMsg;
-        msg->fromInit = true;
-        // Make priority lower than gravity or smooth.
-	*((int *)CkPriorityPtr(msg)) = 3*numTreePieces * numChunks + thisIndex + 1;
-	CkSetQueueing(msg,CK_QUEUEING_IFIFO);
-	thisProxy[thisIndex].calculateEwald(msg);
 }
 
 

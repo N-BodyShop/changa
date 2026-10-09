@@ -12,6 +12,7 @@
 #include "ParallelGravity.h"
 #include "DataManager.h"
 #include "Reductions.h"
+#include <set>
 // jetley
 #include "MultistepLB.h"
 #include "MultistepLB_SFC.h"
@@ -40,20 +41,12 @@
 #error "Please recompile charm with --enable-lbuserdata"
 #endif
 
-#ifdef PUSH_GRAVITY
-#include "ckmulticast.h"
-#endif
-
 using namespace std;
 using namespace SFC;
 using namespace TreeStuff;
 using namespace TypeHandling;
 
 int TreeStuff::maxBucketSize;
-
-#ifdef PUSH_GRAVITY
-extern CkGroupID ckMulticastGrpId;
-#endif
 
 CkpvExtern(int, _lb_obj_index);
 
@@ -4806,206 +4799,290 @@ void TreePiece::finishNodeCache(const CkCallback& cb)
 
 #ifdef PUSH_GRAVITY
 /*
-  This method is intended to calculate forces in the 'small' timesteps,
-  i.e. when few particles are active. It causes the TreePiece to broadcast its
-  buckets to all other TreePieces. The others compute forces on its buckets
-  and contribute forces a reduction for this TreePiece in particular. When all
-  work has finished, quiescence is detected and we move on in the small step.
+  Push gravity, for the substeps where few particles are active
+  (dFracPush).  Instead of each active bucket walking the global tree and
+  fetching remote data, the active buckets are sent to every process, and
+  each process computes the force of its own particles on them by walking
+  its merged tree (DataManager root) once per bucket, the buckets shared
+  over its PEs.
+  1. startPushGravity: each piece contributes its active buckets (plain
+     geometry) and particles to a concatenating reduction on the gravity
+     shadow array (SPH reductions in flight cannot interleave with it),
+     which is broadcast to PushGravityMgr (one branch per PE).
+  2. PushGravityMgr::pushBuckets: each PE walks its share of the buckets
+     and contributes the partial forces to a summing reduction, which is
+     broadcast to PushGravityMgr.
+  3. PushGravityMgr::pushResults: rank 0 of each process sends the forces
+     to its pieces that pushed particles (recvPushSlice), which add them
+     and contribute to the gravity callback.
+  Only standard collectives and messages are used, so migrations are
+  handled by the runtime.  Periodic runs: the walks cover the replicas,
+  and each owner adds the Ewald sum of its active buckets.
 */
 
-void TreePiece::startPushGravity(int am, double myTheta){
+/// @brief Header of one TreePiece's block in the gathered push data.  It
+/// is followed by nBuckets PushBucket and nParticles ExternalGravityParticle.
+struct PushBlockHeader {
+  int piece;
+  int nBuckets;
+  int nParticles;
+  int pad;
+};
+
+/// Values returned per pushed particle: acceleration (3), interaction
+/// mass, potential and the maximum inverse squared timestep.
+static const int nPushFields = 6;
+
+void TreePiece::startPushGravity(int am, double myTheta, const CkCallback &cb){
   LBTurnInstrumentOn();
   
   iterationNo++;
   activeRung = am;
+  cbGravity = cb;
   theta = myTheta;
   thetaMono = theta*theta*theta*theta;
 
-  CkAssert(!doMerge);
-  if(!createdSpanningTree){
-    createdSpanningTree = true;
-    allTreePieceSection = CProxySection_TreePiece::ckNew(thisProxy,0,numTreePieces-1,1);
-    CkMulticastMgr *mgr = CProxy_CkMulticastMgr(ckMulticastGrpId).ckLocalBranch();
-    allTreePieceSection.ckSectionDelegate(mgr);
-  }
-
-  BucketMsg *msg = createBucketMsg();
-  if(msg != NULL) allTreePieceSection.recvPushBuckets(msg);
-}
-
-BucketMsg *TreePiece::createBucketMsg(){
-  int saveNumActiveParticles = 0;
-  int numActiveParticles = 0;
-  int numActiveBuckets = 0;
-
-  // First count the number of active particles and buckets
-  for(int i = 0; i < bucketList.size(); i++){
-    GenericTreeNode *bucket = bucketList[i];
-    int buckStart = bucket->firstParticle; 
-    int buckEnd = bucket->lastParticle;
-    GravityParticle *buckParticles = bucket->particlePointer;
-    saveNumActiveParticles = numActiveParticles;
-    for(int j = 0; j <= buckEnd-buckStart; j++){
-      if(buckParticles[j].rung >= activeRung){
-        numActiveParticles++;
+  // Zero what the push result is added to, as initBuckets() does for pull
+  for(int i = 1; i <= myNumParticles; i++){
+    if(myParticles[i].rung >= activeRung){
+      myParticles[i].treeAcceleration = 0;
+      myParticles[i].potential = 0;
+      myParticles[i].dtGrav = 0;
+      if(bComove && !bPeriodic){
+        myParticles[i].treeAcceleration = dRhoFac*myParticles[i].position;
+        myParticles[i].potential = -0.5*dRhoFac*myParticles[i].position.lengthSquared();
+        myParticles[i].dtGrav = dRhoFac;
       }
     }
-    if(numActiveParticles > saveNumActiveParticles) numActiveBuckets++;
   }
+  // SPH may now add its forces
+  bBucketsInited = true;
 
-
-  if(numActiveParticles == 0) return NULL;
-
-  // allocate message
-  BucketMsg *msg = new (numActiveBuckets,numActiveParticles) BucketMsg;
-
-  numActiveParticles = 0;
-  numActiveBuckets = 0;
-
-  // Copy active particles and buckets into message; change pointer offsets
-  // of bucket particle boundaries to integers
-  for(int i = 0; i < bucketList.size(); i++){
-    // source bucket
-    GenericTreeNode *sbucket = bucketList[i];
-    int buckStart = sbucket->firstParticle; 
-    int buckEnd = sbucket->lastParticle;
-    GravityParticle *buckParticles = sbucket->particlePointer;
-    saveNumActiveParticles = numActiveParticles;
-    for(int j = 0; j <= buckEnd-buckStart; j++){
-      if(buckParticles[j].rung >= activeRung){
-        // copy active particle to bucket msg
-        msg->particles[numActiveParticles] = buckParticles[j]; 
-        numActiveParticles++;
+  // Pack the active buckets in tree order.  pushTargets remembers the
+  // particles sent, since the result comes back in the same order.
+  std::vector<PushBucket> buckets;
+  std::vector<GenericTreeNode *> ewaldBuckets;
+  pushTargets.clear();
+  // An empty piece's bucketList is left over from the previous tree
+  if(myNumParticles > 0) {
+    for(unsigned int i = 0; i < bucketList.size(); i++){
+      GenericTreeNode *bucket = bucketList[i];
+      const int first = pushTargets.size();
+      for(int j = bucket->firstParticle; j <= bucket->lastParticle; j++)
+        if(myParticles[j].rung >= activeRung) pushTargets.push_back(j);
+      if((int)pushTargets.size() > first) {
+        PushBucket b;
+        b.boundingBox = bucket->boundingBox;
+        b.center = bucket->moments.cm;
+        b.soft = bucket->moments.soft;
+        b.firstParticle = first;
+        b.lastParticle = pushTargets.size() - 1;
+        buckets.push_back(b);
+        ewaldBuckets.push_back(bucket);
       }
     }
-    if(numActiveParticles > saveNumActiveParticles){
-      // copy active bucket to bucket msg
-      msg->buckets[numActiveBuckets] = *sbucket;
-      GenericTreeNode &tbucket = msg->buckets[numActiveBuckets];
-      // set particle bounds for copied bucket (as integers)
-      tbucket.particlePointer = NULL;
-      tbucket.firstParticle = saveNumActiveParticles;
-      tbucket.lastParticle = numActiveParticles-1;
-      numActiveBuckets++;
+  }
+
+  // Periodic: the Ewald sum of the images beyond the replicas needs only
+  // the root moments, so the owner adds it here, as pull does per bucket
+  if(bEwald && !ewaldBuckets.empty()) {
+    EwaldSetup();
+    for(unsigned int i = 0; i < ewaldBuckets.size(); i++)
+      BucketEwald(ewaldBuckets[i], nReplicas, fEwCut);
+  }
+
+  std::vector<char> block;
+  if(!pushTargets.empty()) {
+    PushBlockHeader h;
+    h.piece = thisIndex;
+    h.nBuckets = buckets.size();
+    h.nParticles = pushTargets.size();
+    h.pad = 0;
+    block.resize(sizeof(h) + h.nBuckets*sizeof(PushBucket)
+                 + h.nParticles*sizeof(ExternalGravityParticle));
+    char *p = block.data();
+    memcpy(p, &h, sizeof(h));
+    p += sizeof(h);
+    memcpy(p, buckets.data(), h.nBuckets*sizeof(PushBucket));
+    p += h.nBuckets*sizeof(PushBucket);
+    for(int i = 0; i < h.nParticles; i++) {
+      ExternalGravityParticle part = myParticles[pushTargets[i]];
+      memcpy(p, &part, sizeof(part));
+      p += sizeof(part);
     }
   }
-
-  msg->numBuckets = numActiveBuckets;
-  msg->numParticles = numActiveParticles;
-  msg->whichTreePiece = thisIndex;
-
-  return msg;
+  CkCallback cbBuckets(CkIndex_PushGravityMgr::pushBuckets(NULL), pushGravityMgrProxy);
+  gravityProxy[thisIndex].ckLocal()->contribute(block.size(), block.data(),
+                                                CkReduction::concat, cbBuckets);
+  // Nothing comes back to a piece without active particles
+  if(pushTargets.empty())
+    gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
 }
 
-void TreePiece::recvPushBuckets(BucketMsg *msg){
-  GenericTreeNode *foreignBuckets;
-  int numForeignBuckets;
 
+/// @brief Compute the forces of this process's particles on a share of the
+/// pushed buckets (every nodeSize-th one), walking the merged tree of the
+/// process, and contribute them to the summing reduction.
+void PushGravityMgr::pushBuckets(CkReductionMsg *msg){
+  const char *data = (const char *) msg->getData();
+  const int size = msg->getSize();
+  DataManager *dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
+  const int rank = CkMyRank(), nRank = CkMyNodeSize();
 
-  int numFields = 4;
-  // make sure there is enough space for foreignParticles
-  foreignParticles.resize(msg->numParticles);
-  foreignParticleAccelerations.resize(numFields*msg->numParticles);
-  // obtain positions of foreignParticles from message
-  unpackBuckets(msg,foreignBuckets,numForeignBuckets);
-  if(myNumParticles > 0){
-    // If there is a local tree associated with this tree piece,
-    // calculate forces on foreignParticles due to it
-    calculateForces(foreignBuckets,numForeignBuckets);
-  }
-  // update cookie
-  CkGetSectionInfo(cookieJar[msg->whichTreePiece],msg);
-
-  for(int i = 0; i < msg->numParticles; i++){
-    foreignParticleAccelerations[numFields*i] = foreignParticles[i].treeAcceleration.x;
-    foreignParticleAccelerations[numFields*i+1] = foreignParticles[i].treeAcceleration.y;
-    foreignParticleAccelerations[numFields*i+2] = foreignParticles[i].treeAcceleration.z;
-    foreignParticleAccelerations[numFields*i+3] = foreignParticles[i].interMass;
-  }
-
-  // contribute accelerations
-  CkCallback cb(CkIndex_TreePiece::recvPushAccelerations(NULL),CkArrayIndex1D(msg->whichTreePiece),thisProxy);
-  CkMulticastMgr *mgr = CProxy_CkMulticastMgr(ckMulticastGrpId).ckLocalBranch();
-  mgr->contribute(foreignParticleAccelerations.length()*sizeof(double),&foreignParticleAccelerations[0],CkReduction::sum_double,cookieJar[msg->whichTreePiece],cb);
-
-  delete msg;
-}
-
-void TreePiece::unpackBuckets(BucketMsg *msg, GenericTreeNode *&foreignBuckets, int &numForeignBuckets){
-  // Copy foreign particle positions, etc. into local buffer
-  for(int i = 0; i < msg->numParticles; i++){
-    foreignParticles[i] = msg->particles[i];
-    foreignParticles[i].treeAcceleration.x = 0.0;
-    foreignParticles[i].treeAcceleration.y = 0.0;
-    foreignParticles[i].treeAcceleration.z = 0.0;
-    foreignParticles[i].interMass = 0.0;
+  // Global particle offsets follow the block order of this message, which
+  // every PE receives.  Rank 0 remembers the blocks of its process's
+  // pieces, to deliver their results.
+  std::set<int> localPieces;
+  if(rank == 0)
+    for(int i = 0; i < dm->registeredTreePieces.length(); i++)
+      localPieces.insert(dm->registeredTreePieces[i].treePiece->getIndex());
+  ownerPiece.clear(); ownerOffset.clear(); ownerCount.clear();
+  int nParticles = 0, nBuckets = 0, maxBucket = 0;
+  for(int pos = 0; pos < size; ) {
+    PushBlockHeader h;
+    memcpy(&h, data + pos, sizeof(h));
+    if(localPieces.count(h.piece)) {
+      ownerPiece.push_back(h.piece);
+      ownerOffset.push_back(nParticles);
+      ownerCount.push_back(h.nParticles);
+    }
+    const PushBucket *b = (const PushBucket *)(data + pos + sizeof(h));
+    for(int i = 0; i < h.nBuckets; i++)
+      maxBucket = std::max(maxBucket, b[i].lastParticle - b[i].firstParticle + 1);
+    nParticles += h.nParticles;
+    nBuckets += h.nBuckets;
+    pos += sizeof(h) + h.nBuckets*sizeof(PushBucket)
+      + h.nParticles*sizeof(ExternalGravityParticle);
   }
 
-  // Make buckets point to appropriate positions in local buffer of particles
-  foreignBuckets = msg->buckets;
-  numForeignBuckets = msg->numBuckets;
+  // Per particle nPushFields values; then the total mass (PE 0; the
+  // merged root has the moments of all particles) and a count (rank 0 of
+  // each process), to check that every process contributed once.
+  std::vector<double> result(nPushFields*nParticles + 2, 0.0);
+  if(CkMyPe() == 0 && dm->root != NULL)
+    result[nPushFields*nParticles] = dm->root->moments.totalMass;
+  if(rank == 0)
+    result[nPushFields*nParticles + 1] = 1.0;
 
-  GravityParticle *baseParticlePtr = &foreignParticles[0];
-  for(int i = 0; i < numForeignBuckets; i++){
-    GenericTreeNode &bucket = foreignBuckets[i];
-    bucket.particlePointer = baseParticlePtr+bucket.firstParticle;
-  }
-}
+  if(dm->root != NULL && dm->registeredTreePieces.length() > 0 && nBuckets > rank) {
+    // The walk only reads the pieces' trees and particles; any local
+    // piece provides decodeOffset.
+    TreePiece *owner = dm->registeredTreePieces[0].treePiece;
+    TopDownTreeWalk topdown;
+    GravityCompute grav;
+    NullState nullState;
+    PushGravityOpt pushOpt;
+    std::vector<char> localPiece(numTreePieces, 0);
+    for(int i = 0; i < dm->registeredTreePieces.length(); i++)
+      localPiece[dm->registeredTreePieces[i].treePiece->getIndex()] = 1;
+    pushOpt.localPiece = &localPiece;
+    // Only active particles are sent: walk with rung 0 for all of them
+    grav.init(NULL, 0, &pushOpt);
+    std::vector<GravityParticle> targets(maxBucket);
+    BinaryTreeNode target;
+    target.setType(Bucket);
+    target.firstParticle = 0;
+    target.particlePointer = targets.data();
 
-void TreePiece::calculateForces(GenericTreeNode *foreignBuckets, int numForeignBuckets){
-  TopDownTreeWalk topdown;
-  GravityCompute grav;
-  NullState nullState;
-  PushGravityOpt pushOpt;
-
-  grav.init(NULL,activeRung,&pushOpt);
-
-  CkAssert(root != NULL);
-  for(int i = 0; i < numForeignBuckets; i++){
-    GenericTreeNode &target = foreignBuckets[i];
-    grav.setComputeEntity(&target);
-    topdown.init(&grav,this);
-    // for each replica
-    for(int x = -nReplicas; x <= nReplicas; x++){
-      for(int y = -nReplicas; y <= nReplicas; y++){
-        for(int z = -nReplicas; z <= nReplicas; z++){
-          // begin walk at root
-          // -1 for chunk and active walk index
-          // bucket number 'i' doesn't serve any purpose,
-          // since this traversal will not generate any remote requests.
-          topdown.walk(root,&nullState,-1,encodeOffset(i,x,y,z),-1);
+    int iPart = 0, iBucket = 0;
+    for(int pos = 0; pos < size; ) {
+      PushBlockHeader h;
+      memcpy(&h, data + pos, sizeof(h));
+      pos += sizeof(h);
+      const PushBucket *b = (const PushBucket *)(data + pos);
+      pos += h.nBuckets*sizeof(PushBucket);
+      const char *parts = data + pos;
+      pos += h.nParticles*sizeof(ExternalGravityParticle);
+      for(int i = 0; i < h.nBuckets; i++, iBucket++) {
+        if(iBucket % nRank != rank) continue;
+        const int n = b[i].lastParticle - b[i].firstParticle + 1;
+        for(int j = 0; j < n; j++) {
+          ExternalGravityParticle part;
+          memcpy(&part, parts + (b[i].firstParticle + j)*sizeof(part),
+                 sizeof(part));
+          GravityParticle &t = targets[j];
+          t = part;
+          t.rung = 0;
+          t.treeAcceleration = 0;
+          t.potential = 0;
+          t.dtGrav = 0;
+          t.interMass = 0;
+        }
+        target.boundingBox = b[i].boundingBox;
+        target.moments.cm = b[i].center;
+        target.moments.soft = b[i].soft;
+        target.lastParticle = n - 1;
+        grav.setComputeEntity(&target);
+        topdown.init(&grav, owner);
+        // This process's particles and their periodic images, as the
+        // pull walk places the chunk roots
+        const int nRep = owner->nReplicas;
+        for(int x = -nRep; x <= nRep; x++)
+          for(int y = -nRep; y <= nRep; y++)
+            for(int z = -nRep; z <= nRep; z++)
+              topdown.walk(dm->root, &nullState, -1, encodeOffset(0,x,y,z), -1);
+        for(int j = 0; j < n; j++) {
+          const GravityParticle &t = targets[j];
+          double *r = &result[nPushFields*(iPart + b[i].firstParticle + j)];
+          r[0] = t.treeAcceleration.x;
+          r[1] = t.treeAcceleration.y;
+          r[2] = t.treeAcceleration.z;
+          r[3] = t.interMass;
+          r[4] = t.potential;
+          r[5] = t.dtGrav;
         }
       }
+      iPart += h.nParticles;
     }
   }
+
+  CkCallback cbResult(CkIndex_PushGravityMgr::pushResults(NULL), thisProxy);
+  contribute(result.size()*sizeof(double), result.data(), pushGravityReduction, cbResult);
 }
 
-void TreePiece::recvPushAccelerations(CkReductionMsg *msg){
-  double *accelerations = (double *) msg->getData();
-  int numAccelerations = msg->getSize()/sizeof(double);
-  int j = 0;
+/// @brief Rank 0 of each process sends the summed push forces to the pieces
+/// of its process that pushed particles.
+void PushGravityMgr::pushResults(CkReductionMsg *msg){
+  if(CkMyRank() != 0) return;
+  const double *result = (const double *) msg->getData();
+  const int nParticles = (msg->getSize()/sizeof(double) - 2)/nPushFields;
+  const double totalMass = result[nPushFields*nParticles];
+  const double nContrib = result[nPushFields*nParticles + 1];
+  for(unsigned int k = 0; k < ownerPiece.size(); k++)
+    treeProxy[ownerPiece[k]].recvPushSlice(totalMass, nContrib, nPushFields*ownerCount[k],
+                                           const_cast<double *>(result + nPushFields*ownerOffset[k]));
+}
 
-  int numUpdates = 0;
-  int numFields = 4;
-  for(int i = 1; i <= myNumParticles; i++){
-    if(myParticles[i].rung >= activeRung){ 
-      myParticles[i].treeAcceleration.x = accelerations[j];
-      myParticles[i].treeAcceleration.y = accelerations[j+1];
-      myParticles[i].treeAcceleration.z = accelerations[j+2];
+/// @brief Add the summed push forces to this piece's active particles.
+void TreePiece::recvPushSlice(double totalMass, double nContrib, int n, double *values){
+  if(nContrib != CkNumNodes())
+    CkAbort("push gravity: %g contributions from %d processes\n", nContrib, CkNumNodes());
+  CkAssert(n == nPushFields*(int)pushTargets.size());
 
-      myParticles[i].interMass = accelerations[j+3]; 
-      j += numFields;
-      numUpdates++;
-
-      double totalMass = myParticles[i].mass+myParticles[i].interMass;
-      if(totalMass != myTotalMass){
-        CkPrintf("[%d] particle %d interMass %f should be %f partMass %f\n", thisIndex, i, totalMass, myTotalMass, myParticles[i].mass);
-        CkAbort("bad intermass\n");
-      }
-    }
+  // Each periodic image adds the total mass once more
+  const double nImages = (2*nReplicas + 1)*(2*nReplicas + 1)*(2*nReplicas + 1);
+  int nOver = 0;
+  for(unsigned int k = 0; k < pushTargets.size(); k++) {
+    GravityParticle &p = myParticles[pushTargets[k]];
+    const double *r = &values[nPushFields*k];
+    p.treeAcceleration.x += r[0];
+    p.treeAcceleration.y += r[1];
+    p.treeAcceleration.z += r[2];
+    p.interMass = r[3];
+    p.potential += r[4];
+    if(r[5] > p.dtGrav) p.dtGrav = r[5];
+    // Every process counts its mass once; a particle at the position of
+    // another one legitimately misses that one's mass.
+    if(p.interMass + p.mass > nImages*totalMass*(1.0 + 1e-9)) nOver++;
   }
-  CkAssert(numUpdates == numAccelerations/numFields);
+  if(nOver > 0)
+    CkError("[%d] push gravity: %d of %zu actives see more than the total mass\n",
+            thisIndex, nOver, pushTargets.size());
+
+  // Use the gravity shadow array: SPH has independent reductions in flight.
+  gravityProxy[thisIndex].ckLocal()->contribute(cbGravity);
 }
+
 #endif
 
 void TreePiece::findTotalMass(const CkCallback &cb){

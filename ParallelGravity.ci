@@ -20,6 +20,9 @@ mainmodule ParallelGravity {
   readonly CProxy_LvArray lvProxy;
   readonly CProxy_LvArray smoothProxy;
   readonly CProxy_LvArray gravityProxy;
+#ifdef PUSH_GRAVITY
+  readonly CProxy_PushGravityMgr pushGravityMgrProxy;
+#endif
   readonly CProxy_TreePiece streamingProxy;
   readonly CProxy_NodeCache cacheNode;
   readonly CProxy_CkCacheManager<KeyType> cacheGravPart;
@@ -71,10 +74,6 @@ mainmodule ParallelGravity {
   readonly int tbFlushRequestsUE;
   readonly int prefetchDoneUE;
 
-#ifdef PUSH_GRAVITY
-  readonly CkGroupID ckMulticastGrpId;
-#endif
-
   readonly CProxy_ProjectionsControl prjgrp;
 
   // number of bins to use for the first
@@ -107,13 +106,6 @@ mainmodule ParallelGravity {
     extraSPHData pGas[];
     extraStarData pStar[];
   };
-
-#ifdef PUSH_GRAVITY
-  message BucketMsg {
-    GenericTreeNode buckets[];
-    ExternalGravityParticle particles[];
-  };
-#endif
 
   PUPable DensitySmoothParams;
   PUPable DenDvDxSmoothParams;
@@ -464,9 +456,8 @@ mainmodule ParallelGravity {
     entry void startGravity(int activeRung, int bUseCpu_, double myTheta, const CkCallback &cb);
 
 #ifdef PUSH_GRAVITY
-    entry void startPushGravity(int am, double myTheta);
-    entry void recvPushBuckets(BucketMsg *);
-    entry void recvPushAccelerations(CkReductionMsg *);
+    entry void startPushGravity(int am, double myTheta, const CkCallback &cb);
+    entry void recvPushSlice(double totalMass, double nContrib, int n, double values[n]);
 #endif
 
     entry void startSmooth(CkPointer<SmoothParams>, int iLowhFix, int nSmooth,
@@ -601,6 +592,14 @@ mainmodule ParallelGravity {
   array [1D] LvArray {
       entry LvArray();
   };
+
+#ifdef PUSH_GRAVITY
+  group [migratable] PushGravityMgr {
+      entry PushGravityMgr();
+      entry [nokeep] void pushBuckets(CkReductionMsg *);
+      entry [nokeep] void pushResults(CkReductionMsg *);
+  };
+#endif
 
   group [migratable] PETreeMerger {
     entry PETreeMerger();

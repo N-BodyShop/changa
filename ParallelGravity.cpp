@@ -73,6 +73,9 @@ CProxy_ReductionHelper reductionHelperProxy;
 CProxy_LvArray lvProxy;	    ///< Proxy for the liveViz array
 CProxy_LvArray smoothProxy; ///< Proxy for smooth reductions
 CProxy_LvArray gravityProxy; ///< Proxy for gravity reductions
+#ifdef PUSH_GRAVITY
+CProxy_PushGravityMgr pushGravityMgrProxy; ///< Per-process push gravity
+#endif
 /// @brief Proxy for the gravity particle cache group.
 CProxy_CkCacheManager<KeyType> cacheGravPart;
 /// @brief Proxy for the smooth particle cache group.
@@ -165,11 +168,6 @@ int prefetchDoneUE;
 
 CkGroupID dataManagerID;
 CkArrayID treePieceID;
-
-#ifdef PUSH_GRAVITY
-#include "ckmulticast.h"
-CkGroupID ckMulticastGrpId;
-#endif
 
 CProxy_ProjectionsControl prjgrp;
 
@@ -1385,9 +1383,8 @@ Main::Main(CkArgMsg* m) {
 	smoothProxy = CProxy_LvArray::ckNew(opts);
 	// Create an array for the gravity reductions
 	gravityProxy = CProxy_LvArray::ckNew(opts);
-
 #ifdef PUSH_GRAVITY
-        ckMulticastGrpId = CProxy_CkMulticastMgr::ckNew();
+	pushGravityMgrProxy = CProxy_PushGravityMgr::ckNew();
 #endif
 
         peTreeMergerProxy = CProxy_PETreeMerger::ckNew();
@@ -1649,16 +1646,7 @@ inline void Main::waitForGravity(const CkCallback &cb, double startTime,
                                  int activeRung) 
 {
     if(param.bConcurrentSph && param.bDoGravity) {
-#ifdef PUSH_GRAVITY
-      if(bDoPush){
-        CkWaitQD();
-      }
-      else{
-#endif
         CkFreeMsg(cb.thread_delay());
-#ifdef PUSH_GRAVITY
-      }
-#endif
     }
         double tGrav = CkWallTimer()-startTime;
         timings[activeRung].tGrav += tGrav;
@@ -1988,7 +1976,9 @@ void Main::buildTree(int iPhase)
     CkPrintf("Building trees ... ");
     double startTime = CkWallTimer();
 #ifdef PUSH_GRAVITY
-    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(),!bDoPush);
+    // Always merge: SPH walks and push gravity use the merged node-level
+    // tree
+    treeProxy.buildTree(bucketSize, CkCallbackResumeThread(), true);
 #else
     treeProxy.buildTree(bucketSize, CkCallbackResumeThread());
 #endif
@@ -2028,7 +2018,7 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
         if(param.bConcurrentSph) {
 #ifdef PUSH_GRAVITY
             if(bDoPush){
-                treeProxy.startPushGravity(iActiveRung, theta);
+                treeProxy.startPushGravity(iActiveRung, theta, cbGravity);
             }
             else{
 #endif
@@ -2045,8 +2035,7 @@ void Main::startGravity(const CkCallback& cbGravity, int iActiveRung,
         else {
 #ifdef PUSH_GRAVITY
             if(bDoPush){
-              treeProxy.startPushGravity(iActiveRung, theta);
-              CkWaitQD();
+              treeProxy.startPushGravity(iActiveRung, theta, CkCallbackResumeThread());
             }
             else{
 #endif
@@ -2955,6 +2944,12 @@ Main::restart(CkCheckpointStatusMsg *msg)
 	prmAddParam(prm, "bUseCkLoopPar", paramBool, &param.bUseCkLoopPar, sizeof(int),
 		    "useckloop", "enable CkLoop to parallelize within node");
 
+#ifdef PUSH_GRAVITY
+	prmAddParam(prm, "dFracPush", paramDouble,
+		    &param.dFracPushParticles, sizeof(double),"fPush",
+		    "Maximum proportion of active to total particles for push-based force evaluation = 0.0");
+#endif
+
         int processSimfile = 0; 
 	if(!prmArgProc(prm,CmiGetArgc(args->argv),args->argv,processSimfile)) {
 	    CkExit();
@@ -3024,9 +3019,6 @@ Main::initialForces()
   CkPrintf("Initial ");
   domainDecomp(0);
 
-#ifdef PUSH_GRAVITY
-  treeProxy.findTotalMass(CkCallbackResumeThread());
-#endif
   
   // Balance load initially after decomposition
   loadBalance(-1);

@@ -6,6 +6,7 @@
 /// Declare Opt classes for walk actions
 ///
 #include "codes.h"
+#include <vector>
 
 /// Base class for optimizing walk actions.
 
@@ -170,7 +171,9 @@ class PushGravityOpt : public Opt{
     action_array[1][Top] = ERROR;
     action_array[1][Invalid] = ERROR;
   }
-  
+  /// TreePieces of this process (index -> 1), for the shared-node rule in
+  /// GravityCompute::doWork; NULL keeps opening shared nodes.
+  const std::vector<char> *localPiece = NULL;
 };
 
 /// Optimization for Prefetch walk.

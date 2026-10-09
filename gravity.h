@@ -422,7 +422,7 @@ int nodeBucketForce(Tree::GenericTreeNode *node,
 #endif
   for(int j = req->firstParticle; j <= req->lastParticle; ++j) {
     if (particles[j].rung >= activeRung) {
-      particles[j].interMass += m.totalMass;
+      // GravityCompute accounts interaction mass once for scalar and SIMD.
 #ifdef CMK_VERSION_BLUEGENE
       if (++forProgress > 200) {
         forProgress = 0;

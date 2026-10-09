@@ -59,6 +59,9 @@ struct PendingBuffers {
  */
 class DataManager : public CBase_DataManager {
 	friend class TreePiece;
+#ifdef PUSH_GRAVITY
+	friend class PushGravityMgr;
+#endif
         friend class OctTreeBuildPhaseIWorker;
 
 	/// The array of TreePieces I hold data for.
