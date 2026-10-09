@@ -160,6 +160,9 @@ extern CProxy_ReductionHelper reductionHelperProxy;
 extern CProxy_LvArray lvProxy;	    // Proxy for the liveViz array
 extern CProxy_LvArray smoothProxy;  // Proxy for smooth reduction
 extern CProxy_LvArray gravityProxy; // Proxy for gravity reduction
+#ifdef PUSH_GRAVITY
+extern CProxy_PushGravityMgr pushGravityMgrProxy;
+#endif
 extern CProxy_TreePiece streamingProxy;
 extern CProxy_DataManager dMProxy;
 extern CProxy_IntraNodeLBManager nodeLBMgrProxy;
@@ -321,14 +324,15 @@ public:
 };
 
 #ifdef PUSH_GRAVITY
-#include "ckmulticast.h"
-
-struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
-  GenericTreeNode *buckets;
-  int numBuckets;
-  ExternalGravityParticle *particles;
-  int numParticles;
-  int whichTreePiece;
+/// @brief An active bucket sent for push gravity: the geometry the
+/// opening criterion needs, and its particle range in the sent data.
+/// Plain data only (no tree node with its vtable), so it can cross
+/// processes.
+struct PushBucket {
+  OrientedBox<cosmoType> boundingBox;
+  Vector3D<cosmoType> center;
+  cosmoType soft;
+  int firstParticle, lastParticle;
 };
 #endif
 
@@ -771,6 +775,9 @@ class TreePiece : public CBase_TreePiece {
    // jetley
    friend class PrefetchCompute;
    friend class GravityCompute;
+#ifdef PUSH_GRAVITY
+  friend class PushGravityMgr;
+#endif
    friend class SmoothCompute;
    friend class KNearestSmoothCompute;
    friend class ReSmoothCompute;
@@ -830,25 +837,15 @@ class TreePiece : public CBase_TreePiece {
 
 #ifdef PUSH_GRAVITY
    bool doMerge;
-   bool createdSpanningTree;
-   CProxySection_TreePiece allTreePieceSection;
-   CkVec<GravityParticle> foreignParticles;
-   CkVec<double> foreignParticleAccelerations;
-
-   map<int,CkSectionInfo> cookieJar;
-  
-   BucketMsg *createBucketMsg();
-   void unpackBuckets(BucketMsg *, GenericTreeNode *&foreignBuckets, int &numForeignBuckets);
-   void calculateForces(GenericTreeNode *foreignBuckets, int numForeignBuckets);
-
+   /// Indices of the active particles sent, in the order they were sent
+   std::vector<int> pushTargets;
 #endif
 
  public:
 
 #ifdef PUSH_GRAVITY
-  void startPushGravity(int am, double myTheta);
-  void recvPushBuckets(BucketMsg *);
-  void recvPushAccelerations(CkReductionMsg *);
+  void startPushGravity(int am, double myTheta, const CkCallback &cb);
+  void recvPushSlice(double totalMass, double nContrib, int n, double *values);
 #endif
 
 #if COSMO_PRINT_BK > 1
@@ -1509,10 +1506,6 @@ public:
 	  splitDims = NULL;
 	  bGasCooling = 0;
 
-#ifdef PUSH_GRAVITY
-          createdSpanningTree = false;
-#endif
-
           localTreeBuildComplete = false;
 	}
 
@@ -1598,6 +1591,7 @@ public:
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
 	void EwaldInit();
+	void EwaldSetup();
        void ewaldCPU(EwaldMsg *msg);
 	void calculateEwald(EwaldMsg *m);
   void calculateEwaldUsingCkLoop(int yield_num);
@@ -2049,6 +2043,21 @@ class LvArray : public CBase_LvArray {
     LvArray() {}
     LvArray(CkMigrateMessage* m) {}
     } ;
+
+#ifdef PUSH_GRAVITY
+/// @brief Push gravity per process: each PE walks a share of the pushed
+/// buckets over the merged tree of its process (see TreePiece.cpp).
+class PushGravityMgr : public CBase_PushGravityMgr {
+    /// Pieces of this process with pushed particles (rank 0 only): index,
+    /// first particle in the gathered data, number of particles
+    std::vector<int> ownerPiece, ownerOffset, ownerCount;
+ public:
+    PushGravityMgr() {}
+    PushGravityMgr(CkMigrateMessage *m) : CBase_PushGravityMgr(m) {}
+    void pushBuckets(CkReductionMsg *msg);
+    void pushResults(CkReductionMsg *msg);
+};
+#endif
 
 int decodeReqID(int);
 int encodeOffset(int reqID, int x, int y, int z);

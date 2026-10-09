@@ -424,6 +424,26 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
   CkAssert(opt != NULL);
 
   int action = opt->action(open, node);
+  GravityParticle *targetParts = tp->getParticles();
+#ifdef PUSH_GRAVITY
+  // A pushed bucket indexes the received copies, not this piece's particles
+  if(getOptType() == PushGravity)
+    targetParts = ((GenericTreeNode *)computeEntity)->particlePointer
+                  - ((GenericTreeNode *)computeEntity)->firstParticle;
+  // A node shared with other processes that needs no opening: its global
+  // multipole is evaluated once, by the process of its first owner piece,
+  // instead of every sharer opening it down to its own nodes.
+  const std::vector<char> *localPiece = getOptType() == PushGravity ?
+    ((PushGravityOpt *)opt)->localPiece : NULL;
+  if(localPiece != NULL && !open && node->getType() == Boundary) {
+    int first, last;
+    tp->nodeOwnership(node->getKey(), first, last);
+    // first is a position in the decomposition's list of pieces, not a piece
+    const int firstPiece = first >= 0 ? tp->getResponsibleIndex(first, first) : -1;
+    action = (firstPiece >= 0 && firstPiece < (int)localPiece->size()
+              && (*localPiece)[firstPiece]) ? COMPUTE : DUMP;
+  }
+#endif
   if(action == KEEP){ // keep node
     return KEEP;
   }
@@ -436,7 +456,7 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
 #endif
     int computed = nodeBucketForce(node,
                     (GenericTreeNode *)computeEntity,
-                    tp->getParticles(),
+                    targetParts,
                     tp->decodeOffset(reqID),
                     activeRung);
     
@@ -485,7 +505,7 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
         computed += partBucketForce(
                                   &part[i-node->firstParticle],
                                   (GenericTreeNode *)computeEntity,
-                                  tp->getParticles(),
+                                  targetParts,
                                   offset,
                                   activeRung);
 

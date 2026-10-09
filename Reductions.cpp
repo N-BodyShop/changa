@@ -27,6 +27,31 @@ CkReduction::reducerType dfImageReduction;
 CkReduction::reducerType soonestCollReduction;
 CkReduction::reducerType findCollReduction;
 
+#ifdef PUSH_GRAVITY
+CkReduction::reducerType pushGravityReduction;
+/// Push gravity results (layout: nPushFields in TreePiece.cpp).  Per
+/// particle: ax, ay, az, interaction mass and potential are summed, the
+/// maximum inverse dt^2 is kept.  The two trailing values (mass and
+/// number of contributors) are summed.
+static CkReductionMsg *combinePushGravity(int nMsg, CkReductionMsg **msgs) {
+    const int bytes = msgs[0]->getSize();
+    const int count = bytes / sizeof(double);
+    CkAssert(count >= 2 && (count-2)%6 == 0);
+    double *out = static_cast<double *>(msgs[0]->getData());
+    for(int m=1; m<nMsg; ++m) {
+        CkAssert(msgs[m]->getSize() == bytes);
+        const double *in = static_cast<double *>(msgs[m]->getData());
+        for(int i=0; i<count; ++i) {
+            if(i<count-2 && i%6 == 5) {
+                if(in[i] > out[i]) out[i] = in[i];
+            }
+            else out[i] += in[i];
+        }
+    }
+    return CkReductionMsg::buildNew(bytes, out);
+}
+#endif
+
 /// Combine reduction messages to grow a box
 template <typename T>
 CkReductionMsg* boxGrowth(int nMsg, CkReductionMsg** msgs) {
@@ -192,6 +217,11 @@ void registerReductions() {
 	dfImageReduction = CkReduction::addReducer(dfImageReducer);
         soonestCollReduction = CkReduction::addReducer(soonestCollInfo);
         findCollReduction = CkReduction::addReducer(singleCollInfo);
+#ifdef PUSH_GRAVITY
+        // Streamable: combined as contributions arrive, so a PE holds
+        // only one result vector, not one per TreePiece.
+        pushGravityReduction = CkReduction::addReducer(combinePushGravity, true);
+#endif
 	
 }
 

@@ -654,6 +654,7 @@ FLAG_NSMOOTHINNER
 FLAG_TREE_BUILD
 FLAG_INTERLIST
 FLAG_DTADJUST
+FLAG_PUSHGRAVITY
 FLAG_SMPCACHE
 FLAG_BIGKEYS
 FLAG_COLLISION
@@ -741,6 +742,7 @@ enable_changesoft
 enable_collision
 enable_bigkeys
 enable_smpcache
+enable_pushgravity
 enable_dtadjust
 enable_interlist
 enable_tree_build
@@ -1414,6 +1416,7 @@ Optional Features:
   --enable-smpcache       process-shared SMP tree-node cache (charm
                           CkTreeCacheManager); default yes if the charm build
                           has CkTreeCache.h
+  --enable-pushgravity    enable push gravity
   --enable-dtadjust       emergency timestep adjust
   --enable-interlist      interaction list version
   --enable-tree-build     tree building (merge-remote,split-phase)
@@ -4539,6 +4542,21 @@ else
 fi
 
 
+# PUSH_GRAVITY
+	# Check whether --enable-pushgravity was given.
+if test "${enable_pushgravity+set}" = set; then :
+  enableval=$enable_pushgravity; case "$enableval" in
+		  yes | no ) val=$enableval;;
+		  *) as_fn_error $? "invalid argument for '--enable-pushgravity': $enableval" "$LINENO" 5;;
+	 esac
+else
+  val=no
+fi
+
+	if test x$val = xyes; then FLAG_PUSHGRAVITY=-DPUSH_GRAVITY; else FLAG_PUSHGRAVITY=""; fi
+
+
+
 # DTADJUST
 	# Check whether --enable-dtadjust was given.
 if test "${enable_dtadjust+set}" = set; then :
@@ -7060,7 +7078,7 @@ echo "    "Charm compiler"   " $CHARMC
 echo "    "C++ compiler"     " $CXX
 echo
 echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_DTADJUST $FLAG_TREE_BUILD $FLAG_SIDMINTERACT
-echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
+echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE $FLAG_PUSHGRAVITY
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS smpcache=$smpcache sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
 echo "    "CPU architecture" " $FLAG_ARCH
