@@ -975,8 +975,9 @@ void TreePiece::updateuDot(int activeRung,
             ExternalHeating =  duDotPdV + p->uDotAV() + p->uDotDiff() + p->fESNrate();
         }
         CkAssert(p->u() > 0.0);
-        fDensity = p->fDensity*PoverRho/(gammam1*p->u());
-        if (p->fDensityU() < p->fDensity) fDensity = p->fDensityU()*PoverRho/(gammam1*p->u());
+        // Thermal pressure only: the Jeans floor is not a compression of the gas
+        fDensity = p->fDensity*PoverRhoGas/(gammam1*p->uPred());
+        if (p->fDensityU() < p->fDensity) fDensity = p->fDensityU()*PoverRhoGas/(gammam1*p->uPred());
         if(fDensity == 0.0) fDensity = p->fDensity;
         CkAssert(fDensity > 0);
         cp = p->CoolParticle();
