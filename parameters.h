@@ -27,6 +27,7 @@ typedef struct parameters {
     int iStartStep;
     int iWallRunTime;
     double dDelta;
+    int bSingleStep;            /* All particles use the smallest timestep */
     int bEpsAccStep;
     int bGravStep;
     int bKepStep;
@@ -182,6 +183,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.iStartStep;
     p|param.iWallRunTime;
     p|param.dDelta;
+    p|param.bSingleStep;
     p|param.bEpsAccStep;
     p|param.bGravStep;
     p|param.bKepStep;
