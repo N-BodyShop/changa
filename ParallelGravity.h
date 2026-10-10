@@ -169,6 +169,19 @@ extern int nIOProcessor;
 
 extern CProxy_DumpFrameData dfDataProxy;
 extern CProxy_PETreeMerger peTreeMergerProxy;
+
+#ifdef CUDA
+extern CProxy_PEList peNodeLocalListProxy;
+extern CProxy_PEList peNodeRemoteListProxy;
+extern CProxy_PEList peNodeRemoteResumeListProxy;
+extern CProxy_PEList pePartLocalListProxy;
+extern CProxy_PEList pePartRemoteListProxy;
+extern CProxy_PEList pePartRemoteResumeListProxy;
+
+extern CProxy_PEList* PEListProxies[];
+extern const int numPEListProxies;
+#endif
+
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
 extern CProxy_CkCacheManager<KeyType> cacheSmoothPart;
 extern CProxy_NodeCache cacheNode;
@@ -201,8 +214,6 @@ extern int remoteResumeNodesPerReq;
 extern int localPartsPerReq;
 extern int remotePartsPerReq;
 extern int remoteResumePartsPerReq;
-
-extern double largePhaseThreshold;
 
 extern cosmoType theta;
 extern cosmoType thetaMono;
@@ -332,12 +343,13 @@ struct BucketMsg : public CkMcastBaseMsg, public CMessage_BucketMsg {
 };
 #endif
 
-/// Associated with calls to calculateEwald
-/// Indicates whether the function was called by initEwald
-struct EwaldMsg: public CMessage_EwaldMsg {
-    bool fromInit;
+#ifdef CUDA
+struct fillGPUMsg: public CMessage_fillGPUMsg {
+  int partIndex;
+  int nParts;
 };
-    
+#endif
+
 /// Class to count added and deleted particles
 class CountSetPart 
 {
@@ -619,6 +631,8 @@ public:
     void initLWData();
 	void initStarLog();
 	void initHMStarLog();
+	void initMemLog();
+	void initCpuMemLog();
 	int ReadASCII(char *extension, int nDataPerLine, double *dDataOut);
         void restartGas();
 	void doSph(int activeRung, int bNeedDensity = 1);
@@ -644,14 +658,6 @@ public:
         void doSIDM(double dTime,double dDelta, int activeRung); /* SIDM */
         void restartNSIDM();
 };
-
-/* IBM brain damage */
-#undef hz
-/// @brief Coefficients for the Fourier space part of the Ewald sum.
-typedef struct ewaldTable {
-  double hx,hy,hz;
-  double hCfac,hSfac;
-} EWT;
 
 // jetley
 class MissRecord;
@@ -905,6 +911,11 @@ class TreePiece : public CBase_TreePiece {
   /// Return the pointer to the particles on this TreePiece.
   GravityParticle *getParticles(){return myParticles;}
 
+    /// Access method for number of active particles on this TreePiece
+    int getNumActiveParticles(){
+        return myNumActiveParticles;
+    }
+
 
 #ifdef CUDA
         // this variable holds the number of buckets active at
@@ -917,23 +928,13 @@ class TreePiece : public CBase_TreePiece {
         // in the list of interations to the sent to the gpu, we flush
         // the list
         int numActiveBuckets; 
-        int myNumActiveParticles;
-        // First and Last indices of GPU particle
-        int FirstGPUParticleIndex;
-        int LastGPUParticleIndex;
-        int NumberOfGPUParticles;
-        BucketActiveInfo *bucketActiveInfo;
+        /// Specifies that the Treepiece has filled the buffer with
+        /// particle data to be sent to the GPU.  This implies that
+        /// this TreePiece's buckets now know where their particles
+        /// are in the GPU particle array.
+        int bGPUBufferFilled;
 
-	// For accessing GPU memory
-	CudaMultipoleMoments *d_localMoments;
-        CudaMultipoleMoments *d_remoteMoments;
-        CompactPartData *d_localParts;
-	CompactPartData *d_remoteParts;
-        VariablePartData *d_localVars;
-        size_t sMoments;
-        size_t sCompactParts;
-        size_t sVarParts;
-	cudaStream_t stream;
+	int getParentPE() { return CkMyPe(); }
 
         int getNumBuckets(){
         	return numBuckets;
@@ -944,80 +945,21 @@ class TreePiece : public CBase_TreePiece {
         // depending on fraction of active particles to their
         // total count.
         int getDMNumParticles(){
-          if(largePhase()){
-            return myNumParticles;
-          }
-          else{
-            return myNumActiveParticles; 
-          }
-        }
-
-        int getNumActiveParticles(){
-          return myNumActiveParticles;
-        }
-
-        void calculateNumActiveParticles(){ 
-          myNumActiveParticles = 0;
-          for(int i = 1; i <= myNumParticles; i++){
-            if(myParticles[i].rung >= activeRung){
-              myNumActiveParticles++;
-            }
-          }
-        }
-
-        bool largePhase(){
-          return (1.0*myNumActiveParticles/myNumParticles) >= largePhaseThreshold;
+          return myNumParticles;
         }
 
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
-          NumberOfGPUParticles = 0;
-          FirstGPUParticleIndex = fillIndex;//This is for the GPU Ewald
-          if(largePhase()){
-            for(int b = 0; b < numBuckets; b++){
-              GenericTreeNode *bucket = bucketList[b];
-              int buckstart = bucket->firstParticle;
-              int buckend = bucket->lastParticle;
-              GravityParticle *buckparts = bucket->particlePointer;
-              bucket->bucketArrayIndex = fillIndex;
-              for(int i = buckstart; i <= buckend; i++){
-                fillArray[fillIndex] = buckparts[i-buckstart];
-                fillIndex++;
-              }
-            }
-          }
-          else{
-            for(int b = 0; b < numBuckets; b++){
-              GenericTreeNode *bucket = bucketList[b];
-              if(bucket->rungs < activeRung){
-                continue;
-              }
-              BucketActiveInfo *binfo = &(bucketActiveInfo[b]);
-              
-              int buckstart = bucket->firstParticle;
-              int buckend = bucket->lastParticle;
-              GravityParticle *buckparts = bucket->particlePointer;
-
-              binfo->start = fillIndex;
-              for(int i = buckstart; i <= buckend; i++){
-                if(buckparts[i-buckstart].rung >= activeRung){
-                  fillArray[fillIndex] = buckparts[i-buckstart];
-                  fillIndex++;
-                }
-              }
-              binfo->size = fillIndex-binfo->start;
-            }
-          }
-          //This is for the GPU Ewald
-          if(FirstGPUParticleIndex == fillIndex){
-            //This means no particle is on GPU
-            FirstGPUParticleIndex = -1;
-            LastGPUParticleIndex = -1;
-            NumberOfGPUParticles = 0;
-          }
-          else{
-            LastGPUParticleIndex = fillIndex - 1;
-            NumberOfGPUParticles = LastGPUParticleIndex - FirstGPUParticleIndex + 1;
-          }
+	  for(int b = 0; b < numBuckets; b++){
+	    GenericTreeNode *bucket = bucketList[b];
+	    int buckstart = bucket->firstParticle;
+	    int buckend = bucket->lastParticle;
+	    GravityParticle *buckparts = bucket->particlePointer;
+	    bucket->bucketArrayIndex = fillIndex;
+	    for(int i = buckstart; i <= buckend; i++){
+	      fillArray[fillIndex] = buckparts[i-buckstart];
+	      fillIndex++;
+	    }
+	  }
         }
 
         bool isActive(int partNum){
@@ -1039,14 +981,11 @@ class TreePiece : public CBase_TreePiece {
 #endif
 
 #ifdef CUDA
-       void continueStartRemoteChunk(int chunk, intptr_t d_remoteMoments, intptr_t d_remoteParts);
-       void fillGPUBuffer(intptr_t bufLocalParts,
-                          intptr_t bufLocalMoments,
-                          intptr_t pLocalMoments, int partIndex, int nParts, intptr_t node);
+       void fillGPUBuffer(fillGPUMsg *msg);
         void updateParticles(intptr_t data, int partIndex);
-#else
-        void continueStartRemoteChunk(int chunk);
+        void flushInteractionsToGpu(intptr_t ptr_lc, intptr_t ptr_ds);
 #endif
+        void continueStartRemoteChunk(int chunk);
         void continueWrapUp();
 
 #if INTERLIST_VER > 0
@@ -1104,7 +1043,9 @@ private:
   CkCallback after_dd_callback;
 	/// Total number of particles contained in this chare
 	unsigned int myNumParticles;
-	unsigned int numActiveParticles;
+        /// Number of particles on this TreePiece needing force calculations
+        int myNumActiveParticles;
+
 	/// Array with the particles in this chare
 	GravityParticle* myParticles;
   int nbor_msgs_count_;
@@ -1228,18 +1169,14 @@ private:
 	int bComove;
 	/// Background density of the Universe
 	double dRhoFac;
+public:
 	Vector3D<cosmoType> fPeriod;
 	int nReplicas;
 	int bEwald;		/* Perform Ewald */
 	double fEwCut;
 	double dEwhCut;
-	EWT *ewt;
-	int nMaxEwhLoop;
-	int nEwhLoop;
-#ifdef HEXADECAPOLE
-	MOMC momcRoot;		/* complete moments of root */
-#endif
 
+private:
 	int bGasCooling;
 #ifndef COOLING_NONE
 	clDerivsData *CoolData;
@@ -1356,13 +1293,6 @@ private:
   double totalTime;
  public:
 
-#ifdef SPCUDA
-  EwaldData *h_idata;
-  CkCallback *cbEwaldGPU;
-#endif
-  void EwaldGPU();
-  void EwaldGPUComplete();
-
 #if COSMO_DEBUG > 1 || defined CHANGA_REFACTOR_WALKCHECK || defined CHANGA_REFACTOR_WALKCHECK_INTERLIST
   ///This function checks the correctness of the treewalk
   void checkWalkCorrectness();
@@ -1416,8 +1346,7 @@ private:
 
 
 	/// Initialize all the buckets for the tree walk
-	/// @TODO: Eliminate this redundant copy!
-	void initBuckets();
+	int initBuckets();
 	template <class Tsmooth>
 	void initBucketsSmooth(Tsmooth tSmooth);
 	void smoothNextBucket();
@@ -1432,6 +1361,8 @@ private:
 	 * to trigger nextBucket() which will loop over all the buckets.
 	 */
 	void doAllBuckets();
+	void cudaFinishAllBuckets(int fromEwald);
+	void cudaFinishAffectedBuckets(int *affectedBuckets, int numBuckets, int bRemote);
 	void reconstructNodeLookup(GenericTreeNode *node);
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
@@ -1490,8 +1421,6 @@ public:
 	  // temporarely set to -1, it will updated after the tree is built
 	  numChunks=-1;
 	  prefetchRoots = NULL;
-	  ewt = NULL;
-	  nMaxEwhLoop = 100;
 
           incomingParticlesMsg.clear();
           incomingParticlesArrived = 0;
@@ -1501,6 +1430,7 @@ public:
           mySPHParticles = NULL;
           myStarParticles = NULL;
 	  myNumParticles = myNumSPH = myNumStar = 0;
+          myNumActiveParticles = 0;
 	  nStore = nStoreSPH = nStoreStar = 0;
           bBucketsInited = false;
 	  myTreeParticles = -1;
@@ -1530,8 +1460,6 @@ public:
 	  nPartCacheEntries = 0;
 	  completedActiveWalks = 0;
 	  prefetchRoots = NULL;
-	  //remaining Chunk = NULL;
-          ewt = NULL;
 	  root = NULL;
 	  pTreeNodes = NULL;
 
@@ -1579,7 +1507,6 @@ public:
 	  delete[] nodeInterRemote;
 	  delete[] particleInterRemote;
 	  delete[] bucketReqs;
-          delete[] ewt;
 
 	  deleteTree();
 
@@ -1597,10 +1524,8 @@ public:
 			 double fEwCut, double fEwhCut, int bPeriod,
                          int bComove, double dRhoFac);
 	void BucketEwald(GenericTreeNode *req, int nReps,double fEwCut);
-	void EwaldInit();
-       void ewaldCPU(EwaldMsg *msg);
-	void calculateEwald(EwaldMsg *m);
-  void calculateEwaldUsingCkLoop(int yield_num);
+       void calculateEwald(dummyMsg *msg);
+       void calculateEwaldUsingCkLoop(int yield_num);
   void callBucketEwald(int id);
   void doParallelNextBucketWork(int id, LoopParData* lpdata);
 	void initCoolingData(const CkCallback& cb);
@@ -1853,15 +1778,8 @@ public:
 	void calculateGravityLocal();
 	/// Do some minor preparation for the local walk then
 	/// calculateGravityLocal().
-#ifdef CUDA
-	void commenceCalculateGravityLocal(intptr_t d_localMoments,
-                                           intptr_t d_localParts,
-                                           intptr_t d_localVars,
-                                           intptr_t streams, int numStreams,
-                                           size_t sMoments, size_t sCompactParts, size_t sVarParts);
-#else
+
 	void commenceCalculateGravityLocal();
-#endif
 
 	/// Entry point for the remote computation: for each bucket compute the
 	/// force that its particles see due to the other particles NOT hosted
