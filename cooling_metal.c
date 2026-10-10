@@ -29,7 +29,6 @@
 
 /* General accuracy target */
 #define EPS 1e-5
-#define MAXABUNDITERATIONS 20
 /* Accuracy for Temperature estimation for E,rho assuming eqm abundances */
 #define EPSTEMP 1e-5
 #define ETAMINTIMESTEP 1e-4
@@ -1328,73 +1327,73 @@ void clPrintCoolFile( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, FILE *fp )
 
 }
 
+/*
+ * Equilibrium abundances for the rates in Rate.  For a given electron
+ * abundance ye each species' balance is linear, and the electrons those
+ * species release, g(ye), fall as ye rises, so h(ye) = g(ye) - ye has one
+ * root in (0, yeMax].  The plain iteration ye <- g(ye) used before cycles
+ * when photoionisation dominates (g ~ C/ye, so g' = -1 at the root: cold
+ * gas under a UV background); bisect on log(ye) instead.
+ */
+static double clAbundsSpecies(double ye, double yH, double yHe, double yeMax,
+                              const double rc[3], const double rp[3],
+                              double *fHI, double *fHeI, double *fHeII)
+{
+  double rye = 1/ye;
+  *fHI   = rc[0] + rp[0]*rye;
+  *fHeI  = rc[1] + rp[1]*rye;
+  *fHeII = rc[2] + rp[2]*rye;
+  double rfHe = 1/(1 + *fHeI*(1 + *fHeII));
+  double yHI = yH/(1.0 + *fHI);
+  double yHeI = yHe*rfHe;
+  double yHeII = yHe*(*fHeI)*rfHe;
+  return yeMax - (yHI + 2*yHeI + yHeII); /* Free electrons */
+}
+
 void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
   double en_B =rho*CL_B_gm;
+  double yH, yHe, yeMax;
+  double fHI, fHeI, fHeII;
+  int i;
 
   /*Coll. dissos./Rad. Recomb*/
-  double rcirrHI   = (Rate->Coll_HI)/(Rate->Radr_HII);
-  double rcirrHeI  = (Rate->Coll_HeI)/(Rate->Totr_HeII);
-  double rcirrHeII = (Rate->Coll_HeII)/(Rate->Radr_HeIII);
-
+  double rc[3] = { (Rate->Coll_HI)/(Rate->Radr_HII),
+                   (Rate->Coll_HeI)/(Rate->Totr_HeII),
+                   (Rate->Coll_HeII)/(Rate->Radr_HeIII) };
   /*Photon dissos./Rad. Recomb*/
-  double rpirrHI   = (Rate->Phot_HI)/(Rate->Radr_HII * en_B); 
-  double rpirrHeI  = (Rate->Phot_HeI)/(Rate->Totr_HeII * en_B);
-  double rpirrHeII = (Rate->Phot_HeII)/(Rate->Radr_HeIII * en_B);
-
-  double yH;
-  double yHI = 0; 
-  double yHII = 0; 
-
-  double yHe; 
-  double yHeI = 0.;
-  double yHeII = 0.;
-  double yHeIII = 0;
-
-  double yeMax;
-  double rye,ye;
-  double fHI,fHeI,fHeII,rfHe,yHI_old,yHeII_old; 
-  double Rate_Phot_HI;
-  int i;  
+  double rp[3] = { (Rate->Phot_HI)/(Rate->Radr_HII * en_B),
+                   (Rate->Phot_HeI)/(Rate->Totr_HeII * en_B),
+                   (Rate->Phot_HeII)/(Rate->Radr_HeIII * en_B) };
 
   clSetAbundanceTotals(cl,ZMetal,&yH,&yHe,&yeMax);
-  Rate_Phot_HI = Rate->Phot_HI;
 
-  for ( i=0 ; i<MAXABUNDITERATIONS ; i++ ) {
-    yHI_old   = yHI;
-    yHeII_old = yHeII;
-
-    ye = (yeMax-(yHI + 2 * yHeI + yHeII)); /*Free electrons*/
-    if (ye <= 0) {
-      ye = 0;
-      yHII = 0;
-      yHeI = yHe;
-      yHeII = 0;
-      yHeIII = 0;
-      yHI = yH;
-      break;
-    }
-    else {
-      rye = 1/ye;
-
-      fHI = rcirrHI + rpirrHI * rye;
-      yHI = yH / (1.0+fHI);
-      fHeI  = rcirrHeI + rpirrHeI * rye;/* HeI->HeII/HeII->HeI */
-      fHeII = rcirrHeII + rpirrHeII * rye;
-      rfHe  = 1 / ( 1 + fHeI * (1 + fHeII) );
-      yHeI  = yHe * rfHe;
-      yHeII = yHe * fHeI * rfHe;
-      yHeIII = yHe / ((1.0/fHeI+1.0)/fHeII+1.0);
-
-      if ( fabs(yHeII_old-yHeII) < EPS * yHeII && fabs(yHI_old-yHI) < EPS * yHI ) break;
-    }
+  double lo = 1e-30*yeMax, hi = yeMax;
+  if (clAbundsSpecies(lo, yH, yHe, yeMax, rc, rp, &fHI, &fHeI, &fHeII) <= lo) {
+    /* No ionisation: neutral */
+    Y->e = 0;
+    Y->HI = yH;
+    Y->HII = 0;
+    Y->HeI = yHe;
+    Y->HeII = 0;
+    Y->HeIII = 0;
+    Y->Total = yH + yHe + ZMetal/MU_METAL;
+    return;
   }
+  /* h(lo) > 0 >= h(hi): halve the bracket in log(ye) to a relative width of 1e-12 */
+  for ( i=0 ; i<200 && hi > lo*(1+1e-12) ; i++ ) {
+    double mid = sqrt(lo*hi);
+    if (clAbundsSpecies(mid, yH, yHe, yeMax, rc, rp, &fHI, &fHeI, &fHeII) > mid) lo = mid;
+    else hi = mid;
+  }
+  double ye = sqrt(lo*hi);
+  clAbundsSpecies(ye, yH, yHe, yeMax, rc, rp, &fHI, &fHeI, &fHeII);
 
   Y->e = ye;
-  Y->HI = yHI;
+  Y->HI = yH / (1.0+fHI);
   Y->HII = yH / (1.0/fHI+1.0);
-  Y->HeI = yHeI;
-  Y->HeII = yHeII;
-  Y->HeIII = yHeIII;
+  Y->HeI = yHe / ( 1 + fHeI * (1 + fHeII) );
+  Y->HeII = yHe * fHeI / ( 1 + fHeI * (1 + fHeII) );
+  Y->HeIII = yHe / ((1.0/fHeI+1.0)/fHeII+1.0);
   Y->Total = Y->e + yH + yHe + ZMetal/MU_METAL;
 }
 
