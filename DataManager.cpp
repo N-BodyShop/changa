@@ -952,11 +952,11 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
     GenericTreeNode *node = queue.deq();
 
     switch (node->getType()) {
-    case Boundary:
     case NonLocal:
     case Cached:
-        if(node->getType() != Boundary)
-            addNodeToListPtr(node,postPrefetchMoments,nodeIndex);
+        addNodeToListPtr(node,postPrefetchMoments,nodeIndex);
+        // fall through
+    case Boundary:
         // enqueue children
         for(int i = 0; i < node->numChildren(); i++){
             GenericTreeNode *child = node->getChildren(i);
@@ -975,6 +975,36 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
 #endif
         }
         break;
+    case CachedBucket:
+          addNodeToListPtr(node,postPrefetchMoments,nodeIndex);
+          // fall through
+    case NonLocalBucket:
+        {
+          // if this is a NonLocalBucket, don't need node itself, just its particles
+          ExternalGravityParticle *parts;
+          int nParticles = node->lastParticle-node->firstParticle+1;
+          NodeKey key = node->getKey();
+          // N.B. Key for particles is shifted to distinguish it from the Key
+          // for the node.
+          key <<= 1;
+
+          cacheType::iterator p = ctPart->find(key);
+          if (p != ctPart->end() && p->second->replyRecvd) {
+            // found particles
+            // mark presence and add to data to ship
+            parts = (ExternalGravityParticle *)p->second->data;
+            cachedPartsOnGpu[key] = partIndex;
+#ifdef CUDA_DM_PRINT_TREES
+            CkPrintf("(%d) type %s parts (key %ld) start: %d\n", CkMyPe(),
+                     typeString(type), key, partIndex);
+#endif
+            // put particles in array:
+            for(int i = 0; i < nParticles; i++){
+              postPrefetchParticles->push_back(CompactPartData(parts[i]));
+              partIndex++;
+            }
+          }
+        }
     default: break;
     }
   }// end while queue not empty
