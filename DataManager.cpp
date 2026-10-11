@@ -910,8 +910,13 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   int numNodes = 0;
   int numParticles = 0;
 
+#if CHANGA_SMPCACHE
+  /// For the CkTreeCache, this only needed to find the size of the cache
+  CkTreeCacheView *ctNode = cacheNode.ckLocalBranch()->getCache();
+#else
   cacheType *wholeNodeCache = cacheNode.ckLocalBranch()->getCache();
   cacheType *ctNode = &wholeNodeCache[chunk];
+#endif
   cacheType *wholePartCache = cacheGravPart.ckLocalBranch()->getCache();
   cacheType *ctPart = &wholePartCache[chunk];
 
@@ -945,69 +950,62 @@ PendingBuffers *DataManager::serializeRemoteChunk(GenericTreeNode *node){
   queue.enq(node);
   while(!queue.isEmpty()){
     GenericTreeNode *node = queue.deq();
-    NodeType type = node->getType();
 
-    if(type == Empty || type == CachedEmpty || type == Internal || type == Bucket){ // skip
-      continue;
-    }// B, NL, NLBu, CBu, C 
-    else if(type == Boundary){
-      // enqueue children
-      for(int i = 0; i < node->numChildren(); i++){
-	GenericTreeNode *child = node->getChildren(i);
-	queue.enq(child);
-      }
-    }
-    else if(type == NonLocal){
-      // need node moments; also, must enqueue children so that complete list of 
-      // used nodes can be obtained
+    switch (node->getType()) {
+    case NonLocal:
+    case Cached:
         addNodeToListPtr(node,postPrefetchMoments,nodeIndex);
-    }
-    else if(type == NonLocalBucket || type == CachedBucket){
-      if(type == CachedBucket){
-          addNodeToListPtr(node,postPrefetchMoments,nodeIndex);
-      }
-      // if this is a NonLocalBucket, don't need node itself, just its particles
-      ExternalGravityParticle *parts;
-      int nParticles = node->lastParticle-node->firstParticle+1;
-      NodeKey key = node->getKey();
-      // N.B. Key for particles is shifted to distinguish it from the Key
-      // for the node.
-      key <<= 1;
-
-      cacheType::iterator p = ctPart->find(key);
-      if (p != ctPart->end() && p->second->replyRecvd) {
-        // found particles
-        // mark presence and add to data to ship
-        parts = (ExternalGravityParticle *)p->second->data;
-        cachedPartsOnGpu[key] = partIndex;
-#ifdef CUDA_DM_PRINT_TREES
-        CkPrintf("(%d) type %s parts (key %ld) start: %d\n", CkMyPe(), 
-                                                            typeString(type), key, partIndex);
+        // fall through
+    case Boundary:
+        // enqueue children
+        for(int i = 0; i < node->numChildren(); i++){
+            GenericTreeNode *child = node->getChildren(i);
+            if(child) {
+                queue.enq(child);
+            }
+#if !CHANGA_SMPCACHE
+            else{ // look in cache
+                NodeKey childKey = node->getChildKey(i);
+                cacheType::iterator p = ctNode->find(childKey);
+                if (p != ctNode->end() && p->second->replyRecvd) {
+                    // found node, enqueue
+                    queue.enq((GenericTreeNode *)p->second->data);
+                }
+            }
 #endif
-        // put particles in array:
-        for(int i = 0; i < nParticles; i++){
-          postPrefetchParticles->push_back(CompactPartData(parts[i]));
-          partIndex++;
         }
-      }
-    }
-    else if(type == Cached){
-      addNodeToListPtr(node,postPrefetchMoments,nodeIndex);
-      // put children into queue, if available
-      for(int i = 0 ; i < node->numChildren(); i++){
-	GenericTreeNode *child = node->getChildren(i);
-        if(child){// available to dm
-    	  queue.enq(child);
+        break;
+    case CachedBucket:
+          addNodeToListPtr(node,postPrefetchMoments,nodeIndex);
+          // fall through
+    case NonLocalBucket:
+        {
+          // if this is a NonLocalBucket, don't need node itself, just its particles
+          ExternalGravityParticle *parts;
+          int nParticles = node->lastParticle-node->firstParticle+1;
+          NodeKey key = node->getKey();
+          // N.B. Key for particles is shifted to distinguish it from the Key
+          // for the node.
+          key <<= 1;
+
+          cacheType::iterator p = ctPart->find(key);
+          if (p != ctPart->end() && p->second->replyRecvd) {
+            // found particles
+            // mark presence and add to data to ship
+            parts = (ExternalGravityParticle *)p->second->data;
+            cachedPartsOnGpu[key] = partIndex;
+#ifdef CUDA_DM_PRINT_TREES
+            CkPrintf("(%d) type %s parts (key %ld) start: %d\n", CkMyPe(),
+                     typeString(type), key, partIndex);
+#endif
+            // put particles in array:
+            for(int i = 0; i < nParticles; i++){
+              postPrefetchParticles->push_back(CompactPartData(parts[i]));
+              partIndex++;
+            }
+          }
         }
-        else{ // look in cache
-    	  NodeKey childKey = node->getChildKey(i);
-          cacheType::iterator p = ctNode->find(childKey);
-          if (p != ctNode->end() && p->second->replyRecvd) {
-            // found node, enqueue
-    	    queue.enq((GenericTreeNode *)p->second->data);
-    	  }
-        }
-      }
+    default: break;
     }
   }// end while queue not empty
 
