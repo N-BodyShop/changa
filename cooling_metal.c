@@ -29,6 +29,9 @@
 
 /* General accuracy target */
 #define EPS 1e-5
+static const double YEMINFRAC = 1e-30;
+static const double EPSYE = 1e-12;
+static const int MAXBISECTIONS = 64;
 /* Accuracy for Temperature estimation for E,rho assuming eqm abundances */
 #define EPSTEMP 1e-5
 #define ETAMINTIMESTEP 1e-4
@@ -1335,8 +1338,11 @@ void clPrintCoolFile( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, FILE *fp )
  * when photoionisation dominates (g ~ C/ye, so g' = -1 at the root: cold
  * gas under a UV background); bisect on log(ye) instead.
  */
+/* rc and rp hold the rate ratios for HI, HeI and HeII */
+enum { N_RATES = 3 };
+
 static double clAbundsSpecies(double ye, double yH, double yHe, double yeMax,
-                              const double rc[3], const double rp[3],
+                              const double rc[N_RATES], const double rp[N_RATES],
                               double *fHI, double *fHeI, double *fHeII)
 {
   double rye = 1/ye;
@@ -1357,17 +1363,17 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
   int i;
 
   /*Coll. dissos./Rad. Recomb*/
-  double rc[3] = { (Rate->Coll_HI)/(Rate->Radr_HII),
-                   (Rate->Coll_HeI)/(Rate->Totr_HeII),
-                   (Rate->Coll_HeII)/(Rate->Radr_HeIII) };
+  double rc[N_RATES] = { (Rate->Coll_HI)/(Rate->Radr_HII),
+                         (Rate->Coll_HeI)/(Rate->Totr_HeII),
+                         (Rate->Coll_HeII)/(Rate->Radr_HeIII) };
   /*Photon dissos./Rad. Recomb*/
-  double rp[3] = { (Rate->Phot_HI)/(Rate->Radr_HII * en_B),
-                   (Rate->Phot_HeI)/(Rate->Totr_HeII * en_B),
-                   (Rate->Phot_HeII)/(Rate->Radr_HeIII * en_B) };
+  double rp[N_RATES] = { (Rate->Phot_HI)/(Rate->Radr_HII * en_B),
+                         (Rate->Phot_HeI)/(Rate->Totr_HeII * en_B),
+                         (Rate->Phot_HeII)/(Rate->Radr_HeIII * en_B) };
 
   clSetAbundanceTotals(cl,ZMetal,&yH,&yHe,&yeMax);
 
-  double lo = 1e-30*yeMax, hi = yeMax;
+  double lo = YEMINFRAC*yeMax, hi = yeMax;
   if (clAbundsSpecies(lo, yH, yHe, yeMax, rc, rp, &fHI, &fHeI, &fHeII) <= lo) {
     /* No ionisation: neutral */
     Y->e = 0;
@@ -1379,8 +1385,8 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
     Y->Total = yH + yHe + ZMetal/MU_METAL;
     return;
   }
-  /* h(lo) > 0 >= h(hi): halve the bracket in log(ye) to a relative width of 1e-12 */
-  for ( i=0 ; i<200 && hi > lo*(1+1e-12) ; i++ ) {
+  /* h(lo) > 0 >= h(hi): halve the bracket in log(ye) to a relative width of EPSYE */
+  for ( i=0 ; i<MAXBISECTIONS && hi > lo*(1+EPSYE) ; i++ ) {
     double mid = sqrt(lo*hi);
     if (clAbundsSpecies(mid, yH, yHe, yeMax, rc, rp, &fHI, &fHeI, &fHeII) > mid) lo = mid;
     else hi = mid;
