@@ -395,17 +395,6 @@ AC_CHECK_FUNCS([xdr_hyper])
 m4_include([cuda.ac])
 ##################### END CUDA #####################
 
-# The GPU path (DataManager::serializeRemoteChunk) reads CkCacheManager's
-# per-chunk maps directly, so CUDA builds keep CkCacheManager for now.
-if test x$ENABLE_CUDA = xyes -a x$smpcache = xyes; then
-	if test "${enable_smpcache+set}" = set; then
-		AC_MSG_ERROR([--enable-smpcache=yes is not supported with CUDA yet; use --enable-smpcache=no])
-	fi
-	AC_MSG_NOTICE([CUDA build: tree nodes use CkCacheManager (--enable-smpcache=no)])
-	smpcache=no
-	FLAG_SMPCACHE=""
-fi
-
 AC_CONFIG_FILES([Makefile $STRUCT_DIR/Makefile])
 AC_OUTPUT
 
