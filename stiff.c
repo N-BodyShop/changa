@@ -313,8 +313,10 @@ cd
 		C ym2(i) = ym1(i)
 		C ym1(i) = y(i)
 		*/
-		y[i] = max(ys[i] + dt*scrarray[i], ymin[i]);
+		y[i] = ys[i] + dt*scrarray[i];
 		}
+	    // Stop the integrator if we ran off the bottom of the cooling table
+	    if (y[0] < ymin[0]) return;
 	    /*	    if(iter == 1) {  Removed from original algorithm
 		    so that previous, rather than first, corrector is
 		    compared to.  Results in faster integration. */
