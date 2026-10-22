@@ -13,6 +13,11 @@
 #include "GenericTreeNode.h"
 #include "keytype.h"
 
+/// Space in front of each node of a node cache fill message, where
+/// EntryTypeGravityNode::unpackSingle() stores the message pointer.
+static const int PAD_reply = sizeof(Tree::NodeKey);  // Assume this is bigger
+                                                 // than a pointer
+
 /*********************************************************
  * Gravity interface: Particles
  *********************************************************/

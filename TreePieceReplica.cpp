@@ -15,11 +15,12 @@ void TreePieceReplica::fillRequestNodeFromReplica(
     if(_cache) {
 #if 1 || defined CACHE_BUFFER_MSGS
       int count = ((Tree::BinaryTreeNode*)node)->countDepth(_cacheLineDepth);
-      // 8 extra bytes are allocated to store the msg pointer at the
-      // beginning of the buffer.  See the free() and the
-      // unpackSingle() method above.
-      CkCacheFillMsg<KeyType> *reply = new (count * (sizeof(Tree::BinaryTreeNode)+8)) CkCacheFillMsg<KeyType>(msg->key);
-      ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+8), _cacheLineDepth, 8);
+      // PAD_reply extra bytes are allocated in front of each node to
+      // store the msg pointer, and packNodes() puts the nodes
+      // ALIGN_DEFAULT apart; same layout as TreePiece::fillRequestNode().
+      // See the free() and the unpackSingle() method in CacheInterface.cpp.
+      CkCacheFillMsg<KeyType> *reply = new (count * ALIGN_DEFAULT(sizeof(Tree::BinaryTreeNode)+PAD_reply)) CkCacheFillMsg<KeyType>(msg->key);
+      ((Tree::BinaryTreeNode*)node)->packNodes((Tree::BinaryTreeNode*)(reply->data+PAD_reply), _cacheLineDepth, PAD_reply);
 
 #else
       PUP::sizer p1;
