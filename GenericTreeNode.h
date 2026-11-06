@@ -987,23 +987,17 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
       return tmp;
     }
 
-    /*
-    int getNumChunks(int num) {
-      int i = 0;
-      while (num > 1) {
-	num >>= 3;
-	i++;
-      }
-      return 1 << (3*i);
-    }
-    */
-
     void getChunks(int num, NodeKey *&ret) {
-      return;
+        CkAbort("Unimplemented");
     }
 
-    void pup(PUP::er &p);
-    void pup(PUP::er &p, int depth);
+    void pup(PUP::er &p) {
+        CkAbort("Unimplemented");
+    }
+      
+    void pup(PUP::er &p, int depth){
+        CkAbort("Unimplemented");
+    }
   };
 
   /** Possible types of trees: the first word means the physical structure used
