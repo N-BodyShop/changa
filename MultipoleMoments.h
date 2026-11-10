@@ -20,7 +20,12 @@
 
 #include "SSEdefs.h"
 
-#if CMK_SSE && defined(HEXADECAPOLE) 
+template <class V>
+inline V vdot3(const Vector3D<V> &a, const Vector3D<V> &b) {
+  return a.x*b.x + a.y*b.y + a.z*b.z;
+}
+
+#ifdef HEXADECAPOLE
 /*
  ** This is a new fast version of QEVAL which evaluates
  ** the interaction due to the reduced moment 'm'.
@@ -34,7 +39,7 @@ void momEvalMomr(MOMR *m,SSEcosmoType dir0,SSEcosmoType x,SSEcosmoType y,
 		 SSEcosmoType z,SSEcosmoType *fPot,SSEcosmoType *ax,
 		 SSEcosmoType *ay,SSEcosmoType *az)
 {
-	const SSEcosmoType onethird = 1.0/3.0;
+	const SSEcosmoType onethird = COSMO_CONST(1.0)/COSMO_CONST(3.0);
 	SSEcosmoType xx,xy,xz,yy,yz,zz;
 	SSEcosmoType xxx,xxy,xxz,xyy,yyy,yyz,xyz;
 	SSEcosmoType tx,ty,tz,dir2,g2,g3,g4;
@@ -42,18 +47,18 @@ void momEvalMomr(MOMR *m,SSEcosmoType dir0,SSEcosmoType x,SSEcosmoType y,
 
 	dir = -dir0;
 	dir2 = dir*dir;
-	g2 = 3.0*dir*dir2*dir2;
-	g3 = -5.0*g2*dir2;
-	g4 = -7.0*g3*dir2;
+	g2 = COSMO_CONST(3.0)*dir*dir2*dir2;
+	g3 = -COSMO_CONST(5.0)*g2*dir2;
+	g4 = -COSMO_CONST(7.0)*g3*dir2;
 	/*
 	 ** Calculate the funky distance terms.
 	 */
-	xx = 0.5*x*x;
+	xx = COSMO_CONST(0.5)*x*x;
 	xy = x*y;
 	xz = x*z;
-	yy = 0.5*y*y;
+	yy = COSMO_CONST(0.5)*y*y;
 	yz = y*z;
-	zz = 0.5*z*z;
+	zz = COSMO_CONST(0.5)*z*z;
 	xxx = x*(onethird*xx - zz);
 	xxz = z*(xx - onethird*zz);
 	yyy = y*(onethird*yy - zz);
@@ -66,97 +71,109 @@ void momEvalMomr(MOMR *m,SSEcosmoType dir0,SSEcosmoType x,SSEcosmoType y,
 	/*
 	 ** Now calculate the interaction up to Hexadecapole order.
 	 */
-	tx = g4*(m->xxxx*xxx + m->xyyy*yyy + m->xxxy*xxy + m->xxxz*xxz + m->xxyy*xyy + m->xxyz*xyz + m->xyyz*yyz);
-	ty = g4*(m->xyyy*xyy + m->xxxy*xxx + m->yyyy*yyy + m->yyyz*yyz + m->xxyy*xxy + m->xxyz*xxz + m->xyyz*xyz);
-	tz = g4*(-m->xxxx*xxz - (m->xyyy + m->xxxy)*xyz - m->yyyy*yyz + m->xxxz*xxx + m->yyyz*yyy - m->xxyy*(xxz + yyz) + m->xxyz*xxy + m->xyyz*xyy);
-	g4 = 0.25*(tx*x + ty*y + tz*z);
-	xxx = g3*(m->xxx*xx + m->xyy*yy + m->xxy*xy + m->xxz*xz + m->xyz*yz);
-	xxy = g3*(m->xyy*xy + m->xxy*xx + m->yyy*yy + m->yyz*yz + m->xyz*xz);
-	xxz = g3*(-(m->xxx + m->xyy)*xz - (m->xxy + m->yyy)*yz + m->xxz*xx + m->yyz*yy + m->xyz*xy);
+	/* MOMR members are momFloat (double). Each is converted to the SIMD
+	 ** type where it is used, matching the fork's float path; sums stay
+	 ** in double. */
+	auto mf = [](momFloat v) {
+	  return SSEcosmoType(static_cast<cosmoType>(v));
+	};
+	tx = g4*(mf(m->xxxx)*xxx + mf(m->xyyy)*yyy + mf(m->xxxy)*xxy
+		 + mf(m->xxxz)*xxz + mf(m->xxyy)*xyy + mf(m->xxyz)*xyz
+		 + mf(m->xyyz)*yyz);
+	ty = g4*(mf(m->xyyy)*xyy + mf(m->xxxy)*xxx + mf(m->yyyy)*yyy
+		 + mf(m->yyyz)*yyz + mf(m->xxyy)*xxy + mf(m->xxyz)*xxz
+		 + mf(m->xyyz)*xyz);
+	tz = g4*(-mf(m->xxxx)*xxz - mf(m->xyyy + m->xxxy)*xyz
+		 - mf(m->yyyy)*yyz + mf(m->xxxz)*xxx + mf(m->yyyz)*yyy
+		 - mf(m->xxyy)*(xxz + yyz) + mf(m->xxyz)*xxy
+		 + mf(m->xyyz)*xyy);
+	g4 = COSMO_CONST(0.25)*(tx*x + ty*y + tz*z);
+	xxx = g3*(mf(m->xxx)*xx + mf(m->xyy)*yy + mf(m->xxy)*xy
+		  + mf(m->xxz)*xz + mf(m->xyz)*yz);
+	xxy = g3*(mf(m->xyy)*xy + mf(m->xxy)*xx + mf(m->yyy)*yy
+		  + mf(m->yyz)*yz + mf(m->xyz)*xz);
+	xxz = g3*(-mf(m->xxx + m->xyy)*xz - mf(m->xxy + m->yyy)*yz
+		  + mf(m->xxz)*xx + mf(m->yyz)*yy + mf(m->xyz)*xy);
 	g3 = onethird*(xxx*x + xxy*y + xxz*z);
-	xx = g2*(m->xx*x + m->xy*y + m->xz*z);
-	xy = g2*(m->yy*y + m->xy*x + m->yz*z);
-	xz = g2*(-(m->xx + m->yy)*z + m->xz*x + m->yz*y);
-	g2 = 0.5*(xx*x + xy*y + xz*z);
-	dir *= m->m;
-	dir2 *= -(dir + 5.0*g2 + 7.0*g3 + 9.0*g4);
+	xx = g2*(mf(m->xx)*x + mf(m->xy)*y + mf(m->xz)*z);
+	xy = g2*(mf(m->yy)*y + mf(m->xy)*x + mf(m->yz)*z);
+	xz = g2*(-mf(m->xx + m->yy)*z + mf(m->xz)*x + mf(m->yz)*y);
+	g2 = COSMO_CONST(0.5)*(xx*x + xy*y + xz*z);
+	dir *= mf(m->m);
+	dir2 *= -(dir + COSMO_CONST(5.0)*g2 + COSMO_CONST(7.0)*g3
+		  + COSMO_CONST(9.0)*g4);
+	dir2 *= -(dir + COSMO_CONST(5.0)*g2 + COSMO_CONST(7.0)*g3
+		  + COSMO_CONST(9.0)*g4);
 	*fPot += dir + g2 + g3 + g4;
 	*ax += xx + xxx + tx + x*dir2;
 	*ay += xy + xxy + ty + y*dir2;
 	*az += xz + xxz + tz + z*dir2;
 	}
-/*
- ** This is a new fast version of QEVAL which evaluates
- ** the interaction due to the reduced moment 'm'.
- ** This version is nearly two times as fast as a naive
- ** implementation.
- **
- ** March 23, 2007: This function now uses unit vectors
- ** which reduces the required precision in the exponent
- ** since the highest power of r is now 5 (g4 ~ r^(-5)).
- **
- ** OpCount = (*,+) = (106,72) = 178 - 8 = 170
- **
- */
-inline
-void momEvalFmomrcm(FMOMR *m,SSEcosmoType u,SSEcosmoType dir,SSEcosmoType x,
-		    SSEcosmoType y,SSEcosmoType z,
-		    SSEcosmoType *fPot,SSEcosmoType *ax,SSEcosmoType *ay,
-		    SSEcosmoType *az,SSEcosmoType *magai) {
-    const SSEcosmoType onethird = 1.0f/3.0f;
-    SSEcosmoType xx,xy,xz,yy,yz,zz;
-    SSEcosmoType xxx,xxy,xxz,xyy,yyy,yyz,xyz;
-    SSEcosmoType tx,ty,tz,g0,g2,g3,g4;
+#endif
 
-    u *= dir;
-    g0 = dir;
-    g2 = 3*dir*u*u;
-    g3 = 5*g2*u;
-    g4 = 7*g3*u;
-    /*
-     ** Calculate the trace-free distance terms.
-     */
-    x *= dir;
-    y *= dir;
-    z *= dir;
-    xx = 0.5*x*x;
-    xy = x*y;
-    xz = x*z;
-    yy = 0.5*y*y;
-    yz = y*z;
-    zz = 0.5*z*z;
-    xxx = x*(onethird*xx - zz);
-    xxz = z*(xx - onethird*zz);
-    yyy = y*(onethird*yy - zz);
-    yyz = z*(yy - onethird*zz);
-    xx -= zz;
-    yy -= zz;
-    xxy = y*xx;
-    xyy = x*yy;
-    xyz = xy*z;
-    /*
-     ** Now calculate the interaction up to Hexadecapole order.
-     */
-    tx = g4*(m->xxxx*xxx + m->xyyy*yyy + m->xxxy*xxy + m->xxxz*xxz + m->xxyy*xyy + m->xxyz*xyz + m->xyyz*yyz);
-    ty = g4*(m->xyyy*xyy + m->xxxy*xxx + m->yyyy*yyy + m->yyyz*yyz + m->xxyy*xxy + m->xxyz*xxz + m->xyyz*xyz);
-    tz = g4*(-m->xxxx*xxz - (m->xyyy + m->xxxy)*xyz - m->yyyy*yyz + m->xxxz*xxx + m->yyyz*yyy - m->xxyy*(xxz + yyz) + m->xxyz*xxy + m->xyyz*xyy);
-    g4 = 0.25*(tx*x + ty*y + tz*z);
-    xxx = g3*(m->xxx*xx + m->xyy*yy + m->xxy*xy + m->xxz*xz + m->xyz*yz);
-    xxy = g3*(m->xyy*xy + m->xxy*xx + m->yyy*yy + m->yyz*yz + m->xyz*xz);
-    xxz = g3*(-(m->xxx + m->xyy)*xz - (m->xxy + m->yyy)*yz + m->xxz*xx + m->yyz*yy + m->xyz*xy);
-    g3 = onethird*(xxx*x + xxy*y + xxz*z);
-    xx = g2*(m->xx*x + m->xy*y + m->xz*z);
-    xy = g2*(m->yy*y + m->xy*x + m->yz*z);
-    xz = g2*(-(m->xx + m->yy)*z + m->xz*x + m->yz*y);
-    g2 = 0.5*(xx*x + xy*y + xz*z);
-    g0 *= m->m;
-    *fPot += -(g0 + g2 + g3 + g4);
-    g0 += 5*g2 + 7*g3 + 9*g4;
-    *ax += dir*(xx + xxx + tx - x*g0);
-    *ay += dir*(xy + xxy + ty - y*g0);
-    *az += dir*(xz + xxz + tz - z*g0);
-    *magai = g0*dir;
-    }
+#ifdef HEXADECAPOLE
+// Vector form of momEvalFmomrcm (fork name). The arithmetic keeps the
+// original operation order so results stay bit-identical.
+inline void momEvalFmomrcmVec(const FMOMR *m, SSEcosmoType u, SSEcosmoType dir,
+			      Vector3D<SSEcosmoType> r, SSEcosmoType *fPot,
+			      Vector3D<SSEcosmoType> *acc, SSEcosmoType *magai) {
+  // 1.0f/3.0f (float precision) is kept on purpose: the fork's vector path
+  // in MultipoleMoments.h uses the same constant, so changing it breaks
+  // bit-exactness.
+  const SSEcosmoType onethird = 1.0f/3.0f;
+  SSEcosmoType xx,xy,xz,yy,yz,zz;
+  SSEcosmoType xxx,xxy,xxz,xyy,yyy,yyz,xyz;
+  SSEcosmoType g0,g2,g3,g4;
+
+  u *= dir;
+  g0 = dir;
+  g2 = 3*dir*u*u;
+  g3 = 5*g2*u;
+  g4 = 7*g3*u;
+  Vector3D<SSEcosmoType> q = r * dir;
+  SSEcosmoType x = q.x, y = q.y, z = q.z;
+  xx = COSMO_CONST(0.5)*x*x;
+  xy = x*y;
+  xz = x*z;
+  yy = COSMO_CONST(0.5)*y*y;
+  yz = y*z;
+  zz = COSMO_CONST(0.5)*z*z;
+  xxx = x*(onethird*xx - zz);
+  xxz = z*(xx - onethird*zz);
+  yyy = y*(onethird*yy - zz);
+  yyz = z*(yy - onethird*zz);
+  xx -= zz;
+  yy -= zz;
+  xxy = y*xx;
+  xyy = x*yy;
+  xyz = xy*z;
+
+  Vector3D<SSEcosmoType> t(
+    g4*(m->xxxx*xxx + m->xyyy*yyy + m->xxxy*xxy + m->xxxz*xxz
+	+ m->xxyy*xyy + m->xxyz*xyz + m->xyyz*yyz),
+    g4*(m->xyyy*xyy + m->xxxy*xxx + m->yyyy*yyy + m->yyyz*yyz
+	+ m->xxyy*xxy + m->xxyz*xxz + m->xyyz*xyz),
+    g4*(-m->xxxx*xxz - (m->xyyy + m->xxxy)*xyz - m->yyyy*yyz
+	+ m->xxxz*xxx + m->yyyz*yyy - m->xxyy*(xxz + yyz)
+	+ m->xxyz*xxy + m->xyyz*xyy));
+  g4 = COSMO_CONST(0.25)*vdot3(t, q);
+  Vector3D<SSEcosmoType> c(
+    g3*(m->xxx*xx + m->xyy*yy + m->xxy*xy + m->xxz*xz + m->xyz*yz),
+    g3*(m->xyy*xy + m->xxy*xx + m->yyy*yy + m->yyz*yz + m->xyz*xz),
+    g3*(-(m->xxx + m->xyy)*xz - (m->xxy + m->yyy)*yz + m->xxz*xx
+	+ m->yyz*yy + m->xyz*xy));
+  g3 = onethird*vdot3(c, q);
+  Vector3D<SSEcosmoType> Qv(
+    g2*(m->xx*x + m->xy*y + m->xz*z),
+    g2*(m->yy*y + m->xy*x + m->yz*z),
+    g2*(-(m->xx + m->yy)*z + m->xz*x + m->yz*y));
+  g2 = COSMO_CONST(0.5)*vdot3(Qv, q);
+  g0 *= m->m;
+  *fPot += -(g0 + g2 + g3 + g4);
+  g0 += 5*g2 + 7*g3 + 9*g4;
+  *acc += (Qv + c + t - q*g0) * dir;
+  *magai = g0*dir;
+}
 #endif
 
 /// A representation of a multipole expansion.

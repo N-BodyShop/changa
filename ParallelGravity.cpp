@@ -2717,11 +2717,10 @@ void Main::setupICs() {
 #ifdef COLLISION
   ofsLog << " COLLISION";
 #endif
-#ifdef CMK_USE_SSE2
-  ofsLog << " CMK_USE_SSE2";
-#endif
-#ifdef CMK_USE_AVX
+#if defined(__AVX__)
   ofsLog << " CMK_USE_AVX";
+#elif defined(__SSE2__)
+  ofsLog << " CMK_USE_SSE2";
 #endif
 #ifdef COSMO_FLOAT
   ofsLog << " COSMO_FLOAT";

@@ -40,10 +40,10 @@ quiet       := $(if $(filter $(VERBOSE),1),,@)
 charmc      := @CHARM_PATH@/bin/charmc $(charm_quiet)
 target      := $(build_dir)/ChaNGa
 charmrun    := charmrun
-cxx_std     := c++11
+cxx_std     := c++17
 c_std       := c99
 opt_flag    := -O3
-target_arch :=
+target_arch := @TARGET_ARCH@
 threads     := -lpthread
 
 # ------- Debugging -----------------------------------------------------------

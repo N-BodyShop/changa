@@ -132,21 +132,48 @@ AC_DEFUN([ARG_ENABLE],
 
 # Select target CPU architecture (this determines SIMD type)
 # --- Deprecated flags ---
+# Used only when --enable-arch is not given (arch is still auto).
 ARG_ENABLE([sse2], [DEPRECATED. Use --enable-arch=sse2], [flag_sse_deprecated], [sse2], [no])
 ARG_ENABLE([avx], [DEPRECATED. Use --enable-arch=avx], [flag_avx_deprecated], [avx], [no])
 # -----------------------
-AC_ARG_ENABLE([arch], [AS_HELP_STRING([--enable-arch], [set compiler target architecture])],
-			  [arch=$enableval], [arch=none])
-# --enable-arch overrules when one of the deprecated flags is also given
-if test x$arch = xnone -a x$flag_sse_deprecated != x; then arch=$flag_sse_deprecated; fi
-if test x$arch = xnone -a x$flag_avx_deprecated != x; then arch=$flag_avx_deprecated; fi
+AC_ARG_ENABLE([arch], [AS_HELP_STRING([--enable-arch=MODE], [SIMD mode: auto (default, probe host), sse2, avx, native])],
+			  [arch=$enableval], [arch=auto])
+if test x$arch = xauto -a x$flag_sse_deprecated != x; then arch=$flag_sse_deprecated; fi
+if test x$arch = xauto -a x$flag_avx_deprecated != x; then arch=$flag_avx_deprecated; fi
+# auto: pick the widest double-precision mode this host supports. Float is never chosen
+# automatically; use --enable-float for it.
+if test x$arch = xauto; then
+	AC_LANG_PUSH([C++])
+	ac_save_CXXFLAGS=$CXXFLAGS
+	CXXFLAGS="$CXXFLAGS -march=native"
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[
+#if !defined(__AVX__)
+#error no AVX on this host
+#endif
+]])], [arch=native], [arch=sse2])
+	AC_COMPILE_IFELSE([AC_LANG_PROGRAM([], [[
+#if !defined(__AVX512F__)
+#error no AVX-512 on this host
+#endif
+]])], [avx512_host=yes], [avx512_host=no])
+	CXXFLAGS=$ac_save_CXXFLAGS
+	AC_LANG_POP([C++])
+	AC_MSG_NOTICE([auto: host SIMD mode is $arch (AVX-512 host: $avx512_host)])
+	if test x$avx512_host = xyes; then
+		AC_MSG_WARN([AVX-512 host: -march=native selects 8-lane double kernels. Not tested on this hardware.])
+	fi
+fi
+# All modes use -march=native and -ffp-contract=off (no FMA contraction, bit-exact with the fork).
+# sse2 adds -mno-avx, which also removes FMA and drops the lane count to SSE2 width.
 case $arch in
-	no|none ) FLAG_ARCH="" ;;
- 	sse2    ) FLAG_ARCH=-DCMK_USE_SSE2 ;;
-	avx     ) FLAG_ARCH=-DCMK_USE_AVX ;;
-	*       ) AC_MSG_ERROR("invalid argument for '--enable-arch': $arch");;
+	no|none ) FLAG_ARCH=""; TARGET_ARCH="" ;;
+	sse2    ) FLAG_ARCH=""; TARGET_ARCH="-march=native -mno-avx -ffp-contract=off" ;;
+	avx     ) FLAG_ARCH=""; TARGET_ARCH="-march=native -ffp-contract=off" ;;
+	native  ) FLAG_ARCH=""; TARGET_ARCH="-march=native -ffp-contract=off" ;;
+	*       ) AC_MSG_ERROR([invalid argument for '--enable-arch': $arch]) ;;
 esac
 AC_SUBST([FLAG_ARCH])
+AC_SUBST([TARGET_ARCH])
 
 # -----------------------------------------------------------------------------
 # ---- Gravity Options --------------------------------------------------------
@@ -420,7 +447,7 @@ echo "    "Gravity Flags "   " $HEXADECAPOLE $FLAG_FLOAT $FLAG_CHANGESOFT $FLAG_
 echo "    "SPH flags "       " $FLAG_SPH_KERNEL $FLAG_DAMPING $FLAG_COOLING $FLAG_DIFFUSION $FLAG_FEEDBACKDIFFLIMIT $FLAG_DIFFHARMONIC $FLAG_CULLENALPHA $FLAG_VSIGVISC $FLAG_GDFORCE $FLAG_JEANSSOFTONLY $FLAG_SUPERBUBBLE
 echo "    "Misc Flags "      " projections=$PROJECTIONS $FLAG_BIGKEYS smpcache=$smpcache sanitizer=$FLAG_SANITIZER collision=$FLAG_COLLISION $FLAG_STOCH
 echo "    "Load balancer "   " $DEFAULT_LB
-echo "    "CPU architecture" " $FLAG_ARCH
+echo "    "CPU architecture" " $TARGET_ARCH
 
 if test x$ENABLE_CUDA = xyes; then
 	echo

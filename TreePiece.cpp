@@ -2052,6 +2052,10 @@ void TreePiece::drift(double dDelta,  // time step in x containing
     delete[] bucketReqs;
     bucketReqs = NULL;
   }
+  if(bucketSoA != NULL) {
+    delete[] bucketSoA;
+    bucketSoA = NULL;
+  }
 
   boundingBox.reset();
   int bInBox = 1;
@@ -2651,6 +2655,10 @@ void TreePiece::buildTree(int bucketSize, const CkCallback& cb)
   if(bucketReqs != NULL) {
     delete[] bucketReqs;
     bucketReqs = NULL;
+  }
+  if(bucketSoA != NULL) {
+    delete[] bucketSoA;
+    bucketSoA = NULL;
   }
   bBucketsInited = false;
 #ifdef PUSH_GRAVITY
@@ -3699,6 +3707,7 @@ int TreePiece::initBuckets() {
       }
     }
     bucketReqs[j].finished = ewaldCondition;
+    bucketSoA[j].done = false;
 
 /*#if COSMO_DEBUG > 1
     if(iterationNo==1 || listMigrated==true){
@@ -3804,6 +3813,19 @@ void TreePiece::startNextBucket() {
 #endif
 }
 
+/// Stages bucket b's active particles into its SoA on first use. Staging can
+/// happen during the walk; calculateEwald/callBucketEwald suspend the bucket
+/// (writing results back to the AoS) before Ewald adds to the particles, and
+/// it is restaged from the AoS afterwards. After the bucket is done
+/// (scattered in finishBucket) the AoS path is used as before.
+BucketSoA &TreePiece::bucketSoAFor(int b, Tree::GenericTreeNode *req,
+                                   int activeRung) {
+  BucketSoA &bs = bucketSoA[b];
+  if (!bs.staged && !bs.done)
+    stageBucket(bs, req, myParticles, activeRung);
+  return bs;
+}
+
 /*inline*/
 void TreePiece::finishBucket(int iBucket) {
   BucketGravityRequest *req = &bucketReqs[iBucket];
@@ -3821,6 +3843,7 @@ void TreePiece::finishBucket(int iBucket) {
 
   // XXX finished means Ewald is done.
   if(req->finished && remaining == 0) {
+    unstageBucket(bucketSoA[iBucket]);
     sLocalGravityState->myNumParticlesPending -= 1;
 
 #ifdef COSMO_PRINT_BK
@@ -4205,6 +4228,7 @@ void TreePiece::calculateEwald(dummyMsg *msg) {
     unsigned int i=0;
     while (i < yield_num && ewaldCurrentBucket < numBuckets) {
       if (!useckloop) {
+	suspendBucket(bucketSoA[ewaldCurrentBucket]);
 	BucketEwald(bucketList[ewaldCurrentBucket], nReplicas, fEwCut);
       }
 
@@ -4232,6 +4256,7 @@ bool TreePiece::otherIdlePesAvail() {
 }
 
 void TreePiece::callBucketEwald(int id) {
+  suspendBucket(bucketSoA[id]);
   BucketEwald(bucketList[id], nReplicas, fEwCut);
 }
 
@@ -5077,6 +5102,7 @@ void TreePiece::startGravity(int am, // the active mask for multistepping
     	     thisIndex,numBuckets);
 
   if (bucketReqs==NULL) bucketReqs = new BucketGravityRequest[numBuckets];
+  if (bucketSoA==NULL) bucketSoA = new BucketSoA[numBuckets];
 
 
   ewaldCurrentBucket = 0;

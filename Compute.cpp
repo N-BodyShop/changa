@@ -299,7 +299,8 @@ void GravityCompute::recvdParticles(ExternalGravityParticle *part,int num,int ch
 #ifdef HPM_COUNTER
     hpmStart(2,"particle force");
 #endif
-    computed = partBucketForce(&part[i], reqnode, tp->myParticles, offset, activeRung);
+    computed = partBucketForce(&part[i], reqnode, tp->myParticles, offset,
+        activeRung, tp->bucketSoAFor(reqIDlist, reqnode, activeRung));
 #ifdef HPM_COUNTER
     hpmStop(2);
 #endif
@@ -442,7 +443,10 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
                     (GenericTreeNode *)computeEntity,
                     tp->getParticles(),
                     tp->decodeOffset(reqID),
-                    activeRung);
+                    activeRung,
+                    tp->bucketSoAFor(decodeReqID(reqID),
+                                     (GenericTreeNode *)computeEntity,
+                                     activeRung));
     
     GenericTreeNode *b = (GenericTreeNode *)computeEntity;
     updateInterMass(b->particlePointer,b->firstParticle,b->lastParticle,node->moments.totalMass);
@@ -485,13 +489,17 @@ int GravityCompute::doWork(GenericTreeNode *node, TreeWalk *tw,
       double startTime = CmiWallTimer();
 #endif
       Vector3D<cosmoType> offset = tp->decodeOffset(reqID);
+      BucketSoA &bs = tp->bucketSoAFor(decodeReqID(reqID),
+                                       (GenericTreeNode *)computeEntity,
+                                       activeRung);
       for(int i = node->firstParticle; i <= node->lastParticle; i++){
         computed += partBucketForce(
                                   &part[i-node->firstParticle],
                                   (GenericTreeNode *)computeEntity,
                                   tp->getParticles(),
                                   offset,
-                                  activeRung);
+                                  activeRung,
+                                  bs);
 
         GenericTreeNode *b = (GenericTreeNode *)computeEntity;
         updateInterMass(b->particlePointer,b->firstParticle,b->lastParticle,&part[i-node->firstParticle],offset);
@@ -596,13 +604,17 @@ int GravityCompute::computeParticleForces(TreePiece *ownerTP, GenericTreeNode *n
 #ifdef BENCHMARK_TIME_COMPUTE
   double startTime = CmiWallTimer();
 #endif
+  BucketSoA &bs = ownerTP->bucketSoAFor(decodeReqID(reqID),
+                                        (GenericTreeNode *)computeEntity,
+                                        activeRung);
   for(int i = node->firstParticle; i <= node->lastParticle; i++){
     computed += partBucketForce(
                                   &part[i-node->firstParticle],
                                   (GenericTreeNode *)computeEntity,
                                   ownerTP->getParticles(),
                                   ownerTP->decodeOffset(reqID),
-                                  activeRung);
+                                  activeRung,
+                                  bs);
   }
 #ifdef BENCHMARK_TIME_COMPUTE
   computeTimePart += CmiWallTimer() - startTime;
@@ -1325,7 +1337,8 @@ template<class type> int calcNodeForces(TreePiece *tp, int b, int activeRung,
     computed +=  nodeBucketForce(clist[i].node,
         tp->getBucket(b),
         particles,
-        tp->decodeOffset(clist[i].offsetID), activeRung);
+        tp->decodeOffset(clist[i].offsetID), activeRung,
+        tp->bucketSoAFor(b, tp->getBucket(b), activeRung));
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
     if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
       Vector3D<double> vec = tp->decodeOffset(clist[i].offsetID);
@@ -1356,7 +1369,8 @@ template<class type> int calcParticleForces(TreePiece *tp, int b, int activeRung
       computed +=  partBucketForce(&cli.particles[j],
           tp->getBucket(b),
           particles,
-          cli.offset, activeRung);
+          cli.offset, activeRung,
+          tp->bucketSoAFor(b, tp->getBucket(b), activeRung));
 
 #ifdef CHANGA_REFACTOR_PRINT_INTERACTIONS
       if(b == TEST_BUCKET && tp->getIndex() == TEST_TP){
@@ -1528,7 +1542,8 @@ void ListCompute::stateReady(State *state_, TreePiece *tp, int chunk, int start,
 
 	      GravityParticle *particles = tp->getParticles();
 	      partBucketForce(&tmpPart, bucketNode, particles,
-			      tp->decodeOffset(clist[i].offsetID), activeRung);
+			      tp->decodeOffset(clist[i].offsetID), activeRung,
+			      tp->bucketSoAFor(b, bucketNode, activeRung));
 	      continue;
 	    }
 #endif

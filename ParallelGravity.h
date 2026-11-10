@@ -773,6 +773,7 @@ struct NonLocalMomentsClientList {
 };
 
 /// Fundamental structure that holds particle and tree data.
+struct BucketSoA;
 class TreePiece : public CBase_TreePiece {
    // jetley
    friend class PrefetchCompute;
@@ -1231,6 +1232,9 @@ private:
 	/// @todo Eliminate the usage of this in the cache walk
 	BucketGravityRequest *bucketReqs;
 
+	/// Per-bucket SoA staging of active particles for the gravity kernels.
+	BucketSoA *bucketSoA;
+
 	/// Pointer to the instance of the local cache
         //CacheManager *localCache;
 
@@ -1367,6 +1371,10 @@ private:
 	//void rebuildSFCTree(GenericTreeNode *node,GenericTreeNode *parent,int *);
 
 public:
+	/// Returns the SoA staging for bucket b, staging its active particles on
+	/// first use once that bucket's Ewald pass has finished.
+	BucketSoA &bucketSoAFor(int b, Tree::GenericTreeNode *req, int activeRung);
+
  TreePiece() : pieces(thisArrayID), root(0),
             iPrevRungLB (-1), sTopDown(0), sGravity(0),
             sPrefetch(0), sLocal(0), sRemote(0), sPref(0), sSmooth(0), 
@@ -1377,6 +1385,7 @@ public:
 	  usesAtSync = true;
 	  pTreeNodes = NULL;
 	  bucketReqs=NULL;
+	  bucketSoA=NULL;
 	  nCacheAccesses = 0;
 	  memWithCache = 0;
 	  memPostCache = 0;
@@ -1452,6 +1461,7 @@ public:
 	  //localCache = NULL;
 	  dm = NULL;
 	  bucketReqs = NULL;
+	  bucketSoA = NULL;
 	  numChunks=-1;
 	  nCacheAccesses = 0;
 	  memWithCache = 0;
@@ -1507,6 +1517,7 @@ public:
 	  delete[] nodeInterRemote;
 	  delete[] particleInterRemote;
 	  delete[] bucketReqs;
+	  delete[] bucketSoA;
 
 	  deleteTree();
 
