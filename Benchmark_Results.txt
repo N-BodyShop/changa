@@ -1,78 +1,77 @@
 ChaNGa SIMD Port: Benchmark Results
 ===================================
 
+Source
+------
+Commit 06e7596 (ChaNGa-test/changa, branch master). Each variant was built
+from that committed tree. Only the arch/float configure flags differ:
+
+  ours_avx        --enable-arch=avx
+  ours_sse2       --enable-arch=sse2
+  ours_sse2_float --enable-arch=sse2 --enable-float
+
+Suite: ChaNGa_benchmark/suite/run_suite.sh, 3 reps per test.
+  Results: ChaNGa_benchmark/suite/results/final_committed.tsv
+Baseline: changa fork (ChaNGa_FORK_AMF599/changa), fresh same-session rerun.
+  Results: ChaNGa_benchmark/suite/results/fork_latest.tsv
+
+Machine load was 4 to 6 during the final run, so timings are indicative.
+Bit-exactness does not depend on load.
+
 Summary
 -------
-The SIMD port (ChaNGa-test/changa, commit 84276cd) produces output
-bit-identical to the baseline fork (ChaNGa_FORK_AMF599/changa) for:
+All reps are bit-exact with the fork reference (teststep, testcosmo) or
+within float tolerance (SSE2 float teststep, max rel diff 0.000e+00).
 
-  - SSE2 double       teststep, testcosmo, restart
-  - AVX double        teststep, testcosmo, restart
-  - SSE2 float        teststep (max rel diff 0.000e+00), restart
+Yield is (fork - ours) / fork using per-variant means. Positive means faster.
 
-Testcosmo is not compared for float (no float reference exists).
-
-Average speedup over the fork, AVX double, is about 15% on teststep and
-about 5% on testcosmo. SSE2 float is about 15% and 6%. SSE2 double is
-about 3% on teststep and slightly slower (-2%) on testcosmo.
-
-Sources
--------
-Test variants: suite run "verify_after_float_fix" (last full validated
-  suite run). Results file:
-  ChaNGa_benchmark/suite/results/verify_after_float_fix.tsv
-
-  This run predates two doc-only edits to gravity.h. Those edits fixed
-  two bucket-overload signatures that had been cut off. After the fix,
-  the AVX double build was re-verified (teststep x3, restart), and the
-  committed tree was re-verified (testcosmo AVX, see below).
-
-Fork baseline: fresh rerun in the same session, so load is comparable.
-  ChaNGa_benchmark/suite/results/fork_latest.tsv
-
-Machine load during runs was 5 to 11 (shared machine), so timings are
-indicative. Bit-exactness is not affected by load.
-
-Wall-clock times are in milliseconds. Mean is over reps. Yield is
-(fork - ours) / fork, so a positive value is faster than the fork.
+  AVX double:   teststep +19.1%, testcosmo +10.8%, restart +21.4%
+  SSE2 double:  teststep  +6.1%, testcosmo  +0.6%, restart  +8.3%
+  SSE2 float:   teststep +18.1%, testcosmo  +8.2%, restart +14.7%
 
 Results: AVX double (ours_avx vs fork_avx)
 ------------------------------------------
-Test          Fork (ms)   Ours (ms)   Yield     Bit-exact
-teststep      30198       25572       +15.3%    yes (3 of 3 reps)
-restart       1590        1275        +19.8%    PASS
-testcosmo     156066      147761      +5.3%     yes (3 of 3 reps)
+Test        Rep  Fork (ms)  Ours (ms)  Bit-exact
+teststep    1    30471      24422      yes
+            2    29908      24500      yes
+            3    30216      24385      yes
+            mean 30198      24436      +19.1%
+restart     1    1590       1250       PASS (energy)   +21.4%
+testcosmo   1    155987     138163     yes
+            2    155588     137001     yes
+            3    156624     142381     yes
+            mean 156066     139182     +10.8%
 
 Results: SSE2 double (ours_sse2 vs fork_sse2)
 ---------------------------------------------
-Test          Fork (ms)   Ours (ms)   Yield     Bit-exact
-teststep      36358       35220       +3.1%     yes (3 of 3 reps)
-restart       1763        1769        -0.3%     PASS
-testcosmo     176058      179143      -1.8%     yes (3 of 3 reps)
+Test        Rep  Fork (ms)  Ours (ms)  Bit-exact
+teststep    1    36418      33911      yes
+            2    36252      34357      yes
+            3    36404      34145      yes
+            mean 36358      34138      +6.1%
+restart     1    1763       1616       PASS (energy)   +8.3%
+testcosmo   1    177886     174960     yes
+            2    175922     174826     yes
+            3    174367     175130     yes
+            mean 176058     174972     +0.6%
 
 Results: SSE2 float (ours_sse2_float vs fork_sse2_float)
 --------------------------------------------------------
-Test          Fork (ms)   Ours (ms)   Yield     Bit-exact
-teststep      28007       23717       +15.3%    max rel diff 0.000e+00
-restart       1389        1174        +15.5%    PASS
-testcosmo     150807      141096      +6.4%     n/a (no float reference)
-
-Current-build check (committed tree, AVX double)
------------------------------------------------
-The main tree at commit 84276cd was built with default (auto) arch. The
-auto probe selected native (AVX double, no AVX-512). The build exited 0.
-
-  testcosmo   1 rep   wall 141.8 s   bit-exact vs reference: yes
-
-The current AVX double binary also re-ran teststep x3 and restart. Teststep
-averaged 25234 ms (validated run: 25572 ms), energy PASS in every rep, and
-all reps were bit-exact.
+Test        Rep  Fork (ms)  Ours (ms)  Accuracy
+teststep    1    28052      22960      max rel diff 0.000e+00
+            2    28130      23096      max rel diff 0.000e+00
+            3    27838      22774      max rel diff 0.000e+00
+            mean 28007      22943      +18.1%
+restart     1    1389       1185       PASS (energy)   +14.7%
+testcosmo   1    148687     137870     n/a (no float reference)
+            2    151647     138136     n/a
+            3    152086     139183     n/a
+            mean 150807     138396     +8.2%
 
 Notes
 -----
+- Restart is one run per variant, so its yield is less reliable.
+- The SSE2 double testcosmo gain is within the run-to-run spread of the
+  fork (174 to 178 s), so it is effectively a tie.
 - Round-4 numbers in ChaNGa_docs/RESULTS_HISTORY.md are five-run sums at
   mixed load. They are not per-run values and are not used here.
-- Restart is a single run per variant, so its yield is less reliable.
-- SSE2 double testcosmo is slower than the fork in this run. That is
-  within the load noise seen here, but it is the one case where the port
-  does not win. Not investigated further.
