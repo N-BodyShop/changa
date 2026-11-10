@@ -30,7 +30,10 @@
 
 /* General accuracy target */
 #define EPS 1e-5
-#define MAXABUNDITERATIONS 20
+static const int MAXABUNDITERATIONS = 50;
+static const double YEMINFRAC = 1e-30;
+static const double EPSYE = 1e-12;
+static const int MAXBISECTIONS = 64;
 /* Accuracy for Temperature estimation for E,rho assuming eqm abundances */
 #define EPSTEMP 1e-5
 #define ETAMINTIMESTEP 1e-4
@@ -1567,38 +1570,85 @@ void clPrintCoolFile( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMe
 
 }
 
+enum { N_RATES = 3 };
+
+static double clAbundsSpecies(double ye, double yH, double yHe, double yeMax,
+                              const double rc[N_RATES], const double rp[N_RATES],
+                              int bMolecular, double H2form, double H2dest,
+                              double H2dest_e, PERBARYON *Y)
+{
+  double yHI, yHII, yH2, yHeI, yHeII, yHeIII;
+  double fHI, fHII, fHeI, fHeII, rfH, rfHe;
+  double rye = 1/ye;
+
+  double yHMIN = 1e-12;
+  double yHeMIN = 1e-13;
+  double yH2MIN = yHMIN/2;
+
+  if (bMolecular) {
+    yHI = 0;
+    yHII = 0;
+    yH2 = yH/2.0;
+  }
+  else {
+    fHII = 1 / ( rc[0] + rp[0] * rye );
+    fHI = H2form / ( H2dest + H2dest_e * ye );
+    rfH  =  1 / ( 1 + fHII * (1 + fHI) );
+    yHII =  yH * rfH;
+    yHI  =  yH * rfH * fHII;
+    yH2  = (yH - yHI - yHII)/2.0;
+  }
+  fHeI  = rc[1] + rp[1] * rye;
+  fHeII = rc[2] + rp[2] * rye;
+  rfHe  = 1 / ( 1 + fHeI * (1 + fHeII) );
+  yHeI  = yHe * rfHe;
+  yHeII = yHe * fHeI * rfHe;
+  yHeIII = yHe / ((1.0/fHeI+1.0)/fHeII+1.0);
+
+  if (yH2 < yH2MIN) yH2 = yH2MIN;
+  if (yHI < yHMIN) yHI = yHMIN;
+  if (yHII < yHMIN) yHII = yHMIN;
+  if (yH - yHI - 2.0*yH2 < yHMIN) {
+    if (yHI >= 2.0*yH2) yHI = yH - 2.0*yH2 - yHMIN;
+    else                  yH2 =(yH - yHI - yHMIN)/2.0;
+  }
+  if(yHeI < yHeMIN) yHeI = yHeMIN;
+  if(yHeII < yHeMIN) yHeII = yHeMIN;
+  if(yHeIII < yHeMIN) yHeIII = yHeMIN;
+  if (yHe - yHeI - yHeII < yHeMIN) {
+    if (yHeI >= yHeII) yHeI = yHe - yHeII - yHeMIN;
+    else              yHeII = yHe - yHeI - yHeMIN; 
+  }
+
+  Y->HI = yHI;
+  Y->HII = yHII;
+  Y->H2 = yH2;
+  Y->HeI = yHeI;
+  Y->HeII = yHeII;
+  Y->HeIII = yHeIII;
+  return yeMax - (yHI + 2 * yH2 + 2 * yHeI + yHeII); /*Free electrons*/
+}
+
 void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
   double en_B =rho*CL_B_gm;
 
   double s_dust, s_self, Rate_Phot_HI; 
 
   /*Coll. dissos./Rad. Recomb*/
-  double rcirrHeI  = (Rate->Coll_HeI)/(Rate->Totr_HeII);
-  double rcirrHeII = (Rate->Coll_HeII)/(Rate->Radr_HeIII);
+  double rc[N_RATES] = { (Rate->Coll_HI)/(Rate->Radr_HII),
+                         (Rate->Coll_HeI)/(Rate->Totr_HeII),
+                         (Rate->Coll_HeII)/(Rate->Radr_HeIII) };
+  /*Photon dissos./Rad. Recomb; HI's is set in the loop, as it is shielded*/
+  double rp[N_RATES] = { 0,
+                         (Rate->Phot_HeI)/(Rate->Totr_HeII * en_B),
+                         (Rate->Phot_HeII)/(Rate->Radr_HeIII * en_B) };
 
-  /*Photon dissos./Rad. Recomb*/
-  double rpirrHeI  = (Rate->Phot_HeI)/(Rate->Totr_HeII * en_B);
-  double rpirrHeII = (Rate->Phot_HeII)/(Rate->Radr_HeIII * en_B);
-
-  double yH;
-  double yH2 = 0; 
-  double yHI = 0; 
-  double yHII = 0; 
-
-  double yHe; 
-  double yHeI = 0.;
-  double yHeII = 0.;
-  double yHeIII = 0;
-
-  double yeMax;
-  double rye,ye;
-  double fHI,fHII,fHeI,fHeII,rfH,rfHe,yHI_old,yHeII_old,yHII_old; 
-  double yH2_old;
-  int i;  
-
-  double yHMIN = 1e-12;
-  double yHeMIN = 1e-13;
-  double yH2MIN = yHMIN/2;
+  double yH, yHe, yeMax;
+  double ye = 0, lo, hi;
+  double yHI_old, yHeII_old, yHII_old, yH2_old;
+  double H2form, H2dest, H2dest_e = Rate->Coll_e_H2*en_B;
+  int bMolecular;
+  int i, j;
 
   clSetAbundanceTotals(cl,ZMetal,&yH,&yHe,&yeMax);
 
@@ -1607,101 +1657,51 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, double ZMetal) {
 
   Rate_Phot_HI = Rate->Phot_HI;
 
+  Y->HI = 0;
+  Y->H2 = 0;
+  Y->HeII = 0;
   for ( i=0 ; i<MAXABUNDITERATIONS ; i++ ) {
-    yHI_old   = yHI;
-    yHeII_old = yHeII;
-    yH2_old   = yH2;
-    yHII_old = yH - yHI - 2.0*yH2;
+    yHI_old   = Y->HI;
+    yHeII_old = Y->HeII;
+    yH2_old   = Y->H2;
+    yHII_old = yH - Y->HI - 2.0*Y->H2;
 
-    ye = (yeMax-(yHI + 2 * yH2 + 2 * yHeI + yHeII)); /*Free electrons*/
-    if (ye <= 0) {
-      ye = 0;
-      yHII = 0;
-      yHeI = yHe;
-      yHeII = 0;
-      yHeIII = 0;
-      if (s_dust == 0 || s_self == 0) {
-	yHI = 0;
-	yHII = 0;
-	yH2 = yH/2.0;
-      }
-      else {
-	fHI = 2.0*(Rate->DustForm_H2*en_B*(yHI_old + 2.0*yH2_old))/
-	           (Rate->Coll_HI_H2*en_B*yHI_old +
-	           Rate->Coll_H2_H2*en_B*yH2_old +
-		     Rate->Coll_HII_H2*en_B*yHII_old) +
-		   (Rate->Phot_H2)*s_dust*s_self;
-	yHI = yH/(1 + fHI);
-	yH2 = (yH - yHI)/2.0;
-      }
-      if ( fabs(yHeII_old-yHeII) < EPS * yHeII && fabs(yHI_old-yHI) < EPS * yHI ) break;
-      s_dust = clDustShield(yHI*en_B, yH2*en_B, ZMetal, Rate->CorreLength);
-      s_self = clSelfShield(yH2*en_B, Rate->CorreLength);
-      if (cl->bShieldHI) Rate_Phot_HI = Rate->Phot_HI*s_dust;
+    /* With this iteration's shielding: lagging it a step let the
+       convergence test pass before s_dust had settled */
+    if (cl->bShieldHI) Rate_Phot_HI = Rate->Phot_HI*s_dust;
+    bMolecular = (s_dust < 1e-38 || s_self < 1e-38
+                  || (Rate_Phot_HI == 0 && Rate->Coll_HI == 0));
+    rp[0] = (Rate_Phot_HI*s_dust)/(Rate->Radr_HII * en_B);
+    H2form = 2.0*(Rate->DustForm_H2*en_B*(yHI_old + 2.0*yH2_old));
+    H2dest = Rate->Coll_HI_H2*en_B*yHI_old +
+             Rate->Coll_H2_H2*en_B*yH2_old +
+             Rate->Coll_HII_H2*en_B*yHII_old +
+             (Rate->Phot_H2)*s_dust*s_self;
+
+    /* g(lo) > lo, g(hi) < hi: halve the bracket in log(ye) to a relative width of EPSYE */
+    lo = YEMINFRAC*yeMax;
+    hi = yeMax;
+    for ( j=0 ; j<MAXBISECTIONS && hi > lo*(1+EPSYE) ; j++ ) {
+      double mid = sqrt(lo*hi);
+      if (clAbundsSpecies(mid, yH, yHe, yeMax, rc, rp, bMolecular,
+                          H2form, H2dest, H2dest_e, Y) > mid) lo = mid;
+      else hi = mid;
     }
-    else {
-      rye = 1/ye;
+    ye = sqrt(lo*hi);
+    clAbundsSpecies(ye, yH, yHe, yeMax, rc, rp, bMolecular,
+                    H2form, H2dest, H2dest_e, Y);
 
-      if (s_dust < 1e-38 || s_self < 1e-38
-          || (Rate_Phot_HI == 0 && Rate->Coll_HI == 0)) {
-	yHI = 0;
-	yHII = 0;
-	yH2 = yH/2.0;
-      }
-      else {
-	fHII = (Rate->Radr_HII*en_B*ye)/
-	       (Rate_Phot_HI*s_dust + 
-	        Rate->Coll_HI*en_B*ye);  
-	fHI = 2.0*(Rate->DustForm_H2*en_B*(yHI_old + 2.0*yH2_old))/
-	         (Rate->Coll_e_H2*en_B*ye + 
-	           Rate->Coll_HI_H2*en_B*yHI_old + 
-	           Rate->Coll_H2_H2*en_B*yH2_old +
-		  Rate->Coll_HII_H2*en_B*yHII_old +  
-		  (Rate->Phot_H2)*s_dust*s_self);
-	rfH  =  1 / ( 1 + fHII * (1 + fHI) ); 
-	yHII =  yH * rfH;
-	yHI  =  yH * rfH * fHII;
-	yH2  = (yH - yHI - yHII)/2.0;
-      }
-      if (cl->bShieldHI) Rate_Phot_HI = Rate->Phot_HI*s_dust;
-      fHeI  = rcirrHeI + rpirrHeI * rye;
-      fHeII = rcirrHeII + rpirrHeII * rye;
-      rfHe  = 1 / ( 1 + fHeI * (1 + fHeII) );
-      yHeI  = yHe * rfHe;
-      yHeII = yHe * fHeI * rfHe;
-      yHeIII = yHe / ((1.0/fHeI+1.0)/fHeII+1.0);
+    s_dust = clDustShield(Y->HI*en_B, Y->H2*en_B, ZMetal, Rate->CorreLength);
+    s_self = clSelfShield(Y->H2*en_B, Rate->CorreLength);
 
-      if (yH2 < yH2MIN) yH2 = yH2MIN;
-      if (yHI < yHMIN) yHI = yHMIN;
-      if (yHII < yHMIN) yHII = yHMIN;
-      if (yH - yHI - 2.0*yH2 < yHMIN) {
-        if (yHI >= 2.0*yH2) yHI = yH - 2.0*yH2 - yHMIN;
-        else                  yH2 =(yH - yHI - yHMIN)/2.0;
-      }
-      if(yHeI < yHeMIN) yHeI = yHeMIN;
-      if(yHeII < yHeMIN) yHeII = yHeMIN;
-      if(yHeIII < yHeMIN) yHeIII = yHeMIN;
-      if (yHe - yHeI - yHeII < yHeMIN) {
-        if (yHeI >= yHeII) yHeI = yHe - yHeII - yHeMIN;
-        else              yHeII = yHe - yHeI - yHeMIN; 
-      }
-      s_dust = clDustShield(yHI*en_B, yH2*en_B, ZMetal, Rate->CorreLength);
-      s_self = clSelfShield(yH2*en_B, Rate->CorreLength);
-
-      if ( fabs(yHeII_old-yHeII) < EPS * yHeII && fabs(yHI_old-yHI) < EPS * yHI ) break;
-    }
+    if ( fabs(yHeII_old-Y->HeII) < EPS * Y->HeII && fabs(yHI_old-Y->HI) < EPS * Y->HI
+         && fabs(yH2_old-Y->H2) < EPS * Y->H2 ) break;
   }
 
   /* test for a reasonable solution */
   assert(isfinite(ye));
   
   Y->e = ye;
-  Y->HI = yHI;
-  Y->HII = yHII;
-  Y->H2 = yH2;
-  Y->HeI = yHeI;
-  Y->HeII = yHeII;
-  Y->HeIII = yHeIII;
   Y->Total = Y->e + yH + yHe + ZMetal/MU_METAL - Y->H2;/*Don't want to double count hydrogen atoms in molecules when finding the total number of particles */
 #ifdef COOLDEBUG
   if (0) {
