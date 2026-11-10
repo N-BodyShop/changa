@@ -27,17 +27,3 @@ void BinaryTreeNode::pup(PUP::er &p, int depth) {
 };
 
 }
-
-namespace Tree {
-
-// Oct trees are not used in the default build; these stubs exist so the
-// vtable for OctTreeNode is emitted and the link succeeds.
-void OctTreeNode::pup(PUP::er &p) {
-  GenericTreeNode::pup(p);
-}
-
-void OctTreeNode::pup(PUP::er &p, int depth) {
-  CkAbort("OctTreeNode::pup(p, depth) is not implemented");
-}
-
-} // namespace Tree
