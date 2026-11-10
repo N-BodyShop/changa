@@ -10,7 +10,7 @@ jobs:
     - uses: actions/checkout@v2
     - name: build-charm++
       run: |
-        export CHARM_VERSION=7.0.0
+        export CHARM_VERSION=7.0.1
         git clone https://github.com/charmplusplus/charm.git
         cd charm
         git checkout v$CHARM_VERSION
