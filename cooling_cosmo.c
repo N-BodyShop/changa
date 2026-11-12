@@ -26,7 +26,9 @@
 
 /* General accuracy target */
 #define EPS 1e-5
-#define MAXABUNDITERATIONS 20
+static const double YEMINFRAC = 1e-30;
+static const double EPSYE = 1e-12;
+static const int MAXBISECTIONS = 64;
 /* Accuracy for Temperature estimation for E,rho assuming eqm abundances */
 #define EPSTEMP 1e-5
 #define ETAMINTIMESTEP 1e-4
@@ -701,59 +703,75 @@ void clPrintCoolFile( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, FILE *fp )
     (wTln0*RT0->Cool_LowT+wTln1*RT1->Cool_LowT)*cl->R.Cool_LowTFactor*0.001);
 }
 
+/*
+ * Equilibrium abundances for the rates in Rate.  For a given electron
+ * abundance ye each species' balance is linear, and the electrons those
+ * species release, g(ye), fall as ye rises, so h(ye) = g(ye) - ye has one
+ * root in (0, yeMax].  The plain iteration ye <- g(ye) used before cycles
+ * when photoionisation dominates (g ~ C/ye, so g' = -1 at the root: cold
+ * gas under a UV background); bisect on log(ye) instead.
+ */
+/* rc and rp hold the rate ratios for HI, HeI and HeII */
+enum { N_RATES = 3 };
+
+static double clAbundsSpecies(double ye, double yH, double yHe, double yeMax,
+                              const double rc[N_RATES], const double rp[N_RATES],
+                              double *fHI, double *fHeI, double *fHeII)
+{
+  double rye = 1/ye;
+  *fHI   = rc[0] + rp[0]*rye;
+  *fHeI  = rc[1] + rp[1]*rye;
+  *fHeII = rc[2] + rp[2]*rye;
+  double rfHe = 1/(1 + *fHeI*(1 + *fHeII));
+  double yHI = yH/(1.0 + *fHI);
+  double yHeI = yHe*rfHe;
+  double yHeII = yHe*(*fHeI)*rfHe;
+  return yeMax - (yHI + 2*yHeI + yHeII); /* Free electrons */
+}
+
 void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho ) {
   double en_B=rho*CL_B_gm;
-  double rcirrHI   = (Rate->Coll_HI)/(Rate->Radr_HII);
-  double rcirrHeI  = (Rate->Coll_HeI)/(Rate->Totr_HeII);
-  double rcirrHeII = (Rate->Coll_HeII)/(Rate->Radr_HeIII);
-  double rpirrHI   = (Rate->Phot_HI)/(Rate->Radr_HII * en_B);
-  double rpirrHeI  = (Rate->Phot_HeI)/(Rate->Totr_HeII * en_B);
-  double rpirrHeII = (Rate->Phot_HeII)/(Rate->Radr_HeIII * en_B);
-  double yHI = 0.;
-  double yHeI = 0.;
-  double yHeII = 0.;
   double yH = cl->Y_H;
   double yHe = cl->Y_He;
-  double yeMAX = cl->Y_eMAX;
-  double rye,ye;
-  double fHI,fHeI,fHeII,rfHe,yHI_old,yHeII_old;
-  int i;  
+  double yeMax = cl->Y_eMAX;
+  double fHI, fHeI, fHeII;
+  int i;
 
-  for ( i=0 ; i<MAXABUNDITERATIONS ; i++ ) {
-    yHI_old = yHI;
-    yHeII_old = yHeII;
+  /*Coll. dissos./Rad. Recomb*/
+  double rc[N_RATES] = { (Rate->Coll_HI)/(Rate->Radr_HII),
+                         (Rate->Coll_HeI)/(Rate->Totr_HeII),
+                         (Rate->Coll_HeII)/(Rate->Radr_HeIII) };
+  /*Photon dissos./Rad. Recomb*/
+  double rp[N_RATES] = { (Rate->Phot_HI)/(Rate->Radr_HII * en_B),
+                         (Rate->Phot_HeI)/(Rate->Totr_HeII * en_B),
+                         (Rate->Phot_HeII)/(Rate->Radr_HeIII * en_B) };
 
-    ye = (yeMAX-(yHI + 2 * yHeI + yHeII));
-    if (ye <= 0) {
-      Y->e = 0;
-      Y->HI = yH;
-      Y->HII = 0;
-      Y->HeI = yHe;
-      Y->HeII = 0;
-      Y->HeIII = 0;
-      Y->Total = yH + yHe;
-      return;
-    }
-    rye = 1/ye;
-    fHI = rcirrHI + rpirrHI * rye;
-    fHeI = rcirrHeI + rpirrHeI * rye;
-    rfHe = 1 / ( 1 + fHeI * (1+rcirrHeII+rpirrHeII*rye) );
-
-    yHI = yH / (1.0+fHI);
-    yHeI = yHe * rfHe;
-    yHeII = yHe * fHeI * rfHe;
-
-    /*    fprintf(stderr,"Abund %g %g %g %g\n",yHI,yHeI,yHeII,ye);
-        fprintf(stderr,"  Rates %g %g %g \n",rcirrHI,rcirrHeI,rcirrHeII); */
-    if ( fabs(yHeII_old-yHeII) < EPS * yHeII && fabs(yHI_old-yHI) < EPS * yHI ) break;
+  double lo = YEMINFRAC*yeMax, hi = yeMax;
+  if (clAbundsSpecies(lo, yH, yHe, yeMax, rc, rp, &fHI, &fHeI, &fHeII) <= lo) {
+    /* No ionisation: neutral */
+    Y->e = 0;
+    Y->HI = yH;
+    Y->HII = 0;
+    Y->HeI = yHe;
+    Y->HeII = 0;
+    Y->HeIII = 0;
+    Y->Total = yH + yHe;
+    return;
   }
+  /* h(lo) > 0 >= h(hi): halve the bracket in log(ye) to a relative width of EPSYE */
+  for ( i=0 ; i<MAXBISECTIONS && hi > lo*(1+EPSYE) ; i++ ) {
+    double mid = sqrt(lo*hi);
+    if (clAbundsSpecies(mid, yH, yHe, yeMax, rc, rp, &fHI, &fHeI, &fHeII) > mid) lo = mid;
+    else hi = mid;
+  }
+  double ye = sqrt(lo*hi);
+  clAbundsSpecies(ye, yH, yHe, yeMax, rc, rp, &fHI, &fHeI, &fHeII);
 
   Y->e = ye;
-  Y->HI = yHI;
+  Y->HI = yH / (1.0+fHI);
   Y->HII = yH / (1.0/fHI+1.0);
-  Y->HeI = yHeI;
-  Y->HeII = yHeII;
-  fHeII = rcirrHeII + rpirrHeII*rye;
+  Y->HeI = yHe / ( 1 + fHeI * (1 + fHeII) );
+  Y->HeII = yHe * fHeI / ( 1 + fHeI * (1 + fHeII) );
   Y->HeIII = yHe / ((1.0/fHeI+1.0)/fHeII+1.0);
   Y->Total = Y->e + yH + yHe;
 }
