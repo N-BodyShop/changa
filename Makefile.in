@@ -248,20 +248,27 @@ $(build_dir)/$(target): $(foreach m,$(changa_modules),libmodule$(m).a)
 $(build_dir)/$(target): $(objects) $(structures_path)/libTipsy.a
 	$(link-charmc)
 ifneq ($(notdir $(charmrun)),charmrun)
-	$(quiet) if [ -e $(build_dir)/charmrun ]; then 									\
-				mv $(build_dir)/charmrun $(build_dir)/$(charmrun);					\
+# Some charm builds (e.g. reconverse) do not provide charmrun, so only
+# rename/link it if charmc actually copied one, and remove dangling links.
+	$(quiet) if [ -f $(build_dir)/charmrun ] && [ ! -L $(build_dir)/charmrun ]; then	\
+				mv -f $(build_dir)/charmrun $(build_dir)/$(charmrun);		\
 			 fi
-	$(quiet) if [ ! -e $(build_dir)/charmrun ]; then 				  			 	\
-				ln -s $(build_dir)/$(charmrun) $(build_dir)/charmrun; 				\
-			 else 													  				\
-			 	echo "$(build_dir)/charmrun already exists. No symlink created."; 	\
-		 	 fi
+	$(quiet) if [ -L $(build_dir)/charmrun ] && [ ! -e $(build_dir)/charmrun ]; then	\
+				$(RM) $(build_dir)/charmrun;					\
+			 fi
+	$(quiet) if [ -e $(build_dir)/$(charmrun) ]; then							\
+				if [ ! -e $(build_dir)/charmrun ]; then						\
+					ln -s $(build_dir)/$(charmrun) $(build_dir)/charmrun;			\
+				else										\
+					echo "$(build_dir)/charmrun already exists. No symlink created.";	\
+				fi;										\
+			 fi
 endif
 ifneq ($(notdir $(target)),ChaNGa)
-	$(quiet) if [ ! -e $(build_dir)/ChaNGa ]; then 									\
-				ln -s $(build_dir)/$(target) $(build_dir)/ChaNGa; 					\
-			 else 																	\
-				echo "$(build_dir)/ChaNGa already exists. No symlink created.";		\
+	$(quiet) if [ ! -e $(build_dir)/ChaNGa ]; then 						\
+				ln -s $(build_dir)/$(target) $(build_dir)/ChaNGa; 		\
+			 else 									\
+				echo "$(build_dir)/ChaNGa already exists. No symlink created.";	\
 			 fi
 endif
 
