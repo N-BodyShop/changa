@@ -1017,151 +1017,160 @@ void TreePiece::updateuDot(int activeRung,
         PoverRhoJeans = PoverRhoFloorJeans(dResolveJeans, p);
         PoverRho = PoverRhoGas;
         if(PoverRho < PoverRhoJeans) PoverRho = PoverRhoJeans;
-        ExternalHeatingCur = p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
-
-        if (bCool) {
-            cpCur = p->CoolParticle();
-            p->position.array_form(rCur);
-            CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
-            CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        double duDotPdV = p->uDotPdV();
+        if(PoverRho != 0.0)
+            duDotPdV *= (PoverRhoGas/PoverRho);  // scale out Jeans
+                                                 // Pressure Floor
+        ExternalHeating = duDotPdV + p->uDotAV() + p->uDotDiff() + p->fESNrate();
+	    if ( bCool ) {
+		COOLPARTICLE cp = p->CoolParticle();
+		double r[3];  // For conversion to C
+		p->position.array_form(r);
+        CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        /* The gas needs a minimum energy to prevent the
+         * inferred density to become very large */
+        if(p->u() < U_FLOOR(dm->Cool))
+            p->u() = U_FLOOR(dm->Cool);
 #ifdef SUPERBUBBLE
-            double fDensityHot;
-            double uMean = frac*p->uHot()+(1-frac)*p->u();
-            CkAssert(uMean > 0.0);
-            CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
-            CkAssert(p->uHot() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
-            /*
-            * If we have mass in the hot phase, we need to cool it appropriately.
-            */
-            if (p->massHot() > 0) { 
-                ExternalHeatingCur = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
-                if (p->uHot() > 0) { 
-                    Ecur = p->uHot();
-                    fDensityHot = fDensity*(p->uHot()*frac+p->u()*(1-frac))/p->uHot();
-                    cpCur = p->CoolParticleHot();
 #ifdef COOLING_MOLECULARH
-                    // Assume the cold phase is a shell surrounding the hot phase,
-                    // which is a sphere
-                    double columnLHot =  pow((p->massHot()/fDensityHot)*(fDensity/p->mass), 1./3.)*(0.5*p->fBall);
+        double columnLHot = 0;
+#endif
+        double fDensityHot;
+        double uMean = frac*p->uHot()+(1-frac)*p->u();
+        CkAssert(uMean > 0.0);
+        CkAssert(p->uHotPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        CkAssert(p->uHot() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
+        /*
+         * If we have mass in the hot phase, we need to cool it appropriately.
+         */
+        if (p->massHot() > 0) {
+            ExternalHeating = (duDotPdV + p->uDotAV() + p->uDotDiff())*p->uHot()/uMean + p->fESNrate();
+            if (p->uHot() > 0) {
+                /* The hot phase needs a minimum energy to prevent the
+                 * inferred density to become very large */
+                if(p->uHot() < U_FLOOR(dm->Cool))
+                    p->uHot() = U_FLOOR(dm->Cool);
+                E = p->uHot();
+                fDensityHot = p->fDensity*(p->uHot()*frac+p->u()*(1-frac))/p->uHot();
+                cp = p->CoolParticleHot();
+#ifdef COOLING_MOLECULARH
+                // Assume the cold phase is a shell surrounding the hot phase,
+                // which is a sphere
+                columnLHot =  pow((p->massHot()/fDensityHot)*(p->fDensity/p->mass), 1./3.)*(0.5*p->fBall);
 #ifdef COOLDEBUG
-                    dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
-#endif /*COOLDEBUG*/
-                    CoolIntegrateEnergyCode(dm->Cool, CoolData, cpCur, Ecur,
-                                ExternalHeatingCur, fDensityHot,
-                                fMetalsCur, &r1, dtCur, columnLHot);
+                dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
+#endif
+                if (isnan(fDensityHot)) 
+                    CkPrintf("fDensityHot is NaN in updateuDot! iOrder: %lld uHot: %g u: %g mass: %g hotmass: %g fdensity: %g fdensityHot: %g\n",
+                             p->iOrder, p->uHot(), p->u(), p->mass, p->massHot(), p->fDensity, fDensityHot);
+                CkAssert(fDensityHot < 1e100);
+                CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
+                            ExternalHeating, fDensityHot,
+                            p->fMetals(), r, dt, columnLHot);
+#else /*COOLING_MOLECULARH*/
+                CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E, ExternalHeating, fDensityHot,
+                        p->fMetals(), r, dt);
+#endif
+                assert(E > 0.0);
+                p->uHotDot() = (E- p->uHot())/duDelta[p->rung];
+                if(bUpdateState) p->CoolParticleHot() = cp;
+            }
+            else if(p->cpHotInit() == 0) {
+                /* If we just got feedback, only set up the uDot */
+                /* If cpHotInit is still 1 at this point, we have recently
+                 * gotten feedback, but the particle (presumably on a long
+                 * timestep has yet to do a updateuDot() with it.  Leave
+                 * uDotHot() at its current value in that case. */
+                p->uHotDot() = ExternalHeating;
+                p->cpHotInit() = 1;
+                CkAssert(ExternalHeating >= 0.0);
+            }
+            ExternalHeating = (duDotPdV + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
+        }
+        else { /* We have a single phase particle, treat it normally*/
+            p->uHotDot() = 0;
+            ExternalHeating =  duDotPdV + p->uDotAV() + p->uDotDiff() + p->fESNrate();
+        }
+        CkAssert(p->u() > 0.0);
+        // Thermal pressure only: the Jeans floor is not a compression of the gas
+        fDensity = p->fDensity*PoverRhoGas/(gammam1*p->uPred());
+        if (p->fDensityU() < p->fDensity) fDensity = p->fDensityU()*PoverRhoGas/(gammam1*p->uPred());
+        if(fDensity == 0.0) fDensity = p->fDensity;
+        CkAssert(fDensity > 0);
+        cp = p->CoolParticle();
+#endif
+		E = p->u();
+#ifdef COOLING_BOLEY
+		cp.mrho = pow(p->mass/p->fDensity, 1./3.);
+#endif
+		double dtUse = dt;
+		
+		if(dStartTime[p->rung] + 0.5*duDelta[p->rung]
+		   < p->fTimeCoolIsOffUntil()) {
+		    /* This flags cooling shutoff (e.g., from SNe) to
+		       the cooling functions. */
+		    dtUse = -dt;
+		    p->uDot() = ExternalHeating;
+		    }
+
+#ifdef COOLING_MOLECULARH
+		/*		cp.dLymanWerner = 52.0; for testing CC */
+		double columnL = sqrt(0.25)*p->fBall;
+
+#ifdef SHIELDSF 
+      /*Jeans Approx used for column length */
+        
+        // column length is much easier calculated in code units.
+        // Calculated with equation 3 of Byrne et al. 2019
+        // doi:10.3847/1538-4357/aaf9aa
+        columnL = sqrt(15*PoverRhoGas/(4*M_PI*p->fDensity));
+        double temp = CoolCodeEnergyToTemperature(dm->Cool, &cp, E, p->fMetals());
+        if (temp > dm->Cool->dMaxTShield) columnL *= sqrt(dm->Cool->dMaxTShield/temp); // scale PoverRho2 to temp ceiling.
+#elif defined(SUPERBUBBLE)
+        // Assume the cold phase is a shell surrounding the hot phase,
+        // which is a sphere
+        assert(columnL >= columnLHot);
+        columnL = columnL - columnLHot;
+#endif
+
+#ifdef COOLDEBUG
+		dm->Cool->iOrder = p->iOrder; /*For debugging purposes */
+#endif
+                if (isnan(fDensity))
+                    CkPrintf("fDensity is NaN in updateuDot! iOrder: %lld u: %g mass: %g fdensity: %g\n",
+                             p->iOrder, p->u(), p->mass, p->fDensity);
+                CkAssert(fDensity < 1e100);
+		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
+					ExternalHeating, fDensity,
+					p->fMetals(), r, dtUse, columnL);
 #else /*COOLING_MOLECULARH*/
                     CoolIntegrateEnergyCode(dm->Cool, CoolData, cpCur, Ecur, ExternalHeatingCur, fDensityHot,
                             fMetalsCur, &r1, dtCur);
 #endif /*COOLING_MOLECULARH*/
-                    p->uHotDot() = (Ecur - p->uHot())/duDelta[p->rung];
-                    if(bUpdateState) p->CoolParticleHot() = cpCur;
+		CkAssert(E > 0.0);
+		if(dtUse > 0 || ExternalHeating*duDelta[p->rung] + p->u() < 0)
+		    // linear interpolation over interval
+		    p->uDot() = (E - p->u())/duDelta[p->rung];
+#ifdef SUPERBUBBLE
+                // For a two phase particle, we can't let the cold
+                // phase go to zero thermal energy since that will
+                // drive the density to infinity to maintain pressure
+                // equilibrium with the hot phase.
+                if(p->massHot() > 0) {          // We have a two-phase particle
+                    if(E < U_FLOOR(dm->Cool))
+                        // linear interpolation over interval
+                        p->uDot() = (E - p->u())/duDelta[p->rung];
                 }
-                else if(p->cpHotInit() == 0) {
-                    /* If we just got feedback, only set up the uDot */
-                    /* If cpHotInit is still 1 at this point, we have recently
-                    * gotten feedback, but the particle (presumably on a long
-                    * timestep has yet to do a updateuDot() with it.  Leave
-                    * uDotHot() at its current value in that case. */
-                    p->uHotDot() = ExternalHeatingCur;
-                    p->cpHotInit() = 1;
-                    CkAssert(ExternalHeatingCur >= 0.0);
-                }
-                ExternalHeatingCur = (p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff())*p->u()/uMean;
-            }
-            else { /* We have a single phase particle, treat it normally*/
-                p->uHotDot() = 0;
-                ExternalHeatingCur =  p->uDotPdV()*PoverRhoGas/PoverRho + p->uDotAV() + p->uDotDiff() + p->fESNrate();
-            }
-            fDensityCur = fDensityCur*PoverRho/(gammam1*p->u());
-            if (p->fDensityU() < fDensityCur) fDensityCur = p->fDensityU()*PoverRho/(gammam1*p->u());
-            CkAssert(fDensityCur > 0);
-            cpCur = p->CoolParticle();
-#endif // SUPERBUBBLE
-
-            Ecur  = p->u();
-#ifdef COOLING_BOLEY
-	    cpCur.mrho = pow(p->mass/fDensityCur, 1./3.);
 #endif
-		
-            if(dStartTime[p->rung] + 0.5*duDelta[p->rung]
-	       < p->fTimeCoolIsOffUntil()) {
-	        /* This flags cooling shutoff (e.g., from SNe) to
-	           the cooling functions. */
-		dtCur = -dtCur;
-		p->uDot() = ExternalHeatingCur;
+		if (bUpdateState) p->CoolParticle() = cp;
 		}
-            columnLcur = sqrt(0.25)*p->fBall;
-
-	    duDeltaCur = duDelta[p->rung];
-
-            clDerivsData *CoolData = CoolDerivsInit(dm->Cool, COOL_NV);
-
-#ifdef CUDACOOL
-            if (bCpuGas)
-#endif
-	    {
-#ifdef COOLING_MOLECULARH
-	        CoolIntegrateEnergyCode(dm->Cool, CoolData, &cpCur, &Ecur,
-                                        ExternalHeatingCur, fDensityCur,
-                                        p->fMetals(), rCur, dtCur, columnLcur);
-#else
-	        CoolIntegrateEnergyCode(dm->Cool, CoolData, &cpCur, &Ecur,
-                                        ExternalHeatingCur, fDensityCur,
-                                        p->fMetals(), rCur, dtCur);
-
-#endif // COOLING_MOLECULARH
-	        }
-#ifdef CUDACOOL
-	    else {
-#ifdef COOLING_MOLECULARH
-            CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &YbaryonCur, &EcgsCur, &cpCur, &Ecur,
-                                        ExternalHeatingCur, fDensityCur, fMetalsCur, rCur,
-                                        dtCur, columnLcur, yIntCur);
-#else
-            CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &YbaryonCur, &EcgsCur, &cpCur, &Ecur,
-                                        ExternalHeatingCur, fDensityCur, fMetalsCur, rCur,
-                                        dtCur, yIntCur);
-#endif // COOLING_MOLECULARH
-
-	      CoolRequest cReq;
-	      cReq.coolData = CoolData;
-	      cReq.y = yIntCur;
-	      cReq.dtg = dtCur;
-	      cReq.d_Cool = dm->d_Cool;
-	      peIdx.push_back(peCoolProxy.ckLocalBranch()->sendData(cReq));
-
-	        }
-#endif // CUDACOOL
-	      CoolDerivsFinalize(CoolData);
-            }
-	pIdx++;
-
-	// These quantities are needed in the callback, so save them
-	dt.push_back(dtCur);
-	Einteg.push_back(Ecur);
-	duDeltaVals.push_back(duDeltaCur);
-	ExternalHeating.push_back(ExternalHeatingCur);
-	fDensity.push_back(fDensityCur);
-	fMetals.push_back(fMetalsCur);
-	Ybaryon.push_back(YbaryonCur);
-	Ecgs.push_back(EcgsCur);
-	yInt.insert(yInt.end(), yIntCur, yIntCur + COOL_NV);
-	rVec.insert(rVec.end(), rCur, rCur + 3);
-#ifdef COOLING_MOLECULARH
-	columnL.push_back(columnLcur);
-#endif
-	cp.push_back(cpCur);
+	    else { 
+		p->uDot() = ExternalHeating;
+		}
+            CkAssert(isfinite(p->uDot()));
+	    }
         }
-    } // end of for loop
-    delete yIntCur;
-
-#ifdef CUDACOOL
-    if (!bCpuGas) peCoolProxy.ckLocalBranch()->finish(this);
-    else finishuDot();
-#else
-    finishuDot();
-#endif
-
 #endif
     }
 

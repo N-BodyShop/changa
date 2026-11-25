@@ -4,13 +4,22 @@
 #ifndef STARFORM_HINCLUDED
 #define STARFORM_HINCLUDED
 
+#ifdef STOCH24
+#define ARRLENGTH 24
+#else
+#define ARRLENGTH 12
+#endif
+
 #include "parameters.h"
 #include "rand.h"
+#include "imf.h"
+#include "lymanwerner.h"
 
 /// Parameters and methods to implement star formation.
-class Stfm {
- private:
+class Stfm_Shallow {
+ protected:
     double dGmUnit;		/* system mass in grams */
+    double dMsolUnit;    /* system mass unit in Msol */
     double dGmPerCcUnit;	/* system density in gm/cc */
     double dSecUnit;		/* system time in seconds */
     double dErgUnit;		/* system energy in ergs */
@@ -30,27 +39,54 @@ class Stfm {
     int bGasCooling;		/* Can we call cooling for temperature */
 #ifdef COOLING_MOLECULARH
     double dStarFormEfficiencyH2; /*Multiplier of H2 when calculating star formation */
+#ifdef SHIELDSF
+    double dSigmad;      /* Dust optical depth coefficient */
+    double dMinMetalShield;      /* Metallicity floor for dust shielding */
+#endif
 #endif
     int bBHForm;		/* Form Black Holes */
     double dBHFormProb;		/* Probability of Black Hole forming */
     double dInitBHMass;		/* Initial mass of Black Holes */
  public:
+    int bUseStoch;          /* use stochastic IMF */
+    double dStochCut;       /* cutoff mass for stochastic IMF */
     int iStarFormRung;		/* rung for star formation */
     double dMinGasMass;		/* minimum mass gas before we delete
 				   the particle. */
     double dDeltaStarForm;	/* timestep in system units */
-    void AddParams(PRM prm);
-    void CheckParams(PRM prm, struct parameters &param);
-    bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
-    GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
-			      double dDelta, double dCosmoFac, double *T, double *H2Fraction, Rand& rndGen);
-    inline void pup(PUP::er &p);
     };
 
+/// @ brief Derived class to handle the deep copy for the IMF pointer.
+/// N.B.  All attributes except imf need to be in Stfm_Shallow.
+class Stfm : public Stfm_Shallow {
+private:
+    Stfm& operator=(const Stfm& st); /* private to prevent use */
+public:
+    IMF *imf;
+    void AddParams(PRM prm);
+    void CheckParams(PRM prm, struct parameters &param);
+    void NullStarForm() { imf = new Kroupa01(); } /* Place holder */
+    bool isStarFormRung(int aRung) {return aRung <= iStarFormRung;}
+    GravityParticle *FormStar(GravityParticle *p,  COOL *Cool, double dTime,
+			      double dDelta, double dCosmoFac, double *T,
+                              double *H2Fraction, LWDATA *LWData, Rand& rndGen);
+
+    Stfm() {};
+    Stfm(const Stfm& st);
+    ~Stfm() {
+        delete imf;
+    };
+    inline void pup(PUP::er &p);
+};
+
+// "Deep copy" constructer is needed because of imf pointer
+inline Stfm::Stfm(const Stfm& st) : Stfm_Shallow(st) {
+    imf = st.imf->clone();
+}
+
 inline void Stfm::pup(PUP::er &p) {
-    p|dDeltaStarForm;
-    p|iStarFormRung;
     p|dGmUnit;
+    p|dMsolUnit;
     p|dGmPerCcUnit;
     p|dSecUnit;
     p|dErgUnit;
@@ -62,15 +98,24 @@ inline void Stfm::pup(PUP::er &p) {
     p|dStarEff;
     p|dInitStarMass;
     p|dMinSpawnStarMass;
-    p|dMinGasMass;
     p|dMaxStarMass;
     p|bGasCooling;
 #ifdef COOLING_MOLECULARH
     p|dStarFormEfficiencyH2;
+#ifdef SHIELDSF
+    p|dSigmad;
+    p|dMinMetalShield;
+#endif
 #endif
     p|bBHForm;
     p|dBHFormProb;
     p|dInitBHMass;
+    p|bUseStoch;
+    p|dStochCut;
+    p|iStarFormRung;
+    p|dMinGasMass;
+    p|dDeltaStarForm;
+    p|imf;
     }
 
 /** @brief Holds statistics of the star formation event */
@@ -113,7 +158,7 @@ class StarLogEvent
 	p | iOrdStar;
 	p | iOrdGas;
 	p | timeForm;
-        p | rForm;
+	p | rForm;
 	p | vForm;
 	p | massForm;
 	p | rhoForm;
@@ -123,6 +168,25 @@ class StarLogEvent
 #endif
 	}
     };
+
+/** @brief Holds high mass stars in star formation events */
+class HMStarLogEvent
+{
+public:
+    int64_t iOrdStar;
+    double HMStars[ARRLENGTH];
+HMStarLogEvent() : iOrdStar(0) {
+    for(int i=0; i<ARRLENGTH; i++) HMStars[i]=0.0;
+    }
+HMStarLogEvent(GravityParticle *p) {
+    // star's iOrder assigned in TreePiece::NewOrder
+    for(int i=0; i<ARRLENGTH; i++) HMStars[i]=p->rgfHMStars(i);
+    }
+    void pup(PUP::er& p) {
+    p | iOrdStar;
+    PUParray(p,HMStars,ARRLENGTH);
+    }
+};
 
 /** @brief Log of star formation events to be written out to a file */
 class StarLog : public PUP::able
@@ -145,5 +209,18 @@ class StarLog : public PUP::able
 	p | seTab;
 	}
     };
+
+/** @brief Log of high mass stars in star formation events to be written out to a file */
+class HMStarLog 
+{
+public:
+    int nOrdered;		/* The number of events that have been
+				   globally ordered, incremented by
+				   pkdNewOrder() */
+    std::string fileName;
+    std::vector<HMStarLogEvent> seTab;		/* The actual table */
+    HMStarLog() : nOrdered(0),fileName("hmstarlog") {}
+    void flush();
+};
 
 #endif

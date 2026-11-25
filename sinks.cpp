@@ -1135,13 +1135,13 @@ void BHDensitySmoothParams::fcnSmooth(GravityParticle *p, int nSmooth,
 	    q = NULL;
 	    for (i=0;i<nSmooth;++i) {
 		double fDist2 = nnList[i].fKey;
-		r2 = fDist2;
+		r2 = fDist2*ih2;
 		if(TYPETest(nnList[i].p,TYPE_DELETED)) continue;
 		    /* don't accrete a deleted particle!  JMB 10/1/08 */
 		rs = KERNEL(r2, nSmooth);
 		fW = rs*nnList[i].p->mass;
 		double fBall = nnList[i].p->fBall;
-		if(!s.bBHAccreteAll && r2 > 0.25*fBall*fBall) continue; 
+		if(!s.bBHAccreteAll && fDist2 > 0.25*fBall*fBall) continue; 
 		/* don't accrete gas that doesn't have the BH
 		 * in its smoothing length  JMB 10/22/08 */
 		/* make this an optional parameter JMB 9/21/12 */
@@ -1989,9 +1989,9 @@ void SinkAccreteSmoothParams::combSmoothCache(GravityParticle *p1,
 	    p->v[0] = q->v[0];
 	    p->v[1] = q->v[1];
 	    p->v[2] = q->v[2];
-	    p->vPred[0] = q->vPred[0];
-	    p->vPred[1] = q->vPred[1];
-	    p->vPred[2] = q->vPred[2];
+	    p->vPred()[0] = q->vPred()[0];
+	    p->vPred()[1] = q->vPred()[1];
+	    p->vPred()[2] = q->vPred()[2];
 	    p->a[0] = q->a[0];
 	    p->a[1] = q->a[1];
 	    p->a[2] = q->a[2];
@@ -2262,13 +2262,13 @@ void SinkAccreteSmoothParams::fcnSmooth(GravityParticle *p,int nSmooth,
 		sinth2 = sin(th2);
 		for (j=0;j<3;j++) {
 		    q->r[j] = p->r[j]+r2*costh2*q->rSinking0Unit[j]+r2*sinth2*q->vSinkingTang0Unit[j];
-		    q->vPred[j] = p->v[j]+q->vSinkingTang0Mag*sqr02*
+		    q->vPred()[j] = p->v[j]+q->vSinkingTang0Mag*sqr02*
 			(-sinth2*q->rSinking0Unit[j]+costh2*q->vSinkingTang0Unit[j])
 			+q->vSinkingr0*(costh2*q->rSinking0Unit[j]+sinth2*q->vSinkingTang0Unit[j]);
 		    }
 		bRVAUpdate(q) = 1; /* Indicator for r,v,a update */
 #ifdef SINKDBG
-		if (q->iOrder == 160460) printf("SINKINGFORCESHARE %ld  %g %g %g  %g %g %g  %g %g %g (%g)\n",q->iOrder,smf->dTime,r2,sqrt(pow(q->r[0]-p->r[0],2.)+pow(q->r[1]-p->r[1],2.)+pow(q->r[2]-p->r[2],2.)), q->r[0]-p->r[0],q->r[1]-p->r[1],q->r[2]-p->r[2],q->vPred[0]-p->v[0],q->vPred[1]-p->v[1],q->vPred[2]-p->v[2],(q->vPred[0]-p->v[0])*(q->r[0]-p->r[0])+(q->vPred[1]-p->v[1])*(q->r[1]-p->r[1])+(q->vPred[2]-p->v[2])*(q->r[2]-p->r[2]));
+		if (q->iOrder == 160460) printf("SINKINGFORCESHARE %ld  %g %g %g  %g %g %g  %g %g %g (%g)\n",q->iOrder,smf->dTime,r2,sqrt(pow(q->r[0]-p->r[0],2.)+pow(q->r[1]-p->r[1],2.)+pow(q->r[2]-p->r[2],2.)), q->r[0]-p->r[0],q->r[1]-p->r[1],q->r[2]-p->r[2],q->vPred()[0]-p->v[0],q->vPred()[1]-p->v[1],q->vPred()[2]-p->v[2],(q->vPred()[0]-p->v[0])*(q->r[0]-p->r[0])+(q->vPred()[1]-p->v[1])*(q->r[1]-p->r[1])+(q->vPred()[2]-p->v[2])*(q->r[2]-p->r[2]));
 #endif
 		TYPEReset(q,TYPE_NEWSINKING);
 		}

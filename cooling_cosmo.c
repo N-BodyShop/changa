@@ -26,7 +26,7 @@
 
 /* General accuracy target */
 #define EPS 1e-5
-#define MAXABUNDITERATIONS 20
+#define MAXABUNDITERATIONS 64
 /* Accuracy for Temperature estimation for E,rho assuming eqm abundances */
 #define EPSTEMP 1e-5
 #define ETAMINTIMESTEP 1e-4
@@ -702,6 +702,7 @@ void clPrintCoolFile( COOL *cl, PERBARYON *Y, RATE *Rate, double rho, FILE *fp )
     (wTln0*RT0->Cool_LowT+wTln1*RT1->Cool_LowT)*cl->R.Cool_LowTFactor*0.001);
 }
 
+
 void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho ) {
   double en_B=rho*CL_B_gm;
   double rcirrHI   = (Rate->Coll_HI)/(Rate->Radr_HII);
@@ -710,22 +711,30 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho ) {
   double rpirrHI   = (Rate->Phot_HI)/(Rate->Radr_HII * en_B);
   double rpirrHeI  = (Rate->Phot_HeI)/(Rate->Totr_HeII * en_B);
   double rpirrHeII = (Rate->Phot_HeII)/(Rate->Radr_HeIII * en_B);
-  double yHI = 0.;
-  double yHeI = 0.;
-  double yHeII = 0.;
   double yH = cl->Y_H;
   double yHe = cl->Y_He;
   double yeMAX = cl->Y_eMAX;
-  double rye,ye;
-  double fHI,fHeI,fHeII,rfHe,yHI_old,yHeII_old;
-  int i;  
+  double rye,ye,g,dg,dx,rH,rD,N,lo,hi;
+  double fHI,fHeI,fHeII,dfHI,dfHeI,dfHeII;
+  int i;
 
+  ye = yeMAX; /* Start fully ionised */
+  lo = 0; hi = yeMAX; /* Bracket on the root */
   for ( i=0 ; i<MAXABUNDITERATIONS ; i++ ) {
-    yHI_old = yHI;
-    yHeII_old = yHeII;
+    rye = 1/ye;
+    fHI = rcirrHI + rpirrHI * rye;
+    fHeI = rcirrHeI + rpirrHeI * rye;
+    fHeII = rcirrHeII + rpirrHeII * rye;
+    dfHI = -rpirrHI * rye; /* df/dln(ye) */
+    dfHeI = -rpirrHeI * rye;
+    dfHeII = -rpirrHeII * rye;
 
-    ye = (yeMAX-(yHI + 2 * yHeI + yHeII));
-    if (ye <= 0) {
+    /* Free electrons g and dg/dln(ye); He releases yHe*N/D, D = 1/rD */
+    rH = 1/(1 + fHI);
+    rD = 1/(1 + fHeI*(1 + fHeII));
+    N = fHeI*(1 + 2*fHeII);
+    g = yH*fHI*rH + yHe*N*rD;
+    if (g <= 0) {
       Y->e = 0;
       Y->HI = yH;
       Y->HII = 0;
@@ -735,26 +744,26 @@ void clAbunds( COOL *cl, PERBARYON *Y, RATE *Rate, double rho ) {
       Y->Total = yH + yHe;
       return;
     }
-    rye = 1/ye;
-    fHI = rcirrHI + rpirrHI * rye;
-    fHeI = rcirrHeI + rpirrHeI * rye;
-    rfHe = 1 / ( 1 + fHeI * (1+rcirrHeII+rpirrHeII*rye) );
+    dg = yH*dfHI*rH*rH
+      + yHe*(dfHeI*(1 + 2*fHeII) + 2*fHeI*dfHeII
+             - N*rD*(dfHeI*(1 + fHeII) + fHeI*dfHeII))*rD;
 
-    yHI = yH / (1.0+fHI);
-    yHeI = yHe * rfHe;
-    yHeII = yHe * fHeI * rfHe;
-
-    /*    fprintf(stderr,"Abund %g %g %g %g\n",yHI,yHeI,yHeII,ye);
-        fprintf(stderr,"  Rates %g %g %g \n",rcirrHI,rcirrHeI,rcirrHeII); */
-    if ( fabs(yHeII_old-yHeII) < EPS * yHeII && fabs(yHI_old-yHI) < EPS * yHI ) break;
+    if (g > ye) lo = ye; else if (g <= ye) hi = ye; /* NaN g: no update */
+    dx = log(g*rye)/(1 - dg/g);
+    ye *= exp(dx);
+    if (fabs(dx) < EPS) break;
+    if (!(ye > lo && ye < hi)) ye = lo > 0 ? sqrt(lo*hi) : 0.5*hi; /* Bisect */
   }
+  rye = 1/ye;
+  fHI = rcirrHI + rpirrHI * rye;
+  fHeI = rcirrHeI + rpirrHeI * rye;
+  fHeII = rcirrHeII + rpirrHeII * rye;
 
   Y->e = ye;
-  Y->HI = yHI;
+  Y->HI = yH / (1.0+fHI);
   Y->HII = yH / (1.0/fHI+1.0);
-  Y->HeI = yHeI;
-  Y->HeII = yHeII;
-  fHeII = rcirrHeII + rpirrHeII*rye;
+  Y->HeI = yHe / ( 1 + fHeI * (1 + fHeII) );
+  Y->HeII = yHe * fHeI / ( 1 + fHeI * (1 + fHeII) );
   Y->HeIII = yHe / ((1.0/fHeI+1.0)/fHeII+1.0);
   Y->Total = Y->e + yH + yHe;
 }

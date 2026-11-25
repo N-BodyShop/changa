@@ -1,0 +1,174 @@
+Major overhaul of GPU and host memory pool infrastructure
+
+This commit implements comprehensive enhancements to ChaNGa's memory pool
+system, introducing smart memory management with trimming, adaptive refill,
+detailed analytics, and dual allocation APIs (pool-based and direct).
+
+================================================================================
+GPU POOL ENHANCEMENTS
+================================================================================
+
+API Reorganization:
+- Renamed all GPU pool functions from poolXxx to gpuPoolXxx for clarity
+- Split allocation APIs into pool-based (gpuPoolMalloc/Free) and direct 
+  (gpuMalloc/Free) variants
+- Direct APIs bypass pool but maintain logging and analytics
+- Updated macros: gpuMallocHelper → gpuPoolMalloc, added gpuMalloc for direct
+
+Configuration & Warmup:
+- Changed GPU pool limit from unlimited to 5GB to prevent excessive memory
+  usage when multiple ranks share a GPU device
+- Tuned warmup allocation counts (reduced from ultra-aggressive to moderate)
+- Warmup now allocates 64KB-1GB range with balanced counts per bucket
+
+Implementation:
+- Added logging helpers (logGpuAlloc, logGpuFree) in anonymous namespace
+- Separated raw operations (gpuPoolMallocRaw/FreeRaw) from logged APIs
+- Implemented type-safe template wrappers for both pool and direct allocation
+- Maintained stream-aware allocation support (cudaMallocAsync/cudaFreeAsync)
+
+================================================================================
+HOST POOL MAJOR ENHANCEMENTS
+================================================================================
+
+Smart Trimming with Decay Rate:
+- Implemented hostPoolTrim() with capacity-based intelligent trimming
+- Trim prioritizes large buckets first while respecting usage-based protection
+- Recent usage tracked per bucket (recentHits counter)
+- Decay mechanism: recentHits decrements each timestep, allowing inactive
+  buckets to become trimmable while active buckets maintain protection
+- Configurable target capacity (GB) and minimum per-bucket capacity (MB)
+
+Adaptive Refill Mechanism:
+- Implemented hostPoolAdaptiveRefill() to maintain pool health
+- Tracks misses per bucket during timestep
+- Automatically refills under-provisioned buckets between timesteps
+- Refills up to 3 blocks for hot buckets that had misses
+- Prevents blocking on frequently-used allocation sizes
+
+Bucket Granularity Improvements:
+- Added fine-grained tiny buckets: 256B, 512B (previously started at 1KB)
+- Small allocations (≤64KB): Fine granularity (256B, 512B, 1KB, 2KB, 4KB, ...)
+- Medium allocations (64KB-1MB): 64KB granularity
+- Medium-large (1MB-64MB): 1MB granularity
+- Large allocations (>64MB): 50MB granularity to prevent bucket proliferation
+- Drastically reduces unique bucket count for large allocations
+
+Warmup Tuning:
+- Redesigned warmup with 19 bucket sizes from 256B to 64MB
+- Conservative warmup counts based on empirical profiling
+- High warmup for tiny/small (1000-1500 blocks for ≤8KB)
+- Moderate for medium (150-250 blocks for 16KB-128KB)
+- Minimal for large (1 block for ≥1MB)
+- Warmup targets used by trim logic to preserve critical buckets
+
+Comprehensive Analytics:
+- Per-bucket tracking: total allocations, cumulative misses, recent usage
+- Cumulative metrics: total allocated/freed, peak memory, current memory
+- Per-timestep metrics: allocs, frees, hits, misses, blocks freed to OS
+- Historical timestep snapshots for growth trend analysis
+- Pool accounting validation (owned blocks = free + live)
+
+Detailed Reporting & Analysis:
+- hostPoolReportStats(): Comprehensive pool status with per-bucket breakdown
+  Shows: capacity usage, hit rates, memory usage, per-bucket distribution
+- hostPoolAnalyzeWarmupEffectiveness(): Compares warmup targets vs actual usage
+  Identifies over-provisioned and under-provisioned buckets
+- hostPoolAnalyzeGrowth(): Analyzes memory growth trends over time
+  Detects concerning patterns (bucket proliferation, memory leaks)
+- All reports include formatted output with bucket sizes (B/KB/MB)
+
+Direct Allocation API:
+- Added hostMalloc/hostFree that bypass pool but maintain logging
+- Useful for large, long-lived buffers that shouldn't consume pool capacity
+- Consistent logging interface with pool-based allocations
+- Updated local tree buffer allocations to use direct API
+
+API Standardization:
+- Renamed macros: hostMallocHelper → hostPoolMalloc, hostFreeHelper → hostPoolFree
+- Added hostMalloc/hostFree macros for direct allocation
+- Separate implementation functions (*Impl) vs public macros
+- Type-safe template wrappers for pool and direct variants
+- Consistent parameter ordering across all APIs
+
+================================================================================
+DATAMANAGER INTEGRATION
+================================================================================
+
+New Configuration Parameters:
+- dHostPoolTargetCapacityGB: Target pool capacity in GB (default: 5.0)
+- nHostPoolMinCapacityPerBucketMB: Min capacity per bucket during trim (default: 50MB)
+- bHostPoolDebug: Enable detailed pool diagnostics and reporting (default: 0)
+
+New Entry Methods:
+- trimHostPool(): Collective trim operation across all DataManagers
+- refillHostPool(): Collective adaptive refill across all DataManagers
+
+Local Tree Buffer Updates:
+- Changed to direct allocation (hostMalloc) for large local tree buffers
+- bufLocalMoments, bufLocalParts, bufLocalVars use direct API
+- Reduces pool pressure from large, long-lived allocations
+
+Bug Fixes:
+- Fixed typo: treePiecesBuff → treePiecesBufferFilled = 0
+- Added cudaDeviceSynchronize() after particle update cleanup
+
+================================================================================
+INTEGRATION & USAGE UPDATES
+================================================================================
+
+HostCUDA.cu Changes:
+- Updated allocatePinnedHostMemory/freePinnedHostMemory to use pool API
+- Remote chunk transfers use gpuPoolMalloc (transient allocations)
+- Local tree transfers use gpuMalloc (long-lived allocations)
+- Interaction list buffers use gpuPoolMalloc (per-bucket allocations)
+- Missed nodes/parts use gpuPoolMalloc (resume computation buffers)
+
+ParallelGravity Integration:
+- Added command-line parameters: hptarget, hpminbucket, hpdebug
+- Integrated pool maintenance in Main::doSimulation() after each BigStep:
+  1. Optional diagnostics (if bHostPoolDebug): report stats, analyze growth
+  2. Trim host pool to target capacity
+  3. Refill hot buckets adaptively
+  4. Flush memory logs
+- Warmup effectiveness analysis at step 5 (if debug enabled)
+- Growth analysis every 10 steps (if debug enabled)
+
+Memory Log Infrastructure:
+- Enhanced GPU and CPU logging with detailed event tracking
+- Logs capture alloc/free operations with source location
+- Support for MEMLOG_FREE_SKIP, MEMLOG_ALLOC_FAIL, MEMLOG_FREE_FAIL
+- Sequential flushing across nodes to avoid file corruption
+
+================================================================================
+INITIALIZATION UPDATES
+================================================================================
+
+- Renamed poolInit → gpuPoolInit, poolInitWithWarmup → gpuPoolInit (integrated)
+- Renamed hostMemoryPoolInit → hostPoolInit
+- Renamed poolDestroy → gpuPoolDestroy
+- Renamed hostMemoryPoolCleanup → hostPoolCleanup
+- Updated ProjectionsControl to use new initialization functions
+- Static initialization ensures pools initialized once per node
+
+================================================================================
+TESTING & VALIDATION
+================================================================================
+
+Pool Accounting:
+- Validates total owned blocks = free pool blocks + live (checked out) blocks
+- Warns on accounting mismatch to detect potential leaks
+- Tracks per-bucket usage percentages
+
+Performance Tracking:
+- Total allocation time tracking (ms average)
+- Per-timestep allocation/free counts
+- Hit rate monitoring (% of allocations served from pool)
+- Timestep miss tracking for adaptive refill
+
+Growth Detection:
+- Historical snapshots track: buckets, free blocks, bytes, live blocks
+- Detects bucket proliferation (>10 new buckets)
+- Detects memory growth (>1GB increase)
+- Detects live block accumulation (potential leak indicator)
+

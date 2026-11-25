@@ -6,8 +6,9 @@
 #include "starform.h"
 #include "feedback.h"
 #include "sinks.h"
+#include "collision.h"
 
-#include "externalGravity.h"
+#include "externalForce.h"
 
 /** @brief Hold parameters of the run.
  */
@@ -28,6 +29,7 @@ typedef struct parameters {
     double dDelta;
     int bEpsAccStep;
     int bGravStep;
+    int bKepStep;
     double dEta;
     int nTruncateRung;
     int iMaxRung;
@@ -36,6 +38,11 @@ typedef struct parameters {
 #ifdef CUDACOOL
     int nGpuGasMinParts;
 #endif
+    int bGpuMemLogger;
+    int bCpuMemLogger;
+    double dHostPoolTargetCapacityGB;
+    int nHostPoolMinCapacityPerBucketMB;
+    int bHostPoolDebug;
 #endif
     int bCannonical;
     int bKDK;
@@ -120,9 +127,14 @@ typedef struct parameters {
     double dEvapMinTemp;
     double dEvapCoeff;
     double dEvapCoeffCode;
-    int bDoExternalGravity;
-    ExternalGravity externalGravity;
     int iRandomSeed;            /* Seed for random numbers */
+    int bDoExternalForce;
+    int bDoExternalGravity;
+    ExternalForce externalForce;
+#ifdef COLLISION
+    int bCollision;
+    Collision collision;
+#endif
     
     Sinks sinks;
 
@@ -180,6 +192,7 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dDelta;
     p|param.bEpsAccStep;
     p|param.bGravStep;
+    p|param.bKepStep;
     p|param.dEta;
     p|param.nTruncateRung;
 #ifdef CUDA
@@ -187,6 +200,11 @@ inline void operator|(PUP::er &p, Parameters &param) {
 #ifdef CUDACOOL
     p|param.nGpuGasMinParts;
 #endif
+    p|param.bGpuMemLogger;
+    p|param.bCpuMemLogger;
+    p|param.dHostPoolTargetCapacityGB;
+    p|param.nHostPoolMinCapacityPerBucketMB;
+    p|param.bHostPoolDebug;
 #endif
     p|param.iMaxRung;
     p|param.bCannonical;
@@ -259,7 +277,9 @@ inline void operator|(PUP::er &p, Parameters &param) {
  	param.stfm = new Stfm();
     p|*param.stfm;
     p|param.bFeedback;
-    p|param.feedback;
+    if(p.isUnpacking())
+        param.feedback = new Fdbk();
+    p|*param.feedback;
     p|param.dThermalCondCoeff;
     p|param.dThermalCondSatCoeff;
     p|param.dThermalCond2Coeff;
@@ -269,8 +289,13 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.dEvapMinTemp;
     p|param.dEvapCoeff;
     p|param.dEvapCoeffCode;
+    p|param.bDoExternalForce;
     p|param.bDoExternalGravity;
-    p|param.externalGravity;
+    p|param.externalForce;
+#ifdef COLLISION
+    p|param.bCollision;
+    p|param.collision;
+#endif
     p|param.iRandomSeed;
     p|param.sinks;
     p|param.dSIDMSigma;

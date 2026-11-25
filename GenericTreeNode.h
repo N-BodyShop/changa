@@ -223,6 +223,14 @@ class NodePool;
       numBucketsBeneath = 1;
 #endif
       calculateRadiusBox(moments, boundingBox);	/* set initial size */
+      if(moments.getRadius() <= 0.0) {
+          if(particleCount > 1)
+              calculateRadiusFirstParticle(moments, &part[firstParticle],
+                                           &part[lastParticle+1]);
+          else
+              moments.setRadius(1.0); // single particle boxes don't
+                                      // need scaling.
+      }
       boundingBox.reset();
       bndBoxBall.reset();
       iParticleTypes = 0;
@@ -373,7 +381,26 @@ public:
 
     GenericTreeNode* getChildren(int i) {
       CkAssert(i>=0 && i<2);
+#if CHANGA_SMPCACHE
+      // A node-cache placeholder (type Invalid, see CkTreeCache.h) reads
+      // as "no child": the walker then asks the cache for it.
+      BinaryTreeNode *c = children[i];
+      return (c != NULL && c->getType() == Invalid) ? NULL : c;
+#else
       return children[i];
+#endif
+    }
+
+    /// Child i as seen by a cache reply: with the SMP node cache,
+    /// placeholders and fetched (Cached*) subtrees it linked in are not
+    /// ours to send.
+    bool isPackableChild(int i) {
+      BinaryTreeNode *c = children[i];
+#if CHANGA_SMPCACHE
+      return c != NULL && c->getType() != Invalid && !c->isCached();
+#else
+      return c != NULL;
+#endif
     }
 
     void setChildren(int i, GenericTreeNode* node) {
@@ -769,8 +796,8 @@ public:
     int countDepth(int depth) {
       int count = 1;
       if (depth != 0) {
-        if (children[0] != NULL) count += children[0]->countDepth(depth-1);
-        if (children[1] != NULL) count += children[1]->countDepth(depth-1);
+        if (isPackableChild(0)) count += children[0]->countDepth(depth-1);
+        if (isPackableChild(1)) count += children[1]->countDepth(depth-1);
       }
       return count;
     }
@@ -789,7 +816,7 @@ public:
 #endif
       int used = 1;
       if (depth != 0) {
-        if (children[0] != NULL) {
+        if (isPackableChild(0)) {
           BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * ALIGN_DEFAULT(sizeof(BinaryTreeNode)+extraSpace));
           buffer->children[0] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
           //CkPrintf("Entering child 0: offset %ld\n",buffer->children[0]);
@@ -798,7 +825,7 @@ public:
           //CkPrintf("Excluding child 0\n");
           buffer->children[0] = NULL;
         }
-        if (children[1] != NULL) {
+        if (isPackableChild(1)) {
           BinaryTreeNode *nextBuf = (BinaryTreeNode *) (((char*)buffer) + used * ALIGN_DEFAULT(sizeof(BinaryTreeNode)+extraSpace));
           buffer->children[1] = (BinaryTreeNode*)(((char*)nextBuf) - ((char*)buffer));
           //CkPrintf("Entering child 1: offset %ld\n",buffer->children[1]);
@@ -960,23 +987,17 @@ NodePool::alloc_one(NodeKey k, NodeType type, int first, int nextlast,
       return tmp;
     }
 
-    /*
-    int getNumChunks(int num) {
-      int i = 0;
-      while (num > 1) {
-	num >>= 3;
-	i++;
-      }
-      return 1 << (3*i);
-    }
-    */
-
     void getChunks(int num, NodeKey *&ret) {
-      return;
+        CkAbort("Unimplemented");
     }
 
-    void pup(PUP::er &p);
-    void pup(PUP::er &p, int depth);
+    void pup(PUP::er &p) {
+        CkAbort("Unimplemented");
+    }
+      
+    void pup(PUP::er &p, int depth){
+        CkAbort("Unimplemented");
+    }
   };
 
   /** Possible types of trees: the first word means the physical structure used

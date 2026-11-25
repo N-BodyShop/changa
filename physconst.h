@@ -16,4 +16,7 @@
 	/* Speed of Light cm/s */
 #define LIGHTSPEED 2.9979e10
 
+    /* Centimeters per AU */
+#define CMPERAU 1.496e13
+
 #define SECONDSPERYEAR   31557600.

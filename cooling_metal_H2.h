@@ -92,6 +92,9 @@ typedef struct CoolingParametersStruct {
   double dCoolingTmax;
   double dClump;
   double dLymanWernerFrac; /* Fraction of Lyman Werner radiation that escapes birth cloud.  0.5 is a good value.*/
+#ifdef SHIELDSF
+  double dMaxTShield; // Temperature ceiling for dust shielding.
+#endif
 } COOLPARAM;
 
 typedef struct CoolingParticleStruct {
@@ -238,6 +241,9 @@ typedef struct CoolingPKDStruct {
   double     dErgPerGmPerSecUnit;
   double     diErgPerGmUnit;
   double     dKpcUnit;
+#ifdef SHIELDSF
+  double dMaxTShield;      /* Temperature ceiling for dust shielding */
+#endif
   double     dMsolUnit;
   double     dMassFracHelium;
 
