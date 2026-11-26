@@ -179,6 +179,7 @@ protected:
 
 	int numStreams;
 	cudaStream_t *streams;
+
 	cudaStream_t stream; // For data transfers and local tree walk
 
 #endif

@@ -1182,6 +1182,22 @@ void TreePiece::updateuDot(int activeRung,
 		vcolumnL.push_back(columnL);
 #endif
 		vcp.push_back(cp);
+		CkAssert(E > 0.0);
+		if(dtUse > 0 || ExternalHeating*duDelta[p->rung] + p->u() < 0)
+		    // linear interpolation over interval
+		    p->uDot() = (E - p->u())/duDelta[p->rung];
+#ifdef SUPERBUBBLE
+                // For a two phase particle, we can't let the cold
+                // phase go to zero thermal energy since that will
+                // drive the density to infinity to maintain pressure
+                // equilibrium with the hot phase.
+                if(p->massHot() > 0) {          // We have a two-phase particle
+                    if(E < U_FLOOR(dm->Cool))
+                        // linear interpolation over interval
+                        p->uDot() = (E - p->u())/duDelta[p->rung];
+                }
+#endif
+		if (bUpdateState) p->CoolParticle() = cp;
 		}
 	    else { 
 		p->uDot() = ExternalHeating;
