@@ -16,8 +16,23 @@
 #include <stdlib.h>
 #include <math.h>
 #include <assert.h>
-#include "cooling.h" // To access clDerivs from StiffStep
 #include "stiff.h"
+
+/*
+ * On the GPU, s->derivs holds a host function address (it is set by
+ * StiffInit() on the host and memcpy'd to the device), so it cannot be
+ * called from device code.  Device code calls clDerivs() directly instead,
+ * which also lets the compiler inline it and statically size the kernel
+ * stack.  Host code keeps using the function pointer.
+ */
+#ifdef CUDACOOL
+#include "cooling.h" /* for clDerivs() */
+#endif
+#ifdef __CUDA_ARCH__
+#define STIFF_DERIVS(s, t, y, q, d) clDerivs((t), (y), (q), (d), (s)->Data)
+#else
+#define STIFF_DERIVS(s, t, y, q, d) (s)->derivs((t), (y), (q), (d), (s)->Data)
+#endif
 
 #ifndef CUDA
 static inline double max(double x, double y)
@@ -236,7 +251,7 @@ cd
 	y[i] = max(y[i], ymin[i]);
 	}
     
-    clDerivs(tn + tstart, y, q, d, s->Data);
+    STIFF_DERIVS(s, tn + tstart, y, q, d);
     gcount++;
     
     /*
@@ -334,7 +349,7 @@ cd
 	      /*
 		evaluate the derivitives for the corrector.
 	      */
-	      clDerivs(tn + tstart, y, q, d, s->Data);
+	      STIFF_DERIVS(s, tn + tstart, y, q, d);
 	      gcount++;
 	      eps = 1.0e-10;
 	      for(i = 0; i < n; i++) {
@@ -455,7 +470,7 @@ cd
 	    Successful step; get the source terms for the next step
 	    and continue back at line 100
 	  */
-	  clDerivs(tn + tstart, y, q, d, s->Data);
+	  STIFF_DERIVS(s, tn + tstart, y, q, d);
 	  gcount++;
 	  }
         }
