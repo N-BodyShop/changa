@@ -938,11 +938,12 @@ void TreePiece::updateuDot(int activeRung,
                            double gammam1, // adiabatic index gamma - 1.
                            double dResolveJeans, // Jeans Pressure floor constant
 #ifdef CUDACOOL
-                int nGpuGasMinParts,
+                           int nGpuGasMinParts,
 #endif
-               const CkCallback& cb)
+			   const CkCallback& cb)
 {
-
+    udotCb = cb;
+#ifndef COOLING_NONE
     bCpuGas = 1;
 #ifdef CUDACOOL
     // Cooling is only calculated on the GPU if we have enough active gas particles
@@ -951,65 +952,48 @@ void TreePiece::updateuDot(int activeRung,
 
     this->bCool = bCool;
     this->bUpdateState = bUpdateState;
-#ifndef COOLING_NONE
 
-    udotCb = cb;
+    // Per-particle quantities needed by finishuDot()
     myPartIdx.clear();
-    dt.clear();
+    peIdx.clear();
+    vdt.clear();
     duDeltaVals.clear();
     Einteg.clear();
-    ExternalHeating.clear();
-    fDensity.clear();
-    fMetals.clear();
-    Ybaryon.clear();
-    Ecgs.clear();
-    yInt.clear();
+    vExternalHeating.clear();
+    vfDensity.clear();
+    vfMetals.clear();
+    vYbaryon.clear();
+    vEcgs.clear();
     rVec.clear();
 #ifdef COOLING_MOLECULARH
-    columnL.clear();
+    vcolumnL.clear();
 #endif
-    cp.clear();
+    vcp.clear();
 
+    double dt; // time in seconds
+    double fDensity;
+    double E;
     double PoverRho;
     double PoverRhoGas;
     double PoverRhoJeans;
     double cGas;
-
-    double dtCur; // time in seconds
-    double duDeltaCur;
-    double Ecur;
-    double ExternalHeatingCur;
-    double fDensityCur;
-    double fMetalsCur;
-    double columnLcur;
-    double rCur[3];
-    COOLPARTICLE cpCur;
-
-    PERBARYON YbaryonCur;
-    double EcgsCur;
-    // Cool functions require C-style array
-    double *yIntCur = new double[COOL_NV];
-    int pIdx = 0;
-
+    double ExternalHeating;
+    
     for(unsigned int i = 1; i <= myNumParticles; ++i) {
 	GravityParticle *p = &myParticles[i];
 	if (TYPETest(p, TYPE_GAS)
 	    && (p->rung == activeRung || (bAll && p->rung >= activeRung))) {
-	    myPartIdx.push_back(i);
-
-        dtCur = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
-        fDensityCur = p->fDensity;
-        fMetalsCur = p->fMetals();
+	    dt = CoolCodeTimeToSeconds(dm->Cool, duDelta[p->rung] );
+        fDensity = p->fDensity;
         if (bCool) {
              CoolCodePressureOnDensitySoundSpeed(dm->Cool, &p->CoolParticle(),
-                     p->uPred(), fDensityCur,
+                     p->uPred(), fDensity,
                      gammam1+1, gammam1, &PoverRhoGas,
                      &cGas);
         }
         else {
             PoverRhoGas = gammam1*p->uPred();
         }
-
 #ifdef SUPERBUBBLE
         double frac = p->massHot()/p->mass;
         PoverRhoGas = gammam1*(p->uHotPred()*frac+p->uPred()*(1-frac));
@@ -1026,6 +1010,7 @@ void TreePiece::updateuDot(int activeRung,
 		COOLPARTICLE cp = p->CoolParticle();
 		double r[3];  // For conversion to C
 		p->position.array_form(r);
+		clDerivsData *CoolData = CoolDerivsInit(dm->Cool, COOL_NV);
         CkAssert(p->u() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
         CkAssert(p->uPred() < LIGHTSPEED*LIGHTSPEED/dm->Cool->dErgPerGmUnit);
         /* The gas needs a minimum energy to prevent the
@@ -1141,40 +1126,89 @@ void TreePiece::updateuDot(int activeRung,
                     CkPrintf("fDensity is NaN in updateuDot! iOrder: %lld u: %g mass: %g fdensity: %g\n",
                              p->iOrder, p->u(), p->mass, p->fDensity);
                 CkAssert(fDensity < 1e100);
+#endif /*COOLING_MOLECULARH*/
+#ifdef CUDACOOL
+		if (bCpuGas)
+#endif
+		{
+#ifdef COOLING_MOLECULARH
 		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
 					ExternalHeating, fDensity,
 					p->fMetals(), r, dtUse, columnL);
 #else /*COOLING_MOLECULARH*/
-                    CoolIntegrateEnergyCode(dm->Cool, CoolData, cpCur, Ecur, ExternalHeatingCur, fDensityHot,
-                            fMetalsCur, &r1, dtCur);
+		CoolIntegrateEnergyCode(dm->Cool, CoolData, &cp, &E,
+					ExternalHeating, fDensity,
+					p->fMetals(), r, dtUse);
 #endif /*COOLING_MOLECULARH*/
-		CkAssert(E > 0.0);
-		if(dtUse > 0 || ExternalHeating*duDelta[p->rung] + p->u() < 0)
-		    // linear interpolation over interval
-		    p->uDot() = (E - p->u())/duDelta[p->rung];
-#ifdef SUPERBUBBLE
-                // For a two phase particle, we can't let the cold
-                // phase go to zero thermal energy since that will
-                // drive the density to infinity to maintain pressure
-                // equilibrium with the hot phase.
-                if(p->massHot() > 0) {          // We have a two-phase particle
-                    if(E < U_FLOOR(dm->Cool))
-                        // linear interpolation over interval
-                        p->uDot() = (E - p->u())/duDelta[p->rung];
-                }
+		}
+#ifdef CUDACOOL
+		else {
+		    // Set up the integration here; the ODE solve is done
+		    // on the GPU, and finished in finishuDot().
+		    PERBARYON Ybaryon;
+		    double Ecgs;
+		    double yInt[COOL_NV];  // Cool functions require C-style array
+#ifdef COOLING_MOLECULARH
+		    CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &Ybaryon, &Ecgs, &cp, &E,
+					ExternalHeating, fDensity, p->fMetals(), r,
+					dtUse, columnL, yInt);
+#else
+		    CoolIntegrateEnergyCodeStart(dm->Cool, CoolData, &Ybaryon, &Ecgs, &cp, &E,
+					ExternalHeating, fDensity, p->fMetals(), r,
+					dtUse, yInt);
+#endif /*COOLING_MOLECULARH*/
+		    CoolRequest cReq;
+		    cReq.coolData = CoolData;
+		    cReq.y = yInt;
+		    cReq.dtg = dtUse;
+		    cReq.d_Cool = dm->d_Cool;
+		    peIdx.push_back(peCoolProxy.ckLocalBranch()->sendData(cReq));
+		    vYbaryon.push_back(Ybaryon);
+		    vEcgs.push_back(Ecgs);
+		    }
+#endif /*CUDACOOL*/
+		CoolDerivsFinalize(CoolData);
+
+		// These quantities are needed in finishuDot(), so save them
+		myPartIdx.push_back(i);
+		vdt.push_back(dtUse);
+		duDeltaVals.push_back(duDelta[p->rung]);
+		Einteg.push_back(E);
+		vExternalHeating.push_back(ExternalHeating);
+		vfDensity.push_back(fDensity);
+		vfMetals.push_back(p->fMetals());
+		rVec.insert(rVec.end(), r, r + 3);
+#ifdef COOLING_MOLECULARH
+		vcolumnL.push_back(columnL);
 #endif
-		if (bUpdateState) p->CoolParticle() = cp;
+		vcp.push_back(cp);
 		}
 	    else { 
 		p->uDot() = ExternalHeating;
+		CkAssert(isfinite(p->uDot()));
 		}
-            CkAssert(isfinite(p->uDot()));
 	    }
         }
+
+#ifdef CUDACOOL
+    if (!bCpuGas) peCoolProxy.ckLocalBranch()->finish(this);
+    else finishuDot();
+#else
+    finishuDot();
 #endif
+#else /*COOLING_NONE*/
+    // Use shadow array to avoid reduction conflict
+    smoothProxy[thisIndex].ckLocal()->contribute(udotCb);
+#endif /*COOLING_NONE*/
     }
 
+/**
+ * @brief Finish the cooling calculation started in updateuDot(): if
+ * the ODE integration was done on the GPU, convert the results back
+ * to energies, then set uDot for each cooled particle.
+ */
 void TreePiece::finishuDot() {
+#ifndef COOLING_NONE
 #ifdef CUDACOOL
     clDerivsData *coolDataPE = peCoolProxy.ckLocalBranch()->getCoolData();
     double *yIntPE = peCoolProxy.ckLocalBranch()->getYInt();
@@ -1182,34 +1216,42 @@ void TreePiece::finishuDot() {
 
     for(unsigned int i = 0; i < myPartIdx.size(); ++i) {
 	GravityParticle *p = &myParticles[myPartIdx[i]];
-        if (bCool) {
-	    if (!bCpuGas) {
 #ifdef CUDACOOL
+	if (!bCpuGas) {
 #ifdef COOLING_MOLECULARH
-                CoolIntegrateEnergyCodeFinish(dm->Cool, &coolDataPE[peIdx[i]], &Ybaryon[i], &Ecgs[i], &cp[i], &Einteg[i],
-                                              ExternalHeating[i], fDensity[i], fMetals[i], &rVec[i*3],
-                                              dt[i], columnL[i], &yIntPE[peIdx[i]*COOL_NV]);
+	    CoolIntegrateEnergyCodeFinish(dm->Cool, &coolDataPE[peIdx[i]], &vYbaryon[i], &vEcgs[i], &vcp[i], &Einteg[i],
+					  vExternalHeating[i], vfDensity[i], vfMetals[i], &rVec[i*3],
+					  vdt[i], vcolumnL[i], &yIntPE[peIdx[i]*COOL_NV]);
 #else
-                CoolIntegrateEnergyCodeFinish(dm->Cool, &coolDataPE[peIdx[i]], &Ybaryon[i], &Ecgs[i], &cp[i], &Einteg[i],
-                                              ExternalHeating[i], fDensity[i], fMetals[i], &rVec[i*3],
-                                              dt[i], &yIntPE[peIdx[i]*COOL_NV]);
+	    CoolIntegrateEnergyCodeFinish(dm->Cool, &coolDataPE[peIdx[i]], &vYbaryon[i], &vEcgs[i], &vcp[i], &Einteg[i],
+					  vExternalHeating[i], vfDensity[i], vfMetals[i], &rVec[i*3],
+					  vdt[i], &yIntPE[peIdx[i]*COOL_NV]);
 #endif // COOLING_MOLECULARH
-#endif // CUDACOOL
 	    }
-            CkAssert(Einteg[i] > 0.0);
-            if(dt[i] > 0 || ExternalHeating[i]*duDeltaVals[i] + p->u() < 0) {
-                // linear interpolation over interval
-                p->uDot() = (Einteg[i] - p->u())/duDeltaVals[i];
-                if (bUpdateState) p->CoolParticle() = cp[i];
-            } else {
-                p->uDot() = ExternalHeating[i];
-                }
-            CkAssert(isfinite(p->uDot()));
-        }
-    }
+#endif // CUDACOOL
+	double E = Einteg[i];
+	CkAssert(E > 0.0);
+	if(vdt[i] > 0 || vExternalHeating[i]*duDeltaVals[i] + p->u() < 0)
+	    // linear interpolation over interval
+	    p->uDot() = (E - p->u())/duDeltaVals[i];
+#ifdef SUPERBUBBLE
+	// For a two phase particle, we can't let the cold
+	// phase go to zero thermal energy since that will
+	// drive the density to infinity to maintain pressure
+	// equilibrium with the hot phase.
+	if(p->massHot() > 0) {          // We have a two-phase particle
+	    if(E < U_FLOOR(dm->Cool))
+		// linear interpolation over interval
+		p->uDot() = (E - p->u())/duDeltaVals[i];
+	    }
+#endif
+	if (bUpdateState) p->CoolParticle() = vcp[i];
+	CkAssert(isfinite(p->uDot()));
+	}
 #ifdef CUDACOOL
     if (!bCpuGas) peCoolProxy.ckLocalBranch()->reset();
 #endif
+#endif /*COOLING_NONE*/
 
     // Use shadow array to avoid reduction conflict
     smoothProxy[thisIndex].ckLocal()->contribute(udotCb);

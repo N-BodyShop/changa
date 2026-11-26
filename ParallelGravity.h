@@ -1129,22 +1129,23 @@ private:
 	/// These quantities are shared between them
 	CkCallback udotCb;
 	int bCpuGas;
+#ifndef COOLING_NONE
 	std::vector<int> myPartIdx;
 	std::vector<int> peIdx;
-	std::vector<double> dt;
+	std::vector<double> vdt;
 	std::vector<double> duDeltaVals;
 	std::vector<double> Einteg;
-	std::vector<double> ExternalHeating;
-	std::vector<double> fDensity;
-	std::vector<double> fMetals;
-	std::vector<PERBARYON> Ybaryon;
-	std::vector<double> Ecgs;
-	std::vector<double> yInt;
+	std::vector<double> vExternalHeating;
+	std::vector<double> vfDensity;
+	std::vector<double> vfMetals;
+	std::vector<PERBARYON> vYbaryon;
+	std::vector<double> vEcgs;
 	std::vector<double> rVec;
 #ifdef COOLING_MOLECULARH
-	std::vector<double> columnL;
+	std::vector<double> vcolumnL;
 #endif
-	std::vector<COOLPARTICLE> cp;
+	std::vector<COOLPARTICLE> vcp;
+#endif
 
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
@@ -1742,7 +1743,7 @@ public:
 	void growMass(int nGrowMass, double dDeltaM, const CkCallback& cb);
 	void InitEnergy(double dTuFac, double z, double dTime, double gammam1,
 			const CkCallback& cb);
-	void updateuDot(int activeRung, double duDeltaCur[MAXRUNG+1],
+	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
 			int bUpdateState, double gammam1, double dResolveJeans,
 #ifdef CUDACOOL
