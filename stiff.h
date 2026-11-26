@@ -1,6 +1,19 @@
 #ifndef STIFF_HINCLUDED
 #define STIFF_HINCLUDED
 
+#ifdef CUDACOOL
+#include <cuda_runtime.h>
+
+#define CUDA_DH __device__ __host__
+#else
+#define CUDA_DH
+#endif
+
+#define EPSMAX 10.0
+#define DTMIN 1e-15
+#define ITERMAX 3.0
+#define YMIN0 1e-300
+
 /** @brief Context for stiff integration
 */
 typedef struct StiffContextStructure {
@@ -40,9 +53,9 @@ STIFF *StiffInit(double eps, 	/* relative accuracy parameter */
 						   destruction rate */
 				void *Data)
 		 );
-		   
+
 void StiffFinalize( STIFF *s );
-void StiffStep(STIFF *s, double y[], double tstart, double htry) ;
+CUDA_DH void StiffStep(STIFF *s, double y[], double tstart, double htry) ;
 void StiffSetYMin(STIFF *s, const double *ymin);
 
 #ifndef TESTCHEMEQ
@@ -50,7 +63,7 @@ void StiffSetYMin(STIFF *s, const double *ymin);
  * Root Finder Header
  */
 
-double RootFind(double (*func)(void *Data, double), void *Data,
+CUDA_DH double RootFind(double (*func)(void *Data, double), void *Data,
 		double x1, double x2, double tol);
 
 #endif

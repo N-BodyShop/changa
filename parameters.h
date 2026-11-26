@@ -35,6 +35,9 @@ typedef struct parameters {
     int iMaxRung;
 #ifdef CUDA
     int nGpuMinParts;
+#ifdef CUDACOOL
+    int nGpuGasMinParts;
+#endif
     int bGpuMemLogger;
     int bCpuMemLogger;
     double dHostPoolTargetCapacityGB;
@@ -194,6 +197,9 @@ inline void operator|(PUP::er &p, Parameters &param) {
     p|param.nTruncateRung;
 #ifdef CUDA
     p|param.nGpuMinParts;
+#ifdef CUDACOOL
+    p|param.nGpuGasMinParts;
+#endif
     p|param.bGpuMemLogger;
     p|param.bCpuMemLogger;
     p|param.dHostPoolTargetCapacityGB;

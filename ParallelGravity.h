@@ -180,6 +180,9 @@ extern CProxy_PEList pePartRemoteResumeListProxy;
 
 extern CProxy_PEList* PEListProxies[];
 extern const int numPEListProxies;
+#ifdef CUDACOOL
+extern CProxy_PECool peCoolProxy;
+#endif
 #endif
 
 extern CProxy_CkCacheManager<KeyType> cacheGravPart;
@@ -916,6 +919,8 @@ class TreePiece : public CBase_TreePiece {
         return myNumActiveParticles;
     }
 
+  int bCool;
+  int bUpdateState;
 
 #ifdef CUDA
         // this variable holds the number of buckets active at
@@ -928,6 +933,15 @@ class TreePiece : public CBase_TreePiece {
         // in the list of interations to the sent to the gpu, we flush
         // the list
         int numActiveBuckets; 
+        int myNumActiveParticles;
+#ifdef CUDACOOL
+        int myNumActiveGasParticles;
+#endif
+        // First and Last indices of GPU particle
+        int FirstGPUParticleIndex;
+        int LastGPUParticleIndex;
+        int NumberOfGPUParticles;
+        BucketActiveInfo *bucketActiveInfo;
         /// Specifies that the Treepiece has filled the buffer with
         /// particle data to be sent to the GPU.  This implies that
         /// this TreePiece's buckets now know where their particles
@@ -947,6 +961,24 @@ class TreePiece : public CBase_TreePiece {
         int getDMNumParticles(){
           return myNumParticles;
         }
+
+#ifdef CUDACOOL
+	int getNumActiveGasParticles() {
+	  return myNumActiveGasParticles;
+	}
+
+	void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb) {
+	  myNumActiveGasParticles = 0;
+	  for (unsigned int i = 1; i <= myNumParticles; ++i) {
+	    GravityParticle *p = &myParticles[i];
+	    if (TYPETest(p, TYPE_GAS)
+		&& (p->rung == iActiveRung || (bAll && p->rung >= iActiveRung))) {
+		      myNumActiveGasParticles++;
+		  }
+	      }
+	   contribute(cb);
+	}
+#endif
 
         void getDMParticles(CompactPartData *fillArray, int &fillIndex){
 	  for(int b = 0; b < numBuckets; b++){
@@ -1092,6 +1124,28 @@ private:
         int64_t nStartRead;
 	/// particle count for output
 	int myIOParticles;
+
+	/// updateuDot is split into two functions.
+	/// These quantities are shared between them
+	CkCallback udotCb;
+	int bCpuGas;
+#ifndef COOLING_NONE
+	std::vector<int> myPartIdx;
+	std::vector<int> peIdx;
+	std::vector<double> vdt;
+	std::vector<double> duDeltaVals;
+	std::vector<double> Einteg;
+	std::vector<double> vExternalHeating;
+	std::vector<double> vfDensity;
+	std::vector<double> vfMetals;
+	std::vector<PERBARYON> vYbaryon;
+	std::vector<double> vEcgs;
+	std::vector<double> rVec;
+#ifdef COOLING_MOLECULARH
+	std::vector<double> vcolumnL;
+#endif
+	std::vector<COOLPARTICLE> vcp;
+#endif
 
 	/// List of all the node-buckets in this TreePiece
 	std::vector<GenericTreeNode *> bucketList;
@@ -1513,10 +1567,6 @@ public:
 	  if(boxes!= NULL ) delete[] boxes;
 	  if(splitDims != NULL) delete[] splitDims;
 
-#ifndef COOLING_NONE
-	  if(bGasCooling)
-	      CoolDerivsFinalize(CoolData);
-#endif
           if (verbosity>1) ckout <<"Finished deallocation of treepiece "<<thisIndex<<endl;
 	}
 
@@ -1695,7 +1745,12 @@ public:
 			const CkCallback& cb);
 	void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
 			double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, double gammam1, double dResolveJeans, const CkCallback& cb);
+			int bUpdateState, double gammam1, double dResolveJeans,
+#ifdef CUDACOOL
+      int nGpuGasMinParts,
+#endif
+      const CkCallback& cb);
+	void finishuDot();
 	void ballMax(int activeRung, double dFac, const CkCallback& cb);
 	void sphViscosityLimiter(int bOn, int activeRung, const CkCallback& cb);
     void getAdiabaticGasPressure(double gamma, double gammam1, double dTuFac, double dThermalCondCoeff,
@@ -2022,5 +2077,18 @@ class NonEmptyTreePieceCounter : public CkLocIterator {
   public:
     int count;
 };
+
+#ifdef CUDACOOL
+/// @brief Used to count treepieces with active gas particles on the local processor.
+class NonEmptyGasTreePieceCounter : public CkLocIterator {
+  public:
+    NonEmptyGasTreePieceCounter() { reset(); }
+    void addLocation(CkLocation &loc);
+    void reset();
+
+  public:
+    int count;
+};
+#endif
 
 #endif //PARALLELGRAVITY_H

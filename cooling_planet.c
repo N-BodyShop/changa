@@ -65,8 +65,9 @@ COOL *CoolInit( )
 /**
  * Per thread initialization of cooling data.
  * @param cl Initialized COOL structure.
+ * @param nv Number of independent variables for ODE solver (not used)
  */
-clDerivsData *CoolDerivsInit(COOL *cl)
+clDerivsData *CoolDerivsInit(COOL *cl, int nv)
 {
     clDerivsData *Data;
 

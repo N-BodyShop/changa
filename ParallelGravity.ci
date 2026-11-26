@@ -28,6 +28,9 @@ mainmodule ParallelGravity {
   readonly CProxy_PETreeMerger peTreeMergerProxy;
   readonly CProxy_DumpFrameData dfDataProxy;
   readonly CProxy_IntraNodeLBManager nodeLBMgrProxy;
+#ifdef CUDACOOL
+  readonly CProxy_PECool peCoolProxy;
+#endif
 
 #ifdef CUDA
   readonly CProxy_PEList peNodeLocalListProxy;
@@ -278,6 +281,12 @@ mainmodule ParallelGravity {
     entry void startEwaldGPU();
     entry void finishEwaldGPU();
     entry void resumeRemoteChunk();
+    entry void createStreams(int _numStreams, const CkCallback& cb);
+    entry void assignCUDAStreams(const CkCallback& cb);
+#ifdef CUDACOOL
+    entry void coolDataToGPU(const CkCallback& cb);
+    entry void setupuDot(const CkCallback& cb);
+#endif
     entry void createStream(const CkCallback& cb);
     entry void initMemLog(std::string _fileName, int bGpuMemLoggerFlag, const CkCallback &cb);
     entry void initCpuMemLog(std::string _fileName, int bCpuMemLoggerFlag, const CkCallback &cb);
@@ -425,7 +434,12 @@ mainmodule ParallelGravity {
 			const CkCallback& cb);
     entry void updateuDot(int activeRung, double duDelta[MAXRUNG+1],
     	       		double dStartTime[MAXRUNG+1], int bCool, int bAll,
-			int bUpdateState, double dResolveJeans, double gammam1, const CkCallback& cb);
+			int bUpdateState, double dResolveJeans, double gammam1,
+#ifdef CUDACOOL
+      int nGpuGasMinParts,
+#endif
+const CkCallback& cb);
+    entry void finishuDot();
     entry void ballMax(int activeRung, double dFac, const CkCallback& cb);
     entry void sphViscosityLimiter(int bOn, int activeRung,
 	const CkCallback& cb);
@@ -536,6 +550,10 @@ mainmodule ParallelGravity {
 
     // jetley
 #ifdef CUDA
+#ifdef CUDACOOL
+    entry void calculateNumActiveGasParticles(int bAll, int iActiveRung, const CkCallback& cb);
+#endif
+    entry void assignCUDAStream(intptr_t stream);
     entry void fillGPUBuffer(fillGPUMsg* msg);
     entry void updateParticles(intptr_t data, int partIndex);
     entry void flushInteractionsToGpu(intptr_t ptr_lc, intptr_t ptr_ds);
@@ -615,6 +633,13 @@ mainmodule ParallelGravity {
   group [migratable] PETreeMerger {
     entry PETreeMerger();
   };
+
+#ifdef CUDACOOL
+  group [migratable] PECool {
+    entry PECool();
+    entry void finishIntegrateCb();
+  };
+#endif
 
   group [migratable] DumpFrameData {
     entry DumpFrameData();

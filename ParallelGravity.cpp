@@ -53,6 +53,9 @@
 #include "PEList.h"
 // for default per-list parameters
 #include "cuda_typedef.h"
+#ifdef CUDACOOL
+#include "PECool.h"
+#endif
 #include "MemoryPool.h"
 #endif
 
@@ -92,6 +95,8 @@ CProxy_DumpFrameData dfDataProxy;
 CProxy_PETreeMerger peTreeMergerProxy;
 
 #ifdef CUDA
+#ifdef CUDACOOL
+CProxy_PECool peCoolProxy;
 /// @brief Proxies for the PE groups that ship interactions to the GPU
 CProxy_PEList peNodeLocalListProxy;
 CProxy_PEList peNodeRemoteListProxy;
@@ -110,6 +115,7 @@ CProxy_PEList* PEListProxies[] = {
     &pePartRemoteResumeListProxy
 };
 const int numPEListProxies = sizeof(PEListProxies) / sizeof(PEListProxies[0]);
+#endif
 #endif
 
 /// @brief Use the cache (always on)
@@ -789,6 +795,11 @@ Main::Main(CkArgMsg* m) {
         param.nGpuMinParts = 1000;
         prmAddParam(prm, "nGpuMinParts", paramInt, &param.nGpuMinParts,
                     sizeof(int),"gpup", "Min particles on rung to trigger GPU (default: 1000)");
+#ifdef CUDACOOL
+        param.nGpuGasMinParts = 500;
+        prmAddParam(prm, "nGpuGasMinParts", paramInt, &param.nGpuGasMinParts,
+                    sizeof(int),"gpugp", "Min active gas particle on node to trigger GPU (default: 500)");
+#endif
         param.bGpuMemLogger = 0;
         prmAddParam(prm, "bGpuMemLogger", paramBool, &param.bGpuMemLogger,
                     sizeof(int), "gpumemlog",
@@ -1426,6 +1437,9 @@ Main::Main(CkArgMsg* m) {
 	pePartLocalListProxy = CProxy_PEList::ckNew(0, 0, 0);
 	pePartRemoteListProxy = CProxy_PEList::ckNew(0, 1, 0);
 	pePartRemoteResumeListProxy = CProxy_PEList::ckNew(0, 1, 1);
+#ifdef CUDACOOL
+        peCoolProxy = CProxy_PECool::ckNew();
+#endif
 #endif
 	
 	// create CacheManagers
@@ -2145,10 +2159,18 @@ void Main::updateuDot(int iActiveRung, const double duKick[],
     double a = csmTime2Exp(param.csm,dTime);
     if(param.bGasCooling)
         dMProxy.CoolingSetTime(z, dTime, CkCallbackResumeThread());
+
+#ifdef CUDACOOL
+    treeProxy.calculateNumActiveGasParticles(bAll, iActiveRung, CkCallbackResumeThread());
+    dMProxy.setupuDot(CkCallbackResumeThread());
+#endif
     treeProxy.updateuDot(iActiveRung, duKick, dStartTime,
                          param.bGasCooling, bUpdateState, bAll,
                          (param.dConstGamma-1),
                          param.dResolveJeans/a,
+#ifdef CUDACOOL
+                        param.nGpuGasMinParts,
+#endif
                          CkCallbackResumeThread());
     double tuDot = CkWallTimer() - startTime;
     timings[iActiveRung].tuDot += tuDot;
@@ -2404,6 +2426,7 @@ void Main::advanceBigStep(int iStep) {
 
     CkPrintf("Elapsed time: %g\n", CkWallTimer() - dSimStartTime);
     /******** Tree Build *******/
+    dMProxy.clearRegisteredPieces(CkCallbackResumeThread());
     buildTree(activeRung);
 
     CkCallback cbGravity(CkCallback::resumeThread);

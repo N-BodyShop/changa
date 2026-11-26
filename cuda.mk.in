@@ -36,7 +36,20 @@ endif
 
 cuda_includes := -I@CUDA_DIR@/include -I@CHARM_PATH@/tmp/hybridAPI
 
-cuda_srcs     := $(source_dir)/HostCUDA.cu
+cuda_srcs     := $(source_dir)/HostCUDA.cu $(source_dir)/stiff.cu
+
+ifeq (-DCOOLING_MOLECULARH,@FLAG_COOLING@)
+	cuda_srcs += $(source_dir)/cooling_metal_H2.cu
+	use_dc_flag := -dc
+	cuda_defines += -DCUDACOOL
+endif
+
+ifeq (-DCOOLING_METAL,@FLAG_COOLING@)
+	cuda_srcs += $(source_dir)/cooling_metal.cu
+	use_dc_flag := -dc
+	cuda_defines += -DCUDACOOL
+endif
+
 cuda_libs     := @CUDA_LIBS@
 cuda_ldflags  += -L@CUDA_DIR@/lib64
 cuda_objs     := $(patsubst %.cu,%.o,$(subst $(source_dir),$(build_dir),$(cuda_srcs)))
@@ -87,8 +100,14 @@ nvcc_tmp_deps = -e 's@^[^ :]*tmpxft_[^ :]*\.o:@$@:@' \
 
 $(build_dir)/%.o: $(source_dir)/%.cu
 	@ echo Compiling $<...
-	$(quiet) @NVCC_PATH@ -std=$(cxx_std) -Xcompiler "$(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix)" $(nvcc_flags) -c $< -o $@
+	$(quiet) @NVCC_PATH@ -std=$(cxx_std) -Xcompiler "$(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix)" $(nvcc_flags) $(use_dc_flag) -c $< -o $@
 	$(quiet) if [ -f $(depend_dir)/$*$(depend_suffix) ]; then \
 		sed $(nvcc_tmp_deps) $(depend_dir)/$*$(depend_suffix) > $(depend_dir)/$*$(depend_suffix).tmp && \
 		mv $(depend_dir)/$*$(depend_suffix).tmp $(depend_dir)/$*$(depend_suffix); \
 	fi
+
+ifeq ($(use_dc_flag),-dc)
+$(build_dir)/cuda_link.o: $(cuda_objs)
+	@ echo Linking cuda object files...
+	$(quiet) @NVCC_PATH@ -std=$(cxx_std) -Xcompiler "$(cxx_flags) $(depend_flags) $(depend_dir)/$*$(depend_suffix)" $(nvcc_flags) --device-link $(cuda_objs) --output-file $@
+endif

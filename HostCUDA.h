@@ -5,6 +5,10 @@
 #include <cuda_runtime.h>
 #include "cuda_typedef.h"
 
+#ifdef CUDACOOL
+#include "cooling.h"
+#endif
+
 #define THREADS_PER_BLOCK 128
 
 #ifdef GPU_LOCAL_TREE_WALK
@@ -23,6 +27,16 @@
 // FIXME - find appropriate values
 #define NUM_INIT_MOMENT_INTERACTIONS_PER_BUCKET 100
 #define NUM_INIT_PARTICLE_INTERACTIONS_PER_BUCKET 100
+
+#define cudaChk(code) cudaErrorDie(code, #code, __FILE__, __LINE__)
+inline void cudaErrorDie(cudaError_t retCode, const char* code,
+                                              const char* file, int line) {
+  if (retCode != cudaSuccess) {
+    fprintf(stderr, "Fatal CUDA Error %s at %s:%d.\nReturn value %d from '%s'.",
+        cudaGetErrorString(retCode), file, line, retCode, code);
+    abort();
+  }
+}
 
 /** @brief Data and parameters for requesting gravity calculations on
  * the GPU. */
@@ -85,6 +99,15 @@ typedef struct _CudaRequest{
 #endif //GPU_LOCAL_TREE_WALK
 }CudaRequest;
 
+#ifdef CUDACOOL
+typedef struct _CoolRequest{
+  double *y;
+  double dtg;
+  COOL *d_Cool;
+  clDerivsData *coolData;
+}CoolRequest;
+#endif
+
 /// Device memory pointers used by most functions in HostCUDA
 typedef struct _CudaDevPtr{
     void *d_list;
@@ -118,6 +141,11 @@ void PEListPartListDataTransferRemoteResume(CudaRequest *data);
 void DataManagerEwald(void *d_localParts, void *d_localVars, void *_ewt, void *_cachedData, int numParts, cudaStream_t stream, void *cb);
 
 void TransferParticleVarsBack(VariablePartData *hostBuffer, size_t size, void *d_varParts, cudaStream_t stream, void *cb);
+
+#ifdef CUDACOOL
+void CudaCoolSetTime( COOL *d_cl, double dTime, double z, cudaStream_t stream );
+void PeODESolver(STIFF *d_Stiff, double *d_y, double *d_dtg, double tstart, int numParts, cudaStream_t stream);
+#endif
 
 void DummyKernel(void *cb);
 

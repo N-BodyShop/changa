@@ -24,6 +24,14 @@
 #include "ckBIconfig.h"
 #endif
 
+#ifdef COOLING_MOLECULARH
+#define COOL_NV 5
+#elif defined(COOLING_METAL)
+#define COOL_NV 4
+#else
+#define COOL_NV 1
+#endif
+
 /// @brief Information about TreePieces on an SMP node.
 struct TreePieceDescriptor{
 	TreePiece *treePiece;
@@ -163,6 +171,15 @@ protected:
         EwtData *ewtGPU;
         EwaldReadOnlyData *cachedData;
 
+#ifdef CUDACOOL
+  // Used to determine whether cooling should be calculated on the GPU
+  // Total number of active gas particles on this node
+  int numActiveGasParts;
+#endif
+
+	int numStreams;
+	cudaStream_t *streams;
+
 	cudaStream_t stream; // For data transfers and local tree walk
 
 #endif
@@ -187,6 +204,16 @@ public:
 	 ** Cooling 
 	 */
 	COOL *Cool;
+
+#ifdef CUDACOOL
+	int Cool_nv; /// Number of variables for ODE solver
+	COOL *d_Cool;
+	RATES_T *d_Rates_T;
+	UVSPECTRUM *d_Uvspectrum;
+	float *d_MetalCoolln;
+	float *d_MetalHeatln;
+#endif // CUDACOOL
+
     /*
      * LW Feedback
      */
@@ -251,6 +278,11 @@ public:
         void createStream(const CkCallback& cb);
         void donePrefetch(int chunk); // serialize remote chunk wrapper
         void serializeLocalTree();
+        void assignCUDAStreams(const CkCallback& cb);
+        void setupuDot(const CkCallback& cb);
+#ifdef CUDACOOL
+        int getNumActiveGasParts() { return numActiveGasParts; }
+#endif
 
 #ifdef GPU_LOCAL_TREE_WALK
         void transformLocalTreeRecursive(GenericTreeNode *node, CkVec<CudaMultipoleMoments>& localMoments);
@@ -266,7 +298,7 @@ public:
         void updateParticles(UpdateParticlesStruct *data);
         void updateParticlesFreeMemory(UpdateParticlesStruct *data);
         void initiateNextChunkTransfer();
-        DataManager(){}
+        DataManager(){ }
 
 #endif
 
@@ -282,6 +314,18 @@ public:
     	    nodeTable.clear();
 
 #ifdef CUDA
+#ifdef CUDACOOL
+	    cudaFree(d_Rates_T);
+	    cudaFree(d_Uvspectrum);
+	    cudaFree(d_MetalCoolln);
+	    cudaFree(d_MetalHeatln);
+	    cudaFree(d_Cool);
+#endif
+
+            for (int i = 0; i < numStreams; i++) {
+                cudaStreamDestroy(streams[i]);
+	    }
+	    delete[] streams;
 	    cudaStreamDestroy(stream);
 #endif
 
@@ -354,6 +398,9 @@ public:
       else return NULL;
     }
     inline Tree::GenericTreeNode *getRoot() { return root; }
+#ifdef CUDACOOL
+    void coolDataToGPU(const CkCallback& cb);
+#endif
 
     /// table for the Ewald h-loop
     std::vector<EWT> ewt;

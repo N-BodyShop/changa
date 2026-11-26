@@ -35,6 +35,10 @@ void DataManager::init() {
   oldNumChunks = 0;
   chunkRoots = NULL;
 #ifdef CUDA
+#ifdef CUDACOOL
+  numActiveGasParts = 0;
+  Cool_nv = COOL_NV;
+#endif
   // Initialize host memory pool (per OS process)
   hostPoolInit();
 
@@ -55,6 +59,17 @@ void DataManager::init() {
   dHostPoolTargetCapacityGB = 5.0; // Default target capacity
   nHostPoolMinCapacityPerBucketMB = 50; // Default minimum per bucket
   bHostPoolDebug = 0; // Default disabled
+
+  // Init device memory pool
+  int dev = 0;
+  cudaGetDevice(&dev);
+
+  cudaMemPool_t pool = nullptr;
+  cudaDeviceGetDefaultMemPool(&pool, dev);
+
+  // Set threshold to maximum to keep memory cached
+  unsigned long long threshold = ~0ull;
+  cudaMemPoolSetAttribute(pool, cudaMemPoolAttrReleaseThreshold, &threshold);
 
   d_localMoments = nullptr;
   d_localParts = nullptr;
@@ -181,12 +196,36 @@ void DataManager::notifyPresence(Tree::GenericTreeNode *root, TreePiece *tp) {
 
 /// \brief Clear registeredTreePieces on this node.
 void DataManager::clearRegisteredPieces(const CkCallback& cb) {
+    CkPrintf("Clear registeredTreePieces\n");
     registeredTreePieces.removeAll();
 #ifdef CUDA
     registeredPEs.clear();
 #endif
     contribute(cb);
 }
+
+#ifdef CUDA
+void DataManager::assignCUDAStreams(const CkCallback& cb) {
+  int tpIdx;
+  for(int i = 0; i < registeredTreePieces.size(); i++) {
+    tpIdx = registeredTreePieces[i].treePiece->getIndex();
+    treePieces[tpIdx].assignCUDAStream((intptr_t) &streams[tpIdx % numStreams]);
+  }
+  contribute(cb);
+}
+
+#ifdef CUDACOOL
+/// @brief Count the number of active gas particles on this node
+/// @param cb Callback function to re-start the main thread
+void DataManager::setupuDot(const CkCallback& cb){
+   numActiveGasParts = 0;
+   for (int i = 0; i < registeredTreePieces.size(); i++) {
+        numActiveGasParts += registeredTreePieces[i].treePiece->getNumActiveGasParticles();
+   }
+   contribute(cb);
+}
+#endif
+#endif
 
 /// \brief Build a local tree inside the node.
 ///

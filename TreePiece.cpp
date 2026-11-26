@@ -3213,6 +3213,19 @@ void NonEmptyTreePieceCounter::reset() {
   count = 0;
 }
 
+#ifdef CUDACOOL
+void NonEmptyGasTreePieceCounter::addLocation(CkLocation &loc){
+  const int *indexData = loc.getIndex().data();
+  TreePiece *tp = treeProxy[indexData[0]].ckLocal();
+  int np = tp->getNumActiveGasParticles();
+  if(np > 0) count++;
+}
+
+void NonEmptyGasTreePieceCounter::reset() {
+  count = 0;
+}
+#endif
+
 void TreePiece::mergeNonLocalRequestsDone(){
   // 3. Construct the treepiece-local portions of the tree
 
@@ -5870,8 +5883,6 @@ void TreePiece::pup(PUP::er& p) {
 #ifndef COOLING_NONE
     if(!_inrestart) {           // not restarting from checkpoint
         dm = (DataManager*)CkLocalNodeBranch(dataManagerID);
-        if(bGasCooling)
-            CoolData = CoolDerivsInit(dm->Cool);
         }
 #endif
   }

@@ -74,7 +74,7 @@ COOL *CoolInit( );
 ///Frees memory and deletes cl
 void CoolFinalize( COOL *cl );
 
-clDerivsData *CoolDerivsInit(COOL *cl);
+clDerivsData *CoolDerivsInit(COOL *cl, int nv);
 
 void CoolDerivsFinalize(clDerivsData *cld ) ;
 

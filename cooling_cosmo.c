@@ -72,8 +72,9 @@ COOL *CoolInit( )
 /**
  * Per thread initialization of cooling
  * @param cl Initialized COOL structure.
+ * @param nv Number of independent variables for ODE solver
  */
-clDerivsData *CoolDerivsInit(COOL *cl)
+clDerivsData *CoolDerivsInit(COOL *cl, int nv)
 {
     clDerivsData *Data;
     double dEMin;
@@ -81,7 +82,7 @@ clDerivsData *CoolDerivsInit(COOL *cl)
     assert(cl != NULL);
     Data = malloc(sizeof(clDerivsData));
     assert(Data != NULL);
-    Data->IntegratorContext = StiffInit( EPSINTEG, 1, Data, clDerivs);
+    Data->IntegratorContext = StiffInit( EPSINTEG, nv, Data, clDerivs);
     Data->cl = cl;
     Data->Y_Total0 = (cl->Y_H+cl->Y_He)*.9999; /* neutral */
     Data->Y_Total1 = (cl->Y_eMAX+cl->Y_H+cl->Y_He)*1.0001; /* Full Ionization */
@@ -1302,7 +1303,6 @@ void CoolTableRead( COOL *Cool, int nData, void *vData)
    int nTableColumns; 
    int nTableRows;
    int localcntTable = 0;
-
    if (Cool->bUV) {
 	   if (localcntTable == Cool->nTableRead) {
 		   nTableColumns = 7;
