@@ -34,7 +34,12 @@
 #define STIFF_DERIVS(s, t, y, q, d) (s)->derivs((t), (y), (q), (d), (s)->Data)
 #endif
 
-#ifndef CUDA
+/*
+ * nvcc (C++) already provides host/device max() and min() overloads that
+ * would conflict with these.  Test __CUDACC__ rather than CUDA: CUDA is
+ * defined for every file in a CUDA build, including C files built by gcc.
+ */
+#ifndef __CUDACC__
 static inline double max(double x, double y)
 {
     if(x > y) return x;
